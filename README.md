@@ -146,10 +146,10 @@ APK 里 `From:` 是定位类所在镜像的最快线索（jadx 的 `loaded from:
 | `ddc findrefs app.apk type com.example.Foo` | 类型引用（new-instance/check-cast 等） | ~0.5s |
 | `ddc findrefs app.apk method onCreate --class android/app/Activity` | 方法调用点 | ~0.5s |
 | `ddc findrefs app.apk field CREATOR --class com.example --fuzzy-class` | 字段读写点 | ~0.5s |
-| `ddc listclasses app.apk [pattern]` | 类名清单，可模糊过滤 | ~0.5s |
-| `ddc info app.apk` | 每镜像 dex 版本/类/方法/字段/字符串计数 | ~0.4s |
-| `ddc getclass app.apk com.example.Foo [-o F.java]` | 单类（含嵌套）定点反编译 | **0.61s** |
-| （全量对照）`ddc app.apk -o out/` | 98,348 个类全部反编译落盘 | 5.5s |
+| `ddc listclasses app.apk [pattern]` | 类名清单，可模糊过滤 | **0.10s** |
+| `ddc info app.apk` | 每镜像 dex 版本/类/方法/字段/字符串计数 | **0.11s** |
+| `ddc getclass app.apk com.example.Foo [-o F.java]` | 单类（含嵌套）定点反编译 | **0.03s**（典型类） |
+| （全量对照）`ddc app.apk -o out/` | 98,348 个类全部反编译落盘 | 5.45s / 1.28GB |
 
 `findrefs` 输出每行一个引用点（按类/方法排序，机器可 grep）：
 
