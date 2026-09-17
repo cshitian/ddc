@@ -600,7 +600,16 @@ pub fn top_level_classes(pool: &DexPool) -> Vec<String> {
                 if pool.get(&outer).is_none() {
                     return true;
                 }
-                let rest = &name[outer.len() + 1.min(name.len().saturating_sub(outer.len()))..];
+                // The outer can come from an ANNOTATION (EnclosingClass)
+                // with no naming relationship to this class — obfuscated
+                // apps pair a 1-char name with a long enclosing descriptor
+                // (weixin), which made the old blind slice panic. Only a
+                // real `outer$tail` prefix yields a member tail; anything
+                // else is a standalone unit.
+                let rest = name
+                    .strip_prefix(&outer[..])
+                    .and_then(|t| t.strip_prefix('$'))
+                    .unwrap_or("");
                 !clean_member_tail(rest)
             }
         })
