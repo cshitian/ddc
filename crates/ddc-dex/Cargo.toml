@@ -1,0 +1,8 @@
+[package]
+name = "ddc-dex"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "DEX file parser and Dalvik instruction decoder for the ddc decompiler"
+
+[dependencies]

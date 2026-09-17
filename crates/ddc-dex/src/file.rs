@@ -1,0 +1,656 @@
+//! DEX container: header, id tables, class defs.
+
+use std::collections::HashMap;
+
+use crate::annotations::{self, EncodedValue};
+use crate::code::CodeItem;
+use crate::reader::Cursor;
+
+/// Index sentinel for "absent".
+pub const NO_INDEX: u32 = 0xffff_ffff;
+
+#[derive(Debug, Clone)]
+pub struct ProtoId {
+    /// Index into string ids: the shorty descriptor.
+    pub shorty_idx: u32,
+    /// Index into type ids: return type.
+    pub return_type_idx: u32,
+    /// Offset of the parameter type list, or 0.
+    pub parameters_off: u32,
+}
+
+#[derive(Debug, Clone)]
+pub struct FieldId {
+    pub class_idx: u32,
+    pub type_idx: u32,
+    pub name_idx: u32,
+}
+
+#[derive(Debug, Clone)]
+pub struct MethodId {
+    pub class_idx: u32,
+    pub proto_idx: u32,
+    pub name_idx: u32,
+}
+
+/// One `class_def_item`.
+#[derive(Debug, Clone)]
+pub struct ClassDef {
+    /// Index into type ids.
+    pub class_idx: u32,
+    pub access_flags: u32,
+    pub superclass_idx: u32,
+    pub interfaces_off: u32,
+    pub source_file_idx: u32,
+    pub annotations_off: u32,
+    pub class_data_off: u32,
+    pub static_values_off: u32,
+}
+
+/// One `encoded_field`.
+#[derive(Debug, Clone)]
+pub struct EncodedField {
+    pub field_idx: u32,
+    pub access_flags: u32,
+}
+
+/// One `encoded_method`.
+#[derive(Debug, Clone)]
+pub struct EncodedMethod {
+    pub method_idx: u32,
+    pub access_flags: u32,
+    pub code_off: u32,
+}
+
+/// One `class_data_item`, fully expanded (index diffs applied).
+#[derive(Debug, Clone, Default)]
+pub struct ClassData {
+    pub static_fields: Vec<EncodedField>,
+    pub instance_fields: Vec<EncodedField>,
+    pub direct_methods: Vec<EncodedMethod>,
+    pub virtual_methods: Vec<EncodedMethod>,
+}
+
+/// A parsed DEX image.
+///
+/// Id tables and class defs are parsed eagerly; code items, class data and
+/// annotations are materialized on demand. All accessors degrade to
+/// sentinels/`None` on out-of-range indices instead of panicking.
+pub struct DexFile {
+    data: Vec<u8>,
+    strings: Vec<String>,
+    /// Type ids: descriptor string indices.
+    types: Vec<u32>,
+    protos: Vec<ProtoId>,
+    fields: Vec<FieldId>,
+    methods: Vec<MethodId>,
+    pub class_defs: Vec<ClassDef>,
+    pub version: String,
+    /// class_idx → index into class_defs.
+    by_type: HashMap<u32, usize>,
+    /// `method_handle_item`s (DEX 037+): (kind, field/method id).
+    method_handles: Vec<MethodHandleItem>,
+    /// `call_site_id_item`s (DEX 037+), resolved.
+    call_sites: Vec<CallSiteInfo>,
+}
+
+/// One `method_handle_item`.
+#[derive(Debug, Clone)]
+pub struct MethodHandleItem {
+    /// 0-3: field static-put/static-get/instance-put/instance-get;
+    /// 4: invoke-static; 5: invoke-instance; 6: invoke-constructor;
+    /// 7: invoke-direct; 8: invoke-interface.
+    pub kind: u16,
+    /// Field or method id (widened from u2).
+    pub target_id: u32,
+    pub is_field: bool,
+}
+
+/// A resolved `call_site_id_item`: the `call_site_off` encoded array.
+#[derive(Debug, Clone)]
+pub struct CallSiteInfo {
+    /// Bootstrap method handle index.
+    pub bootstrap_handle: u32,
+    /// Call-site method name (string index).
+    pub name_idx: u32,
+    /// Call-site method type (proto index).
+    pub proto_idx: u32,
+    /// Linker arguments (raw encoded values).
+    pub linker_args: Vec<crate::annotations::EncodedValue>,
+}
+
+impl DexFile {
+    pub fn parse(data: Vec<u8>) -> Result<DexFile, String> {
+        if data.len() < crate::DEX_HEADER_SIZE {
+            return Err("file too small for DEX header".into());
+        }
+        let magic = &data[..8];
+        if &magic[..4] != b"dex\n" || magic[7] != 0 {
+            return Err(format!("not a DEX file: magic {:02x?}", magic));
+        }
+        let version = String::from_utf8_lossy(&magic[4..7]).into_owned();
+        // 036 was an unofficial odex-era marker; ART accepts 035, 037-041.
+        if !matches!(
+            version.as_str(),
+            "035" | "037" | "038" | "039" | "040" | "041"
+        ) {
+            return Err(format!("unsupported DEX version {}", version));
+        }
+        let endian = u32::from_le_bytes(data[40..44].try_into().unwrap());
+        if endian != 0x1234_5678 {
+            return Err(format!("unexpected endian tag {endian:#x}"));
+        }
+
+        let u32at = |off: usize| -> u32 {
+            if off + 4 > data.len() {
+                return 0;
+            }
+            u32::from_le_bytes(data[off..off + 4].try_into().unwrap())
+        };
+        let string_ids_size = u32at(0x38) as usize;
+        let string_ids_off = u32at(0x3c) as usize;
+        let type_ids_size = u32at(0x40) as usize;
+        let type_ids_off = u32at(0x44) as usize;
+        let proto_ids_size = u32at(0x48) as usize;
+        let proto_ids_off = u32at(0x4c) as usize;
+        let field_ids_size = u32at(0x50) as usize;
+        let field_ids_off = u32at(0x54) as usize;
+        let method_ids_size = u32at(0x58) as usize;
+        let method_ids_off = u32at(0x5c) as usize;
+        let class_defs_size = u32at(0x60) as usize;
+        let class_defs_off = u32at(0x64) as usize;
+
+        // Strings: MUTF-8 with uleb length.
+        let mut strings = Vec::with_capacity(string_ids_size);
+        if string_ids_off + 4 * string_ids_size <= data.len() {
+            for i in 0..string_ids_size {
+                let so = u32at(string_ids_off + 4 * i) as usize;
+                let mut c = Cursor::at(&data, so);
+                let s = c
+                    .read_uleb128()
+                    .and_then(|len| c.read_mutf8(c.pos, len))
+                    .unwrap_or_default();
+                strings.push(s);
+            }
+        }
+
+        // Type ids: u4 descriptor string indices.
+        let mut types = Vec::with_capacity(type_ids_size);
+        if type_ids_off + 4 * type_ids_size <= data.len() {
+            for i in 0..type_ids_size {
+                types.push(u32at(type_ids_off + 4 * i));
+            }
+        }
+
+        // Proto ids: 12 bytes each.
+        let mut protos = Vec::with_capacity(proto_ids_size);
+        if proto_ids_off + 12 * proto_ids_size <= data.len() {
+            for i in 0..proto_ids_size {
+                let base = proto_ids_off + 12 * i;
+                protos.push(ProtoId {
+                    shorty_idx: u32at(base),
+                    return_type_idx: {
+                        let v = u16::from_le_bytes(
+                            data[base + 4..base + 6].try_into().unwrap(),
+                        );
+                        v as u32
+                    },
+                    parameters_off: u32at(base + 8),
+                });
+            }
+        }
+
+        // Field ids: 8 bytes each.
+        let mut fields = Vec::with_capacity(field_ids_size);
+        if field_ids_off + 8 * field_ids_size <= data.len() {
+            for i in 0..field_ids_size {
+                let base = field_ids_off + 8 * i;
+                fields.push(FieldId {
+                    class_idx: u16::from_le_bytes(
+                        data[base..base + 2].try_into().unwrap(),
+                    ) as u32,
+                    type_idx: u16::from_le_bytes(
+                        data[base + 2..base + 4].try_into().unwrap(),
+                    ) as u32,
+                    name_idx: u32at(base + 4),
+                });
+            }
+        }
+
+        // Method ids: 8 bytes each.
+        let mut methods = Vec::with_capacity(method_ids_size);
+        if method_ids_off + 8 * method_ids_size <= data.len() {
+            for i in 0..method_ids_size {
+                let base = method_ids_off + 8 * i;
+                methods.push(MethodId {
+                    class_idx: u16::from_le_bytes(
+                        data[base..base + 2].try_into().unwrap(),
+                    ) as u32,
+                    proto_idx: u16::from_le_bytes(
+                        data[base + 2..base + 4].try_into().unwrap(),
+                    ) as u32,
+                    name_idx: u32at(base + 4),
+                });
+            }
+        }
+
+        // Class defs: 32 bytes each.
+        let mut class_defs = Vec::with_capacity(class_defs_size);
+        if class_defs_off + 32 * class_defs_size <= data.len() {
+            for i in 0..class_defs_size {
+                let base = class_defs_off + 32 * i;
+                class_defs.push(ClassDef {
+                    class_idx: u32at(base),
+                    access_flags: u32at(base + 4),
+                    superclass_idx: u32at(base + 8),
+                    interfaces_off: u32at(base + 12),
+                    source_file_idx: u32at(base + 16),
+                    annotations_off: u32at(base + 20),
+                    class_data_off: u32at(base + 24),
+                    static_values_off: u32at(base + 28),
+                });
+            }
+        }
+
+        let mut by_type = HashMap::with_capacity(class_defs.len());
+        for (i, cd) in class_defs.iter().enumerate() {
+            by_type.insert(cd.class_idx, i);
+        }
+
+        // DEX 037+ tables (call sites / method handles) live ONLY in the
+        // map list — the header carries no offsets for them.
+        let (method_handles, call_sites) = parse_map_tables(&data);
+
+        Ok(DexFile {
+            data,
+            strings,
+            types,
+            protos,
+            fields,
+            methods,
+            class_defs,
+            version,
+            by_type,
+            method_handles,
+            call_sites,
+        })
+    }
+
+    pub fn raw(&self) -> &[u8] {
+        &self.data
+    }
+
+    pub fn string(&self, idx: u32) -> &str {
+        self.strings.get(idx as usize).map(|s| s.as_str()).unwrap_or("")
+    }
+
+    pub fn string_count(&self) -> usize {
+        self.strings.len()
+    }
+
+    /// Type id → CLASS internal name (`java/lang/String`), descriptor
+    /// stripped; array descriptors pass through unchanged.
+    pub fn class_name(&self, idx: u32) -> String {
+        let d = self.type_name(idx);
+        if d.len() > 2 && d.starts_with('L') && d.ends_with(';') {
+            d[1..d.len() - 1].to_string()
+        } else {
+            d.to_string()
+        }
+    }
+
+    /// Type id → descriptor string (`Ljava/lang/String;`, `[I`, ...).
+    pub fn type_name(&self, idx: u32) -> &str {
+        match self.types.get(idx as usize) {
+            Some(&si) => self.string(si),
+            None => "",
+        }
+    }
+
+    pub fn type_count(&self) -> usize {
+        self.types.len()
+    }
+
+    pub fn proto(&self, idx: u32) -> &ProtoId {
+        static EMPTY: std::sync::OnceLock<ProtoId> = std::sync::OnceLock::new();
+        self.protos.get(idx as usize).unwrap_or_else(|| {
+            EMPTY.get_or_init(|| ProtoId {
+                shorty_idx: 0,
+                return_type_idx: 0,
+                parameters_off: 0,
+            })
+        })
+    }
+
+    /// Parameter type ids of a proto (empty for `(V)`).
+    pub fn proto_params(&self, idx: u32) -> Vec<u32> {
+        let off = self.proto(idx).parameters_off;
+        if off == 0 {
+            return Vec::new();
+        }
+        self.read_type_list(off).unwrap_or_default()
+    }
+
+    fn read_type_list(&self, off: u32) -> Option<Vec<u32>> {
+        let off = off as usize;
+        if off + 4 > self.data.len() {
+            return None;
+        }
+        let size = u32::from_le_bytes(self.data[off..off + 4].try_into().unwrap()) as usize;
+        let mut out = Vec::with_capacity(size);
+        let mut p = off + 4;
+        for _ in 0..size {
+            if p + 2 > self.data.len() {
+                break;
+            }
+            out.push(u16::from_le_bytes(self.data[p..p + 2].try_into().unwrap()) as u32);
+            p += 2;
+        }
+        Some(out)
+    }
+
+    pub fn field(&self, idx: u32) -> &FieldId {
+        static EMPTY: std::sync::OnceLock<FieldId> = std::sync::OnceLock::new();
+        self.fields.get(idx as usize).unwrap_or_else(|| {
+            EMPTY.get_or_init(|| FieldId { class_idx: 0, type_idx: 0, name_idx: 0 })
+        })
+    }
+
+    pub fn field_count(&self) -> usize {
+        self.fields.len()
+    }
+
+    pub fn method(&self, idx: u32) -> &MethodId {
+        static EMPTY: std::sync::OnceLock<MethodId> = std::sync::OnceLock::new();
+        self.methods.get(idx as usize).unwrap_or_else(|| {
+            EMPTY.get_or_init(|| MethodId { class_idx: 0, proto_idx: 0, name_idx: 0 })
+        })
+    }
+
+    pub fn method_count(&self) -> usize {
+        self.methods.len()
+    }
+
+    /// Class def index for a type descriptor, when this DEX defines it.
+    pub fn class_def_of(&self, type_idx: u32) -> Option<usize> {
+        self.by_type.get(&type_idx).copied()
+    }
+
+    /// Interfaces of a class def as type ids.
+    pub fn interfaces_of(&self, cd: &ClassDef) -> Vec<u32> {
+        if cd.interfaces_off == 0 {
+            return Vec::new();
+        }
+        self.read_type_list(cd.interfaces_off).unwrap_or_default()
+    }
+
+    pub fn class_data(&self, cd: &ClassDef) -> ClassData {
+        if cd.class_data_off == 0 {
+            return ClassData::default();
+        }
+        self.read_class_data(cd.class_data_off).unwrap_or_default()
+    }
+
+    fn read_class_data(&self, off: u32) -> Option<ClassData> {
+        let mut c = Cursor::at(&self.data, off as usize);
+        let sf = c.read_uleb128()? as usize;
+        let inf = c.read_uleb128()? as usize;
+        let dm = c.read_uleb128()? as usize;
+        let vm = c.read_uleb128()? as usize;
+
+        let read_fields = |n: usize, cur: &mut Cursor| -> Option<Vec<EncodedField>> {
+            let mut out = Vec::with_capacity(n);
+            let mut idx: u64 = 0;
+            for _ in 0..n {
+                idx += cur.read_uleb128()?;
+                out.push(EncodedField {
+                    field_idx: idx as u32,
+                    access_flags: cur.read_uleb128()? as u32,
+                });
+            }
+            Some(out)
+        };
+        let static_fields = read_fields(sf, &mut c)?;
+        let instance_fields = read_fields(inf, &mut c)?;
+
+        let read_methods = |n: usize, cur: &mut Cursor| -> Option<Vec<EncodedMethod>> {
+            let mut out = Vec::with_capacity(n);
+            let mut idx: u64 = 0;
+            for _ in 0..n {
+                idx += cur.read_uleb128()?;
+                out.push(EncodedMethod {
+                    method_idx: idx as u32,
+                    access_flags: cur.read_uleb128()? as u32,
+                    code_off: cur.read_uleb128()? as u32,
+                });
+            }
+            Some(out)
+        };
+        let direct_methods = read_methods(dm, &mut c)?;
+        let virtual_methods = read_methods(vm, &mut c)?;
+
+        Some(ClassData { static_fields, instance_fields, direct_methods, virtual_methods })
+    }
+
+    /// (registers_size, insns_size) read straight from the code_item header
+    /// — no instruction decoding. Hot path for risk checks.
+    pub fn code_stats(&self, off: u32) -> Option<(u16, u32)> {
+        if off == 0 {
+            return None;
+        }
+        let o = off as usize;
+        if o + 16 > self.data.len() {
+            return None;
+        }
+        let regs = u16::from_le_bytes([self.data[o], self.data[o + 1]]);
+        let insns = u32::from_le_bytes([
+            self.data[o + 12],
+            self.data[o + 13],
+            self.data[o + 14],
+            self.data[o + 15],
+        ]);
+        Some((regs, insns))
+    }
+
+    /// debug_info_off straight from the code_item header (pool building).
+    pub fn debug_info_off_at(&self, off: u32) -> Option<u32> {
+        if off == 0 {
+            return None;
+        }
+        let o = off as usize;
+        if o + 12 > self.data.len() {
+            return None;
+        }
+        Some(u32::from_le_bytes([
+            self.data[o + 8],
+            self.data[o + 9],
+            self.data[o + 10],
+            self.data[o + 11],
+        ]))
+    }
+
+    pub fn code_at(&self, off: u32) -> Option<CodeItem> {
+        if off == 0 {
+            return None;
+        }
+        CodeItem::parse(&self.data, off as usize)
+    }
+
+    /// Static field initial values (aligned with `static_fields` order).
+    pub fn static_values(&self, off: u32) -> Vec<EncodedValue> {
+        if off == 0 {
+            return Vec::new();
+        }
+        annotations::read_encoded_array(&self.data, off as usize).unwrap_or_default()
+    }
+
+    /// `method_handle_item` by index.
+    pub fn method_handle(&self, idx: u32) -> Option<&MethodHandleItem> {
+        self.method_handles.get(idx as usize)
+    }
+
+    pub fn method_handle_count(&self) -> usize {
+        self.method_handles.len()
+    }
+
+    /// Resolved call site by index.
+    pub fn call_site(&self, idx: u32) -> Option<&CallSiteInfo> {
+        self.call_sites.get(idx as usize)
+    }
+
+    pub fn call_site_count(&self) -> usize {
+        self.call_sites.len()
+    }
+
+    /// Parameter names from debug info (NO_INDEX → absent). `debug_info_off`
+    /// comes from a code item; the entry layout is `line_start` uleb,
+    /// `parameters_size` uleb, then `uleb128p1` names.
+    pub fn parameter_names(&self, debug_info_off: u32) -> Vec<Option<String>> {
+        if debug_info_off == 0 {
+            return Vec::new();
+        }
+        let mut c = Cursor::at(&self.data, debug_info_off as usize);
+        let _line_start = match c.read_uleb128() {
+            Some(v) => v,
+            None => return Vec::new(),
+        };
+        let n = match c.read_uleb128() {
+            Some(v) => v as usize,
+            None => return Vec::new(),
+        };
+        let mut out = Vec::with_capacity(n);
+        for _ in 0..n {
+            let idx = c.read_uleb128p1().unwrap_or(-1);
+            if idx < 0 {
+                out.push(None);
+            } else {
+                out.push(Some(self.string(idx as u32).to_string()));
+            }
+        }
+        out
+    }
+}
+
+impl std::fmt::Debug for DexFile {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("DexFile")
+            .field("version", &self.version)
+            .field("strings", &self.strings.len())
+            .field("types", &self.types.len())
+            .field("protos", &self.protos.len())
+            .field("fields", &self.fields.len())
+            .field("methods", &self.methods.len())
+            .field("class_defs", &self.class_defs.len())
+            .finish()
+    }
+}
+
+/// Sections 0x0007 (call_site_id) and 0x0008 (method_handle_id) from the
+/// map list. Layouts (dx `ItemType`/`MethodHandleItem`):
+/// * `call_site_id_item`: u4 offset → `call_site_off` encoded array
+///   [bootstrap METHOD_HANDLE, name STRING, type METHOD_TYPE, linker args…].
+/// * `method_handle_item`: u2 kind, u2 reserved, u2 target id, u2 reserved.
+fn parse_map_tables(data: &[u8]) -> (Vec<MethodHandleItem>, Vec<CallSiteInfo>) {
+    let mut handles = Vec::new();
+    let mut sites = Vec::new();
+    if data.len() < 0x70 {
+        return (handles, sites);
+    }
+    let map_off = u32le(data, 0x34) as usize;
+    if map_off + 4 > data.len() {
+        return (handles, sites);
+    }
+    let n = u32le(data, map_off) as usize;
+    let mut p = map_off + 4;
+    for _ in 0..n {
+        if p + 12 > data.len() {
+            break;
+        }
+        let t = u16le(data, p);
+        let size = u32le(data, p + 4) as usize;
+        let off = u32le(data, p + 8) as usize;
+        p += 12;
+        match t {
+            0x0007 => {
+                // call_site_id_item: u4 call_site_off each.
+                for i in 0..size {
+                    let q = off + 4 * i;
+                    if q + 4 > data.len() {
+                        break;
+                    }
+                    let cs_off = u32le(data, q) as usize;
+                    if let Some(info) = parse_call_site(data, cs_off) {
+                        sites.push(info);
+                    }
+                }
+            }
+            0x0008 => {
+                // method_handle_item: (u2 kind, u2 res, u2 id, u2 res).
+                for i in 0..size {
+                    let q = off + 8 * i;
+                    if q + 8 > data.len() {
+                        break;
+                    }
+                    let kind = u16le(data, q);
+                    let id = u16le(data, q + 4);
+                    handles.push(MethodHandleItem {
+                        kind,
+                        target_id: id as u32,
+                        is_field: kind <= 3,
+                    });
+                }
+            }
+            _ => {}
+        }
+    }
+    (handles, sites)
+}
+
+fn parse_call_site(data: &[u8], off: usize) -> Option<CallSiteInfo> {
+    let vals = crate::annotations::read_encoded_array(data, off)?;
+    if vals.len() < 3 {
+        return None;
+    }
+    let bootstrap_handle = match &vals[0] {
+        crate::annotations::EncodedValue::MethodHandle(h) => *h,
+        _ => return None,
+    };
+    let name_idx = match &vals[1] {
+        crate::annotations::EncodedValue::String(s) => *s,
+        _ => return None,
+    };
+    let proto_idx = match &vals[2] {
+        crate::annotations::EncodedValue::MethodType(p) => *p,
+        _ => return None,
+    };
+    Some(CallSiteInfo {
+        bootstrap_handle,
+        name_idx,
+        proto_idx,
+        linker_args: vals[3..].to_vec(),
+    })
+}
+
+fn u16le(data: &[u8], off: usize) -> u16 {
+    if off + 2 > data.len() {
+        return 0;
+    }
+    u16::from_le_bytes([data[off], data[off + 1]])
+}
+
+fn u32le(data: &[u8], off: usize) -> u32 {
+    if off + 4 > data.len() {
+        return 0;
+    }
+    u32::from_le_bytes([data[off], data[off + 1], data[off + 2], data[off + 3]])
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn rejects_non_dex() {
+        assert!(DexFile::parse(vec![0u8; 128]).is_err());
+    }
+}

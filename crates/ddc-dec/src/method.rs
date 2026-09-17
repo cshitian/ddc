@@ -1,0 +1,1022 @@
+//! Per-method decompilation pipeline:
+//! DEX code units → CFG → register→IR lifting (fixpoint with merge phis) →
+//! `jdc-core` structuring → statement conversion → refinement passes.
+
+use std::collections::HashMap;
+
+use ddc_dex::insn::InsnKind;
+use jdc_core::convert::Converter;
+use jdc_core::ir::build::BlockResult;
+use jdc_core::ir::expr::{Expr, TypeRef};
+use jdc_core::ir::stmt::Stmt;
+use jdc_core::structure::{reverse_postorder, Structurer};
+use jdc_core::types::{JavaType, MethodDescriptor};
+use jdc_core::var::VarTable;
+
+use crate::cfg::DexCfg;
+use crate::lift::{entry_regs, Lifter, MethodEnv, OutState, Reg};
+use crate::passes;
+use crate::{DexPool, PoolClass, PoolMethod};
+
+pub struct MethodBody {
+    pub body: Stmt,
+    pub vt: VarTable,
+    pub desc: MethodDescriptor,
+}
+
+/// Catch types for the ranges a block handles (drives move-exception typing).
+fn handler_types_for(cfg: &DexCfg, bid: usize) -> Vec<Option<String>> {
+    cfg.blocks[bid]
+        .handlers
+        .iter()
+        .filter_map(|&ri| cfg.exc_ranges.get(ri).map(|r| r.catch_type.clone()))
+        .collect()
+}
+
+/// Decompile one method. `Err` only for malformed input; unsupported
+/// constructs degrade to comments inside the statement tree.
+pub fn decompile_method(
+    pool: &DexPool,
+    class: &PoolClass,
+    m: &PoolMethod,
+) -> Result<Option<MethodBody>, String> {
+    let t0 = std::time::Instant::now();
+    if m.is_abstract_or_native() {
+        return Ok(None);
+    }
+    let desc = m
+        .parsed_desc()
+        .ok_or_else(|| format!("bad descriptor {}", m.desc))?;
+    let Some(dex) = pool.dex(m.dex_idx) else {
+        return Err("missing dex image".into());
+    };
+    let Some(mut code) = dex.code_at(m.code_off) else {
+        return Ok(None);
+    };
+    let insn_count = code.insns.len();
+    let param_names = dex.parameter_names(m.debug_info_off);
+    let cfg = DexCfg::build(&mut code, &|ty| dex.class_name(ty));
+    let n = cfg.blocks.len();
+    let env = MethodEnv {
+        pool,
+        dex,
+        code: &code,
+        class_name: class.name.clone(),
+        method_name: m.name.clone(),
+        desc: desc.clone(),
+        is_static: m.is_static(),
+        code_units: cfg.code_units,
+    };
+    let mut vt = VarTable::default();
+    let entry = entry_regs(&mut vt, &env, &param_names);
+    if n == 0 {
+        return Ok(None);
+    }
+    // Pathological inputs (R8-merged model classes, obfuscated switch
+    // cascades) can explode the copied-tail rendering; guard up front.
+    if insn_count > 30_000 || n > 8_000 {
+        return Ok(Some(stub_body(format!(
+            "$DDC: method too large to decompile ({} insns, {} blocks)",
+            insn_count,
+            n
+        ), desc)));
+    }
+
+    // Visiting order: reverse postorder, then any stragglers (so every block
+    // is built at least once even when unreachable).
+    let core_for_order = cfg.to_core();
+    let universe: std::collections::HashSet<usize> = (0..n).collect();
+    let mut order = reverse_postorder(&core_for_order, core_for_order.entry, &universe);
+    {
+        let mut seen: std::collections::HashSet<usize> = order.iter().copied().collect();
+        for b in &cfg.blocks {
+            if seen.insert(b.id) {
+                order.push(b.id);
+            }
+        }
+    }
+
+    // Handler blocks: entry state approximated by the try-entry state (the
+    // dominant pattern: catch reads values established before the try).
+    let mut handler_entry_block: HashMap<usize, usize> = HashMap::new();
+    for b in &cfg.blocks {
+        if b.handlers.is_empty() {
+            continue;
+        }
+        let mut best: Option<(u32, usize)> = None;
+        for &ri in &b.handlers {
+            if let Some(r) = cfg.exc_ranges.get(ri) {
+                if best.map(|(s, _)| r.start < s).unwrap_or(true) {
+                    if let Some(eb) = cfg.block_at(r.start) {
+                        best = Some((r.start, eb));
+                    }
+                }
+            }
+        }
+        if let Some((_, eb)) = best {
+            handler_entry_block.insert(b.id, eb);
+        }
+    }
+
+    // ---- fixpoint: register states across blocks ----
+    let mut results: Vec<BlockResult> = Vec::with_capacity(n);
+    results.resize_with(n, || BlockResult {
+        stmts: vec![],
+        out_stack: vec![],
+        term: jdc_core::ir::build::Term::Return(None),
+    });
+    let mut out_states: Vec<Option<OutState>> = vec![None; n];
+    // Stable (block, register) → var ids across worklist rebuilds: keeps
+    // re-lifts id-deterministic so the fixpoint CONVERGES instead of
+    // cascading (was: 30M block-lifts on weibo, ~60 per block).
+    let mut stable_vars: HashMap<(usize, u16), u32> = HashMap::new();
+    // Method feature flags OR-merged from every block lift: gates
+    // post-lift passes that can only match if the bytecode contained the
+    // feature (most methods contain none).
+    let mut mflags = crate::lift::MethodFlags::none();
+    // Try-entry INPUT snapshots (for handler-block approximation) — only
+    // try-entry starts (rare) keep their input state; no persistent
+    // per-block copies.
+    let mut try_entry_snapshots: HashMap<usize, Vec<Reg>> = HashMap::new();
+    let mut built_once = vec![false; n];
+    let mut errors: HashMap<usize, String> = HashMap::new();
+    // (merge block, register) → phi var id.
+    let mut phis: HashMap<(usize, u16), u32> = HashMap::new();
+    // pred → (write_pc, phi var, value) materializations.
+
+    let entry_is_handler = handler_entry_block.contains_key(&0);
+
+    // Per-visit costs hoisted out of the worklist loop: the try-entry scan
+    // (all exc ranges × a binary search per range) and the handler catch
+    // types (String clones) re-ran on EVERY visit — visits average 2.5×
+    // blocks on real code, far more on monsters.
+    let try_entry_flags: Vec<bool> = (0..n)
+        .map(|b| {
+            !cfg.blocks[b].handlers.is_empty()
+                || cfg.exc_ranges.iter().any(|r| cfg.block_at(r.start) == Some(b))
+        })
+        .collect();
+    let handler_types: Vec<Vec<Option<String>>> =
+        (0..n).map(|b| handler_types_for(&cfg, b)).collect();
+
+    // Worklist fixpoint with version stamps: a block rebuilds only when the
+    // OUT-state versions of its inputs changed. This avoids the previous
+    // every-round full pass, which deep-cloned and deep-compared the whole
+    // register state (Expr trees) of every block — the dominant cost of
+    // large methods.
+    let mut ver: Vec<u64> = vec![0; n]; // out-state version per block
+    let mut built_ver: Vec<u64> = vec![u64::MAX; n]; // input signature when built
+    // input signature: entry=0; otherwise XOR/sum of (pred, ver[pred]) pairs.
+    fn input_sig(cfg: &DexCfg, bid: usize, ver: &[u64]) -> u64 {
+        let mut h: u64 = 1;
+        for &p in &cfg.blocks[bid].pred {
+            h = h.wrapping_mul(31).wrapping_add(p as u64).wrapping_mul(31).wrapping_add(ver[p]);
+        }
+        // Handler blocks also depend on their try-entry block's input.
+        h
+    }
+    let mut queue: std::collections::VecDeque<usize> = std::collections::VecDeque::new();
+    let mut queued: Vec<bool> = vec![false; n];
+    for &bid in &order {
+        queue.push_back(bid);
+        queued[bid] = true;
+    }
+    // merge bid → [(pred, write_pc, phi var, value)] — re-recorded whole on
+    // each visit of the merge block (stale rounds must not accumulate).
+    let mut appends: HashMap<usize, Vec<(usize, u32, u32, Expr)>> = HashMap::new();
+    let mut total_visits: usize = 0;
+    let visit_cap: usize = 64 * n + 256;
+
+    while let Some(bid) = queue.pop_front() {
+        queued[bid] = false;
+        total_visits += 1;
+        if total_visits > visit_cap {
+            CAP_HITS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            CAP_INSNS.fetch_add(
+                insn_count as u64 * 1000 + n as u64,
+                std::sync::atomic::Ordering::Relaxed,
+            );
+            break; // degenerate oscillation guard
+        }
+        let is_handler = handler_entry_block.contains_key(&bid);
+        // 1. Signature gate FIRST: a visit whose input versions are
+        //    unchanged skips the (clone-heavy) input-state computation
+        //    entirely — that clone was the fixpoint's dominant cost.
+        let sig = input_sig(&cfg, bid, &ver) ^ (if is_handler {
+            let eb = handler_entry_block[&bid];
+            (eb as u64) << 32
+        } else {
+            0
+        });
+        let need_build = !built_once[bid] || built_ver[bid] != sig;
+        if !need_build {
+            // Handler blocks depend on their try-entry block's INPUT —
+            // when that entry is re-visited, the handler is re-queued; a
+            // skipped visit here means the recorded state is current.
+            continue;
+        }
+        // 2. Input register state (only on rebuild).
+        let ins: Vec<Reg> = if bid == cfg.entry {
+            if cfg.blocks[0].pred.is_empty() || entry_is_handler {
+                entry.clone()
+            } else {
+                // A loop back into pc 0: params are one side of the merge.
+                // Sides are BORROWED (cloning each pred's state here was a
+                // top fixpoint cost).
+                let mut sides: Vec<&[Reg]> = vec![entry.as_slice()];
+                for p in cfg.blocks[bid].pred.clone() {
+                    if let Some(o) = &out_states[p] {
+                        sides.push(o.regs.as_slice());
+                    }
+                }
+                let merged = merge_states(&mut vt, &mut phis, bid, &sides);
+                // The entry side's phi contributions become leading
+                // assignments in the entry block (virtual pred). The entry
+                // block may be re-visited by the worklist — each visit
+                // replaces (not appends) its records.
+                let mut recs: Vec<(usize, u32, u32, Expr)> = Vec::new();
+                for (r, st) in entry.iter().enumerate() {
+                    if let Some(&phi) = phis.get(&(bid, r as u16)) {
+                        let value = match st {
+                            Reg::Live(v) if *v == phi => continue,
+                            Reg::Live(v) => Expr::Local {
+                                var: *v,
+                                ty: vt.var(*v).ty.clone(),
+                            },
+                            Reg::Pending(e) | Reg::PendingCall(e) => e.clone(),
+                            Reg::Undef | Reg::WideHi => continue,
+                        };
+                        recs.push((usize::MAX, 0, phi, value));
+                    }
+                }
+                appends.insert(bid, recs);
+                merged
+            }
+        } else if is_handler {
+            let eb = handler_entry_block[&bid];
+            try_entry_snapshots
+                .get(&eb)
+                .cloned()
+                .unwrap_or_else(|| vec![Reg::Undef; env.code.registers_size as usize])
+        } else {
+            // Borrowed sides; the single-pred fast path clones once (the
+            // lifter needs an owned copy anyway).
+            let mut sides: Vec<&[Reg]> = Vec::new();
+            for p in cfg.blocks[bid].pred.clone() {
+                if let Some(o) = &out_states[p] {
+                    sides.push(o.regs.as_slice());
+                }
+            }
+            if sides.is_empty() {
+                vec![Reg::Undef; env.code.registers_size as usize]
+            } else if sides.len() == 1 {
+                sides[0].to_vec()
+            } else {
+                merge_states(&mut vt, &mut phis, bid, &sides)
+            }
+        };
+
+        // 3. Phi materialization records for predecessors — recomputed for
+        //    this block only; later pred rebuilds re-visit the merge and
+        //    refresh them (the last visit wins).
+        if phis_for_merge(bid, &phis) {
+            let mut recs: Vec<(usize, u32, u32, Expr)> = Vec::new();
+            record_appends(&cfg, bid, &out_states, &phis, &vt, &mut recs);
+            // Entry-merge visits also carry the entry-side contributions —
+            // preserve those (recorded above when bid == entry).
+            if bid == cfg.entry {
+                if let Some(prev) = appends.get(&bid) {
+                    for (p, pc, v, e) in prev.iter() {
+                        if *p == usize::MAX {
+                            recs.push((*p, *pc, *v, e.clone()));
+                        }
+                    }
+                }
+            }
+            appends.insert(bid, recs);
+        }
+
+        // 4. Build (signature known changed). The lifter CONSUMES `ins`
+        //    (moved, not cloned); try-entry snapshots preserve the input
+        //    state for the handler blocks approximating from it.
+        built_once[bid] = true;
+        built_ver[bid] = sig;
+        if try_entry_flags[bid] {
+            try_entry_snapshots.insert(bid, ins.clone());
+        }
+        BUILD_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        INSN_LIFTED.fetch_add(cfg.block_ins(&cfg.blocks[bid]).len() as u64, std::sync::atomic::Ordering::Relaxed);
+        let htypes = &handler_types[bid];
+        let block_ins = cfg.block_ins(&cfg.blocks[bid]);
+        let lifter = Lifter::new(&env, &mut vt, ins, bid, &mut stable_vars, &mut mflags);
+        let rebuilt = match lifter.build_block(block_ins, &htypes) {
+            Ok((r, out)) => {
+                results[bid] = r;
+                let changed = match &out_states[bid] {
+                    Some(prev) => prev.regs != out.regs,
+                    None => true,
+                };
+                out_states[bid] = Some(out);
+                changed
+            }
+            Err(msg) => {
+                results[bid] = BlockResult {
+                    stmts: vec![Stmt::Comment(format!("$DDC-BLOCK-ERROR: {msg}"))],
+                    out_stack: vec![],
+                    term: jdc_core::ir::build::Term::Return(None),
+                };
+                out_states[bid] = Some(OutState {
+                    regs: vec![Reg::Undef; env.code.registers_size as usize],
+                    write_pc: vec![0; env.code.registers_size as usize],
+                });
+                errors.insert(bid, msg);
+                false
+            }
+        };
+        if rebuilt {
+            ver[bid] += 1;
+            // Successors re-check their input signature.
+            for &succ in &cfg.blocks[bid].succ {
+                if !queued[succ] && (succ as usize) < n {
+                    queue.push_back(succ);
+                    queued[succ] = true;
+                }
+            }
+            // Handler blocks watch their try-entry block's INPUT — cheap
+            // approximation: also queue the handler of every range this
+            // block belongs to.
+            if is_handler {
+                let eb = handler_entry_block[&bid];
+                if !queued[eb] && (eb as usize) < n {
+                    queue.push_back(eb);
+                    queued[eb] = true;
+                }
+            }
+            // Try-entry inputs: when this block feeds a handler entry via a
+            // try range, queue that handler.
+            for &ri in &cfg.blocks[bid].handlers {
+                if let Some(r) = cfg.exc_ranges.get(ri) {
+                    if let Some(hb) = cfg.block_at(r.handler) {
+                        if !queued[hb] && (hb as usize) < n {
+                            queue.push_back(hb);
+                            queued[hb] = true;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Entry-side phi contributions: carried as declaration-with-init and
+    // prepended to the method body AFTER conversion (the entry block may be
+    // a loop header — its statements re-execute per iteration).
+    // Entry-side phi contributions (the virtual pred): captured for the
+    // method-top declarations; the REAL preds' records stay in `appends`
+    // for the commit loop (removing the whole entry key would lose the
+    // loop-body assignments — the phis would collapse to their entry
+    // values).
+    let mut entry_phi_inits: Vec<(u32, Expr)> = Vec::new();
+    if let Some(recs) = appends.get_mut(&cfg.entry) {
+        let mut entry_side: Vec<(u32, Expr)> = Vec::new();
+        recs.retain(|(p, _, v, e)| {
+            if *p == usize::MAX {
+                entry_side.push((*v, e.clone()));
+                false
+            } else {
+                true
+            }
+        });
+        entry_side.sort_by_key(|(v, _)| *v);
+        entry_phi_inits = entry_side;
+    }
+
+    // Commit phi materializations: each pred assigns its outgoing value to
+    // the merge var, ordered by the pc of the instruction that produced it.
+    // Values that REFERENCE a sibling phi are snapshotted into a fresh temp
+    // first: register rotations (`a = b; b = a % b`) would otherwise read
+    // the already-reassigned phi (stale capture).
+    // Regroup: merge-keyed records → per-pred statement lists.
+    let mut per_pred: HashMap<usize, Vec<(u32, u32, Expr)>> = HashMap::new();
+    for (_merge, recs) in &appends {
+        for (p, pc, v, e) in recs {
+            per_pred.entry(*p).or_default().push((*pc, *v, e.clone()));
+        }
+    }
+    for (p, mut adds) in per_pred {
+        if p == usize::MAX {
+            continue;
+        }
+        adds.sort_by_key(|(pc, _, _)| *pc);
+        let term_is_exit = matches!(
+            results[p].term,
+            jdc_core::ir::build::Term::Return(_) | jdc_core::ir::build::Term::Throw(_)
+        );
+        if term_is_exit {
+            continue;
+        }
+        let phi_set: std::collections::HashSet<u32> =
+            adds.iter().map(|(_, v, _)| *v).collect();
+        let mut snapshots: Vec<Stmt> = Vec::new();
+        // (phi, value) pairs with snapshot temps substituted.
+        let mut emitted: Vec<(u32, Expr)> = Vec::new();
+        for (_, v, e) in &adds {
+            let mut e = e.clone();
+            let mut refs_phi = false;
+            visit_phi_refs(&e, &phi_set, &mut refs_phi);
+            if refs_phi {
+                // Snapshot: emit `temp = value` BEFORE any phi assignment.
+                let ty = e.type_ref();
+                let id = vt.vars.len() as u32;
+                let name = format!("v{}", id);
+                vt.vars.push(jdc_core::var::VarInfo {
+                    id,
+                    slot: u16::MAX,
+                    name,
+                    ty: ty.clone(),
+                    is_param: false,
+                    range_start: 0,
+                    range_end: u16::MAX,
+                    synthetic_name: true,
+                });
+                snapshots.push(Stmt::LocalDef {
+                    var: id,
+                    init: Some(e),
+                    is_final: false,
+                    force_type: true,
+                });
+                e = Expr::Local { var: id, ty };
+            }
+            emitted.push((*v, e));
+        }
+        for st in snapshots {
+            results[p].stmts.push(st);
+        }
+        for (v, e) in emitted {
+            results[p].stmts.push(Stmt::ExprStmt(Expr::Assign {
+                target: Box::new(Expr::Local { var: v, ty: vt.var(v).ty.clone() }),
+                op: jdc_core::ir::expr::AssignOp::Plain,
+                value: Box::new(e),
+            }));
+        }
+    }
+
+    let t_fix = t0;
+    phase_hit_n(0, n, t_fix);
+    // ---- single-block fast path ----
+    // A lone basic block is straight-line code (any branch/switch/handler
+    // splits the graph): no merges, no phis, no control flow to structure.
+    // Bypassing the structurer + converter + the control-flow passes for
+    // these (over half of R8-produced methods) cuts the dominant cost.
+    if n == 1 && !entry_is_handler && cfg.blocks[0].pred.is_empty() {
+        let r = std::mem::replace(
+            &mut results[0],
+            BlockResult { stmts: vec![], out_stack: vec![], term: jdc_core::ir::build::Term::Goto },
+        );
+        let mut body = r.stmts;
+        match r.term {
+            jdc_core::ir::build::Term::Return(Some(e)) => {
+                body.push(Stmt::Return(Some(e)));
+            }
+            jdc_core::ir::build::Term::Return(None) => {}
+            jdc_core::ir::build::Term::Throw(e) => body.push(Stmt::Throw(e)),
+            _ => {}
+        }
+        let mut body = Stmt::Block(body);
+        passes::fused_expr_rewrites(&mut body, &vt);
+        if mflags.has_sb() {
+            passes::fold_string_builders(&mut body, &vt);
+        }
+        passes::forward_single_use(&mut body, &vt);
+        passes::cleanup(&mut body);
+        passes::infer_types(&mut vt, &mut body, &desc.ret, &env);
+        passes::ensure_declared(&mut body, &vt);
+        passes::strip_trailing_void_return(&mut body);
+        passes::cleanup(&mut body);
+        if !errors.is_empty() {
+            passes::prepend_comment(
+                &mut body,
+                format!("$DDC: {} block(s) failed to decompile", errors.len()),
+            );
+        }
+        phase_hit_n(2, n, t_fix);
+        record_bucket(n, t0);
+        return Ok(Some(MethodBody { body, vt, desc }));
+    }
+
+    // ---- structure + convert ----
+    // jcdc's copy-budget degradation: a rendering whose statement tree
+    // explodes past the guard retries at a halved copy budget (the
+    // structurer's tail-copying is the exponential mechanism).
+    const TREE_GUARD: usize = 20_000;
+    let core_cfg = cfg.to_core();
+    #[allow(unused_assignments)]
+    let mut body: Option<Stmt> = None;
+    // Copy budget scales with graph size: many-block methods are where the
+    // exponential tail-copy blowups live (weibo: 389 methods >100 blocks
+    // = 40% of all CPU at budget 512). Starting lower converges without
+    // the 6-round halving.
+    let mut budget: u32 = if n > 100 {
+        64
+    } else if n > 20 {
+        128
+    } else {
+        512
+    };
+    // Shared once-per-method artifacts: the O(groups²) exception-group
+    // scan and the full-graph dominator tree used to run TWICE per
+    // method (Structurer + Converter) and once more per copy-budget
+    // retry — monster classes (gson adapters) spent the bulk of their
+    // time there.
+    let groups = jdc_core::structure::group_exceptions_with(&core_cfg, Some(&results));
+    let dom_universe: std::collections::HashSet<usize> = (0..core_cfg.blocks.len()).collect();
+    let dom = jdc_core::structure::compute_dominators(&core_cfg, &dom_universe, core_cfg.entry);
+    loop {
+        jdc_core::structure::set_budget_override(Some(budget));
+        let mut st = Structurer::with_precomputed_groups(
+            &core_cfg,
+            &results,
+            groups.clone(),
+            Default::default(),
+            Default::default(),
+        );
+        let region = st.structure_method();
+        let mut converter = Converter::with_precomputed(&core_cfg, &results, groups.clone(), dom.clone());
+        let candidate = converter.convert(region);
+        jdc_core::structure::set_budget_override(None);
+        let size = {
+            let mut c = 0usize;
+            passes::count_stmts_deep(&candidate, &mut c);
+            c
+        };
+        if std::env::var("DDC_TRACE").is_ok() {
+            static TRACE_ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+            if *TRACE_ON.get_or_init(|| std::env::var("DDC_TRACE").is_ok()) {
+                eprintln!("[guard] {}.{} size={} budget={}", class.name, m.name, size, budget);
+            }
+        }
+        if size <= TREE_GUARD {
+            body = Some(candidate);
+            break;
+        }
+        if budget <= 16 {
+            return Ok(Some(stub_body(
+                format!("$DDC: statement tree exploded ({} nodes) even at copy budget 16", size),
+                desc,
+            )));
+        }
+        budget /= 2;
+    }
+    phase_hit_n(1, n, t_fix);
+    let mut body = body.unwrap();
+    if !entry_phi_inits.is_empty() {
+        let head: Vec<Stmt> = entry_phi_inits
+            .into_iter()
+            .map(|(v, e)| Stmt::LocalDef {
+                var: v,
+                init: Some(e),
+                is_final: false,
+                force_type: true,
+            })
+            .collect();
+        body = match body {
+            Stmt::Block(v) => {
+                let mut nv = head;
+                nv.extend(v);
+                Stmt::Block(nv)
+            }
+            other => {
+                let mut nv = head;
+                nv.push(other);
+                Stmt::Block(nv)
+            }
+        };
+    }
+
+    passes::bind_catches(&mut body, &mut vt);
+    passes::prune_unreachable(&mut body);
+    // One traversal for cmp residuals + null compares + const-first flips
+    // (three separate full-tree walks before).
+    passes::fused_expr_rewrites(&mut body, &vt);
+    if mflags.has_sb() {
+        passes::fold_string_builders(&mut body, &vt);
+    }
+    passes::ternary_fold(&mut body);
+    if mflags.has_monitor() {
+        passes::fold_synchronized(&mut body);
+    }
+    passes::forward_single_use(&mut body, &vt);
+    passes::cleanup(&mut body);
+    passes::infer_types(&mut vt, &mut body, &desc.ret, &env);
+    passes::booleanize(&mut vt, &mut body);
+    passes::ensure_declared(&mut body, &vt);
+    passes::strip_trailing_void_return(&mut body);
+    passes::cleanup(&mut body);
+
+    if !errors.is_empty() {
+        passes::prepend_comment(
+            &mut body,
+            format!("$DDC: {} block(s) failed to decompile", errors.len()),
+        );
+    }
+
+    phase_hit_n(2, n, t_fix);
+    record_bucket(n, t0);
+    Ok(Some(MethodBody { body, vt, desc }))
+}
+
+static PHASE_MICROS: [std::sync::atomic::AtomicU64; 5] = [
+    std::sync::atomic::AtomicU64::new(0),
+    std::sync::atomic::AtomicU64::new(0),
+    std::sync::atomic::AtomicU64::new(0),
+    std::sync::atomic::AtomicU64::new(0),
+    std::sync::atomic::AtomicU64::new(0),
+];
+/// Phase × bucket attribution (5 phases × 5 buckets, row-major).
+static PHASE_BUCKET_MICROS: [std::sync::atomic::AtomicU64; 25] = [
+    std::sync::atomic::AtomicU64::new(0),
+    std::sync::atomic::AtomicU64::new(0),
+    std::sync::atomic::AtomicU64::new(0),
+    std::sync::atomic::AtomicU64::new(0),
+    std::sync::atomic::AtomicU64::new(0),
+    std::sync::atomic::AtomicU64::new(0),
+    std::sync::atomic::AtomicU64::new(0),
+    std::sync::atomic::AtomicU64::new(0),
+    std::sync::atomic::AtomicU64::new(0),
+    std::sync::atomic::AtomicU64::new(0),
+    std::sync::atomic::AtomicU64::new(0),
+    std::sync::atomic::AtomicU64::new(0),
+    std::sync::atomic::AtomicU64::new(0),
+    std::sync::atomic::AtomicU64::new(0),
+    std::sync::atomic::AtomicU64::new(0),
+    std::sync::atomic::AtomicU64::new(0),
+    std::sync::atomic::AtomicU64::new(0),
+    std::sync::atomic::AtomicU64::new(0),
+    std::sync::atomic::AtomicU64::new(0),
+    std::sync::atomic::AtomicU64::new(0),
+    std::sync::atomic::AtomicU64::new(0),
+    std::sync::atomic::AtomicU64::new(0),
+    std::sync::atomic::AtomicU64::new(0),
+    std::sync::atomic::AtomicU64::new(0),
+    std::sync::atomic::AtomicU64::new(0),
+];
+static PHASE_ON: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+fn bucket_of(n: usize) -> usize {
+    if n <= 1 {
+        0
+    } else if n <= 5 {
+        1
+    } else if n <= 20 {
+        2
+    } else if n <= 100 {
+        3
+    } else {
+        4
+    }
+}
+
+pub(crate) fn phase_hit_n(i: usize, n: usize, t: std::time::Instant) {
+    if !PHASE_ON.load(std::sync::atomic::Ordering::Relaxed) {
+        return;
+    }
+    let us = t.elapsed().as_micros() as u64;
+    PHASE_MICROS[i].fetch_add(us, std::sync::atomic::Ordering::Relaxed);
+    PHASE_BUCKET_MICROS[i * 5 + bucket_of(n)].fetch_add(us, std::sync::atomic::Ordering::Relaxed);
+}
+
+pub(crate) fn phase_hit(i: usize, t: std::time::Instant) {
+    if !PHASE_ON.load(std::sync::atomic::Ordering::Relaxed) {
+        return;
+    }
+    PHASE_MICROS[i].fetch_add(t.elapsed().as_micros() as u64, std::sync::atomic::Ordering::Relaxed);
+}
+
+/// Enable phase timers (DDC_PHASES=1).
+pub fn phases_enable() {
+    PHASE_ON.store(true, std::sync::atomic::Ordering::Relaxed);
+}
+
+/// (fixpoint, structure+convert, passes, print, total) in micros.
+pub fn phases_dump() -> [u64; 5] {
+    let mut out = [0u64; 5];
+    for i in 0..5 {
+        out[i] = PHASE_MICROS[i].load(std::sync::atomic::Ordering::Relaxed);
+    }
+    out
+}
+
+/// Per-bucket phase micros: 5 phases × 5 buckets, row-major.
+pub fn phases_bucket_dump() -> [[u64; 5]; 5] {
+    let mut out = [[0u64; 5]; 5];
+    for i in 0..5 {
+        for b in 0..5 {
+            out[i][b] = PHASE_BUCKET_MICROS[i * 5 + b].load(std::sync::atomic::Ordering::Relaxed);
+        }
+    }
+    out
+}
+
+static CAP_HITS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+static CAP_INSNS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+static BUILD_COUNT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+static INSN_LIFTED: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+static BUCKET_COUNT: [std::sync::atomic::AtomicU64; 5] = [
+    std::sync::atomic::AtomicU64::new(0),
+    std::sync::atomic::AtomicU64::new(0),
+    std::sync::atomic::AtomicU64::new(0),
+    std::sync::atomic::AtomicU64::new(0),
+    std::sync::atomic::AtomicU64::new(0),
+];
+static BUCKET_MICROS: [std::sync::atomic::AtomicU64; 5] = [
+    std::sync::atomic::AtomicU64::new(0),
+    std::sync::atomic::AtomicU64::new(0),
+    std::sync::atomic::AtomicU64::new(0),
+    std::sync::atomic::AtomicU64::new(0),
+    std::sync::atomic::AtomicU64::new(0),
+];
+
+/// Dump build/insn counters.
+pub fn dump_builds() -> (u64, u64) {
+    (
+        BUILD_COUNT.load(std::sync::atomic::Ordering::Relaxed),
+        INSN_LIFTED.load(std::sync::atomic::Ordering::Relaxed),
+    )
+}
+
+/// (cap-hit methods, sum of insns*1000+blocks for cap-hit methods).
+pub fn dump_caps() -> (u64, u64) {
+    (
+        CAP_HITS.load(std::sync::atomic::Ordering::Relaxed),
+        CAP_INSNS.load(std::sync::atomic::Ordering::Relaxed),
+    )
+}
+
+/// Dump DDC_BUCKETS statistics (global atomics).
+pub fn dump_buckets() -> [(u64, u64); 5] {
+    let mut out = [(0u64, 0u64); 5];
+    for i in 0..5 {
+        out[i] = (
+            BUCKET_COUNT[i].load(std::sync::atomic::Ordering::Relaxed),
+            BUCKET_MICROS[i].load(std::sync::atomic::Ordering::Relaxed),
+        );
+    }
+    out
+}
+
+/// Dominator-recompute counters from jdc-core (perf diagnostics).
+pub fn dom_counters() -> (u64, u64) {
+    (
+        jdc_core::structure::DOM_CALLS.load(std::sync::atomic::Ordering::Relaxed),
+        jdc_core::structure::DOM_BLOCKS.load(std::sync::atomic::Ordering::Relaxed),
+    )
+}
+
+/// Enable dominator-recompute counters (diagnostics; jdc-core gate).
+pub fn dom_counters_enable() {
+    jdc_core::structure::set_dom_counters(true);
+}
+
+/// A minimal body carrying a diagnostic comment.
+fn stub_body(msg: String, desc: MethodDescriptor) -> MethodBody {
+    MethodBody {
+        body: Stmt::Block(vec![Stmt::Comment(msg)]),
+        vt: VarTable::default(),
+        desc,
+    }
+}
+
+/// True when any phi belongs to merge block `bid`.
+fn phis_for_merge(bid: usize, phis: &HashMap<(usize, u16), u32>) -> bool {
+    phis.keys().any(|(b, _)| *b == bid)
+}
+
+/// Phi materialization records for `bid`'s predecessors (pred-tagged).
+fn record_appends(
+    cfg: &DexCfg,
+    bid: usize,
+    out_states: &[Option<OutState>],
+    phis: &HashMap<(usize, u16), u32>,
+    vt: &jdc_core::var::VarTable,
+    out: &mut Vec<(usize, u32, u32, Expr)>,
+) {
+    for p in cfg.blocks[bid].pred.clone() {
+        let Some(o) = &out_states[p] else { continue };
+        for (r, st) in o.regs.iter().enumerate() {
+            if let Some(&phi) = phis.get(&(bid, r as u16)) {
+                let value = match st {
+                    Reg::Live(v) if *v == phi => continue,
+                    Reg::Live(v) => Expr::Local {
+                        var: *v,
+                        ty: vt.var(*v).ty.clone(),
+                    },
+                    Reg::Pending(e) | Reg::PendingCall(e) => e.clone(),
+                    Reg::Undef | Reg::WideHi => continue,
+                };
+                out.push((p, o.write_pc.get(r).copied().unwrap_or(0), phi, value));
+            }
+        }
+    }
+}
+
+#[allow(unused)]
+fn record_bucket(n: usize, t0: std::time::Instant) {
+    // (Perf: env::var is a lock+lookup — per-METHOD cost on 716k-method
+    // runs; resolve once via OnceLock.)
+    static BUCKETS_ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    if !*BUCKETS_ON.get_or_init(|| std::env::var("DDC_BUCKETS").is_ok()) {
+        return;
+    }
+    let bucket = if n <= 1 {
+        0
+    } else if n <= 5 {
+        1
+    } else if n <= 20 {
+        2
+    } else if n <= 100 {
+        3
+    } else {
+        4
+    };
+    BUCKET_COUNT[bucket].fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    BUCKET_MICROS[bucket].fetch_add(t0.elapsed().as_micros() as u64, std::sync::atomic::Ordering::Relaxed);
+}
+
+/// True when the expression references any of the phi vars.
+fn visit_phi_refs(e: &Expr, phis: &std::collections::HashSet<u32>, hit: &mut bool) {
+    if *hit {
+        return;
+    }
+    if let Expr::Local { var, .. } = e {
+        if phis.contains(var) {
+            *hit = true;
+        }
+        return;
+    }
+    let mut kids: Vec<&Expr> = Vec::new();
+    match e {
+        Expr::Un { e, .. } | Expr::Cast { e, .. } | Expr::InstanceOf { e, .. } => kids.push(e),
+        Expr::Bin { l, r, .. } => {
+            kids.push(l);
+            kids.push(r);
+        }
+        Expr::Cond { c, t, f } => {
+            kids.push(c);
+            kids.push(t);
+            kids.push(f);
+        }
+        Expr::Assign { target, value, .. } => {
+            kids.push(target);
+            kids.push(value);
+        }
+        Expr::PreIncDec { e, .. } | Expr::PostIncDec { e, .. } => kids.push(e),
+        Expr::Field { owner: Some(o), .. } => kids.push(o),
+        Expr::Method { owner: Some(o), args, .. } => {
+            kids.push(o);
+            kids.extend(args.iter());
+        }
+        Expr::ArrayIndex { array, index } => {
+            kids.push(array);
+            kids.push(index);
+        }
+        Expr::New { args, .. } => kids.extend(args.iter()),
+        Expr::NewArray { dims, init, .. } => {
+            kids.extend(dims.iter());
+            if let Some(v) = init {
+                kids.extend(v.iter());
+            }
+        }
+        Expr::NewMultiArray { dims, .. } => kids.extend(dims.iter()),
+        _ => {}
+    }
+    for k in kids {
+        visit_phi_refs(k, phis, hit);
+        if *hit {
+            return;
+        }
+    }
+}
+
+/// Merge several predecessor register states: pass identical values
+/// through, otherwise materialize into a phi var for `(block, register)`.
+fn merge_states(
+    vt: &mut VarTable,
+    phis: &mut HashMap<(usize, u16), u32>,
+    bid: usize,
+    sides: &[&[Reg]],
+) -> Vec<Reg> {
+    let len = sides.iter().map(|s| s.len()).max().unwrap_or(0);
+    let mut out = vec![Reg::Undef; len];
+    for r in 0..len {
+        let mut all_eq = true;
+        let mut first: Option<&Reg> = None;
+        for s in sides {
+            let v = s.get(r);
+            match (first, v) {
+                (None, v) => first = v,
+                (Some(f), Some(v)) if f == v => {}
+                _ => all_eq = false,
+            }
+        }
+        if all_eq {
+            out[r] = first.cloned().unwrap_or(Reg::Undef);
+            continue;
+        }
+        // Diverged: phi var.
+        let key = (bid, r as u16);
+        let phi = match phis.get(&key) {
+            Some(&v) => v,
+            None => {
+                let ty = join_side_types(vt, sides, r);
+                let id = vt.vars.len() as u32;
+                let name = format!("v{}", id);
+                vt.vars.push(jdc_core::var::VarInfo {
+                    id,
+                    slot: r as u16,
+                    name,
+                    ty,
+                    is_param: false,
+                    range_start: 0,
+                    range_end: u16::MAX,
+                    synthetic_name: true,
+                });
+                while vt.by_slot.len() <= r {
+                    vt.by_slot.push(Vec::new());
+                }
+                vt.by_slot[r].push((0, u16::MAX, id));
+                phis.insert(key, id);
+                id
+            }
+        };
+        out[r] = Reg::Live(phi);
+    }
+    out
+}
+
+/// Type of a phi var: join of the non-null side values' erased types.
+fn join_side_types(vt: &VarTable, sides: &[&[Reg]], r: usize) -> TypeRef {
+    let mut ty: Option<JavaType> = None;
+    for s in sides {
+        let st = s.get(r).cloned().unwrap_or(Reg::Undef);
+        let e = match st {
+            Reg::Pending(e) | Reg::PendingCall(e) => e,
+            Reg::Live(v) => Expr::Local { var: v, ty: vt.var(v).ty.clone() },
+            _ => continue,
+        };
+        let t = e.type_ref().erased();
+        ty = Some(match ty {
+            None => t,
+            Some(prev) => join_types(&prev, &t),
+        });
+    }
+    TypeRef::J(ty.unwrap_or(JavaType::Int))
+}
+
+fn join_types(a: &JavaType, b: &JavaType) -> JavaType {
+    if a == b {
+        return a.clone();
+    }
+    let num = |t: &JavaType| {
+        matches!(
+            t,
+            JavaType::Boolean
+                | JavaType::Byte
+                | JavaType::Char
+                | JavaType::Short
+                | JavaType::Int
+                | JavaType::Long
+                | JavaType::Float
+                | JavaType::Double
+        )
+    };
+    if num(a) && num(b) {
+        // Numeric promotion.
+        return match (a, b) {
+            (JavaType::Double, _) | (_, JavaType::Double) => JavaType::Double,
+            (JavaType::Float, _) | (_, JavaType::Float) => JavaType::Float,
+            (JavaType::Long, _) | (_, JavaType::Long) => JavaType::Long,
+            _ => JavaType::Int,
+        };
+    }
+    if let (JavaType::Object(x), JavaType::Object(y)) = (a, b) {
+        if x == y {
+            return a.clone();
+        }
+        // Char/int ternaries join to int; otherwise objects join to Object.
+        return JavaType::Object("java/lang/Object".into());
+    }
+    JavaType::Object("java/lang/Object".into())
+}
+
+/// True when the block's terminator exits (used by callers to skip appends).
+#[allow(dead_code)]
+fn is_exit_term(term: &jdc_core::ir::build::Term) -> bool {
+    matches!(
+        term,
+        jdc_core::ir::build::Term::Return(_) | jdc_core::ir::build::Term::Throw(_)
+    )
+}
+
+#[allow(dead_code)]
+fn unused(_: &InsnKind) {}

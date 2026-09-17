@@ -1,0 +1,516 @@
+//! ddc-dec — DEX → Java decompiler front-end over `jdc-core`.
+//!
+//! Pipeline per method: DEX code units → CFG → per-block register→IR
+//! lifting → `jdc-core` structuring/conversion → refinement passes →
+//! emission. Class-level rendering mirrors jcdc's `classdec` but reads
+//! DEX metadata (no signatures, no generics).
+
+pub mod cfg;
+pub mod classdec;
+
+pub use classdec::ClassOptions;
+pub mod ctx;
+pub mod lift;
+pub mod method;
+pub mod passes;
+
+use std::collections::HashMap;
+
+use ddc_dex::annotations::{self, EncodedValue};
+
+/// A resolved static-field initializer.
+#[derive(Debug, Clone)]
+pub enum StaticValue {
+    Int(i64),
+    Float(f32),
+    Double(f64),
+    Str(String),
+    Type(String),
+    Boolean(bool),
+    Null,
+    /// (declaring class, field name) — enum constants.
+    Field(String, String),
+    Other,
+}
+use ddc_dex::{ClassDef, DexFile};
+use jdc_core::types::{parse_field_descriptor, parse_method_descriptor, JavaType, MethodDescriptor};
+
+// ---------------------------------------------------------------------------
+// Access flags (Dalvik numbering, JVM-compatible subset).
+// ---------------------------------------------------------------------------
+pub mod access {
+    pub const ACC_PUBLIC: u32 = 0x1;
+    pub const ACC_PRIVATE: u32 = 0x2;
+    pub const ACC_PROTECTED: u32 = 0x4;
+    pub const ACC_STATIC: u32 = 0x8;
+    pub const ACC_FINAL: u32 = 0x10;
+    pub const ACC_SYNCHRONIZED: u32 = 0x20;
+    pub const ACC_BRIDGE: u32 = 0x40;
+    pub const ACC_VARARGS: u32 = 0x80;
+    pub const ACC_NATIVE: u32 = 0x100;
+    pub const ACC_INTERFACE: u32 = 0x200;
+    pub const ACC_ABSTRACT: u32 = 0x400;
+    pub const ACC_STRICT: u32 = 0x800;
+    pub const ACC_SYNTHETIC: u32 = 0x1000;
+    pub const ACC_ANNOTATION: u32 = 0x2000;
+    pub const ACC_ENUM: u32 = 0x4000;
+    pub const ACC_CONSTRUCTOR: u32 = 0x1_0000;
+    pub const ACC_DECLARED_SYNCHRONIZED: u32 = 0x2_0000;
+}
+
+/// One field of a pooled class.
+#[derive(Debug, Clone)]
+pub struct PoolField {
+    pub name: String,
+    /// Field descriptor (`I`, `Ljava/lang/String;`, ...).
+    pub desc: String,
+    pub access: u32,
+    pub is_static: bool,
+}
+
+/// One method of a pooled class.
+#[derive(Debug, Clone)]
+pub struct PoolMethod {
+    pub name: String,
+    /// Method descriptor (`(ILjava/lang/String;)V`).
+    pub desc: String,
+    pub access: u32,
+    pub code_off: u32,
+    pub debug_info_off: u32,
+    /// Which DEX image the body lives in.
+    pub dex_idx: usize,
+}
+
+impl PoolMethod {
+    pub fn parsed_desc(&self) -> Option<MethodDescriptor> {
+        parse_method_descriptor(&self.desc)
+    }
+    pub fn is_static(&self) -> bool {
+        self.access & access::ACC_STATIC != 0
+    }
+    pub fn is_abstract_or_native(&self) -> bool {
+        self.access & (access::ACC_ABSTRACT | access::ACC_NATIVE) != 0
+    }
+}
+
+/// A class materialized from one `class_def_item` (with ids resolved to
+/// names and the class data expanded).
+#[derive(Debug, Clone)]
+pub struct PoolClass {
+    pub name: String,
+    pub access: u32,
+    /// `None` for `java/lang/Object` roots.
+    pub super_name: Option<String>,
+    pub interfaces: Vec<String>,
+    pub source_file: Option<String>,
+    pub static_fields: Vec<PoolField>,
+    pub instance_fields: Vec<PoolField>,
+    pub direct_methods: Vec<PoolMethod>,
+    pub virtual_methods: Vec<PoolMethod>,
+    /// Static initial values aligned with the head of `static_fields`.
+    pub static_values: Vec<StaticValue>,
+    /// Nesting evidence with annotation ids resolved to names.
+    pub nesting: ResolvedNesting,
+    /// Which DEX image the class body lives in (provenance header).
+    pub dex_idx: usize,
+}
+
+/// Nesting evidence, names resolved at pooling time.
+#[derive(Debug, Clone, Default)]
+pub struct ResolvedNesting {
+    pub enclosing_class: Option<String>,
+    /// (class internal name, method name) of the enclosing method.
+    pub enclosing_method: Option<(String, String)>,
+    pub member_classes: Vec<String>,
+}
+
+impl PoolClass {
+    pub fn is_interface(&self) -> bool {
+        self.access & access::ACC_INTERFACE != 0
+    }
+
+    pub fn is_enum(&self) -> bool {
+        self.access & access::ACC_ENUM != 0
+    }
+
+    pub fn is_synthetic(&self) -> bool {
+        self.access & access::ACC_SYNTHETIC != 0
+    }
+
+    pub fn is_static_nested(&self) -> bool {
+        self.access & access::ACC_STATIC != 0
+    }
+
+    /// All methods in declaration order.
+    pub fn all_methods(&self) -> impl Iterator<Item = &PoolMethod> {
+        self.direct_methods.iter().chain(self.virtual_methods.iter())
+    }
+
+    /// Find a method by name + descriptor.
+    pub fn find_method(&self, name: &str, desc: &str) -> Option<&PoolMethod> {
+        self.all_methods().find(|m| m.name == name && m.desc == desc)
+    }
+
+    /// Constructors `<init>` matching `arity` descriptor arguments.
+    pub fn ctors_by_arity(&self, arity: usize) -> Vec<&PoolMethod> {
+        self.all_methods()
+            .filter(|m| m.name == "<init>")
+            .filter(|m| m.parsed_desc().map(|d| d.args.len() == arity).unwrap_or(false))
+            .collect()
+    }
+
+    pub fn field_flags_of(&self, name: &str) -> Option<u32> {
+        self.static_fields
+            .iter()
+            .chain(self.instance_fields.iter())
+            .find(|f| f.name == name)
+            .map(|f| f.access)
+    }
+}
+
+/// Multi-DEX class pool: classes from all images, first definition wins.
+pub struct DexPool {
+    dexes: Vec<DexFile>,
+    /// Human label per image ("weibo!classes.dex") for the provenance
+    /// header; defaults to "dex N" until the CLI names the inputs.
+    pub dex_labels: Vec<String>,
+    classes: HashMap<String, PoolClass>,
+    /// Class names in insertion order (stable for output).
+    pub order: Vec<String>,
+    /// name → outer (computed once; `$` heuristic + dalvik annotations).
+    outers: std::sync::OnceLock<HashMap<String, Option<String>>>,
+    /// outer → direct children (computed once).
+    children: std::sync::OnceLock<HashMap<String, Vec<String>>>,
+}
+
+impl DexPool {
+    pub fn new() -> Self {
+        DexPool {
+            dexes: Vec::new(),
+            dex_labels: Vec::new(),
+            classes: HashMap::new(),
+            order: Vec::new(),
+            outers: std::sync::OnceLock::new(),
+            children: std::sync::OnceLock::new(),
+        }
+    }
+
+    /// name → outer map, computed lazily once.
+    fn outer_map(&self) -> &HashMap<String, Option<String>> {
+        self.outers.get_or_init(|| {
+            self.order
+                .iter()
+                .map(|n| (n.clone(), find_outer_name(self, n)))
+                .collect()
+        })
+    }
+
+    /// The outer class of `name`, from the cached map (borrowed).
+    pub fn outer_of(&self, name: &str) -> Option<&str> {
+        self.outer_map().get(name).and_then(|o| o.as_deref())
+    }
+
+    /// Direct nested children of `internal` (any `$` depth 1), cached.
+    /// (Perf: returns a borrowed slice — the owned-Vec clone ran once per
+    /// class on 98k-class runs.)
+    pub fn children_of(&self, internal: &str) -> &[String] {
+        if self.children.get().is_none() {
+            let idx: HashMap<String, Vec<String>> = HashMap::new();
+            let _ = self.children.set(idx);
+            let mut idx: HashMap<String, Vec<String>> = HashMap::new();
+            for name in &self.order {
+                if let Some(outer) = self.outer_of(name).map(str::to_string) {
+                    idx.entry(outer).or_default().push(name.clone());
+                }
+            }
+            let _ = self.children.set(idx);
+        }
+        self.children
+            .get()
+            .and_then(|m| m.get(internal))
+            .map(|v| v.as_slice())
+            .unwrap_or(&[])
+    }
+
+    /// Adds one image; duplicate class names keep their first definition.
+    /// Returns the image's index — call `set_dex_label` with it to give the
+    /// provenance header a real origin instead of the default "dex N".
+    pub fn add_dex(&mut self, dex: DexFile) -> usize {
+        let dex_idx = self.dexes.len();
+        // The annotation reader borrows the image; pool classes are built
+        // before ownership moves into `self.dexes` (no full-image copy).
+        for cd in &dex.class_defs {
+            let name = dex.class_name(cd.class_idx);
+            if self.classes.contains_key(&name) {
+                continue;
+            }
+            let pc = pool_class_of(&dex, dex.raw(), cd, dex_idx);
+            self.classes.insert(name.clone(), pc);
+            self.order.push(name);
+        }
+        self.dexes.push(dex);
+        self.dex_labels.push(format!("dex {}", dex_idx));
+        dex_idx
+    }
+
+    /// Label the image at `idx` (see `add_dex`).
+    pub fn set_dex_label(&mut self, idx: usize, label: impl Into<String>) {
+        if let Some(slot) = self.dex_labels.get_mut(idx) {
+            *slot = label.into();
+        }
+    }
+
+    pub fn len(&self) -> usize {
+        self.classes.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.classes.is_empty()
+    }
+
+    pub fn get(&self, internal: &str) -> Option<&PoolClass> {
+        self.classes.get(internal)
+    }
+
+    pub fn dex(&self, idx: usize) -> Option<&DexFile> {
+        self.dexes.get(idx)
+    }
+
+    pub fn dex_count(&self) -> usize {
+        self.dexes.len()
+    }
+
+    pub fn class_names(&self) -> impl Iterator<Item = &str> {
+        self.order.iter().map(|s| s.as_str())
+    }
+
+    /// True when `sub` is assignable to `sup` (internal names), walking the
+    /// pool's hierarchy. Unknown classes are never assignable (conservative).
+    pub fn is_subtype(&self, sub: &str, sup: &str) -> bool {
+        if sub == sup {
+            return true;
+        }
+        // Arrays: covariance by element type when both are arrays.
+        if let (Some(sub_elem), Some(sup_elem)) = (array_elem(sub), array_elem(sup)) {
+            if sub_elem.starts_with('L') && sup_elem.starts_with('L') && sub_elem.ends_with(';') && sup_elem.ends_with(';') {
+                return self.is_subtype(&sub_elem[1..sub_elem.len() - 1], &sup_elem[1..sup_elem.len() - 1]);
+            }
+            return sub_elem == sup_elem;
+        }
+        let mut cur = self.get(sub);
+        let mut hops = 0;
+        while let Some(c) = cur {
+            hops += 1;
+            if hops > 64 {
+                return false;
+            }
+            for i in &c.interfaces {
+                if i == sup || self.is_subtype(i, sup) {
+                    return true;
+                }
+            }
+            match &c.super_name {
+                Some(s) if s == sup => return true,
+                Some(s) if s != "java/lang/Object" => {
+                    cur = self.get(s);
+                }
+                _ => return false,
+            }
+        }
+        false
+    }
+}
+
+impl Default for DexPool {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+fn array_elem(desc: &str) -> Option<&str> {
+    if desc.starts_with('[') {
+        Some(&desc[1..])
+    } else {
+        None
+    }
+}
+
+fn resolve_static_value(v: &EncodedValue, dex: &DexFile) -> StaticValue {
+    match v {
+        EncodedValue::Byte(x) => StaticValue::Int(*x as i64),
+        EncodedValue::Short(x) => StaticValue::Int(*x as i64),
+        EncodedValue::Char(x) => StaticValue::Int(*x as i64),
+        EncodedValue::Int(x) => StaticValue::Int(*x as i64),
+        EncodedValue::Long(x) => StaticValue::Int(*x),
+        EncodedValue::Float(x) => StaticValue::Float(*x),
+        EncodedValue::Double(x) => StaticValue::Double(*x),
+        EncodedValue::String(i) => StaticValue::Str(dex.string(*i).to_string()),
+        EncodedValue::Type(i) => StaticValue::Type(dex.class_name(*i)),
+        EncodedValue::Boolean(b) => StaticValue::Boolean(*b),
+        EncodedValue::Null => StaticValue::Null,
+        EncodedValue::Enum(i) | EncodedValue::Field(i) => {
+            let f = dex.field(*i);
+            StaticValue::Field(dex.class_name(f.class_idx), dex.string(f.name_idx).to_string())
+        }
+        _ => StaticValue::Other,
+    }
+}
+
+fn pool_class_of(dex: &DexFile, raw: &[u8], cd: &ClassDef, dex_idx: usize) -> PoolClass {
+    let name = dex.class_name(cd.class_idx);
+    let super_name = if cd.superclass_idx == ddc_dex::NO_INDEX {
+        None
+    } else {
+        let s = dex.class_name(cd.superclass_idx);
+        if s.is_empty() || s == "java/lang/Object" {
+            None
+        } else {
+            Some(s)
+        }
+    };
+    let interfaces = dex
+        .interfaces_of(cd)
+        .into_iter()
+        .map(|t| dex.class_name(t))
+        .collect();
+    let source_file = if cd.source_file_idx == ddc_dex::NO_INDEX {
+        None
+    } else {
+        Some(dex.string(cd.source_file_idx).to_string())
+    };
+
+    let data = dex.class_data(cd);
+    let mk_field = |ef: &ddc_dex::EncodedField, is_static: bool| {
+        let f = dex.field(ef.field_idx);
+        PoolField {
+            name: dex.string(f.name_idx).to_string(),
+            desc: dex.type_name(f.type_idx).to_string(),
+            access: ef.access_flags,
+            is_static,
+        }
+    };
+    let static_fields: Vec<PoolField> =
+        data.static_fields.iter().map(|f| mk_field(f, true)).collect();
+    let instance_fields: Vec<PoolField> =
+        data.instance_fields.iter().map(|f| mk_field(f, false)).collect();
+    let mk_method = |em: &ddc_dex::EncodedMethod| {
+        let m = dex.method(em.method_idx);
+        let proto = dex.proto(m.proto_idx);
+        let params: Vec<&str> = dex
+            .proto_params(m.proto_idx)
+            .into_iter()
+            .map(|t| dex.type_name(t))
+            .collect();
+        let ret = dex.type_name(proto.return_type_idx);
+        let desc = format!("({}){}", params.join(""), ret);
+        let (code_off, debug_info_off) =
+            match dex.debug_info_off_at(em.code_off) {
+                Some(d) => (em.code_off, d),
+                None => (0, 0),
+            };
+        PoolMethod {
+            name: dex.string(m.name_idx).to_string(),
+            desc,
+            access: em.access_flags,
+            code_off,
+            debug_info_off,
+            dex_idx,
+        }
+    };
+    let direct_methods: Vec<PoolMethod> = data.direct_methods.iter().map(&mk_method).collect();
+    let virtual_methods: Vec<PoolMethod> = data.virtual_methods.iter().map(&mk_method).collect();
+
+    let static_values: Vec<StaticValue> = dex
+        .static_values(cd.static_values_off)
+        .into_iter()
+        .map(|v| resolve_static_value(&v, dex))
+        .collect();
+    let anns = if cd.annotations_off != 0 {
+        annotations::read_class_annotations(raw, cd.annotations_off)
+    } else {
+        Vec::new()
+    };
+    let raw = annotations::nesting_from(&anns, &|t: u32| dex.type_name(t).to_string());
+    let nesting = ResolvedNesting {
+        enclosing_class: raw.enclosing_class.map(|t| dex.class_name(t)),
+        enclosing_method: raw.enclosing_method.map(|m| {
+            let mid = dex.method(m);
+            (dex.class_name(mid.class_idx), dex.string(mid.name_idx).to_string())
+        }),
+        member_classes: raw
+            .member_classes
+            .into_iter()
+            .map(|t| dex.class_name(t))
+            .collect(),
+    };
+
+    PoolClass {
+        name,
+        access: cd.access_flags,
+        super_name,
+        interfaces,
+        source_file,
+        static_fields,
+        instance_fields,
+        direct_methods,
+        virtual_methods,
+        static_values,
+        nesting,
+        dex_idx,
+    }
+}
+
+/// JavaType for a field/method descriptor segment.
+pub fn desc_type(desc: &str) -> JavaType {
+    parse_field_descriptor(desc).unwrap_or(JavaType::Object("java/lang/Object".into()))
+}
+
+/// Nesting evidence for `internal`: dalvik annotations first, then the
+/// `$`-name heuristic against the pool.
+pub fn find_outer_name(pool: &DexPool, internal: &str) -> Option<String> {
+    if let Some(pc) = pool.get(internal) {
+        if let Some(enc) = &pc.nesting.enclosing_class {
+            return Some(enc.clone());
+        }
+    }
+    let mut rest = internal;
+    while let Some(d) = rest.rfind('$') {
+        let cand = &rest[..d];
+        if pool.get(cand).is_some() {
+            return Some(cand.to_string());
+        }
+        rest = cand;
+    }
+    None
+}
+
+/// True when the `$` tail names a plain member class (not anonymous/local/
+/// lambda), i.e. the class renders inside its outer's compilation unit.
+fn clean_member_tail(rest: &str) -> bool {
+    if rest.starts_with('-') {
+        return false;
+    }
+    let tail = rest.rsplit('$').next().unwrap_or(rest);
+    if tail.is_empty() || tail.starts_with(|c: char| c.is_ascii_digit()) {
+        return false;
+    }
+    true
+}
+
+/// Classes to emit as their own compilation units: top-level classes plus
+/// anonymous/local/lambda-shaped ones (clean members render inline).
+pub fn top_level_classes(pool: &DexPool) -> Vec<String> {
+    pool.class_names()
+        .filter(|name| match pool.outer_of(name) {
+            None => true,
+            Some(outer) => {
+                if pool.get(&outer).is_none() {
+                    return true;
+                }
+                let rest = &name[outer.len() + 1.min(name.len().saturating_sub(outer.len()))..];
+                !clean_member_tail(rest)
+            }
+        })
+        .map(|n| n.to_string())
+        .collect()
+}

@@ -1,0 +1,1410 @@
+//! Register-machine expression lifting: Dalvik instructions → jdc-core IR.
+//!
+//! The register file is modeled as per-register *views* of values:
+//! * `Live(v)` — the register equals local `v`, whose defining statement was
+//!   already emitted (SSA-ish: every materialization allocates a fresh var,
+//!   so a `Local` reference can never go stale);
+//! * `Pending(e)` — the register holds the expression `e`, whose store is
+//!   deferred so consumers can nest it (`return a + b`);
+//! * `PendingCall(e)` — the value of a just-executed invoke /
+//!   filled-new-array whose statement has not been emitted yet: consumed
+//!   exactly once (a materialization, a term, or a discarded-value
+//!   statement), never duplicated;
+//! * `WideHi` — the high half of a J/D pair.
+//!
+//! At block exit the terminator is built FIRST (terms may carry pending
+//! call expressions: `return foo();`), then unconsumed calls become
+//! statements and impure pendings materialize, so cross-block states only
+//! carry pure values, locals, and open `new`/`new-array` views.
+
+use ddc_dex::insn::{ArithOp, CmpKind, CmpOp, Insn, InsnKind, InvokeKind, Payload};
+use ddc_dex::{CodeItem, DexFile};
+use jdc_core::ir::build::{has_side_effects, BlockResult, SwitchTargets, Term};
+use jdc_core::ir::expr::{AssignOp, BinOp, ConcatPart, ConstVal, Expr, TypeRef, UnOp};
+use jdc_core::ir::stmt::Stmt;
+use jdc_core::types::{parse_method_descriptor, JavaType, MethodDescriptor};
+use jdc_core::var::{VarInfo, VarTable};
+
+use crate::DexPool;
+
+pub type BResult<T> = Result<T, String>;
+
+/// Cheap per-method feature flags accumulated by the lifter: which
+/// post-lift passes could possibly match anything. Most methods use none of
+/// these — gating their passes skips full-tree analysis walks.
+#[derive(Clone, Copy, Default, PartialEq)]
+pub struct MethodFlags(u8);
+
+impl MethodFlags {
+    const SB: u8 = 1;
+    const MONITOR: u8 = 2;
+    const CMP: u8 = 4;
+    pub fn none() -> MethodFlags {
+        MethodFlags(0)
+    }
+    pub fn with_sb(self) -> MethodFlags {
+        MethodFlags(self.0 | Self::SB)
+    }
+    pub fn with_monitor(self) -> MethodFlags {
+        MethodFlags(self.0 | Self::MONITOR)
+    }
+    pub fn with_cmp(self) -> MethodFlags {
+        MethodFlags(self.0 | Self::CMP)
+    }
+    pub fn has_sb(self) -> bool {
+        self.0 & Self::SB != 0
+    }
+    pub fn has_monitor(self) -> bool {
+        self.0 & Self::MONITOR != 0
+    }
+    pub fn has_cmp(self) -> bool {
+        self.0 & Self::CMP != 0
+    }
+    pub fn merge(self, o: MethodFlags) -> MethodFlags {
+        MethodFlags(self.0 | o.0)
+    }
+}
+
+/// Everything one method body needs from its DEX image.
+pub struct MethodEnv<'a> {
+    pub pool: &'a DexPool,
+    pub dex: &'a DexFile,
+    pub code: &'a CodeItem,
+    pub class_name: String,
+    pub method_name: String,
+    pub desc: MethodDescriptor,
+    pub is_static: bool,
+    /// Total code units — the CFG owns the insns stream, so the lifter reads
+    /// the extent from here instead of `code.insns` (hollowed after the
+    /// CFG build moved it).
+    pub code_units: u32,
+}
+
+impl<'a> MethodEnv<'a> {
+    pub fn type_name(&self, idx: u32) -> String {
+        self.dex.type_name(idx).to_string()
+    }
+    pub fn java_type(&self, idx: u32) -> JavaType {
+        crate::desc_type(self.dex.type_name(idx))
+    }
+    pub fn field_ref(&self, idx: u32) -> (String, String, JavaType) {
+        let f = self.dex.field(idx);
+        (
+            self.dex.class_name(f.class_idx),
+            self.dex.string(f.name_idx).to_string(),
+            self.java_type(f.type_idx),
+        )
+    }
+    pub fn method_ref(&self, idx: u32) -> (String, String, MethodDescriptor) {
+        let m = self.dex.method(idx);
+        let proto = self.dex.proto(m.proto_idx);
+        let params: Vec<String> = self
+            .dex
+            .proto_params(m.proto_idx)
+            .into_iter()
+            .map(|t| self.dex.type_name(t).to_string())
+            .collect();
+        let ret = self.dex.type_name(proto.return_type_idx);
+        let desc = format!("({}){}", params.join(""), ret);
+        let md = parse_method_descriptor(&desc).unwrap_or(MethodDescriptor {
+            args: vec![],
+            ret: JavaType::Void,
+        });
+        (
+            self.dex.class_name(m.class_idx),
+            self.dex.string(m.name_idx).to_string(),
+            md,
+        )
+    }
+}
+
+/// Per-register value view (see module docs).
+#[derive(Debug, Clone, PartialEq)]
+pub enum Reg {
+    Undef,
+    Live(u32),
+    Pending(Expr),
+    PendingCall(Expr),
+    WideHi,
+}
+
+/// Block-exit register state (machine-neutral view plus origin tracking).
+#[derive(Debug, Clone)]
+pub struct OutState {
+    pub regs: Vec<Reg>,
+    /// Per register: the pc of the instruction that produced its value
+    /// (orders merge materializations by original instruction order).
+    pub write_pc: Vec<u32>,
+}
+
+pub struct Lifter<'a> {
+    pub env: &'a MethodEnv<'a>,
+    pub vt: &'a mut VarTable,
+    /// Owning block id (stable-var registry key).
+    block_id: usize,
+    /// (block, register) → var id, shared across REBUILDS: a re-lift of
+    /// the same block with the same input reuses the same materialized
+    /// variables, so the output state is id-stable. Without this, every
+    /// rebuild allocated fresh ids, the out-state compared unequal, and
+    /// the worklist cascaded re-queuing until the visit cap (~60
+    /// rebuilds per block, 30M lifts on weibo).
+    stable: &'a mut std::collections::HashMap<(usize, u16), u32>,
+    regs: Vec<Reg>,
+    write_pc: Vec<u32>,
+    stmts: Vec<Stmt>,
+    pending_call: Option<Expr>,
+    code_units: u32,
+    /// Method-level feature flags, merged in place as features are seen
+    /// (build_block consumes the lifter, so the flags must escape via a
+    /// shared reference rather than a field read afterwards).
+    mflags: &'a mut MethodFlags,
+}
+
+impl<'a> Lifter<'a> {
+    pub fn new(
+        env: &'a MethodEnv<'a>,
+        vt: &'a mut VarTable,
+        in_regs: Vec<Reg>,
+        block_id: usize,
+        stable: &'a mut std::collections::HashMap<(usize, u16), u32>,
+        mflags: &'a mut MethodFlags,
+    ) -> Lifter<'a> {
+        let n = env.code.registers_size as usize;
+        let n = n.max(in_regs.len()).max(1);
+        let mut regs = in_regs;
+        regs.resize(n, Reg::Undef);
+        Lifter {
+            env,
+            vt,
+            regs,
+            write_pc: vec![0; n],
+            stmts: Vec::new(),
+            block_id,
+            stable,
+            pending_call: None,
+            code_units: env.code_units,
+            mflags,
+        }
+    }
+
+    // -- variable creation ---------------------------------------------------
+
+    fn fresh_var(&mut self, slot: u16, ty: TypeRef) -> u32 {
+        if let Some(&id) = self.stable.get(&(self.block_id, slot)) {
+            return id;
+        }
+        let id = self.vt.vars.len() as u32;
+        let name = format!("v{}", id);
+        self.stable.insert((self.block_id, slot), id);
+        self.vt.vars.push(VarInfo {
+            id,
+            slot,
+            name,
+            ty,
+            is_param: false,
+            range_start: 0,
+            range_end: u16::MAX,
+            synthetic_name: true,
+        });
+        while self.vt.by_slot.len() <= slot as usize {
+            self.vt.by_slot.push(Vec::new());
+        }
+        self.vt.by_slot[slot as usize].push((0, u16::MAX, id));
+        id
+    }
+
+    fn local_expr(&self, v: u32) -> Expr {
+        Expr::Local { var: v, ty: self.vt.var(v).ty.clone() }
+    }
+
+    // -- register access -----------------------------------------------------
+
+    /// Read for nesting into another expression (clones the value).
+    #[track_caller]
+    fn read_nest(&mut self, r: u16) -> Expr {
+        match self.regs.get(r as usize).cloned().unwrap_or(Reg::Undef) {
+            Reg::Undef | Reg::WideHi => {
+                // Reading a register never written on this path (or beyond
+                // the frame): a fresh (never-assigned) local keeps the
+                // output compilable.
+                let ty = TypeRef::J(JavaType::Int);
+                let v = self.fresh_var(r, ty);
+                if (r as usize) < self.regs.len() {
+                    self.regs[r as usize] = Reg::Live(v);
+                }
+                self.local_expr(v)
+            }
+            Reg::Live(v) => self.local_expr(v),
+            Reg::Pending(e) => e,
+            Reg::PendingCall(_) => {
+                let v = self.materialize(r);
+                self.local_expr(v)
+            }
+        }
+    }
+
+    /// Read for a context that evaluates exactly once (term payloads): the
+    /// value is consumed, not cloned — otherwise the block-exit
+    /// materialization would emit it a second time.
+    fn read_term(&mut self, r: u16) -> Expr {
+        match self.regs.get(r as usize).cloned().unwrap_or(Reg::Undef) {
+            Reg::PendingCall(e) | Reg::Pending(e) => {
+                if (r as usize) < self.regs.len() {
+                    self.regs[r as usize] = Reg::Undef;
+                }
+                self.pending_call = None;
+                e
+            }
+            _ => self.read_nest(r),
+        }
+    }
+
+    fn write(&mut self, r: u16, e: Expr, pc: u32, wide: bool) {
+        if r as usize >= self.regs.len() {
+            return;
+        }
+        self.write_pc[r as usize] = pc;
+        // Loop-carried Pending trees grow multiplicatively across fixpoint
+        // rounds (merge clones the whole tree per side per visit); past
+        // this size the register materializes, which caps every state at
+        // a bounded expression over stable locals.
+        if expr_size(&e) > 32 {
+            self.write_pc[r as usize] = pc;
+            let v = self.materialize_value(r, e);
+            if (r as usize) < self.regs.len() {
+                self.regs[r as usize] = Reg::Live(v);
+            }
+            if wide {
+                self.mark_wide_hi(r + 1, pc);
+            }
+            return;
+        }
+        self.regs[r as usize] = Reg::Pending(e);
+        if wide {
+            self.mark_wide_hi(r + 1, pc);
+        }
+    }
+
+    /// Materialize WITHOUT consuming the register slot's caller contract:
+    /// emit `v = e` and return the var id (used by the size cap).
+    fn materialize_value(&mut self, r: u16, e: Expr) -> u32 {
+        let e = value_of_cmp(&e);
+        let ty = e.type_ref();
+        let v = self.fresh_var(r, ty);
+        self.stmts.push(Stmt::LocalDef {
+            var: v,
+            init: Some(e),
+            is_final: false,
+            force_type: true,
+        });
+        v
+    }
+
+    /// Write a value whose evaluation already happened (invoke /
+    /// filled-new-array results): consumed exactly once.
+    fn write_call_result(&mut self, r: u16, e: Expr, pc: u32) {
+        if r as usize >= self.regs.len() {
+            return;
+        }
+        self.write_pc[r as usize] = pc;
+        self.regs[r as usize] = Reg::PendingCall(e);
+    }
+
+    fn mark_wide_hi(&mut self, r: u16, pc: u32) {
+        if (r as usize) < self.regs.len() {
+            self.regs[r as usize] = Reg::WideHi;
+            self.write_pc[r as usize] = pc;
+        }
+    }
+
+    /// Emit `v = expr` and mark the register `Live(v)`.
+    fn materialize(&mut self, r: u16) -> u32 {
+        let cur = self.regs.get(r as usize).cloned().unwrap_or(Reg::Undef);
+        let e = match cur {
+            Reg::Pending(e) | Reg::PendingCall(e) => e,
+            Reg::Live(v) => return v,
+            _ => Expr::Const(ConstVal::Int(0)),
+        };
+        // cmp sentinels stored as values become library compare calls.
+        let e = value_of_cmp(&e);
+        let ty = e.type_ref();
+        let v = self.fresh_var(r, ty);
+        self.stmts.push(Stmt::LocalDef {
+            var: v,
+            init: Some(e),
+            is_final: false,
+            force_type: true,
+        });
+        if (r as usize) < self.regs.len() {
+            self.regs[r as usize] = Reg::Live(v);
+        }
+        v
+    }
+
+    /// Discard an unconsumed call result (invoke without move-result).
+    fn drop_pending_call(&mut self) {
+        if let Some(e) = self.pending_call.take() {
+            let e = value_of_cmp(&e);
+            if has_side_effects(&e) {
+                self.stmts.push(Stmt::ExprStmt(e));
+            }
+        }
+    }
+
+    // -- helpers -------------------------------------------------------------
+
+    fn owner_expr(&self, obj: Expr, cls: &str) -> Option<Box<Expr>> {
+        if cls == self.env.class_name && matches!(obj, Expr::This) {
+            return None;
+        }
+        Some(Box::new(obj))
+    }
+
+    fn arith_op(op: ArithOp) -> BinOp {
+        match op {
+            ArithOp::Add => BinOp::Add,
+            ArithOp::Sub => BinOp::Sub,
+            ArithOp::Mul => BinOp::Mul,
+            ArithOp::Div => BinOp::Div,
+            ArithOp::Rem => BinOp::Rem,
+            ArithOp::And => BinOp::And,
+            ArithOp::Or => BinOp::Or,
+            ArithOp::Xor => BinOp::Xor,
+            ArithOp::Shl => BinOp::Shl,
+            ArithOp::Shr => BinOp::Shr,
+            ArithOp::Ushr => BinOp::Ushr,
+        }
+    }
+
+    fn cmp_op(op: CmpOp) -> BinOp {
+        match op {
+            CmpOp::Eq => BinOp::Eq,
+            CmpOp::Ne => BinOp::Ne,
+            CmpOp::Lt => BinOp::Lt,
+            CmpOp::Ge => BinOp::Ge,
+            CmpOp::Gt => BinOp::Gt,
+            CmpOp::Le => BinOp::Le,
+        }
+    }
+
+    fn cmp_sentinel(kind: CmpKind, l: Expr, r: Expr) -> Expr {
+        let name = match kind {
+            CmpKind::CmplF => "\0cmpl-float",
+            CmpKind::CmpgF => "\0cmpg-float",
+            CmpKind::CmplD => "\0cmpl-double",
+            CmpKind::CmpgD => "\0cmpg-double",
+            CmpKind::CmpJ => "\0cmp-long",
+        };
+        Expr::Invokedynamic {
+            name: name.into(),
+            desc: MethodDescriptor { args: vec![], ret: JavaType::Int },
+            args: vec![l, r],
+            bsm_text: String::new(),
+            bsm_static_args: vec![],
+        }
+    }
+
+    // -- the main loop ---------------------------------------------------------
+
+    /// Lift one block. `handler_types` gives catch types for ranges this
+    /// block handles (for move-exception typing).
+    pub fn build_block(
+        mut self,
+        ins: &[Insn],
+        handler_types: &[Option<String>],
+    ) -> BResult<(BlockResult, OutState)> {
+        let payloads = &self.env.code.payloads;
+        for ins in ins {
+            match &ins.kind {
+                InsnKind::Nop => {}
+                InsnKind::Unknown => {
+                    return Err(format!(
+                        "unsupported opcode {:#04x} ({}) at pc {}",
+                        ins.op,
+                        ddc_dex::insn::op_name(ins.op),
+                        ins.pc
+                    ));
+                }
+                InsnKind::Move { dst, src } => {
+                    // Impure / call values are consumed once: materialize the
+                    // source so both registers share one evaluation.
+                    let src_state = self.regs.get(*src as usize).cloned().unwrap_or(Reg::Undef);
+                    if matches!(src_state, Reg::PendingCall(_))
+                        || matches!(&src_state, Reg::Pending(e) if has_side_effects(e))
+                    {
+                        self.materialize(*src);
+                    }
+                    let st = self.regs.get(*src as usize).cloned().unwrap_or(Reg::Undef);
+                    let wide = reg_is_wide(&st, self.vt);
+                    if (*dst as usize) < self.regs.len() {
+                        self.regs[*dst as usize] = st;
+                        self.write_pc[*dst as usize] =
+                            self.write_pc.get(*src as usize).copied().unwrap_or(0);
+                    }
+                    if wide {
+                        self.mark_wide_hi(*dst + 1, ins.pc);
+                    }
+                }
+                InsnKind::MoveResult { dst } => {
+                    if let Some(e) = self.pending_call.take() {
+                        let wide = matches!(
+                            e.type_ref().erased(),
+                            JavaType::Long | JavaType::Double
+                        );
+                        self.write_call_result(*dst, e, ins.pc);
+                        if wide {
+                            self.mark_wide_hi(*dst + 1, ins.pc);
+                        }
+                    } else {
+                        // move-result without a pending call: fresh var.
+                        let v = self.fresh_var(*dst, TypeRef::J(JavaType::Int));
+                        if (*dst as usize) < self.regs.len() {
+                            self.regs[*dst as usize] = Reg::Live(v);
+                        }
+                    }
+                }
+                InsnKind::MoveException { dst } => {
+                    let ty = handler_types
+                        .iter()
+                        .flatten()
+                        .next()
+                        .map(|t| TypeRef::J(JavaType::Object(t.clone())))
+                        .unwrap_or_else(|| {
+                            TypeRef::J(JavaType::Object("java/lang/Throwable".into()))
+                        });
+                    let v = self.fresh_var(*dst, ty);
+                    self.stmts.push(Stmt::LocalDef {
+                        var: v,
+                        init: None,
+                        is_final: false,
+                        force_type: true,
+                    });
+                    if (*dst as usize) < self.regs.len() {
+                        self.regs[*dst as usize] = Reg::Live(v);
+                    }
+                }
+                InsnKind::ReturnVoid | InsnKind::Return { .. } | InsnKind::Throw { .. }
+                | InsnKind::Goto { .. }
+                | InsnKind::PackedSwitch { .. }
+                | InsnKind::SparseSwitch { .. }
+                | InsnKind::If { .. } => {}
+                InsnKind::Const { dst, val, wide } => {
+                    let e = if *wide {
+                        Expr::Const(ConstVal::Long(*val))
+                    } else {
+                        Expr::Const(ConstVal::Int(*val as i32))
+                    };
+                    self.write(*dst, e, ins.pc, *wide);
+                }
+                InsnKind::ConstString { dst, str_idx } => {
+                    let s = self.env.dex.string(*str_idx).to_string();
+                    self.write(*dst, Expr::Const(ConstVal::Str(s)), ins.pc, false);
+                }
+                InsnKind::ConstClass { dst, type_idx } => {
+                    let ty = TypeRef::J(self.env.java_type(*type_idx));
+                    self.write(*dst, Expr::Const(ConstVal::ClassLit(ty)), ins.pc, false);
+                }
+                InsnKind::MonitorEnter { reg } => {
+                    let e = self.read_nest(*reg);
+                    *self.mflags = self.mflags.with_monitor();
+                    self.stmts.push(Stmt::MonitorEnter(e));
+                }
+                InsnKind::MonitorExit { reg } => {
+                    let e = self.read_nest(*reg);
+                    *self.mflags = self.mflags.with_monitor();
+                    self.stmts.push(Stmt::MonitorExit(e));
+                }
+                InsnKind::CheckCast { reg, type_idx } => {
+                    let e = self.read_nest(*reg);
+                    let ty = TypeRef::J(self.env.java_type(*type_idx));
+                    self.write(*reg, Expr::Cast { ty, e: Box::new(e) }, ins.pc, false);
+                }
+                InsnKind::InstanceOf { dst, src, type_idx } => {
+                    let e = self.read_nest(*src);
+                    let ty = TypeRef::J(self.env.java_type(*type_idx));
+                    self.write(
+                        *dst,
+                        Expr::InstanceOf { e: Box::new(e), ty },
+                        ins.pc,
+                        false,
+                    );
+                }
+                InsnKind::ArrayLength { dst, src } => {
+                    let e = self.read_nest(*src);
+                    let length = Expr::Field {
+                        owner: Some(Box::new(e)),
+                        cls: String::new(),
+                        name: "length".into(),
+                        ty: TypeRef::J(JavaType::Int),
+                        is_static: false,
+                    };
+                    self.write(*dst, length, ins.pc, false);
+                }
+                InsnKind::NewInstance { dst, type_idx } => {
+                    let cls = self.env.dex.class_name(*type_idx);
+                    let ty = TypeRef::J(JavaType::Object(cls.clone()));
+                    self.write(
+                        *dst,
+                        Expr::New { cls, ty, args: vec![], raw: true },
+                        ins.pc,
+                        false,
+                    );
+                }
+                InsnKind::NewArray { dst, size, type_idx } => {
+                    let elem_desc = self.env.type_name(*type_idx);
+                    // The type id names the ARRAY type: strip one `[`.
+                    let elem = crate::desc_type(elem_desc.trim_start_matches('['));
+                    let dims = self.read_nest(*size);
+                    self.write(
+                        *dst,
+                        Expr::NewArray {
+                            elem: TypeRef::J(elem),
+                            dims: vec![dims],
+                            trailing_dims: 0,
+                            init: None,
+                        },
+                        ins.pc,
+                        false,
+                    );
+                }
+                InsnKind::FilledNewArray { regs, type_idx } => {
+                    self.drop_pending_call();
+                    let elem_desc = self.env.type_name(*type_idx);
+                    let elem = crate::desc_type(elem_desc.trim_start_matches('['));
+                    let args: Vec<Expr> = regs.iter().map(|&r| self.read_nest(r)).collect();
+                    self.pending_call = Some(Expr::NewArray {
+                        elem: TypeRef::J(elem),
+                        dims: vec![],
+                        trailing_dims: 0,
+                        init: Some(args),
+                    });
+                }
+                InsnKind::FillArrayData { reg, payload_pc } => {
+                    if let Some(Payload::ArrayData { elem_width, size, data }) =
+                        payloads.get(payload_pc)
+                    {
+                        let elems = payload_consts(*elem_width, *size, data);
+                        let cur = self.regs.get(*reg as usize).cloned().unwrap_or(Reg::Undef);
+                        if let Reg::Pending(Expr::NewArray { elem, init, .. }) = cur {
+                            if init.is_none() {
+                                self.write(
+                                    *reg,
+                                    Expr::NewArray {
+                                        elem,
+                                        dims: vec![Expr::Const(ConstVal::Int(*size as i32))],
+                                        trailing_dims: 0,
+                                        init: Some(elems),
+                                    },
+                                    ins.pc,
+                                    false,
+                                );
+                                continue;
+                            }
+                        }
+                        // Not the new-array+fill pattern: element stores.
+                        let arr = self.read_nest(*reg);
+                        for (i, e) in elems.into_iter().enumerate() {
+                            let idx = Expr::Const(ConstVal::Int(i as i32));
+                            let target = Expr::ArrayIndex {
+                                array: Box::new(arr.clone()),
+                                index: Box::new(idx),
+                            };
+                            self.stmts.push(Stmt::ExprStmt(Expr::Assign {
+                                target: Box::new(target),
+                                op: AssignOp::Plain,
+                                value: Box::new(e),
+                            }));
+                        }
+                    }
+                }
+                InsnKind::Cmp { dst, a, b, kind } => {
+                    let l = self.read_nest(*a);
+                    let r = self.read_nest(*b);
+                    *self.mflags = self.mflags.with_cmp();
+                    self.write(*dst, Self::cmp_sentinel(*kind, l, r), ins.pc, false);
+                }
+                InsnKind::AGet { dst, array, index, .. } => {
+                    let a = self.read_nest(*array);
+                    let i = self.read_nest(*index);
+                    self.write(
+                        *dst,
+                        Expr::ArrayIndex { array: Box::new(a), index: Box::new(i) },
+                        ins.pc,
+                        false,
+                    );
+                }
+                InsnKind::APut { value, array, index, .. } => {
+                    self.drop_pending_call();
+                    let v = self.read_nest(*value);
+                    let a = self.read_nest(*array);
+                    let i = self.read_nest(*index);
+                    let target = Expr::ArrayIndex {
+                        array: Box::new(a),
+                        index: Box::new(i),
+                    };
+                    self.stmts.push(Stmt::ExprStmt(Expr::Assign {
+                        target: Box::new(target),
+                        op: AssignOp::Plain,
+                        value: Box::new(v),
+                    }));
+                }
+                InsnKind::IGet { dst, obj, field_idx } => {
+                    self.drop_pending_call();
+                    let (cls, name, ty) = self.env.field_ref(*field_idx);
+                    let owner = self.read_nest(*obj);
+                    let owner_opt = self.owner_expr(owner, &cls);
+                    self.write(
+                        *dst,
+                        Expr::Field {
+                            owner: owner_opt,
+                            cls,
+                            name,
+                            ty: TypeRef::J(ty),
+                            is_static: false,
+                        },
+                        ins.pc,
+                        false,
+                    );
+                }
+                InsnKind::IPut { value, obj, field_idx } => {
+                    self.drop_pending_call();
+                    let (cls, name, ty) = self.env.field_ref(*field_idx);
+                    let v = self.read_nest(*value);
+                    let owner = self.read_nest(*obj);
+                    let owner_opt = self.owner_expr(owner, &cls);
+                    let target = Expr::Field {
+                        owner: owner_opt,
+                        cls,
+                        name,
+                        ty: TypeRef::J(ty),
+                        is_static: false,
+                    };
+                    self.stmts.push(Stmt::ExprStmt(Expr::Assign {
+                        target: Box::new(target),
+                        op: AssignOp::Plain,
+                        value: Box::new(v),
+                    }));
+                }
+                InsnKind::SGet { dst, field_idx } => {
+                    self.drop_pending_call();
+                    let (cls, name, ty) = self.env.field_ref(*field_idx);
+                    self.write(
+                        *dst,
+                        Expr::Field {
+                            owner: None,
+                            cls,
+                            name,
+                            ty: TypeRef::J(ty),
+                            is_static: true,
+                        },
+                        ins.pc,
+                        false,
+                    );
+                }
+                InsnKind::SPut { value, field_idx } => {
+                    self.drop_pending_call();
+                    let (cls, name, ty) = self.env.field_ref(*field_idx);
+                    let v = self.read_nest(*value);
+                    let target = Expr::Field {
+                        owner: None,
+                        cls,
+                        name,
+                        ty: TypeRef::J(ty),
+                        is_static: true,
+                    };
+                    self.stmts.push(Stmt::ExprStmt(Expr::Assign {
+                        target: Box::new(target),
+                        op: AssignOp::Plain,
+                        value: Box::new(v),
+                    }));
+                }
+                InsnKind::Invoke { kind, regs, method_idx } => {
+                    self.drop_pending_call();
+                    self.do_invoke(*kind, regs, *method_idx, ins.pc)?;
+                }
+                InsnKind::InvokeCustom { call_site_idx, regs } => {
+                    self.drop_pending_call();
+                    let e = self.build_invoke_custom(*call_site_idx, regs, ins.pc);
+                    self.pending_call = Some(e);
+                }
+                InsnKind::Un { dst, src, op, from: _, to } => {
+                    let e = self.read_nest(*src);
+                    let ne = match op {
+                        ddc_dex::insn::UnArith::Neg => {
+                            Expr::Un { op: UnOp::Neg, e: Box::new(e) }
+                        }
+                        ddc_dex::insn::UnArith::Not => {
+                            Expr::Un { op: UnOp::BitNot, e: Box::new(e) }
+                        }
+                        ddc_dex::insn::UnArith::Conv => Expr::Cast {
+                            ty: TypeRef::J(primitive_type(*to)),
+                            e: Box::new(e),
+                        },
+                    };
+                    let wide = matches!(*to, 'J' | 'D');
+                    self.write(*dst, ne, ins.pc, wide);
+                }
+                InsnKind::Bin { op, dst, a, b, ty } => {
+                    let l = self.read_nest(*a);
+                    let r = self.read_nest(*b);
+                    let jt = primitive_type(*ty);
+                    let e = Expr::Bin {
+                        op: Self::arith_op(*op),
+                        l: Box::new(l),
+                        r: Box::new(r),
+                        ty: Some(TypeRef::J(jt)),
+                    };
+                    let wide = matches!(*ty, 'J' | 'D');
+                    self.write(*dst, e, ins.pc, wide);
+                }
+                InsnKind::BinLit { op, dst, a, lit, rsub } => {
+                    let av = self.read_nest(*a);
+                    let e = if *rsub {
+                        Expr::Bin {
+                            op: BinOp::Sub,
+                            l: Box::new(Expr::Const(ConstVal::Int(*lit))),
+                            r: Box::new(av),
+                            ty: Some(TypeRef::J(JavaType::Int)),
+                        }
+                    } else {
+                        Expr::Bin {
+                            op: Self::arith_op(*op),
+                            l: Box::new(av),
+                            r: Box::new(Expr::Const(ConstVal::Int(*lit))),
+                            ty: Some(TypeRef::J(JavaType::Int)),
+                        }
+                    };
+                    self.write(*dst, e, ins.pc, false);
+                }
+                InsnKind::ConstMethodHandle { dst, handle_idx } => {
+                    self.drop_pending_call();
+                    let e = self.method_handle_expr(*handle_idx);
+                    self.write(*dst, e, ins.pc, false);
+                }
+                InsnKind::ConstMethodType { dst, proto_idx } => {
+                    self.drop_pending_call();
+                    let proto = self.env.dex.proto(*proto_idx);
+                    let desc = format!(
+                        "({}){}",
+                        self.env
+                            .dex
+                            .proto_params(*proto_idx)
+                            .into_iter()
+                            .map(|t| self.env.dex.type_name(t))
+                            .collect::<Vec<_>>()
+                            .join(""),
+                        self.env.dex.type_name(proto.return_type_idx)
+                    );
+                    self.write(*dst, Expr::Raw(desc), ins.pc, false);
+                }
+            }
+        }
+
+        // Terminator first: terms may consume PendingCall values directly.
+        let term = self.block_term(ins);
+
+        // Exit cleanup: unconsumed call → statement; impure pendings → vars.
+        // Open `new`/`new-array` views stay pending (their consumer may live
+        // in a later block).
+        self.drop_pending_call();
+        self.materialize_impure_at_exit();
+
+        let out = OutState { regs: self.regs.clone(), write_pc: self.write_pc.clone() };
+        Ok((BlockResult { stmts: self.stmts, out_stack: Vec::new(), term }, out))
+    }
+
+    fn do_invoke(
+        &mut self,
+        kind: InvokeKind,
+        regs: &[u16],
+        method_idx: u32,
+        pc: u32,
+    ) -> BResult<()> {
+        let (cls, name, md) = self.env.method_ref(method_idx);
+        if cls == "java/lang/StringBuilder" || cls == "java/lang/StringBuffer" {
+            *self.mflags = self.mflags.with_sb();
+        }
+        let is_static = matches!(kind, InvokeKind::Static);
+        let receiver_reg = if is_static { None } else { regs.first().copied() };
+        let arg_regs: Vec<u16> = if is_static {
+            regs.to_vec()
+        } else {
+            regs.iter().skip(1).copied().collect()
+        };
+        let mut args: Vec<Expr> = Vec::with_capacity(md.args.len());
+        for (i, _) in md.args.iter().enumerate() {
+            let r = arg_regs.get(i).copied().unwrap_or(0);
+            args.push(self.read_nest(r));
+        }
+        let recv_expr = match receiver_reg {
+            Some(r) => Some(self.read_nest(r)),
+            None => None,
+        };
+
+        // Constructor call: fold `new C` receivers; this/super otherwise.
+        if name == "<init>" && matches!(kind, InvokeKind::Direct) {
+            let recv_reg = receiver_reg.unwrap_or(0);
+            let recv_state = self.regs.get(recv_reg as usize).cloned().unwrap_or(Reg::Undef);
+            if let Reg::Pending(Expr::New { raw: true, cls: nc, .. }) = &recv_state {
+                if nc == &cls {
+                    let ty = TypeRef::J(JavaType::Object(cls.clone()));
+                    self.write(
+                        recv_reg,
+                        Expr::New { cls: cls.clone(), ty, args, raw: false },
+                        pc,
+                        false,
+                    );
+                    return Ok(());
+                }
+            }
+            let owner_expr_v = recv_expr.unwrap_or(Expr::This);
+            let is_super = cls != self.env.class_name;
+            let owner = if matches!(owner_expr_v, Expr::This) && is_super {
+                None
+            } else {
+                Some(Box::new(owner_expr_v))
+            };
+            let call = Expr::Method {
+                owner,
+                cls,
+                name: "<init>".into(),
+                desc: md,
+                args,
+                is_static: false,
+                is_interface: false,
+                is_special: true,
+                is_super,
+                is_dynamic: false,
+                type_args: vec![],
+            };
+            self.stmts.push(Stmt::ExprStmt(call));
+            return Ok(());
+        }
+
+        let is_interface = matches!(kind, InvokeKind::Interface);
+        let is_super = match kind {
+            InvokeKind::Super => true,
+            InvokeKind::Direct if !is_static => cls != self.env.class_name,
+            _ => false,
+        };
+        let owner: Option<Box<Expr>> = match recv_expr {
+            None => None,
+            Some(o) => {
+                if is_super && matches!(o, Expr::This) {
+                    None
+                } else {
+                    self.owner_expr(o, &cls)
+                }
+            }
+        };
+        let is_dynamic = matches!(kind, InvokeKind::Polymorphic);
+        let call = Expr::Method {
+            owner,
+            cls,
+            name,
+            desc: md,
+            args,
+            is_static,
+            is_interface,
+            is_special: matches!(kind, InvokeKind::Direct),
+            is_super,
+            is_dynamic,
+            type_args: vec![],
+        };
+        self.pending_call = Some(call);
+        Ok(())
+    }
+
+    /// Resolve a method-handle constant into a readable expression
+    /// (`Cls::name` for method kinds).
+    fn method_handle_expr(&mut self, handle_idx: u32) -> Expr {
+        let Some(h) = self.env.dex.method_handle(handle_idx) else {
+            return Expr::Raw(format!("methodHandle@{}", handle_idx));
+        };
+        if h.is_field {
+            let f = self.env.dex.field(h.target_id);
+            let cls = self.env.dex.class_name(f.class_idx);
+            let name = self.env.dex.string(f.name_idx).to_string();
+            return Expr::Raw(format!("{}::{}", cls.replace('/', "."), name));
+        }
+        let m = self.env.dex.method(h.target_id);
+        let cls = self.env.dex.class_name(m.class_idx);
+        let name = self.env.dex.string(m.name_idx).to_string();
+        Expr::Raw(format!("{}::{}", cls.replace('/', "."), name))
+    }
+
+    /// Build the expression for an invoke-custom site.
+    fn build_invoke_custom(&mut self, cs_idx: u32, regs: &[u16], pc: u32) -> Expr {
+        let Some(cs) = self.env.dex.call_site(cs_idx).cloned() else {
+            return Expr::Invokedynamic {
+                name: format!("call-site#{}", cs_idx),
+                desc: jdc_core::types::MethodDescriptor {
+                    args: vec![],
+                    ret: JavaType::Object("java/lang/Object".into()),
+                },
+                args: vec![],
+                bsm_text: "unresolved".into(),
+                bsm_static_args: vec![],
+            };
+        };
+        let site_name = self.env.dex.string(cs.name_idx).to_string();
+        let params: Vec<JavaType> = self
+            .env
+            .dex
+            .proto_params(cs.proto_idx)
+            .into_iter()
+            .map(|t| self.env.java_type(t))
+            .collect();
+        let ret = self.env.java_type(self.env.dex.proto(cs.proto_idx).return_type_idx);
+
+        let (bs_cls, bs_name) = match self.env.dex.method_handle(cs.bootstrap_handle) {
+            Some(h) if !h.is_field => {
+                let m = self.env.dex.method(h.target_id);
+                (
+                    self.env.dex.class_name(m.class_idx),
+                    self.env.dex.string(m.name_idx).to_string(),
+                )
+            }
+            _ => (String::new(), String::new()),
+        };
+
+        // Dynamic arguments (the SAM parameters for lambdas).
+        let mut args: Vec<Expr> = Vec::with_capacity(params.len().min(regs.len()));
+        for (i, _) in params.iter().enumerate() {
+            if let Some(&r) = regs.get(i) {
+                args.push(self.read_nest(r));
+            }
+        }
+
+        // StringConcatFactory: fold the recipe into `+`.
+        if bs_name == "makeConcatWithConstants" {
+            let recipe = cs
+                .linker_args
+                .iter()
+                .find_map(|v| match v {
+                    ddc_dex::annotations::EncodedValue::String(s) => {
+                        Some(self.env.dex.string(*s).to_string())
+                    }
+                    _ => None,
+                })
+                .unwrap_or_default();
+            return concat_from_recipe(&recipe, args);
+        }
+
+        // LambdaMetafactory: linker args are [samType (erased),
+        // implMethod (handle), instantiatedMethodType]. The instantiated
+        // type carries the source-level SAM parameters.
+        let mut impl_m = None;
+        let mut instantiated_proto: Option<u32> = None;
+        if bs_name == "metafactory" || bs_name == "altMetafactory" {
+            let mut seen_handle = false;
+            for lv in &cs.linker_args {
+                match lv {
+                    ddc_dex::annotations::EncodedValue::MethodHandle(hi) => {
+                        if !seen_handle {
+                            seen_handle = true;
+                            if let Some(h) = self.env.dex.method_handle(*hi) {
+                                if !h.is_field {
+                                    let m = self.env.dex.method(h.target_id);
+                                    impl_m = Some((
+                                        self.env.dex.class_name(m.class_idx)
+                                            .replace('/', "."),
+                                        self.env.dex.string(m.name_idx).to_string(),
+                                    ));
+                                }
+                            }
+                        }
+                    }
+                    ddc_dex::annotations::EncodedValue::MethodType(p) => {
+                        if seen_handle {
+                            instantiated_proto = Some(*p);
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+        let _ = pc;
+
+        // Remaining registers are the captured values.
+        let mut captures = Vec::new();
+        for &r in regs.iter().skip(params.len().min(regs.len())) {
+            captures.push(self.read_nest(r));
+        }
+
+        if let Some((impl_cls, impl_name)) = impl_m {
+            if captures.is_empty() {
+                // Non-capturing: render real Java syntax. A synthetic
+                // `lambda$` impl is a lambda; anything else is a method
+                // reference (`Cls::name`).
+                if impl_name.starts_with("lambda$") {
+                    // Source-level parameter count comes from the
+                    // instantiated SAM type, not the site proto (which is
+                    // the functional-interface factory view: `()Function`).
+                    let n_params = match instantiated_proto {
+                        Some(p) => self.env.dex.proto_params(p).len(),
+                        None => params.len(),
+                    };
+                    let pnames: Vec<String> = (0..n_params)
+                        .map(|i| format!("a{}", i))
+                        .collect();
+                    return Expr::Raw(format!(
+                        "({}) -> {}.{}({})",
+                        pnames.join(", "),
+                        impl_cls,
+                        impl_name,
+                        pnames.join(", ")
+                    ));
+                }
+                return Expr::Raw(format!("{}::{}", impl_cls, impl_name));
+            }
+            // Capturing: the captures are real expressions; emit the
+            // desugared call shape (impl applies SAM params then captures).
+            let mut call_args = args;
+            call_args.extend(captures);
+            return Expr::Invokedynamic {
+                name: format!("{} -> {}.{}", site_name, impl_cls, impl_name),
+                desc: jdc_core::types::MethodDescriptor { args: params, ret },
+                args: call_args,
+                bsm_text: format!("{}::{}", bs_cls, bs_name),
+                bsm_static_args: vec![],
+            };
+        }
+
+        Expr::Invokedynamic {
+            name: site_name,
+            desc: jdc_core::types::MethodDescriptor { args: params, ret },
+            args: captures,
+            bsm_text: format!("{}::{}", bs_cls, bs_name),
+            bsm_static_args: vec![],
+        }
+    }
+
+    fn materialize_impure_at_exit(&mut self) {
+        let n = self.regs.len();
+        for r in 0..n {
+            let st = self.regs[r].clone();
+            let impure = match &st {
+                Reg::PendingCall(_) => true,
+                Reg::Pending(e) => {
+                    has_side_effects(e)
+                        && !matches!(e, Expr::New { raw: true, .. })
+                        && !matches!(e, Expr::NewArray { init: None, .. })
+                }
+                _ => false,
+            };
+            if impure {
+                self.materialize(r as u16);
+            }
+        }
+    }
+
+    /// Terminator for the block, from its last instruction.
+    fn block_term(&mut self, ins: &[Insn]) -> Term {
+        let Some(last) = ins.last() else {
+            return Term::Goto;
+        };
+        match &last.kind {
+            InsnKind::Goto { .. } => Term::Goto,
+            InsnKind::ReturnVoid => Term::Return(None),
+            InsnKind::Return { src } => Term::Return(Some(self.read_term(*src))),
+            InsnKind::Throw { reg } => Term::Throw(self.read_term(*reg)),
+            InsnKind::If { op, a, b, z, .. } => {
+                let cond = if *z {
+                    let v = self.read_nest(*a);
+                    let (l, r, realop) =
+                        jdc_core::ir::build::unfold_cmp(v, Self::cmp_op(*op));
+                    Expr::Bin {
+                        op: realop,
+                        l: Box::new(l),
+                        r: Box::new(r),
+                        ty: Some(TypeRef::J(JavaType::Boolean)),
+                    }
+                } else {
+                    let l = self.read_nest(*a);
+                    let r = self.read_nest(*b);
+                    Expr::Bin {
+                        op: Self::cmp_op(*op),
+                        l: Box::new(l),
+                        r: Box::new(r),
+                        ty: Some(TypeRef::J(JavaType::Boolean)),
+                    }
+                };
+                Term::Cond { cond }
+            }
+            InsnKind::PackedSwitch { reg, payload_pc }
+            | InsnKind::SparseSwitch { reg, payload_pc } => {
+                let selector = self.read_term(*reg);
+                let default = Some(last.pc + last.size);
+                let targets = match self.env.code.payloads.get(payload_pc) {
+                    Some(Payload::Packed { first_key, targets }) => SwitchTargets::Table {
+                        low: *first_key,
+                        targets: targets
+                            .iter()
+                            .map(|t| (last.pc as i64 + *t as i64) as u32)
+                            .collect(),
+                    },
+                    Some(Payload::Sparse { pairs }) => SwitchTargets::Lookup {
+                        pairs: pairs
+                            .iter()
+                            .map(|(k, t)| (*k, (last.pc as i64 + *t as i64) as u32))
+                            .collect(),
+                    },
+                    _ => SwitchTargets::Lookup { pairs: vec![] },
+                };
+                Term::Switch { selector, targets, default }
+            }
+            // Fell off the analysis end (payload region after): goto.
+            _ => {
+                let next = last.pc + last.size;
+                if next < self.code_units {
+                    Term::Fallthrough
+                } else {
+                    Term::Goto
+                }
+            }
+        }
+    }
+}
+
+/// StringConcatFactory recipe → `+` parts: `\u{1}` slots consume the next
+/// argument, `\u{2}` <len> <chars> emits literal text (rare), other bytes
+/// are literal.
+fn concat_from_recipe(recipe: &str, args: Vec<Expr>) -> Expr {
+    use jdc_core::ir::expr::ConcatPart;
+    let mut parts: Vec<ConcatPart> = Vec::new();
+    let mut arg_i = 0usize;
+    let mut const_buf = String::new();
+    for c in recipe.chars() {
+        match c {
+            '\u{1}' => {
+                if !const_buf.is_empty() {
+                    parts.push(ConcatPart::Const(std::mem::take(&mut const_buf)));
+                }
+                if arg_i < args.len() {
+                    parts.push(ConcatPart::Str(args[arg_i].clone()));
+                    arg_i += 1;
+                }
+            }
+            '\u{2}' => {
+                // Length-prefixed literal: skip the length char and copy the
+                // following chars until the next marker.
+            }
+            c => const_buf.push(c),
+        }
+    }
+    if !const_buf.is_empty() {
+        parts.push(ConcatPart::Const(const_buf));
+    }
+    Expr::StringConcat(parts)
+}
+
+/// Node count of an expression tree (caps loop-carried growth: a Pending
+/// tree that grows across fixpoint rounds would otherwise reach GBs — each
+/// merge clones the whole tree per side per visit).
+fn expr_size(e: &Expr) -> usize {
+    let mut n = 0usize;
+    count_nodes(e, &mut n);
+    n
+}
+
+fn count_nodes(e: &Expr, n: &mut usize) {
+    *n += 1;
+    if *n > 512 {
+        return; // cap the walk itself
+    }
+    match e {
+        Expr::Un { e, .. } | Expr::Cast { e, .. } | Expr::InstanceOf { e, .. } => count_nodes(e, n),
+        Expr::Bin { l, r, .. } => {
+            count_nodes(l, n);
+            count_nodes(r, n);
+        }
+        Expr::Cond { c, t, f } => {
+            count_nodes(c, n);
+            count_nodes(t, n);
+            count_nodes(f, n);
+        }
+        Expr::Assign { target, value, .. } => {
+            count_nodes(target, n);
+            count_nodes(value, n);
+        }
+        Expr::PreIncDec { e, .. } | Expr::PostIncDec { e, .. } => count_nodes(e, n),
+        Expr::Field { owner: Some(o), .. } => count_nodes(o, n),
+        Expr::Method { owner: Some(o), args, .. } => {
+            count_nodes(o, n);
+            for a in args {
+                count_nodes(a, n);
+            }
+        }
+        Expr::ArrayIndex { array, index } => {
+            count_nodes(array, n);
+            count_nodes(index, n);
+        }
+        Expr::New { args, .. } => {
+            for a in args {
+                count_nodes(a, n);
+            }
+        }
+        Expr::NewArray { dims, init, .. } => {
+            for d in dims {
+                count_nodes(d, n);
+            }
+            if let Some(v) = init {
+                for x in v {
+                    count_nodes(x, n);
+                }
+            }
+        }
+        Expr::NewMultiArray { dims, .. } => {
+            for d in dims {
+                count_nodes(d, n);
+            }
+        }
+        Expr::StringConcat(parts) => {
+            for p in parts {
+                if let ConcatPart::Str(x) = p {
+                    count_nodes(x, n);
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
+fn reg_is_wide(st: &Reg, vt: &VarTable) -> bool {
+    match st {
+        Reg::Pending(e) | Reg::PendingCall(e) => e.type_ref().erased().is_wide(),
+        Reg::Live(v) => vt.var(*v).ty.erased().is_wide(),
+        Reg::WideHi => true,
+        Reg::Undef => false,
+    }
+}
+
+/// Turn a stored cmp sentinel into a `Long.compare`-style call.
+fn value_of_cmp(e: &Expr) -> Expr {
+    if let Expr::Invokedynamic { name, args, .. } = e {
+        if name.starts_with('\0') && args.len() == 2 {
+            let (cls, ty) = match name.as_str() {
+                "\0cmp-long" => ("java/lang/Long", JavaType::Long),
+                "\0cmpl-float" | "\0cmpg-float" => ("java/lang/Float", JavaType::Float),
+                _ => ("java/lang/Double", JavaType::Double),
+            };
+            let desc = MethodDescriptor { args: vec![ty.clone(), ty], ret: JavaType::Int };
+            return Expr::Method {
+                owner: None,
+                cls: cls.into(),
+                name: "compare".into(),
+                desc,
+                args: args.clone(),
+                is_static: true,
+                is_interface: false,
+                is_special: false,
+                is_super: false,
+                is_dynamic: false,
+                type_args: vec![],
+            };
+        }
+    }
+    e.clone()
+}
+
+pub fn primitive_type(c: char) -> JavaType {
+    match c {
+        'Z' => JavaType::Boolean,
+        'B' => JavaType::Byte,
+        'C' => JavaType::Char,
+        'S' => JavaType::Short,
+        'F' => JavaType::Float,
+        'J' => JavaType::Long,
+        'D' => JavaType::Double,
+        _ => JavaType::Int,
+    }
+}
+
+/// Constant elements from a fill-array-data payload, typed by width (the
+/// consuming new-array's element type refines them later).
+fn payload_consts(elem_width: u16, size: u32, data: &[u8]) -> Vec<Expr> {
+    let n = (size as usize).min(data.len() / elem_width.max(1) as usize);
+    let mut out = Vec::with_capacity(n);
+    for i in 0..n {
+        let off = i * elem_width as usize;
+        let e = match elem_width {
+            1 => Expr::Const(ConstVal::Int(data[off] as i8 as i32)),
+            2 => {
+                let v = i16::from_le_bytes([data[off], data[off + 1]]);
+                Expr::Const(ConstVal::Int(v as i32))
+            }
+            4 => {
+                let mut b = [0u8; 4];
+                b.copy_from_slice(&data[off..off + 4]);
+                Expr::Const(ConstVal::Int(i32::from_le_bytes(b)))
+            }
+            8 => {
+                let mut b = [0u8; 8];
+                b.copy_from_slice(&data[off..off + 8]);
+                Expr::Const(ConstVal::Long(i64::from_le_bytes(b)))
+            }
+            _ => Expr::Const(ConstVal::Int(0)),
+        };
+        out.push(e);
+    }
+    out
+}
+
+/// Entry register state from parameters. Returns the register state.
+pub fn entry_regs(vt: &mut VarTable, env: &MethodEnv, param_names: &[Option<String>]) -> Vec<Reg> {
+    let code = env.code;
+    let n = code.registers_size as usize;
+    let mut regs = vec![Reg::Undef; n.max(1)];
+    let ins = code.ins_size.min(code.registers_size) as usize;
+    let mut reg = n.saturating_sub(ins);
+    let mut pidx = 0;
+    if !env.is_static && reg < n {
+        // `this` occupies the first incoming register.
+        let id = vt.vars.len() as u32;
+        vt.vars.push(VarInfo {
+            id,
+            slot: reg as u16,
+            name: "this".into(),
+            ty: TypeRef::J(JavaType::Object(env.class_name.clone())),
+            is_param: true,
+            range_start: 0,
+            range_end: u16::MAX,
+            synthetic_name: false,
+        });
+        while vt.by_slot.len() <= reg {
+            vt.by_slot.push(Vec::new());
+        }
+        vt.by_slot[reg].push((0, u16::MAX, id));
+        regs[reg] = Reg::Live(id);
+        reg += 1;
+        pidx += 1;
+    }
+    for (i, arg) in env.desc.args.iter().enumerate() {
+        if reg >= n {
+            break;
+        }
+        let dbg = param_names.get(i).and_then(|o| o.clone());
+        let named = dbg.is_some();
+        let name = dbg.unwrap_or_else(|| format!("p{}", pidx));
+        let id = vt.vars.len() as u32;
+        vt.vars.push(VarInfo {
+            id,
+            slot: reg as u16,
+            name,
+            ty: TypeRef::J(arg.clone()),
+            is_param: true,
+            range_start: 0,
+            range_end: u16::MAX,
+            synthetic_name: !named,
+        });
+        while vt.by_slot.len() <= reg {
+            vt.by_slot.push(Vec::new());
+        }
+        vt.by_slot[reg].push((0, u16::MAX, id));
+        regs[reg] = Reg::Live(id);
+        reg += if arg.is_wide() { 2 } else { 1 };
+        pidx += 1;
+    }
+    regs
+}

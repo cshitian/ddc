@@ -1,0 +1,17 @@
+[package]
+name = "ddc-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "ddc command-line interface"
+
+[[bin]]
+name = "ddc"
+path = "src/main.rs"
+
+[dependencies]
+ddc-dex = { workspace = true }
+ddc-dec = { workspace = true }
+anyhow = { workspace = true }
+flate2 = "1"
+mimalloc = "0.1.52"

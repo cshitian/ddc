@@ -1,0 +1,19 @@
+[workspace]
+resolver = "2"
+members = ["crates/ddc-dex", "crates/ddc-dec", "crates/ddc-cli"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+
+[workspace.dependencies]
+ddc-dex = { path = "crates/ddc-dex", version = "0.1.0" }
+ddc-dec = { path = "crates/ddc-dec", version = "0.1.0" }
+jdc-core = "0.1.3"
+anyhow = "1"
+
+[profile.release]
+debug = true
+lto = "fat"
+codegen-units = 1

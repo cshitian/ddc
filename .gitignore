@@ -1,0 +1,18 @@
+# Rust
+/target
+**/*.rs.bk
+
+# ddc outputs
+ddc-out/
+*-out/
+*.java.tmp
+
+# perf/profiling artifacts
+*.sample.txt
+perf.data*
+
+# OS
+.DS_Store
+
+# scratch
+*.log

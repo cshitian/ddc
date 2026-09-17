@@ -1,0 +1,259 @@
+//! CLI integration tests: argument semantics and output routing, run
+//! against the built binary via CARGO_BIN_EXE (fixture: the d8-built
+//! hello.dex from ddc-dec).
+
+use std::path::{Path, PathBuf};
+use std::process::{Command, Output};
+
+fn ddc() -> Command {
+    let mut c = Command::new(env!("CARGO_BIN_EXE_ddc"));
+    c.env_remove("DDC_NOWRITE").env_remove("DDC_CLASSTIME");
+    c
+}
+
+fn fixture() -> PathBuf {
+    let mut p = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    p.push("../ddc-dec/tests/fixtures/hello.dex");
+    p
+}
+
+fn tmp(name: &str) -> PathBuf {
+    let mut p = std::env::temp_dir();
+    p.push(format!("ddc-cli-test-{name}"));
+    let _ = std::fs::remove_dir_all(&p);
+    p
+}
+
+fn run(c: &mut Command) -> Output {
+    c.output().expect("spawn ddc")
+}
+
+fn stdout(o: &Output) -> String {
+    String::from_utf8_lossy(&o.stdout).into_owned()
+}
+
+fn stderr(o: &Output) -> String {
+    String::from_utf8_lossy(&o.stderr).into_owned()
+}
+
+fn count_java(dir: &Path) -> usize {
+    fn walk(p: &Path, n: &mut usize) {
+        if let Ok(rd) = std::fs::read_dir(p) {
+            for e in rd.flatten() {
+                let path = e.path();
+                if path.is_dir() {
+                    walk(&path, n);
+                } else if path.extension().and_then(|e| e.to_str()) == Some("java") {
+                    *n += 1;
+                }
+            }
+        }
+    }
+    let mut n = 0;
+    walk(dir, &mut n);
+    n
+}
+
+#[test]
+fn help_and_version() {
+    let o = run(ddc().arg("--help"));
+    assert!(o.status.success());
+    assert!(stdout(&o).contains("Usage: ddc [OPTIONS] <INPUT>... [OUTPUT]"));
+
+    let o = run(ddc().arg("-V"));
+    assert!(o.status.success());
+    assert!(stdout(&o).starts_with("ddc "));
+}
+
+#[test]
+fn no_input_is_usage_error() {
+    let o = run(&mut ddc());
+    assert_eq!(o.status.code(), Some(2));
+    assert!(stderr(&o).contains("no input given"));
+
+    let o = run(ddc().arg("--bogus"));
+    assert_eq!(o.status.code(), Some(2));
+    assert!(stderr(&o).contains("unknown option"));
+}
+
+#[test]
+fn default_output_is_input_sibling_dir() {
+    let out = tmp("sibling");
+    std::fs::create_dir_all(&out).unwrap();
+    let dex = out.join("hello.dex");
+    std::fs::copy(fixture(), &dex).unwrap();
+
+    let o = run(ddc().arg(&dex));
+    assert!(o.status.success(), "{}", stderr(&o));
+    assert_eq!(count_java(&out.join("hello-out")), 2);
+    assert!(stderr(&o).contains("wrote 2 file(s)"));
+    // Total time rides the summary line (stderr, never stdout).
+    assert!(regex_secs(&stderr(&o)), "summary has no elapsed:\n{}", stderr(&o));
+    std::fs::remove_dir_all(&out);
+}
+
+/// `in <secs>` on a summary line: 1-3 decimals + 's'.
+fn regex_secs(s: &str) -> bool {
+    let line = s.lines().rev().find(|l| l.contains("in ")).unwrap_or("");
+    line.contains(" in ") && line.ends_with('s') && line.contains('.')
+}
+
+#[test]
+fn provenance_header_names_the_input() {
+    let out = tmp("prov").join("src");
+    let o = run(ddc().arg(fixture()).arg(&out));
+    assert!(o.status.success(), "{}", stderr(&o));
+    let text = std::fs::read_to_string(out.join("Hello.java")).unwrap();
+    assert!(text.starts_with("// Decompiled by ddc "));
+    // The dex image label (input stem) + DEX version, before Source file.
+    assert!(text.contains("// From: hello (DEX "), "From line:\n{}", text);
+    std::fs::remove_dir_all(tmp("prov"));
+}
+
+#[test]
+fn positional_output_dir() {
+    let out = tmp("positional").join("src");
+    let o = run(ddc().arg(fixture()).arg(&out));
+    assert!(o.status.success(), "{}", stderr(&o));
+    assert_eq!(count_java(&out), 2);
+    std::fs::remove_dir_all(tmp("positional"));
+}
+
+#[test]
+fn stdout_sink_has_separators_and_order() {
+    let o = run(ddc().arg(fixture()).arg("-o").arg("-"));
+    assert!(o.status.success());
+    let s = stdout(&o);
+    assert_eq!(s.matches("// =====").count(), 2);
+    // Output order matches `--list` (the pool's class_defs order), even
+    // though stdout mode runs a single worker by design.
+    let l = run(ddc().arg(fixture()).arg("-l"));
+    let list_out = stdout(&l);
+    let list: Vec<&str> = list_out.lines().collect();
+    let mut prev = 0usize;
+    for name in &list {
+        let needle = format!("// ===== {} =====", name);
+        let pos = s.find(&needle).unwrap_or_else(|| panic!("{} missing", needle));
+        assert!(prev <= pos, "{} out of order", name);
+        prev = pos;
+    }
+}
+
+#[test]
+fn single_class_flag_defaults_to_stdout() {
+    let o = run(ddc().arg(fixture()).arg("-c").arg("Greeter"));
+    assert!(o.status.success());
+    assert!(stdout(&o).contains("class Greeter {"));
+}
+
+#[test]
+fn single_class_flag_to_file() {
+    let f = tmp("onefile").join("G.java");
+    let o = run(ddc().arg(fixture()).arg("-c").arg("Greeter").arg("-o").arg(&f));
+    assert!(o.status.success(), "{}", stderr(&o));
+    assert!(f.is_file());
+    let text = std::fs::read_to_string(&f).unwrap();
+    assert!(text.contains("class Greeter {"));
+    std::fs::remove_dir_all(tmp("onefile"));
+}
+
+#[test]
+fn file_output_rejected_for_multiple_classes() {
+    let o = run(ddc().arg(fixture()).arg("-o").arg("out.java"));
+    assert_eq!(o.status.code(), Some(2));
+    assert!(stderr(&o).contains("would be written"));
+}
+
+#[test]
+fn directory_input_scans_recursively() {
+    let root = tmp("dirin");
+    let sub = root.join("sub");
+    std::fs::create_dir_all(&sub).unwrap();
+    std::fs::copy(fixture(), root.join("a.dex")).unwrap();
+    std::fs::copy(fixture(), sub.join("b.dex")).unwrap();
+    // Same classes in both images: dedup keeps the count at 2.
+    let out = root.join("out");
+    let o = run(ddc().arg(&root).arg(&out));
+    assert!(o.status.success(), "{}", stderr(&o));
+    assert_eq!(count_java(&out), 2);
+    std::fs::remove_dir_all(&root);
+}
+
+#[test]
+fn multi_input_positional_merge() {
+    // The last positional is the OUTPUT when it neither exists nor has a
+    // dex-ish extension; two hello.dex images merge (dedup → 2 classes).
+    let out = tmp("merge");
+    let o = run(ddc().arg(fixture()).arg(fixture()).arg(&out));
+    assert!(o.status.success(), "{}", stderr(&o));
+    assert_eq!(count_java(&out), 2);
+    std::fs::remove_dir_all(&out);
+}
+
+#[test]
+fn not_a_dex_reports_cleanly() {
+    let f = tmp("bogus").join("x.txt");
+    std::fs::create_dir_all(f.parent().unwrap()).unwrap();
+    std::fs::write(&f, "hello").unwrap();
+    let o = run(ddc().arg(&f));
+    assert_eq!(o.status.code(), Some(2));
+    assert!(stderr(&o).contains("not a DEX image or ZIP/APK archive"));
+    std::fs::remove_dir_all(tmp("bogus"));
+}
+
+#[test]
+fn existing_dir_without_dex_is_output() {
+    // A pre-created (or leftover-output) directory with no dex-bearing
+    // files is the OUTPUT, not an input: `ddc app.apk weibo/` with a
+    // `weibo/` of last run's .java files must write INTO it.
+    let root = tmp("precreated");
+    let target = root.join("weibo");
+    std::fs::create_dir_all(&target).unwrap();
+    std::fs::write(target.join("old.java"), "// previous output").unwrap();
+    let o = run(ddc().arg(fixture()).arg(&target));
+    assert!(o.status.success(), "{}", stderr(&o));
+    assert!(stderr(&o).contains("wrote 2 file(s) to"), "{}", stderr(&o));
+    assert_eq!(count_java(&target), 3); // old.java + Hello + Greeter
+    std::fs::remove_dir_all(&root);
+}
+
+#[test]
+fn dex_bearing_dir_stays_input() {
+    // A directory that CONTAINS dex files is an input even in the last
+    // positional slot: no positional output is extracted, and the
+    // default dir follows the FIRST input.
+    let root = tmp("dirinput");
+    std::fs::create_dir_all(&root).unwrap();
+    let first = root.join("first.dex");
+    std::fs::copy(fixture(), &first).unwrap();
+    let dump = root.join("dump");
+    std::fs::create_dir_all(&dump).unwrap();
+    std::fs::copy(fixture(), dump.join("hello.dex")).unwrap();
+
+    let o = run(ddc().arg(&first).arg(&dump));
+    assert!(o.status.success(), "{}", stderr(&o));
+    // Both inputs merged (dedup → 2 classes); output at the first
+    // input's sibling, NOT inside dump/.
+    assert_eq!(count_java(&root.join("first-out")), 2);
+    assert!(!dump.join("Hello.java").exists(), "dump/ became the output");
+    std::fs::remove_dir_all(&root);
+}
+
+#[test]
+fn empty_dir_input_bails_loudly() {
+    let root = tmp("emptydir");
+    std::fs::create_dir_all(root.join("void")).unwrap();
+    let o = run(ddc().arg(root.join("void")));
+    assert_eq!(o.status.code(), Some(2));
+    assert!(stderr(&o).contains("no .dex/.apk/.jar/.zip files under"));
+    std::fs::remove_dir_all(&root);
+}
+
+#[test]
+fn inline_option_values() {
+    let out = tmp("inline");
+    let o = run(ddc().arg(fixture()).arg(format!("--output={}", out.display())));
+    assert!(o.status.success(), "{}", stderr(&o));
+    assert_eq!(count_java(&out), 2);
+    std::fs::remove_dir_all(&out);
+}
