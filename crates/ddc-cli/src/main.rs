@@ -714,42 +714,45 @@ fn cmd_findrefs(args: &[String], t0: std::time::Instant) -> Result<()> {
     }
     hits.sort_by(|a, b| a.class.cmp(&b.class).then(a.method.cmp(&b.method)));
 
-    // ASC-format lines: `dex | Lclass;->method | matched=(...)`. The
-    // explicit `L...;->` separator disambiguates class from method (a
-    // dotted `a.b.c.d(...)` leaves the class/method boundary guessable
-    // only from the last dot — ambiguous when descriptors are absent or
-    // the method name contains one).
+    // Column format like `info`: header row first, then one row per
+    // METHOD (multi-hit methods keep one line; the refs column lists
+    // every matched target, "; " separated). Fixed columns keep the
+    // class/method boundary explicit without the pipe-delimited blob.
     let lines: Vec<String> = hits
         .iter()
         .map(|h| {
             format!(
-                "{} | L{};->{} | matched=({})",
+                "{:10}  {:<12}  {} {}  {}",
                 h.dex,
+                h.insn,
                 h.class,
                 h.method,
-                h.target.trim_matches('"')
+                h.targets.join("; ")
             )
         })
         .collect();
+    let header = format!("{:10}  {:<12}  {}", "dex", "kind", "class method refs");
+    let mut all = vec![header];
+    all.extend(lines);
     match out {
         Some(f) => {
             if let Some(parent) = f.parent() {
                 let _ = std::fs::create_dir_all(parent);
             }
-            let mut text = lines.join("\n");
+            let mut text = all.join("\n");
             text.push('\n');
             std::fs::write(&f, &text)?;
             eprintln!(
-                "ddc: findrefs {} → {} hit(s) in {} to {}",
+                "ddc: findrefs {} → {} method(s) in {} to {}",
                 query.kind(),
-                lines.len(),
+                all.len() - 1,
                 fmt_secs(t0.elapsed()),
                 f.display()
             );
         }
         None => {
             // stdout mode: results only — no trailing timing noise.
-            for l in &lines {
+            for l in &all {
                 println!("{l}");
             }
         }

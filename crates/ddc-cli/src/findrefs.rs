@@ -54,10 +54,11 @@ pub struct Hit {
     pub class: String,
     /// Owner method, `name(descriptor)`.
     pub method: String,
-    /// Instruction kind (`const-string`, `new-instance`, `invoke`...).
+    /// Instruction kind of the first hit (`const-string`, `invoke`...).
     pub insn: &'static str,
-    /// Rendered target (`"token"`, `Lcom/poc/Main;`, `Lc;->f:I`, `Lc;->m(I)V`).
-    pub target: String,
+    /// All matched targets in this method (deduped, first-hit order):
+    /// string literals or member descriptors.
+    pub targets: Vec<String>,
 }
 
 /// The four reference-carrying opcode families, one bit each.
@@ -543,7 +544,12 @@ fn scan_class(
                         continue;
                     }
                 }
+                // Per-method aggregation: one Hit with every matched
+                // target (a method with several hits stays ONE line —
+                // the instruction kind is that of the first hit).
                 let mut owner: Option<String> = None;
+                let mut matched: Vec<String> = Vec::new();
+                let mut first_insn: Option<&'static str> = None;
                 scan_instructions(code, &mut |op, pc, bytes| {
                     if OPCODE_KINDS[op as usize] & kind_bit == 0 {
                         return;
@@ -560,23 +566,34 @@ fn scan_class(
                     if owner.is_none() {
                         owner = Some(render_owner(&dex, method_idx));
                     }
+                    if first_insn.is_none() {
+                        first_insn = Some(kind_name(op));
+                    }
                     let target = match kind_bit {
-                        K_STRING => dex.string(idx).map(|s| format!("{s:?}")).unwrap_or_default(),
+                        K_STRING => match dex.string(idx) {
+                            Some(s) => format!("{s:?}"),
+                            None => return,
+                        },
                         K_TYPE => match dex.type_bytes(idx) {
                             Some(b) => decode_mutf8_lossy(b),
-                            None => String::new(),
+                            None => return,
                         },
                         K_METHOD => render_member(&dex, idx, true),
                         _ => render_member(&dex, idx, false),
                     };
+                    if !matched.contains(&target) {
+                        matched.push(target);
+                    }
+                });
+                if owner.is_some() {
                     hits.push(Hit {
                         dex: dex_name.to_string(),
                         class: class.to_string(),
-                        method: owner.clone().unwrap_or_default(),
-                        insn: kind_name(op),
-                        target,
+                        method: owner.unwrap_or_default(),
+                        insn: first_insn.unwrap_or("ref"),
+                        targets: matched,
                     });
-                });
+                }
             }
         }
 }

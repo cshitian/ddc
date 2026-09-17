@@ -184,7 +184,7 @@ fn xapk_full_pipeline() {
     // findrefs scans every inner APK's dex.
     let o = run(ddc().arg("findrefs").arg(&xapk).arg("string").arg("hi"));
     assert!(o.status.success(), "{}", stderr(&o));
-    assert!(stdout(&o).contains("matched=(hi )"), "{}", stdout(&o));
+    assert!(stdout(&o).contains("\"hi \""), "{}", stdout(&o));
 
     // getclass resolves through the container.
     let o = run(ddc().arg("getclass").arg(&xapk).arg("Greeter"));
@@ -211,7 +211,7 @@ fn xapk_dex_filter_targets_inner_apk() {
     // `--dex base` keeps only the base APK's images.
     let o = run(ddc().arg("findrefs").arg(&xapk).arg("--dex").arg("base").arg("string").arg("hi"));
     assert!(o.status.success(), "{}", stderr(&o));
-    assert!(stdout(&o).contains("matched=(hi )"));
+    assert!(stdout(&o).contains("\"hi \""));
 
     // `--dex config` keeps only the config split.
     let o = run(
@@ -223,7 +223,7 @@ fn xapk_dex_filter_targets_inner_apk() {
             .arg("hi"),
     );
     assert!(o.status.success(), "{}", stderr(&o));
-    assert!(stdout(&o).contains("matched=(hi )"));
+    assert!(stdout(&o).contains("\"hi \""));
 
     // info reports both inner APKs' images.
     let o = run(ddc().arg("info").arg(&xapk));
