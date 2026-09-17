@@ -11,6 +11,9 @@ ddc-out/
 *.sample.txt
 perf.data*
 
+# local benchmark harness + raw results (personal APK paths)
+bench/
+
 # OS
 .DS_Store
 

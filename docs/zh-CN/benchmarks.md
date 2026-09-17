@@ -40,9 +40,6 @@
 | `disasm` | 0.01s / 20MB | 0.04s / 85MB | 0.06s / 218MB | 0.08s / 365MB | 0.10s / 371MB | 0.13s / 436MB | 0.18s / 518MB |
 | `getclass` | 0.02s / 33MB | 0.61s / 196MB | 0.09s / 310MB | 0.16s / 646MB | 0.23s / 792MB | 0.29s / 1078MB | 0.40s / 1356MB |
 
-原始数据与脚本：[`bench/perf_table.sh`](../../bench/perf_table.sh)
-（严格串行；并行跑全量曾把机器打进 100GB swap）。
-
 测量方法论（3 连测、串行纪律、CPU 计量陷阱）见
 [英文版](../benchmarks.md) 的 Methodology notes 与
 [性能工程](optimization.md)。

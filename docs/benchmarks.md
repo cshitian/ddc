@@ -3,9 +3,9 @@
 [English] | [简体中文](zh-CN/benchmarks.md)
 
 All numbers from the author's machine (Apple Silicon, 6P+12E cores),
-median of runs, release profile with `target-cpu=native`. Scripts and raw
-results live in [`bench/`](../bench/) (`DDC`/`DL`/`ASC`/`RASC` environment
-variables override the paths).
+3-run averages, release profile with `target-cpu=native`. The benchmark
+harness is kept out of the published tree (local APK paths); the tables
+above are the recorded results.
 
 ## Full decompile
 
@@ -47,9 +47,6 @@ large class):
 | `hierarchy` | 0.01s / 20MB | 0.03s / 85MB | 0.05s / 205MB | 0.09s / 364MB | 0.10s / 399MB | 0.14s / 413MB | 0.18s / 524MB |
 | `disasm` | 0.01s / 20MB | 0.04s / 85MB | 0.06s / 218MB | 0.08s / 365MB | 0.10s / 371MB | 0.13s / 436MB | 0.18s / 518MB |
 | `getclass` | 0.02s / 33MB | 0.61s / 196MB | 0.09s / 310MB | 0.16s / 646MB | 0.23s / 792MB | 0.29s / 1078MB | 0.40s / 1356MB |
-
-Raw numbers and the harness: [`bench/perf_table.sh`](../bench/perf_table.sh)
-(strictly serial; concurrent full runs once swap-crashed the machine).
 
 ## Methodology notes
 
