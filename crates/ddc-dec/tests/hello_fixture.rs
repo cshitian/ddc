@@ -21,7 +21,7 @@ fn decompiles_greeter() {
     // uses the default "dex 0" label; NO timestamp — outputs stay
     // byte-stable across runs for diffing.
     assert!(
-        out.starts_with("// Decompiled by ddc "),
+        out.starts_with("// Decompiled by https://github.com/ejfkdev/ddc "),
         "tool header missing:\n{}",
         out
     );

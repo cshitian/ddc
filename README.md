@@ -65,7 +65,7 @@ cargo build --release   # release profile 自带 LTO fat + codegen-units=1
 每个 `.java` 的出处注释头（`--no-comments` 关闭）：
 
 ```java
-// Decompiled by ddc 0.1.0 (DEX → Java)
+// Decompiled by https://github.com/ejfkdev/ddc 0.1.0
 // From: app!classes3.dex (DEX 038)      ← 输入文件 + dex 镜像 + DEX 版本
 // Source file: Foo.java                  ← dex 的 SourceFile 属性
 ```

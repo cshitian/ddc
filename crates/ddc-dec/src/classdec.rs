@@ -96,7 +96,7 @@ fn decompile_class_impl(
     let mut out = String::new();
     if opts.provenance {
         out.push_str(&format!(
-            "// Decompiled by ddc {} (DEX → Java)\n",
+            "// Decompiled by https://github.com/ejfkdev/ddc {}\n",
             env!("CARGO_PKG_VERSION")
         ));
         // Provenance: which input image this class was lifted from (jadx's

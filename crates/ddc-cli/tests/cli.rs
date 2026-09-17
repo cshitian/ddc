@@ -104,7 +104,7 @@ fn provenance_header_names_the_input() {
     let o = run(ddc().arg(fixture()).arg(&out));
     assert!(o.status.success(), "{}", stderr(&o));
     let text = std::fs::read_to_string(out.join("Hello.java")).unwrap();
-    assert!(text.starts_with("// Decompiled by ddc "));
+    assert!(text.starts_with("// Decompiled by https://github.com/ejfkdev/ddc "));
     // The dex image label (input stem) + DEX version, before Source file.
     assert!(text.contains("// From: hello (DEX "), "From line:\n{}", text);
     std::fs::remove_dir_all(tmp("prov"));
