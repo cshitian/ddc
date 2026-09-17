@@ -323,11 +323,11 @@ fn callers_finds_invokers() {
 }
 
 #[test]
-fn getmethod_decompiles_the_class() {
+fn getmethod_keeps_provenance_header() {
     let o = run(ddc().arg("getmethod").arg(fixture()).arg("Greeter.greet"));
     assert!(o.status.success(), "{}", stderr(&o));
     let out = stdout(&o);
-    assert!(out.contains("class Greeter {"), "class:\n{}", out);
+    assert!(out.contains("// Decompiled by https://github.com/ejfkdev/ddc"), "header:\n{}", out);
     assert!(out.contains("return \"hi \" + this.name;"), "method body:\n{}", out);
 }
 
@@ -363,4 +363,167 @@ fn walk(dir: &PathBuf) -> Vec<String> {
         }
     }
     out
+}
+
+// ---- manifest-derived + resource subcommands ---------------------------------
+
+/// A stored-zip "APK": manifest + a res XML + a text asset + hello.dex.
+/// (Zip layout via the same hand-rolled builder xapk.rs uses.)
+fn apk_fixture() -> PathBuf {
+    let manifest = std::fs::read(axml_fixture()).expect("manifest fixture");
+    let dex = std::fs::read(fixture()).expect("dex fixture");
+    let items: Vec<(&str, Vec<u8>)> = vec![
+        ("AndroidManifest.xml", manifest.clone()),
+        ("res/values/strings.xml", manifest), // any AXML decodes
+        ("assets/note.txt", b"hello asset\n".to_vec()),
+        ("classes.dex", dex),
+    ];
+    let dir = tmp("apk-fixture");
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let p = dir.join("app.apk");
+    std::fs::write(&p, stored_zip(&items)).unwrap();
+    p
+}
+
+fn crc32(data: &[u8]) -> u32 {
+    let mut crc = !0u32;
+    for &b in data {
+        crc ^= b as u32;
+        for _ in 0..8 {
+            crc = if crc & 1 != 0 { (crc >> 1) ^ 0xEDB8_8320 } else { crc >> 1 };
+        }
+    }
+    !crc
+}
+
+fn stored_zip(items: &[(&str, Vec<u8>)]) -> Vec<u8> {
+    let mut out = Vec::new();
+    let mut cds: Vec<(String, u32, u32, u32)> = Vec::new();
+    let u16le = |v: u16| v.to_le_bytes();
+    let u32le = |v: u32| v.to_le_bytes();
+    for (name, data) in items {
+        let offset = out.len() as u32;
+        let crc = crc32(data);
+        out.extend_from_slice(&u32le(0x0403_4b50));
+        out.extend_from_slice(&u16le(20));
+        out.extend_from_slice(&u16le(0));
+        out.extend_from_slice(&u16le(0)); // stored
+        out.extend_from_slice(&u16le(0));
+        out.extend_from_slice(&u16le(0));
+        out.extend_from_slice(&u32le(crc));
+        out.extend_from_slice(&u32le(data.len() as u32));
+        out.extend_from_slice(&u32le(data.len() as u32));
+        out.extend_from_slice(&u16le(name.len() as u16));
+        out.extend_from_slice(&u16le(0));
+        out.extend_from_slice(name.as_bytes());
+        out.extend_from_slice(data);
+        cds.push((name.to_string(), crc, data.len() as u32, offset));
+    }
+    let cd_start = out.len();
+    for (name, crc, size, offset) in &cds {
+        // Central-directory entry, exactly 46 bytes + name.
+        out.extend_from_slice(&u32le(0x0201_4b50));
+        out.extend_from_slice(&u16le(20)); // version made by
+        out.extend_from_slice(&u16le(20)); // version needed
+        out.extend_from_slice(&u16le(0)); // flags
+        out.extend_from_slice(&u16le(0)); // method: stored
+        out.extend_from_slice(&u16le(0)); // time
+        out.extend_from_slice(&u16le(0)); // date
+        out.extend_from_slice(&u32le(*crc));
+        out.extend_from_slice(&u32le(*size));
+        out.extend_from_slice(&u32le(*size));
+        out.extend_from_slice(&u16le(name.len() as u16));
+        out.extend_from_slice(&u16le(0)); // extra len
+        out.extend_from_slice(&u16le(0)); // comment len
+        out.extend_from_slice(&u16le(0)); // disk number
+        out.extend_from_slice(&u16le(0)); // internal attrs
+        out.extend_from_slice(&u32le(0)); // external attrs
+        out.extend_from_slice(&u32le(*offset));
+        out.extend_from_slice(name.as_bytes());
+    }
+    let eocd = out.len();
+    out.extend_from_slice(&u32le(0x0605_4b50));
+    out.extend_from_slice(&u16le(0));
+    out.extend_from_slice(&u16le(0));
+    out.extend_from_slice(&u16le(cds.len() as u16));
+    out.extend_from_slice(&u16le(cds.len() as u16));
+    out.extend_from_slice(&u32le((eocd - cd_start) as u32));
+    out.extend_from_slice(&u32le(cd_start as u32));
+    out.extend_from_slice(&u16le(0));
+    out
+}
+
+#[test]
+fn manifest_component_filter() {
+    let o = run(ddc().arg("manifest").arg(axml_fixture()).arg("--component").arg("activity"));
+    assert!(o.status.success(), "{}", stderr(&o));
+    let out = stdout(&o);
+    assert!(out.contains("<manifest"), "header kept:\n{}", out);
+    assert!(out.contains("<activity"), "activity kept:\n{}", out);
+    assert!(!out.contains("uses-permission"), "permissions filtered:\n{}", out);
+
+    let o = run(ddc().arg("manifest").arg(axml_fixture()).arg("--component").arg("launcher"));
+    assert!(o.status.success(), "{}", stderr(&o));
+    let out = stdout(&o);
+    assert!(out.contains("<activity"), "launcher activity:\n{}", out);
+    assert!(!out.contains("<service"), "services filtered:\n{}", out);
+}
+
+#[test]
+fn mainactivity_reports_entry_point() {
+    let o = run(ddc().arg("mainactivity").arg(apk_fixture()));
+    assert!(o.status.success(), "{}", stderr(&o));
+    let out = stdout(&o);
+    assert!(out.contains("package     com.reqable.android"), "package:\n{}", out);
+    assert!(out.contains("launcher    com.reqable.android.MainActivity"), "launcher:\n{}", out);
+    assert!(out.contains("dex         "), "dex verification:\n{}", out);
+}
+
+#[test]
+fn res_lists_and_dumps_entries() {
+    let apk = apk_fixture();
+    let o = run(ddc().arg("res").arg(&apk));
+    assert!(o.status.success(), "{}", stderr(&o));
+    let out = stdout(&o);
+    let header: Vec<&str> = out.lines().next().unwrap().split_whitespace().collect();
+    assert_eq!(header, vec!["method", "size", "entry"], "header:\n{}", out);
+    assert!(out.contains("res/values/strings.xml"), "xml entry:\n{}", out);
+    assert!(out.contains("assets/note.txt"), "asset entry:\n{}", out);
+
+    // Text entry dumps verbatim.
+    let o = run(ddc().arg("res").arg(&apk).arg("assets/note.txt"));
+    assert!(o.status.success(), "{}", stderr(&o));
+    assert_eq!(stdout(&o), "hello asset\n");
+
+    // Binary XML entry decodes through the AXML decoder.
+    let o = run(ddc().arg("res").arg(&apk).arg("res/values/strings.xml"));
+    assert!(o.status.success(), "{}", stderr(&o));
+    let out = stdout(&o);
+    assert!(out.contains("<manifest") || out.contains("<resources"), "decoded xml:\n{}", out);
+}
+
+#[test]
+fn getmethod_slices_one_method() {
+    let o = run(ddc().arg("getmethod").arg(fixture()).arg("Greeter.greet"));
+    assert!(o.status.success(), "{}", stderr(&o));
+    let out = stdout(&o);
+    assert!(out.contains("java.lang.String greet() {"), "signature:\n{}", out);
+    assert!(out.contains("return \"hi \" + this.name;"), "body:\n{}", out);
+    assert!(!out.contains("class Greeter {"), "whole class leaked:\n{}", out);
+
+    // Unknown method: error lists what the class has.
+    let o = run(ddc().arg("getmethod").arg(fixture()).arg("Greeter.nope"));
+    assert_eq!(o.status.code(), Some(2));
+    assert!(stderr(&o).contains("methods: Greeter, greet"), "hint:\n{}", stderr(&o));
+}
+
+#[test]
+fn pkg_app_reports_unresolvable_package() {
+    // hello.dex's classes live in the default package, so the manifest's
+    // com.reqable.android has nothing under it (launcher fallback is the
+    // same package here) — a clean error, not a crash.
+    let o = run(ddc().arg("pkg").arg(apk_fixture()).arg("--app").arg("-o").arg(tmp("pkg-app-none")));
+    assert_eq!(o.status.code(), Some(2));
+    assert!(stderr(&o).contains("no classes under package"), "{}", stderr(&o));
 }

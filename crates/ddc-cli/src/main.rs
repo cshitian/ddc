@@ -15,6 +15,7 @@ use anyhow::{bail, Context, Result};
 
 mod axml;
 mod browse;
+mod manifest;
 mod findrefs;
 mod inputs;
 
@@ -62,7 +63,9 @@ fn print_help() {
     println!("Progressive analysis (query the artifact as a database — no full");
     println!("decompile; metadata loads take well under a second). stdout output");
     println!("is clean — timing prints only with -o:");
-    println!("  ddc manifest <apk>                 # AndroidManifest.xml → text XML");
+    println!("  ddc manifest <apk> [--component C]  # AndroidManifest.xml → text XML;");
+    println!("                                      # --component launcher|activity|service|");
+    println!("                                      # receiver|provider|... filters to that");
     println!("  ddc info <input>                   # per-dex class/method/field/string counts");
     println!("  ddc listclasses <input> [pattern]  # class names, optional fuzzy filter");
     println!("  ddc getclass <inputs...> <FQCN> [-o f] [--dex NAME] # one class (+nested)");
@@ -84,9 +87,16 @@ fn print_help() {
     println!("  ddc largest <input> [-n N]         # top-N methods by insn count");
     println!("  ddc disasm <input> FQCN[.method]   # raw bytecode of a class/method");
     println!("  ddc callers <input> NAME [FQCN]    # who invokes method NAME");
-    println!("  ddc getmethod <input> FQCN[.method]# decompile one method's class");
+    println!("  ddc getmethod <input> FQCN.method  # decompile ONE method (overloads");
+    println!("                                      # included; bare class = whole class)");
     println!("  ddc pkg <input> com.example.foo [-o DIR] [-t N]");
-    println!("                                      # decompile one package subtree");
+    println!("                                      # decompile one package subtree; --app");
+    println!("                                      # takes the package from the manifest");
+    println!("  ddc mainactivity <apk>              # package + launcher activity from the");
+    println!("                                      # manifest, verified against the dex");
+    println!("  ddc res <apk> [entry] [-o FILE]     # list resource entries; dump one:");
+    println!("                                      # binary XML decoded, text as-is,");
+    println!("                                      # binary saved via -o");
     println!("  -d, --dex NAME       restrict to dex images whose entry name contains");
     println!("                      NAME (substring, repeatable) — resolves which dex");
     println!("                      a class lives in and skips parsing the rest;");
@@ -144,7 +154,7 @@ fn is_subcommand(word: &str) -> bool {
         word,
         "getclass" | "listclasses" | "findrefs" | "manifest" | "info"
             | "strings" | "members" | "hierarchy" | "largest" | "disasm"
-            | "callers" | "pkg" | "getmethod"
+            | "callers" | "pkg" | "getmethod" | "mainactivity" | "res"
     )
 }
 
@@ -166,6 +176,8 @@ fn run_subcommand(cmd: &str, args: &[String]) -> Result<()> {
         "callers" => browse::cmd_callers(args),
         "pkg" => browse::cmd_pkg(args),
         "getmethod" => browse::cmd_getmethod(args),
+        "mainactivity" => browse::cmd_mainactivity(args),
+        "res" => browse::cmd_res(args),
         _ => bail!("unknown subcommand: {cmd}"),
     }
 }
@@ -181,8 +193,9 @@ fn sub_input(args: &[String], cmd: &str) -> Result<PathBuf> {
 // ---- manifest ---------------------------------------------------------------
 
 fn cmd_manifest(args: &[String], t0: std::time::Instant) -> Result<()> {
-    let mut input = sub_input(args, "manifest")?;
+    let input = sub_input(args, "manifest")?;
     let mut out: Option<PathBuf> = None;
+    let mut component: Option<String> = None;
     let mut i = 0;
     while i < args.len() {
         match args[i].as_str() {
@@ -192,88 +205,36 @@ fn cmd_manifest(args: &[String], t0: std::time::Instant) -> Result<()> {
                 ));
                 i += 1;
             }
+            "-c" | "--component" => {
+                component = Some(
+                    args.get(i + 1)
+                        .context("--component needs a value")?
+                        .clone(),
+                );
+                i += 1;
+            }
             a if a.starts_with('-') => bail!("manifest: unknown option {a}"),
             _ => {}
         }
         i += 1;
     }
-    // A ZIP/APK contributes its AndroidManifest.xml entry; a raw file is
-    // itself a binary XML (`.axml`) — no dex parse either way. mmap the
-    // archive: only the manifest entry's range ever gets touched.
-    // XAPK/APKS/APKM containers keep the manifest inside their BASE APK
-    // (base.apk, then `{stem}.apk`, then split_base*); that inner APK is
-    // inflated and its manifest entry extracted.
-    let xml = {
-        let src = inputs::map_source(&input)?;
-        let bytes: &[u8] = src.bytes();
-        if bytes.len() >= 4 && &bytes[..2] == b"PK" {
-            let entries = zip_entries(bytes)?;
-            if let Some(entry) = entries.iter().find(|n| n.name == "AndroidManifest.xml") {
-                let raw = match entry.method {
-                    ZipMethod::Stored => bytes[entry.range.clone()].to_vec(),
-                    ZipMethod::Deflate => inflate(&bytes[entry.range.clone()])?,
-                };
-                input = PathBuf::from(entry.name.clone());
-                raw
-            } else {
-                // Nested container: base APK first, then name order.
-                let stem = input
-                    .file_stem()
-                    .and_then(|s| s.to_str())
-                    .unwrap_or("input");
-                let mut apks: Vec<&crate::ZipEntry> = entries
-                    .iter()
-                    .filter(|e| e.name.ends_with(".apk"))
-                    .collect();
-                apks.sort_by_key(|e| {
-                    let base = e.name == "base.apk"
-                        || e.name == format!("{stem}.apk")
-                        || e.name.starts_with("split_base");
-                    (!base, e.name.clone())
-                });
-                let mut found = None;
-                for apk in apks {
-                    let inner: Vec<u8> = match apk.method {
-                        ZipMethod::Stored => bytes[apk.range.clone()].to_vec(),
-                        ZipMethod::Deflate => inflate(&bytes[apk.range.clone()])?,
-                    };
-                    if inner.len() < 4 || &inner[..2] != b"PK" {
-                        continue;
-                    }
-                    if let Some(e) = zip_entries(&inner)?
-                        .into_iter()
-                        .find(|n| n.name == "AndroidManifest.xml")
-                    {
-                        let raw = match e.method {
-                            ZipMethod::Stored => inner[e.range].to_vec(),
-                            ZipMethod::Deflate => inflate(&inner[e.range])?,
-                        };
-                        found = Some((format!("{}!{}", apk.name, e.name), raw));
-                        break;
-                    }
-                }
-                let (name, raw) = found.with_context(|| {
-                    format!(
-                        "{}: no AndroidManifest.xml entry (in container or its APKs)",
-                        input.display()
-                    )
-                })?;
-                input = PathBuf::from(name);
-                raw
-            }
-        } else {
-            bytes.to_vec()
-        }
+    // Extraction lives in manifest.rs (shared with mainactivity/pkg --app).
+    let (label, xml) = manifest::manifest_xml(&input)?;
+    let text = match &component {
+        Some(c) => manifest::component_xml(&xml, c),
+        None => xml,
     };
-    let text = axml::axml_to_xml(&xml)
-        .map_err(|e| anyhow::anyhow!("{}: {}", input.display(), e))?;
     match out {
         Some(f) => {
             if let Some(parent) = f.parent() {
                 let _ = std::fs::create_dir_all(parent);
             }
             std::fs::write(&f, &text)?;
-            eprintln!("ddc: wrote manifest to {} in {}", f.display(), fmt_secs(t0.elapsed()));
+            eprintln!(
+                "ddc: wrote manifest ({label}) to {} in {}",
+                f.display(),
+                fmt_secs(t0.elapsed())
+            );
         }
         None => {
             // stdout mode: the XML only — no trailing timing noise.
@@ -435,10 +396,45 @@ fn cmd_getclass(args: &[String], t0: std::time::Instant) -> Result<()> {
         .first()
         .cloned()
         .context("getclass needs an input file")?;
-    let files = expand_inputs(&inputs)?;
+    let (text, defining_names) = getclass_text(&inputs, &fqcn, &dex_filters)?;
+    let text = format!("{text}\n");
+    if defining_names.len() > 1 {
+        eprintln!(
+            "ddc: class {fqcn} is defined in {} images: {} — using {} (pass --dex <name> to pick another)",
+            defining_names.len(),
+            defining_names.join(", "),
+            defining_names[0]
+        );
+    }
+    match out {
+        Some(f) => {
+            if let Some(parent) = f.parent() {
+                let _ = std::fs::create_dir_all(parent);
+            }
+            std::fs::write(&f, &text)?;
+            eprintln!("ddc: wrote {} in {}", f.display(), fmt_secs(t0.elapsed()));
+        }
+        None => {
+            // stdout mode: the source only — no trailing timing noise.
+            print!("{text}");
+        }
+    }
+    Ok(())
+}
+
+/// The decompiled source of ONE class + the short names of every image
+/// that defines it. Shared by getclass (whole class) and getmethod
+/// (method-level slice of the same text).
+#[allow(clippy::type_complexity)]
+pub(crate) fn getclass_text(
+    inputs: &[PathBuf],
+    fqcn: &str,
+    dex_filters: &[String],
+) -> Result<(String, Vec<String>)> {
+    let files = expand_inputs(inputs)?;
     let parsed = parse_images(filter_images_by_dex(
         collect_images(&files)?,
-        &dex_filters,
+        dex_filters,
     )?)?;
     let internal = fqcn.replace('.', "/");
 
@@ -462,23 +458,21 @@ fn cmd_getclass(args: &[String], t0: std::time::Instant) -> Result<()> {
         };
         bail!("class {fqcn} not found in the selected image(s){hint}");
     }
-    if defining.len() > 1 {
-        let names: Vec<String> = defining
-            .iter()
-            .map(|&i| parsed[i].0.rsplit_once('!').map(|(_, e)| e).unwrap_or(&parsed[i].0).to_string())
-            .collect();
-        eprintln!(
-            "ddc: class {fqcn} is defined in {} images: {} — using {} (pass --dex <name> to pick another)",
-            defining.len(),
-            names.join(", "),
-            names[0]
-        );
-    }
+    let defining_names: Vec<String> = defining
+        .iter()
+        .map(|&i| {
+            parsed[i]
+                .0
+                .rsplit_once('!')
+                .map(|(_, e)| e.to_string())
+                .unwrap_or_else(|| parsed[i].0.clone())
+        })
+        .collect();
 
     // Register the defining image FIRST so the first-wins pool resolves
     // the class from it; names registered, classes materialized on
-    // demand — getclass pays the annotation-read cost for ONE family,
-    // not 145k classes.
+    // demand — the annotation-read cost is paid for ONE family, not every
+    // class in the artifact.
     let mut order: Vec<usize> = Vec::with_capacity(parsed.len());
     order.extend(defining.iter().copied());
     for i in 0..parsed.len() {
@@ -508,7 +502,7 @@ fn cmd_getclass(args: &[String], t0: std::time::Instant) -> Result<()> {
     let opts = ClassOptions::default();
     let result = ddc_dec::classdec::decompile_class(&pool, pc, &opts, &pending)
         .map_err(|e| anyhow::anyhow!("{:#}", e));
-    let mut text = match result {
+    let text = match result {
         Ok(t) => t,
         Err(e) => {
             if format!("{e:#}").contains("deferred to monitored thread") {
@@ -523,21 +517,7 @@ fn cmd_getclass(args: &[String], t0: std::time::Instant) -> Result<()> {
             }
         }
     };
-    text.push('\n');
-    match out {
-        Some(f) => {
-            if let Some(parent) = f.parent() {
-                let _ = std::fs::create_dir_all(parent);
-            }
-            std::fs::write(&f, &text)?;
-            eprintln!("ddc: wrote {} in {}", f.display(), fmt_secs(t0.elapsed()));
-        }
-        None => {
-            // stdout mode: the source only — no trailing timing noise.
-            print!("{text}");
-        }
-    }
-    Ok(())
+    Ok((text, defining_names))
 }
 
 /// Stream the entry; resolve the query's targets COMPLETELY as soon as the

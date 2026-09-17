@@ -161,7 +161,10 @@ APK 里 `From:` 是定位类所在镜像的最快线索（jadx 的 `loaded from:
 | `ddc disasm app.apk FQCN[.method]` | 单类/单方法原始字节码（操作码+pc） | **0.04s** |
 | `ddc callers app.apk NAME [FQCN]` | 谁调用了方法 NAME（复用 findrefs 方法扫描） | ~0.5s |
 | `ddc getmethod app.apk FQCN[.method]` | 定点反编译该方法所在类 | **0.03s** |
-| `ddc pkg app.apk com.example.foo [-o DIR]` | 整包反编译（只跑选中类的完整管线） | 0.165s（Telegram tgnet 1561 类） |
+| `ddc pkg app.apk com.example.foo [-o DIR]` | 整包反编译（只跑选中类的完整管线）；`--app` 自动取 manifest 包名（空时回退 launcher 包） | 0.165s（Telegram tgnet 1561 类）/ `--app` 1.7s（org.telegram 5103 类） |
+| `ddc mainactivity app.apk` | manifest 包名 + MAIN/LAUNCHER 入口 Activity，并在 dex 里定位验证 | **0.02s** |
+| `ddc res app.apk [entry] [-o FILE]` | 列出全部归档条目（含 XAPK 内层 APK）；`res <apk> res/values/strings.xml` 解码二进制 XML，文本直出，二进制 `-o` 保存 | **0.01s** |
+| `ddc manifest app.apk --component launcher` | 组件过滤（launcher/activity/service/receiver/provider） | **0.06s** |
 | （全量对照）`ddc app.apk -o out/` | 98,348 个类全部反编译落盘 | 5.45s / 1.28GB |
 
 **定位类在哪个 dex**：`--dex NAME`（可重复，条目名子串匹配）把范围缩到指定镜像——
@@ -189,7 +192,9 @@ classes50.dex  const-string  bz7/c d(...)Ljava/lang/String;  "both_feishu_doubao
 AXML 解码器在 `ddc-cli/src/axml.rs`（字符串池 UTF-16/UTF-8 双格式、属性
 typedValue 渲染），输入也接受裸 `.axml` 文件。渐进式工作流：
 `info → listclasses → findrefs → getclass`，浏览/导航用
-`strings/members/hierarchy/largest/disasm/callers`，批量定点用 `pkg`，
+`strings/members/hierarchy/largest/disasm/callers`，入口定位用
+`mainactivity`，资源侧用 `res`，批量定点用 `pkg`（`--app` 跳过
+androidx/三方库），方法粒度用 `getmethod`（只切目标方法及其重载），
 最后才按需全量。
 
 ### 对比 ASC（同机同查询交替 3 轮取中位，`bench/`）

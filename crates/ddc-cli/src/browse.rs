@@ -409,7 +409,7 @@ pub(crate) fn cmd_largest(args: &[String]) -> Result<()> {
                 rows.push(Row { insns, dex: dex_name.clone(), class: class.clone(), method });
             }
         }
-    });
+    })?;
     rows.sort_by(|a, b| b.insns.cmp(&a.insns));
     println!("{:>7}  {:<10}  {}", "insns", "dex", "class method");
     for r in rows.into_iter().take(limit) {
@@ -545,6 +545,7 @@ pub(crate) fn cmd_callers(args: &[String]) -> Result<()> {
 pub(crate) fn cmd_pkg(args: &[String]) -> Result<()> {
     let mut rest: Vec<String> = Vec::new();
     let mut out_dir: Option<PathBuf> = None;
+    let mut from_manifest = false;
     let mut threads = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4);
     let mut i = 0;
     while i < args.len() {
@@ -564,16 +565,29 @@ pub(crate) fn cmd_pkg(args: &[String]) -> Result<()> {
                 rest.push(args.get(i + 1).context("--dex needs a value")?.clone());
                 i += 1;
             }
+            "--app" => from_manifest = true,
             a if a.starts_with('-') => bail!("pkg: unknown option {a}"),
             a => rest.push(a.to_string()),
         }
         i += 1;
     }
     let common = parse_common(&rest, "pkg")?;
-    let package = common
-        .rest
-        .first()
-        .context("pkg needs a package name (com.example.foo)")?;
+    let package = if from_manifest {
+        // --app: the package from the manifest — decompile the app's own
+        // code, skipping androidx/library noise.
+        let facts = crate::manifest::facts_for(&common.input)?;
+        if facts.package.is_empty() {
+            bail!("{}: manifest has no package attribute", common.input.display());
+        }
+        eprintln!("ddc: app package is {}", facts.package);
+        facts.package
+    } else {
+        common
+            .rest
+            .first()
+            .context("pkg needs a package name (com.example.foo), or --app")?
+            .clone()
+    };
     let out = out_dir.unwrap_or_else(|| {
         common
             .input
@@ -585,23 +599,40 @@ pub(crate) fn cmd_pkg(args: &[String]) -> Result<()> {
 
     // Names from every image (class_defs only, prefix-friendly).
     // "" / "." = the root: every class (default package included).
-    let mut names: Vec<String> = Vec::new();
-    let pkg_prefix = if package.is_empty() || package == "." {
-        String::new()
-    } else {
-        format!("{}/", package.replace('.', "/"))
+    // --app fallback: the manifest package is not always the code root
+    // (Telegram: manifest says org.telegram.messenger.web, code lives in
+    // org.telegram.messenger) — retry with the LAUNCHER class's package,
+    // which is where the app's own code clusters.
+    let collect = |pkg: &str| -> Result<Vec<String>> {
+        let mut names: Vec<String> = Vec::new();
+        let pkg_prefix = if pkg.is_empty() || pkg == "." {
+            String::new()
+        } else {
+            format!("{}/", pkg.replace('.', "/"))
+        };
+        for_each_image(&common.input, &common.dex_filters, &mut |_label, image| {
+            let Ok(dex) = RawDex::parse(image) else { return };
+            for ci in 0..dex.cls_n {
+                let Some((ty, _, _, _, _)) = dex.class_def_parts(ci) else { continue };
+                let name = dex.class_name(ty);
+                if name.starts_with(&pkg_prefix) {
+                    names.push(name);
+                }
+            }
+        })?;
+        Ok(names)
     };
-    for_each_image(&common.input, &common.dex_filters, &mut |label, image| {
-        let Ok(dex) = RawDex::parse(image) else { return };
-        for ci in 0..dex.cls_n {
-            let Some((ty, _, _, _, _)) = dex.class_def_parts(ci) else { continue };
-            let name = dex.class_name(ty);
-            if name.starts_with(&pkg_prefix) {
-                let _ = label;
-                names.push(name);
+    let mut package = package;
+    let mut names = collect(&package)?;
+    if names.is_empty() && from_manifest {
+        if let Some(launcher) = crate::manifest::facts_for(&common.input)?.launcher {
+            if let Some((lp, _)) = launcher.rsplit_once('.') {
+                eprintln!("ddc: no classes under {package}; retrying with launcher package {lp}");
+                package = lp.to_string();
+                names = collect(&package)?;
             }
         }
-    })?;
+    }
     if names.is_empty() {
         bail!("no classes under package {package}");
     }
@@ -720,22 +751,384 @@ pub(crate) fn cmd_getmethod(args: &[String]) -> Result<()> {
         .rest
         .first()
         .context("getmethod needs a Class.method target")?;
-    // Method-granular output rides the class pipeline today: resolve the
-    // CLASS and emit it (the class file contains the method). `Class.method`
-    // is the documented form, but a bare class name whose last segment looks
-    // like an identifier must still resolve — try the split class first,
-    // then the whole string.
-    let candidates: Vec<String> = match target.rsplit_once('.') {
-        Some((c, _m)) => vec![c.to_string(), target.to_string()],
-        None => vec![target.to_string()],
+    let mut out: Option<PathBuf> = None;
+    let mut i = 0;
+    while i < args.len() {
+        match args[i].as_str() {
+            "-o" | "--output" => {
+                out = Some(PathBuf::from(args.get(i + 1).context("-o needs a value")?));
+                i += 1;
+            }
+            _ => {}
+        }
+        i += 1;
+    }
+    // `Class.method` is the documented form; a bare class name whose last
+    // segment looks like a method (`Cells.t1`) must still resolve — try the
+    // split class first, then the whole string (no method filter then).
+    let split = target
+        .rsplit_once('.')
+        .filter(|(c, m)| !c.is_empty() && !m.is_empty() && !m.contains('('))
+        .map(|(c, m)| (c.to_string(), m.to_string()));
+    let candidates: Vec<(String, Option<String>)> = match &split {
+        Some((c, m)) => vec![(c.clone(), Some(m.clone())), (target.to_string(), None)],
+        None => vec![(target.to_string(), None)],
     };
-    let mut last_err = None;
-    for class in candidates {
-        let fwd: Vec<String> = vec![common.input.display().to_string(), class];
-        match crate::cmd_getclass(&fwd, std::time::Instant::now()) {
-            Ok(()) => return Ok(()),
+    let mut last_err: Option<anyhow::Error> = None;
+    for (class, method) in candidates {
+        match crate::getclass_text(&[common.input.clone()], &class, &common.dex_filters) {
+            Ok((text, _defining)) => {
+                let body = match &method {
+                    Some(m) => match slice_methods(&text, m) {
+                        Some(b) => b,
+                        None => {
+                            let avail = method_names(&text).join(", ");
+                            bail!("method {m} not found in {class} (methods: {avail})")
+                        }
+                    },
+                    None => format!("{text}\n"),
+                };
+                match out {
+                    Some(f) => {
+                        if let Some(parent) = f.parent() {
+                            let _ = std::fs::create_dir_all(parent);
+                        }
+                        std::fs::write(&f, &body)?;
+                    }
+                    None => print!("{body}"),
+                }
+                return Ok(());
+            }
             Err(e) => last_err = Some(e),
         }
     }
     Err(last_err.unwrap_or_else(|| anyhow::anyhow!("getmethod: class not found")))
+}
+
+/// Slice one method's block out of a decompiled class: keeps the
+/// provenance header + package line, then every signature whose
+/// pre-paren token equals `method` (all overloads), dedented.
+fn slice_methods(text: &str, method: &str) -> Option<String> {
+    let lines: Vec<&str> = text.lines().collect();
+    // Header: leading // lines (provenance), then the package line.
+    let mut header: Vec<&str> = Vec::new();
+    let mut package: Option<&str> = None;
+    for l in &lines {
+        if l.starts_with("//") {
+            header.push(l);
+        } else if l.trim_start().starts_with("package ") {
+            package = Some(l);
+            break;
+        } else if !l.trim().is_empty() {
+            break;
+        }
+    }
+    let mut out = String::new();
+    for h in &header {
+        out.push_str(h);
+        out.push('\n');
+    }
+    if let Some(p) = package {
+        out.push('\n');
+        out.push_str(p);
+        out.push('\n');
+    }
+
+    let mut blocks = 0usize;
+    let mut i = 0usize;
+    while i < lines.len() {
+        let line = lines[i];
+        let t = line.trim_start();
+        let indent = line.len() - t.len();
+        if indent == 0 || !t.ends_with('{') || !t.contains('(') {
+            i += 1;
+            continue;
+        }
+        // The token before the first '(' names the method
+        // (`java.lang.String greet() {` → greet; `Greeter(...) {` → ctor).
+        let paren = t.find('(').unwrap();
+        let name = t[..paren].split_whitespace().next_back().unwrap_or("");
+        if name != method {
+            i += 1;
+            continue;
+        }
+        // Block ends at the matching-indent closing brace line.
+        let close = " ".repeat(indent) + "}";
+        let mut j = i;
+        let mut block: Vec<&str> = Vec::new();
+        while j < lines.len() {
+            block.push(lines[j]);
+            if lines[j] == close {
+                break;
+            }
+            j += 1;
+        }
+        out.push('\n');
+        for b in &block {
+            // Dedent by the signature indent (nested-class methods too).
+            out.push_str(b.get(indent..).unwrap_or(b));
+            out.push('\n');
+        }
+        blocks += 1;
+        i = j + 1;
+    }
+    (blocks > 0).then_some(out)
+}
+
+/// Every method name in a decompiled class (for getmethod's error hint).
+fn method_names(text: &str) -> Vec<String> {
+    let mut names: Vec<String> = Vec::new();
+    for line in text.lines() {
+        let t = line.trim_start();
+        let indent = line.len() - t.len();
+        if indent == 0 || !t.ends_with('{') || !t.contains('(') {
+            continue;
+        }
+        let paren = t.find('(').unwrap();
+        if let Some(name) = t[..paren].split_whitespace().next_back() {
+            if !names.iter().any(|n| n == name) {
+                names.push(name.to_string());
+            }
+        }
+    }
+    names
+}
+
+// ---- mainactivity -------------------------------------------------------------
+
+pub(crate) fn cmd_mainactivity(args: &[String]) -> Result<()> {
+    let mut rest: Vec<String> = Vec::new();
+    let mut i = 0;
+    while i < args.len() {
+        match args[i].as_str() {
+            "-d" | "--dex" => {
+                // parse_common owns -d/--dex, but this loop runs first —
+                // forward both tokens so it can see them.
+                rest.push(args[i].clone());
+                rest.push(args.get(i + 1).context("--dex needs a value")?.clone());
+                i += 1;
+            }
+            a if a.starts_with('-') => bail!("mainactivity: unknown option {a}"),
+            a => rest.push(a.to_string()),
+        }
+        i += 1;
+    }
+    let common = parse_common(&rest, "mainactivity")?;
+
+    let facts = crate::manifest::facts_for(&common.input)?;
+    if facts.package.is_empty() {
+        bail!("manifest has no package attribute");
+    }
+    println!("{:<11} {}", "package", facts.package);
+    if let Some(app) = &facts.application {
+        println!("{:<11} {} (application)", "class", app);
+    }
+    let Some(launcher) = &facts.launcher else {
+        bail!(
+            "manifest declares no MAIN/LAUNCHER activity (headless app? try `ddc manifest {} --component activity-alias`)",
+            common.input.display()
+        );
+    };
+    println!("{:<11} {}", "launcher", launcher);
+
+    // Verify the launcher against the dex images: which one defines it?
+    // (A name the manifest inherited from a library still resolves; a
+    // framework stub like android.app.Application won't — that's fine.)
+    let internal = launcher.replace('.', "/");
+    let mut found: Option<String> = None;
+    for_each_image(&common.input, &common.dex_filters, &mut |label, image| {
+        if found.is_some() {
+            return;
+        }
+        if let Ok(dex) = RawDex::parse(image) {
+            if let Some(label_short) = label.rsplit_once('!').map(|(_, e)| e) {
+                if dex.find_class(&internal).is_some() {
+                    let _ = label_short;
+                    found = Some(label.to_string());
+                }
+            }
+        }
+    })?;
+    match &found {
+        Some(image) => println!("{:<11} {}", "dex", image),
+        None => println!("{:<11} - (not defined in the dex images: framework or missing)", "dex"),
+    }
+    Ok(())
+}
+
+// ---- res ------------------------------------------------------------------------
+
+/// One archive entry, flattened across nested containers: `name` is the
+/// user-visible path (`res/values/strings.xml`, or `base.apk!res/...`);
+/// metadata only — nothing is inflated for listing.
+struct FlatEntry {
+    name: String,
+    /// "" = top-level container; otherwise the inner APK the entry lives in.
+    container: String,
+    method: &'static str,
+    /// Compressed size on disk.
+    size: usize,
+}
+
+fn flatten_entries(input: &std::path::Path) -> Result<Vec<FlatEntry>> {
+    let src = crate::inputs::map_source(input)?;
+    let bytes: &[u8] = src.bytes();
+    if bytes.len() < 4 || &bytes[..2] != b"PK" {
+        bail!("{}: not a zip container", input.display());
+    }
+    let entries = crate::zip_entries(bytes)?;
+    let mut out: Vec<FlatEntry> = Vec::new();
+    for e in &entries {
+        // Nested APK (XAPK/APKS/APKM): recurse one level; resources live
+        // in the inner APKs, not the container.
+        if e.name.ends_with(".apk") {
+            if let Ok(inner) = crate::manifest::entry_bytes(bytes, e) {
+                if inner.len() > 4 && &inner[..2] == b"PK" {
+                    if let Ok(inner_entries) = crate::zip_entries(&inner) {
+                        for ie in &inner_entries {
+                            out.push(FlatEntry {
+                                name: format!("{}!{}", e.name, ie.name),
+                                container: e.name.clone(),
+                                method: match ie.method {
+                                    crate::ZipMethod::Stored => "stored",
+                                    crate::ZipMethod::Deflate => "deflate",
+                                },
+                                size: ie.range.len(),
+                            });
+                        }
+                    }
+                }
+            }
+            continue;
+        }
+        out.push(FlatEntry {
+            name: e.name.clone(),
+            container: String::new(),
+            method: match e.method {
+                crate::ZipMethod::Stored => "stored",
+                crate::ZipMethod::Deflate => "deflate",
+            },
+            size: e.range.len(),
+        });
+    }
+    Ok(out)
+}
+
+/// Inflate exactly one entry: (pretty name, bytes). `container` empty =
+/// top-level archive.
+fn dump_entry(input: &std::path::Path, name: &str, container: &str) -> Result<Vec<u8>> {
+    let src = crate::inputs::map_source(input)?;
+    let bytes: &[u8] = src.bytes();
+    if bytes.len() < 4 || &bytes[..2] != b"PK" {
+        bail!("{}: not a zip container", input.display());
+    }
+    let entries = crate::zip_entries(bytes)?;
+    if container.is_empty() {
+        let e = entries
+            .iter()
+            .find(|e| e.name == name)
+            .with_context(|| format!("res: no entry {name:?}"))?;
+        return crate::manifest::entry_bytes(bytes, e);
+    }
+    let apk = entries
+        .iter()
+        .find(|e| e.name == container)
+        .with_context(|| format!("res: no inner APK {container:?}"))?;
+    let inner = crate::manifest::entry_bytes(bytes, apk)?;
+    let inner_entries = crate::zip_entries(&inner)?;
+    let e = inner_entries
+        .iter()
+        .find(|e| e.name == name)
+        .with_context(|| format!("res: no entry {name:?} in {container}"))?;
+    crate::manifest::entry_bytes(&inner, e)
+}
+
+pub(crate) fn cmd_res(args: &[String]) -> Result<()> {
+    let mut rest: Vec<String> = Vec::new();
+    let mut out: Option<PathBuf> = None;
+    let mut i = 0;
+    while i < args.len() {
+        match args[i].as_str() {
+            "-o" | "--output" => {
+                out = Some(PathBuf::from(args.get(i + 1).context("-o needs a value")?));
+                i += 1;
+            }
+            a if a.starts_with('-') => bail!("res: unknown option {a}"),
+            a => rest.push(a.to_string()),
+        }
+        i += 1;
+    }
+    let common = parse_common(&rest, "res")?;
+    let entries = flatten_entries(&common.input)?;
+    let Some(want) = common.rest.first() else {
+        // List mode: every entry, method + compressed size.
+        println!("{:<8}  {:>9}  {}", "method", "size", "entry");
+        for e in &entries {
+            println!("{:<8}  {:>9}  {}", e.method, e.size, e.name);
+        }
+        println!("total: {} entries", entries.len());
+        return Ok(());
+    };
+
+    // Dump mode: exact match first, then a unique substring match.
+    let hit = entries
+        .iter()
+        .find(|e| e.name == *want)
+        .or_else(|| {
+            let sub: Vec<&FlatEntry> =
+                entries.iter().filter(|e| e.name.contains(want.as_str())).collect();
+            (sub.len() == 1).then(|| sub[0])
+        })
+        .with_context(|| {
+            let matches: Vec<&str> = entries
+                .iter()
+                .filter(|e| e.name.contains(want.as_str()))
+                .map(|e| e.name.as_str())
+                .take(5)
+                .collect();
+            if matches.is_empty() {
+                format!("res: no entry matches {want:?}")
+            } else {
+                format!("res: {want:?} is ambiguous: {}", matches.join(", "))
+            }
+        })?;
+    let plain = hit.name.rsplit_once('!').map(|(_, n)| n).unwrap_or(&hit.name);
+    let bytes = dump_entry(&common.input, plain, &hit.container)?;
+
+    // Binary XML? (first chunk 0x0003 = RES_XML_TYPE) — res/**.xml and
+    // AndroidManifest.xml decode through the existing AXML decoder.
+    let is_axml =
+        bytes.len() >= 8 && u16::from_le_bytes([bytes[0], bytes[1]]) == 0x0003;
+    if is_axml {
+        let text = crate::axml::axml_to_xml(&bytes)
+            .map_err(|e| anyhow::anyhow!("{}: {e}", hit.name))?;
+        match out {
+            Some(f) => std::fs::write(&f, &text)?,
+            None => print!("{text}"),
+        }
+        return Ok(());
+    }
+    match String::from_utf8(bytes.clone()) {
+        Ok(text) if !text.contains('\0') => match out {
+            Some(f) => std::fs::write(&f, text)?,
+            None => print!("{text}"),
+        },
+        _ => match out {
+            Some(f) => {
+                std::fs::write(&f, &bytes)?;
+                eprintln!(
+                    "ddc: wrote {} ({} bytes) from {}",
+                    f.display(),
+                    bytes.len(),
+                    hit.name
+                );
+            }
+            None => bail!(
+                "{}: {} binary bytes — pass -o FILE to save",
+                hit.name,
+                bytes.len()
+            ),
+        },
+    }
+    Ok(())
 }

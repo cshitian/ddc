@@ -331,6 +331,7 @@ impl DexFile {
     }
 
     #[inline]
+    #[allow(dead_code)] // debug hook for retirement postmortems
     fn is_released(&self) -> bool {
         self.released.load(std::sync::atomic::Ordering::Acquire)
     }
