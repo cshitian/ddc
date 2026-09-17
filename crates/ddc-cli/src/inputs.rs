@@ -74,7 +74,10 @@ fn walk_dex_files(dir: &Path, out: &mut Vec<PathBuf>) -> std::io::Result<()> {
 pub fn is_dex_ext(p: &Path) -> bool {
     matches!(
         p.extension().and_then(|e| e.to_str()).map(|e| e.to_ascii_lowercase()),
-        Some(ref e) if matches!(e.as_str(), "dex" | "apk" | "jar" | "zip")
+        Some(ref e) if matches!(
+            e.as_str(),
+            "dex" | "apk" | "jar" | "zip" | "xapk" | "apks" | "apkm"
+        )
     )
 }
 
@@ -89,6 +92,64 @@ pub fn dir_has_dex_files(dir: &Path) -> bool {
 /// their `*.dex` entries (classes.dex, classes2.dex... numeric order
 /// first), raw dex files contribute themselves. Labels read
 /// `<input-stem>!<zip-entry>`.
+///
+/// Expand an XAPK/APKS/APKM container: one image per inner APK's dex
+/// entry, labeled `<outer-stem>!<inner-apk>!<dex-entry>`. The BASE apk
+/// comes first so duplicate class names resolve to it (pool first-wins);
+/// config splits follow in name order.
+fn nested_apk_images(
+    outer: &std::sync::Arc<Source>,
+    entries: &[ZipEntry],
+    stem: &str,
+) -> Result<Vec<Image>> {
+    let mut apks: Vec<&ZipEntry> = entries.iter().filter(|e| e.name.ends_with(".apk")).collect();
+    apks.sort_by_key(|e| {
+        let base = e.name == "base.apk"
+            || e.name == format!("{stem}.apk")
+            || e.name.starts_with("split_base");
+        (!base, e.name.clone())
+    });
+    let mut images = Vec::new();
+    for apk in apks {
+        let inner: Vec<u8> = match apk.method {
+            ZipMethod::Stored => outer.bytes()[apk.range.clone()].to_vec(),
+            ZipMethod::Deflate => inflate(outer.bytes()[apk.range.clone()].as_ref())?,
+        };
+        if inner.len() < 4 || &inner[..2] != b"PK" {
+            continue; // odd entry (renamed obb etc.)
+        }
+        let inner_entries = zip_entries(&inner)?;
+        let src = std::sync::Arc::new(Source::Heap(inner));
+        let mut dexes: Vec<(u64, ZipEntry)> = Vec::new();
+        let mut extra: Vec<ZipEntry> = Vec::new();
+        for e in inner_entries {
+            if !e.name.ends_with(".dex") {
+                continue;
+            }
+            let core = e.name.trim_end_matches(".dex");
+            if let Some(num) = core.strip_prefix("classes") {
+                let key = num.parse::<u64>().unwrap_or(0);
+                dexes.push((key, e));
+            } else {
+                extra.push(e);
+            }
+        }
+        dexes.sort_by_key(|(k, _)| *k);
+        let mk = |e: ZipEntry| Image {
+            label: format!("{}!{}!{}", stem, apk.name, e.name),
+            data: src.clone(),
+            range: e.range,
+            method: e.method,
+        };
+        images.extend(dexes.into_iter().map(|(_, e)| mk(e)));
+        images.extend(extra.into_iter().map(mk));
+    }
+    if images.is_empty() {
+        bail!("XAPK container has no APK entries with *.dex files");
+    }
+    Ok(images)
+}
+
 pub fn map_source(f: &Path) -> Result<Source> {
     let file = std::fs::File::open(f).with_context(|| format!("open {}", f.display()))?;
     let len = file
@@ -120,6 +181,16 @@ pub fn collect_images(files: &[PathBuf]) -> Result<Vec<Image>> {
         let bytes: &[u8] = src.bytes();
         if bytes.len() >= 4 && &bytes[..2] == b"PK" {
             let entries = zip_entries(bytes)?;
+            // XAPK / APKS / APKM: a zip of APKs (base + config splits, plus
+            // a manifest.json/info.json the pool ignores). Detected by
+            // CONTENT — .apk entries and no .dex entries — so renamed or
+            // mislabeled containers work too.
+            let has_apk = entries.iter().any(|e| e.name.ends_with(".apk"));
+            let has_dex = entries.iter().any(|e| e.name.ends_with(".dex"));
+            if has_apk && !has_dex {
+                images.extend(nested_apk_images(&src, &entries, &stem)?);
+                continue;
+            }
             let mut dexes: Vec<(u64, ZipEntry)> = Vec::new();
             let mut extra: Vec<ZipEntry> = Vec::new();
             for e in entries {
@@ -178,19 +249,23 @@ pub fn filter_images_by_dex(
     if patterns.is_empty() {
         return Ok(images);
     }
-    let entry = |label: &str| match label.rsplit_once('!') {
-        Some((_, e)) => e.to_string(),
-        None => label.to_string(),
-    };
+    // Match against the WHOLE label: plain APK labels are
+    // `<stem>!classes.dex` (an entry-name match behaves exactly as
+    // before), nested XAPK labels are `<stem>!<apk>!<dex>` where either
+    // segment may be the thing the user names (`--dex base`,
+    // `--dex config.arm64`, `--dex classes2`).
     let pats: Vec<String> = patterns.iter().map(|p| p.to_ascii_lowercase()).collect();
     let (kept, dropped): (Vec<Image>, Vec<Image>) = images
         .into_iter()
         .partition(|img| {
-            let e = entry(&img.label).to_ascii_lowercase();
+            let e = img.label.to_ascii_lowercase();
             pats.iter().any(|p| e.contains(p.as_str()))
         });
     if kept.is_empty() {
-        let mut names: Vec<String> = dropped.iter().map(|img| entry(&img.label)).collect();
+        let mut names: Vec<String> = dropped
+            .iter()
+            .map(|img| img.label.rsplit_once('!').map(|(_, e)| e).unwrap_or(&img.label).to_string())
+            .collect();
         names.sort();
         names.dedup();
         bail!(

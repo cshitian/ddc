@@ -37,7 +37,9 @@ fn print_help() {
     println!("       ddc <help|version>");
     println!();
     println!("INPUT is a .dex file, an .apk/.jar/.zip archive containing");
-    println!("classes.dex / classes2.dex..., or a directory (scanned recursively).");
+    println!("classes.dex / classes2.dex..., an .xapk/.apks/.apkm container");
+    println!("(a zip of APKs: base + config splits — every inner APK's dexes");
+    println!("are merged, base first), or a directory (scanned recursively).");
     println!("Multiple inputs merge into one class pool (duplicates skipped).");
     println!();
     println!("OUTPUT, given either as the last positional argument or -o:");
@@ -164,21 +166,67 @@ fn cmd_manifest(args: &[String], t0: std::time::Instant) -> Result<()> {
     // A ZIP/APK contributes its AndroidManifest.xml entry; a raw file is
     // itself a binary XML (`.axml`) — no dex parse either way. mmap the
     // archive: only the manifest entry's range ever gets touched.
+    // XAPK/APKS/APKM containers keep the manifest inside their BASE APK
+    // (base.apk, then `{stem}.apk`, then split_base*); that inner APK is
+    // inflated and its manifest entry extracted.
     let xml = {
         let src = inputs::map_source(&input)?;
         let bytes: &[u8] = src.bytes();
         if bytes.len() >= 4 && &bytes[..2] == b"PK" {
             let entries = zip_entries(bytes)?;
-            let entry = entries
-                .into_iter()
-                .find(|n| n.name == "AndroidManifest.xml")
-                .with_context(|| format!("{}: no AndroidManifest.xml entry", input.display()))?;
-            let raw = match entry.method {
-                ZipMethod::Stored => bytes[entry.range].to_vec(),
-                ZipMethod::Deflate => inflate(&bytes[entry.range])?,
-            };
-            input = PathBuf::from(entry.name);
-            raw
+            if let Some(entry) = entries.iter().find(|n| n.name == "AndroidManifest.xml") {
+                let raw = match entry.method {
+                    ZipMethod::Stored => bytes[entry.range.clone()].to_vec(),
+                    ZipMethod::Deflate => inflate(&bytes[entry.range.clone()])?,
+                };
+                input = PathBuf::from(entry.name.clone());
+                raw
+            } else {
+                // Nested container: base APK first, then name order.
+                let stem = input
+                    .file_stem()
+                    .and_then(|s| s.to_str())
+                    .unwrap_or("input");
+                let mut apks: Vec<&crate::ZipEntry> = entries
+                    .iter()
+                    .filter(|e| e.name.ends_with(".apk"))
+                    .collect();
+                apks.sort_by_key(|e| {
+                    let base = e.name == "base.apk"
+                        || e.name == format!("{stem}.apk")
+                        || e.name.starts_with("split_base");
+                    (!base, e.name.clone())
+                });
+                let mut found = None;
+                for apk in apks {
+                    let inner: Vec<u8> = match apk.method {
+                        ZipMethod::Stored => bytes[apk.range.clone()].to_vec(),
+                        ZipMethod::Deflate => inflate(&bytes[apk.range.clone()])?,
+                    };
+                    if inner.len() < 4 || &inner[..2] != b"PK" {
+                        continue;
+                    }
+                    if let Some(e) = zip_entries(&inner)?
+                        .into_iter()
+                        .find(|n| n.name == "AndroidManifest.xml")
+                    {
+                        let raw = match e.method {
+                            ZipMethod::Stored => inner[e.range].to_vec(),
+                            ZipMethod::Deflate => inflate(&inner[e.range])?,
+                        };
+                        found = Some((format!("{}!{}", apk.name, e.name), raw));
+                        break;
+                    }
+                }
+                let (name, raw) = found.with_context(|| {
+                    format!(
+                        "{}: no AndroidManifest.xml entry (in container or its APKs)",
+                        input.display()
+                    )
+                })?;
+                input = PathBuf::from(name);
+                raw
+            }
         } else {
             bytes.to_vec()
         }

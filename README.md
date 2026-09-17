@@ -27,6 +27,11 @@ cargo build --release   # release profile 自带 LTO fat + codegen-units=1
 
 - `.dex` 镜像（035-041 任一版本）
 - `.apk` / `.jar` / `.zip`（内含 `classes.dex`、`classes2.dex`…，解压+解析并行）
+- `.xapk` / `.apks` / `.apkm`（装着多个 APK 的容器：base + config 分包
+  ——按内容嗅探识别（.apk 条目且无 .dex 条目），改名容器也能读；每个内层
+  APK 的 dex 都并入池，**base 优先**（重名类解析到 base），标签三层
+  `容器!base.apk!classes.dex`；`--dex base` / `--dex config.arm64` 按
+  内层 APK 过滤；`manifest` 递归取 base APK 里的 AndroidManifest.xml）
 - 目录（递归扫描上述扩展名）
 
 输出三选一：**目录**（按包路径落盘 `.java`）、**单个 `.java` 文件**（仅 `-c` 单类或单类输入）、**stdout**（`-`，带 `// ===== class =====` 分隔，单线程保证池序）。无输出参数时默认写到输入旁的 `<输入名>-out/`；单类输出（`-c`）默认打印到 stdout。
