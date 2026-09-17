@@ -259,13 +259,13 @@ fn cmd_listclasses(args: &[String], _t0: std::time::Instant) -> Result<()> {
         collect_images(&files)?,
         &dex_filters,
     )?)?;
-    let mut total = 0usize;
+    let mut _total = 0usize;
     let mut all: Vec<String> = Vec::new();
     let mut seen = std::collections::HashSet::new();
     for (_, dex) in &parsed {
         for cd in &dex.class_defs {
             let name = dex.class_name(cd.class_idx);
-            total += 1;
+            _total += 1;
             if seen.insert(name.clone()) {
                 all.push(name);
             }
@@ -481,9 +481,9 @@ fn cmd_findrefs(args: &[String], t0: std::time::Instant) -> Result<()> {
     // bandwidth survives while resident memory stays bounded to the
     // in-flight images (holding every image resident cost ~1.2GB on a
     // 353MB APK; ASC's per-worker streaming runs ~170MB).
-    const WAVE: usize = 10 10;
+    const WAVE: usize = 6;
     const SCANNERS: usize = 8;
-    const IN_FLIGHT: usize = ;
+    const IN_FLIGHT: usize = 12;
     let chan = std::sync::Arc::new(Chan::<(String, DexFile)>::new(IN_FLIGHT));
     let producer = {
         let chan = chan.clone();
