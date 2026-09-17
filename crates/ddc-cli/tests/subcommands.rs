@@ -240,3 +240,127 @@ fn findrefs_bad_invocation() {
     assert_eq!(o.status.code(), Some(2));
     assert!(stderr(&o).contains("findrefs needs:"));
 }
+
+// ---- browse subcommands (jadx-style lookup tools) --------------------------
+
+#[test]
+fn strings_filter_and_locations() {
+    let o = run(ddc().arg("strings").arg(fixture()).arg("-f").arg("hi").arg("--with-locations"));
+    assert!(o.status.success(), "{}", stderr(&o));
+    let out = stdout(&o);
+    assert!(out.starts_with("dex         string"), "header:\n{}", out);
+    assert!(out.contains("\"hi \""), "literal:\n{}", out);
+    assert!(out.contains("Greeter greet()Ljava/lang/String;"), "used-by:\n{}", out);
+}
+
+#[test]
+fn members_scoped_to_class() {
+    let o = run(ddc().arg("members").arg(fixture()).arg("--class").arg("Greeter"));
+    assert!(o.status.success(), "{}", stderr(&o));
+    let out = stdout(&o);
+    assert!(out.starts_with("dex         kind    class member"), "header:\n{}", out);
+    assert!(out.contains("method  Greeter greet()Ljava/lang/String;"), "method:\n{}", out);
+    // --class excludes other classes' members.
+    assert!(!out.contains("Hello main"), "unfiltered class leaked:\n{}", out);
+}
+
+#[test]
+fn hierarchy_lineage_and_subs() {
+    let o = run(ddc().arg("hierarchy").arg(fixture()).arg("Greeter"));
+    assert!(o.status.success(), "{}", stderr(&o));
+    let out = stdout(&o);
+    assert!(out.contains("class      Greeter"), "self:\n{}", out);
+    assert!(out.contains("extends    Ljava/lang/Object;"), "super:\n{}", out);
+
+    let o = run(ddc().arg("hierarchy").arg(fixture()).arg("java.lang.Object"));
+    assert!(o.status.success(), "{}", stderr(&o));
+    let out = stdout(&o);
+    assert!(out.contains("sub        Greeter"), "sub:\n{}", out);
+    assert!(out.contains("sub        Hello"), "sub:\n{}", out);
+}
+
+#[test]
+fn largest_orders_by_insn_count() {
+    let o = run(ddc().arg("largest").arg(fixture()).arg("-n").arg("2"));
+    assert!(o.status.success(), "{}", stderr(&o));
+    let out = stdout(&o);
+    assert!(out.starts_with("  insns  dex"), "header:\n{}", out);
+    // hello.dex's biggest method is Hello.main (23 insns).
+    assert!(out.contains("Hello main([Ljava/lang/String;)V"), "top:\n{}", out);
+    let insns: Vec<usize> = out
+        .lines()
+        .skip(1)
+        .filter_map(|l| l.trim().split_whitespace().next().and_then(|n| n.parse().ok()))
+        .collect();
+    assert_eq!(insns.len(), 2, "rows:\n{}", out);
+    assert!(insns[0] >= insns[1], "not sorted desc:\n{}", out);
+}
+
+#[test]
+fn disasm_whole_class_and_single_method() {
+    let o = run(ddc().arg("disasm").arg(fixture()).arg("Greeter"));
+    assert!(o.status.success(), "{}", stderr(&o));
+    let out = stdout(&o);
+    assert!(out.contains("// hello Greeter"), "banner:\n{}", out);
+    assert!(out.contains("greet()Ljava/lang/String;:"), "method:\n{}", out);
+    assert!(out.contains("const-string"), "insn:\n{}", out);
+
+    // Class.method narrows to one method.
+    let o = run(ddc().arg("disasm").arg(fixture()).arg("Greeter.greet"));
+    assert!(o.status.success(), "{}", stderr(&o));
+    let out = stdout(&o);
+    assert!(out.contains("greet()Ljava/lang/String;:"), "method:\n{}", out);
+    assert!(!out.contains("<init>"), "other methods leaked:\n{}", out);
+}
+
+#[test]
+fn callers_finds_invokers() {
+    let o = run(ddc().arg("callers").arg(fixture()).arg("println"));
+    assert!(o.status.success(), "{}", stderr(&o));
+    let out = stdout(&o);
+    assert!(out.contains("Hello main([Ljava/lang/String;)V"), "caller:\n{}", out);
+    assert!(out.contains("Ljava/io/PrintStream;->println"), "target:\n{}", out);
+}
+
+#[test]
+fn getmethod_decompiles_the_class() {
+    let o = run(ddc().arg("getmethod").arg(fixture()).arg("Greeter.greet"));
+    assert!(o.status.success(), "{}", stderr(&o));
+    let out = stdout(&o);
+    assert!(out.contains("class Greeter {"), "class:\n{}", out);
+    assert!(out.contains("return \"hi \" + this.name;"), "method body:\n{}", out);
+}
+
+#[test]
+fn pkg_decompiles_a_package_subtree() {
+    // hello.dex has no packages (default package) — the whole image is the
+    // "root package"; use it to prove the pipeline runs end-to-end.
+    let dir = tmp("pkg-root");
+    let o = run(ddc().arg("pkg").arg(fixture()).arg("").arg("-o").arg(&dir));
+    assert!(o.status.success(), "{}", stderr(&o));
+    let mut n = 0;
+    for e in walk(&dir) {
+        if e.ends_with(".java") {
+            n += 1;
+        }
+    }
+    assert!(n >= 2, "expected Hello+Greeter, got {n} file(s) in {}", dir.display());
+}
+
+fn walk(dir: &PathBuf) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut stack = vec![dir.clone()];
+    while let Some(p) = stack.pop() {
+        if let Ok(rd) = std::fs::read_dir(&p) {
+            for e in rd.flatten() {
+                let path = e.path();
+                if path.is_dir() {
+                    stack.push(path);
+                } else {
+                    out.push(path.display().to_string());
+                }
+            }
+        }
+    }
+    out
+}

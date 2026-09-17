@@ -99,22 +99,22 @@ const OPCODE_KINDS: [u8; 256] = {
 /// A raw DEX image view: header fields + validated table ranges, nothing
 /// decoded.
 pub(crate) struct RawDex<'a> {
-    d: &'a [u8],
-    str_n: usize,
-    str_off: usize,
-    type_n: usize,
-    type_off: usize,
-    proto_off: usize,
-    field_n: usize,
-    field_off: usize,
-    method_n: usize,
-    method_off: usize,
-    cls_n: usize,
-    cls_off: usize,
+    pub(crate) d: &'a [u8],
+    pub(crate) str_n: usize,
+    pub(crate) str_off: usize,
+    pub(crate) type_n: usize,
+    pub(crate) type_off: usize,
+    pub(crate) proto_off: usize,
+    pub(crate) field_n: usize,
+    pub(crate) field_off: usize,
+    pub(crate) method_n: usize,
+    pub(crate) method_off: usize,
+    pub(crate) cls_n: usize,
+    pub(crate) cls_off: usize,
 }
 
 impl<'a> RawDex<'a> {
-    fn parse(d: &'a [u8]) -> Result<Self> {
+    pub(crate) fn parse(d: &'a [u8]) -> Result<Self> {
         if d.len() < 0x70 || !d.starts_with(b"dex\n") {
             bail!("not a DEX image");
         }
@@ -148,12 +148,12 @@ impl<'a> RawDex<'a> {
     }
 
     #[inline]
-    fn u4(&self, o: usize) -> u32 {
+    pub(crate) fn u4(&self, o: usize) -> u32 {
         u32::from_le_bytes([self.d[o], self.d[o + 1], self.d[o + 2], self.d[o + 3]])
     }
 
     /// Raw MUTF-8 bytes of string `idx` (uleb length skipped).
-    fn string_bytes(&self, idx: u32) -> Option<&'a [u8]> {
+    pub(crate) fn string_bytes(&self, idx: u32) -> Option<&'a [u8]> {
         let mut off = self.u4(self.str_off + 4 * idx as usize) as usize;
         if off >= self.d.len() {
             return None;
@@ -177,7 +177,7 @@ impl<'a> RawDex<'a> {
     }
 
     /// The raw descriptor bytes of a type (`Lcom/foo/Bar;`).
-    fn type_bytes(&self, idx: u32) -> Option<&'a [u8]> {
+    pub(crate) fn type_bytes(&self, idx: u32) -> Option<&'a [u8]> {
         if idx as usize >= self.type_n {
             return None;
         }
@@ -186,7 +186,7 @@ impl<'a> RawDex<'a> {
     }
 
     /// Class internal name from a type index (descriptor shell stripped).
-    fn class_name(&self, type_idx: u32) -> String {
+    pub(crate) fn class_name(&self, type_idx: u32) -> String {
         match self.type_bytes(type_idx) {
             Some(b) => {
                 let s = decode_mutf8_lossy(b);
@@ -199,8 +199,100 @@ impl<'a> RawDex<'a> {
         }
     }
 
+    /// One class_def row: (class_type_idx, super_type_idx, interfaces_off,
+    /// class_data_off, source_file_idx). NO_INDEX = u32::MAX.
+    pub(crate) fn class_def_parts(&self, ci: usize) -> Option<(u32, u32, u32, u32, u32)> {
+        let o = self.cls_off + 32 * ci;
+        if o + 32 > self.d.len() {
+            return None;
+        }
+        let u4 = |p: usize| -> u32 {
+            u32::from_le_bytes([self.d[p], self.d[p + 1], self.d[p + 2], self.d[p + 3]])
+        };
+        // class_def: class_idx, access_flags, superclass_idx, interfaces_off,
+        // source_file_idx, annotations_off, class_data_off, static_values_off.
+        Some((u4(o), u4(o + 8), u4(o + 12), u4(o + 24), u4(o + 16)))
+    }
+
+    /// The type indexes of a class's interfaces (from interfaces_off).
+    pub(crate) fn interface_types(&self, interfaces_off: u32) -> Vec<u32> {
+        if interfaces_off == 0 || interfaces_off as usize + 4 > self.d.len() {
+            return Vec::new();
+        }
+        let p = interfaces_off as usize;
+        let n = u32::from_le_bytes([self.d[p], self.d[p + 1], self.d[p + 2], self.d[p + 3]])
+            as usize;
+        let mut out = Vec::with_capacity(n);
+        for i in 0..n {
+            let q = p + 4 + 2 * i;
+            if q + 2 > self.d.len() {
+                break;
+            }
+            out.push(u16::from_le_bytes([self.d[q], self.d[q + 1]]) as u32);
+        }
+        out
+    }
+
+    /// (class_type_idx, super_type_idx, interfaces_off, class_data_off, source_file_idx)
+    /// of a class found by its internal name.
+    pub(crate) fn find_class(&self, internal: &str) -> Option<usize> {
+        for ci in 0..self.cls_n {
+            let (ty, _, _, _, _) = self.class_def_parts(ci)?;
+            if self.class_name(ty) == internal {
+                return Some(ci);
+            }
+        }
+        None
+    }
+
+    /// Iterate the class's methods: (method_idx, access, code_off).
+    pub(crate) fn methods_of(
+        &self,
+        class_data_off: usize,
+    ) -> Option<Vec<(u32, u32, u32)>> {
+        if class_data_off == 0 {
+            return Some(Vec::new());
+        }
+        let d = self.d;
+        let mut cur = class_data_off;
+        let mut uleb = move || -> Option<u32> {
+            let mut v: u32 = 0;
+            let mut sh = 0;
+            loop {
+                if cur >= d.len() {
+                    return None;
+                }
+                let b = d[cur];
+                cur += 1;
+                v |= ((b & 0x7f) as u32) << sh;
+                sh += 7;
+                if b & 0x80 == 0 {
+                    return Some(v);
+                }
+            }
+        };
+        let (sf, inf, dm, vm) = (uleb()?, uleb()?, uleb()?, uleb()?);
+        for _ in 0..sf + inf {
+            uleb()?;
+            uleb()?;
+        }
+        let mut out: Vec<(u32, u32, u32)> = Vec::new();
+        // Direct and virtual lists EACH restart the method_idx delta at 0.
+        for count in [dm, vm] {
+            let mut midx: u32 = 0;
+            for _ in 0..count {
+                let diff = uleb()?;
+                let access = uleb()?;
+                let code_off = uleb()?;
+                midx = midx.wrapping_add(diff);
+                out.push((midx, access, code_off));
+            }
+        }
+        Some(out)
+    }
+
     /// (class_idx, proto_idx, name bytes) of a method id.
-    fn method_parts(&self, idx: u32) -> Option<(u32, u32, &'a [u8])> {
+    pub(crate) fn method_parts(&self, idx: u32) -> Option<(u32, u32, &'a [u8])> {
         let o = self.method_off + 8 * idx as usize;
         if o + 8 > self.d.len() {
             return None;
@@ -213,7 +305,7 @@ impl<'a> RawDex<'a> {
 
     /// (class_idx, name bytes, type bytes) of a field id
     /// (field_id: class_idx u2, type_idx u2, name_idx u4).
-    fn field_parts(&self, idx: u32) -> Option<(u32, &'a [u8], &'a [u8])> {
+    pub(crate) fn field_parts(&self, idx: u32) -> Option<(u32, &'a [u8], &'a [u8])> {
         let o = self.field_off + 8 * idx as usize;
         if o + 8 > self.d.len() {
             return None;
@@ -225,7 +317,7 @@ impl<'a> RawDex<'a> {
     }
 
     /// `name(params)ret` from a proto id (12-byte proto_id items).
-    fn proto_desc(&self, proto_idx: u32) -> String {
+    pub(crate) fn proto_desc(&self, proto_idx: u32) -> String {
         let o = self.proto_off + 12 * proto_idx as usize;
         if o + 12 > self.d.len() {
             return String::new();
@@ -259,7 +351,7 @@ impl<'a> RawDex<'a> {
     }
 
     /// String indices whose raw bytes contain `needle` (SIMD memmem).
-    fn matching_strings(&self, needle: &[u8]) -> Vec<u32> {
+    pub(crate) fn matching_strings(&self, needle: &[u8]) -> Vec<u32> {
         if needle.is_empty() {
             return Vec::new();
         }
@@ -289,7 +381,7 @@ impl<'a> RawDex<'a> {
     }
 }
 
-fn decode_mutf8_lossy(b: &[u8]) -> String {
+pub(crate) fn decode_mutf8_lossy(b: &[u8]) -> String {
     if b.is_ascii() {
         // Fast path: ASCII bytes are their own MUTF-8/UTF-8 decoding.
         unsafe { std::str::from_utf8_unchecked(b).to_string() }

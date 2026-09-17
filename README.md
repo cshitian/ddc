@@ -154,6 +154,14 @@ APK 里 `From:` 是定位类所在镜像的最快线索（jadx 的 `loaded from:
 | `ddc listclasses app.apk [pattern]` | 类名清单，可模糊过滤 | **0.10s** |
 | `ddc info app.apk` | 每镜像 dex 版本/类/方法/字段/字符串计数 | **0.11s** |
 | `ddc getclass app.apk com.example.Foo [-o F.java]` | 单类（含嵌套）定点反编译 | **0.03s**（典型类） |
+| `ddc strings app.apk [-f TEXT] [--with-locations]` | 字符串表清单；`--with-locations` 把 const-string 命中映射到所属方法 | **0.04s** |
+| `ddc members app.apk [NAME] [--class FQCN] [--method\|--field]` | 方法/字段名检索（jadx `--single-class` 风格） | **0.04s** |
+| `ddc hierarchy app.apk FQCN` | 继承谱：extends/implements + sub/impl 反向 | **0.04s** |
+| `ddc largest app.apk [-n N]` | 按指令数排序的 top-N 方法（找巨兽方法） | **0.06s** |
+| `ddc disasm app.apk FQCN[.method]` | 单类/单方法原始字节码（操作码+pc） | **0.04s** |
+| `ddc callers app.apk NAME [FQCN]` | 谁调用了方法 NAME（复用 findrefs 方法扫描） | ~0.5s |
+| `ddc getmethod app.apk FQCN[.method]` | 定点反编译该方法所在类 | **0.03s** |
+| `ddc pkg app.apk com.example.foo [-o DIR]` | 整包反编译（只跑选中类的完整管线） | 0.165s（Telegram tgnet 1561 类） |
 | （全量对照）`ddc app.apk -o out/` | 98,348 个类全部反编译落盘 | 5.45s / 1.28GB |
 
 **定位类在哪个 dex**：`--dex NAME`（可重复，条目名子串匹配）把范围缩到指定镜像——
@@ -180,7 +188,9 @@ classes50.dex  const-string  bz7/c d(...)Ljava/lang/String;  "both_feishu_doubao
 `--fuzzy-class` 变子串。扫描为每镜像一线程并行；命中 0 个时秒回。
 AXML 解码器在 `ddc-cli/src/axml.rs`（字符串池 UTF-16/UTF-8 双格式、属性
 typedValue 渲染），输入也接受裸 `.axml` 文件。渐进式工作流：
-`info → listclasses → findrefs → getclass`，最后才按需全量。
+`info → listclasses → findrefs → getclass`，浏览/导航用
+`strings/members/hierarchy/largest/disasm/callers`，批量定点用 `pkg`，
+最后才按需全量。
 
 ### 对比 ASC（同机同查询交替 3 轮取中位，`bench/`）
 

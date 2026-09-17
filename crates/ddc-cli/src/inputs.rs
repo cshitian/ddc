@@ -365,6 +365,38 @@ pub fn scan_prefix_needed(image: &[u8]) -> Option<usize> {
     Some(tables_end.max(max_off + 64))
 }
 
+/// Inflate each image on its own thread WITHOUT DexFile::parse — the raw
+/// bytes go straight to the caller (the browse commands run their own
+/// zero-materialization queries on them).
+pub fn inflate_images(
+    images: Vec<Image>,
+) -> Result<Vec<(String, Vec<u8>)>> {
+    let mut handles = Vec::new();
+    for img in images {
+        let label = img.label.clone();
+        handles.push((
+            label,
+            std::thread::spawn(move || {
+                let raw = match img.method {
+                    ZipMethod::Stored => img.data.bytes()[img.range].to_vec(),
+                    ZipMethod::Deflate => inflate(img.data.bytes()[img.range].as_ref())
+                        .map_err(|e| e.to_string())?,
+                };
+                Ok::<_, String>(raw)
+            }),
+        ));
+    }
+    let mut out = Vec::with_capacity(handles.len());
+    for (name, h) in handles {
+        let raw = h
+            .join()
+            .map_err(|_| anyhow::anyhow!("inflate thread panicked: {}", name))?
+            .map_err(|e| anyhow::anyhow!("inflate {}: {}", name, e))?;
+        out.push((name, raw));
+    }
+    Ok(out)
+}
+
 /// Inflate AND parse each image on its own thread. Returns
 /// `(label, DexFile)` pairs in input order.
 pub fn parse_images(images: Vec<Image>) -> Result<Vec<(String, DexFile)>> {

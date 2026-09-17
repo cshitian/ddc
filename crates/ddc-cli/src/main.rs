@@ -14,6 +14,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use anyhow::{bail, Context, Result};
 
 mod axml;
+mod browse;
 mod findrefs;
 mod inputs;
 
@@ -71,6 +72,21 @@ fn print_help() {
     println!("  ddc findrefs <input> field CREATOR --class com.example --fuzzy-class");
     println!("                                      # refs only — class/method names are");
     println!("                                      # fuzzy (substring); --class defaults exact");
+    println!("  ddc strings <input> [-f TEXT] [--with-locations]");
+    println!("                                      # string table dump; -f filters,");
+    println!("                                      # --with-locations maps const-string");
+    println!("                                      # sites to their owner methods");
+    println!("  ddc members <input> [NAME] [--class FQCN] [--fuzzy-class]");
+    println!("                     [--method|--field]");
+    println!("                                      # method/field name search");
+    println!("  ddc hierarchy <input> FQCN         # lineage: extends/implements +");
+    println!("                                      # subclasses/implementors");
+    println!("  ddc largest <input> [-n N]         # top-N methods by insn count");
+    println!("  ddc disasm <input> FQCN[.method]   # raw bytecode of a class/method");
+    println!("  ddc callers <input> NAME [FQCN]    # who invokes method NAME");
+    println!("  ddc getmethod <input> FQCN[.method]# decompile one method's class");
+    println!("  ddc pkg <input> com.example.foo [-o DIR] [-t N]");
+    println!("                                      # decompile one package subtree");
     println!("  -d, --dex NAME       restrict to dex images whose entry name contains");
     println!("                      NAME (substring, repeatable) — resolves which dex");
     println!("                      a class lives in and skips parsing the rest;");
@@ -127,6 +143,8 @@ fn is_subcommand(word: &str) -> bool {
     matches!(
         word,
         "getclass" | "listclasses" | "findrefs" | "manifest" | "info"
+            | "strings" | "members" | "hierarchy" | "largest" | "disasm"
+            | "callers" | "pkg" | "getmethod"
     )
 }
 
@@ -140,6 +158,14 @@ fn run_subcommand(cmd: &str, args: &[String]) -> Result<()> {
         "listclasses" => cmd_listclasses(args, t0),
         "getclass" => cmd_getclass(args, t0),
         "findrefs" => cmd_findrefs(args, t0),
+        "strings" => browse::cmd_strings(args),
+        "members" => browse::cmd_members(args),
+        "hierarchy" => browse::cmd_hierarchy(args),
+        "largest" => browse::cmd_largest(args),
+        "disasm" => browse::cmd_disasm(args),
+        "callers" => browse::cmd_callers(args),
+        "pkg" => browse::cmd_pkg(args),
+        "getmethod" => browse::cmd_getmethod(args),
         _ => bail!("unknown subcommand: {cmd}"),
     }
 }
