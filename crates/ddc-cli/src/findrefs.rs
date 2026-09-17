@@ -48,6 +48,8 @@ impl FindQuery {
 
 /// One reference hit.
 pub struct Hit {
+    /// Source dex image label.
+    pub dex: String,
     /// Owner class, slashed internal form.
     pub class: String,
     /// Owner method, `name(descriptor)`.
@@ -390,7 +392,7 @@ pub fn scan_image(
     query: &FindQuery,
     pre: Option<(u8, BTreeSet<u32>)>,
 ) -> Result<Vec<Hit>> {
-    let _ = label;
+    let dex_name = label.rsplit_once('!').map(|(_, e)| e).unwrap_or(label).to_string();
     let dex = RawDex::parse(image)?;
     let (kind_bit, targets): (u8, BTreeSet<u32>) =
         pre.unwrap_or_else(|| resolve_targets(&dex, query));
@@ -407,7 +409,16 @@ pub fn scan_image(
         if class_data_off == 0 {
             continue;
         }
-        scan_class(&dex, class_data_off, &class, kind_bit, &targets, &prefilter, &mut hits);
+        scan_class(
+            &dex,
+            &dex_name,
+            class_data_off,
+            &class,
+            kind_bit,
+            &targets,
+            &prefilter,
+            &mut hits,
+        );
     }
     Ok(hits)
 }
@@ -473,6 +484,7 @@ fn matching_members(
 #[allow(clippy::too_many_arguments)]
 fn scan_class(
     dex: &RawDex,
+    dex_name: &str,
     class_data_off: usize,
     class: &str,
     kind_bit: u8,
@@ -558,6 +570,7 @@ fn scan_class(
                         _ => render_member(&dex, idx, false),
                     };
                     hits.push(Hit {
+                        dex: dex_name.to_string(),
                         class: class.to_string(),
                         method: owner.clone().unwrap_or_default(),
                         insn: kind_name(op),
@@ -608,18 +621,12 @@ fn render_owner(dex: &RawDex, method_idx: u32) -> String {
     }
 }
 
-/// `cls->name(desc)` (method) or `cls->name:type` (field) — plain internal
-/// class names, matching the owner-class rendering.
+/// `Lcls;->name(desc)` (method) or `Lcls;->name:type` (field) — full
+/// Dalvin descriptor form, ASC parity.
 fn render_member(dex: &RawDex, idx: u32, is_method: bool) -> String {
     let plain = |b: Option<&[u8]>| -> String {
         match b {
-            Some(bytes) => {
-                let s = decode_mutf8_lossy(bytes);
-                s.strip_prefix('L')
-                    .and_then(|t| t.strip_suffix(';'))
-                    .map(str::to_string)
-                    .unwrap_or(s)
-            }
+            Some(bytes) => decode_mutf8_lossy(bytes),
             None => String::new(),
         }
     };

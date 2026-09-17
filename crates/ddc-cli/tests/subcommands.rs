@@ -109,32 +109,31 @@ fn getclass_unknown_class_errors() {
 
 #[test]
 fn findrefs_all_four_kinds() {
-    // string
+    // string — ASC format: dex | Lclass;->method | matched=(...)
     let o = run(ddc().arg("findrefs").arg(fixture()).arg("string").arg("hi"));
     assert!(o.status.success(), "{}", stderr(&o));
     let out = stdout(&o);
-    assert!(out.contains("Greeter.greet()"), "{}", out);
-    assert!(out.contains("const-string \"hi \""), "{}", out);
+    assert!(out.contains("hello | LGreeter;->greet()"), "{}", out);
+    assert!(out.contains("matched=(hi )"), "{}", out);
 
     // method
     let o = run(ddc().arg("findrefs").arg(fixture()).arg("method").arg("greet"));
     assert!(o.status.success());
     let out = stdout(&o);
-    assert!(out.contains("Hello.main("), "{}", out);
-    assert!(out.contains("invoke Greeter->greet()"), "{}", out);
+    assert!(out.contains("| LHello;->main("), "{}", out);
+    assert!(out.contains("matched=(LGreeter;->greet()Ljava/lang/String;)"), "{}", out);
 
     // field
     let o = run(ddc().arg("findrefs").arg(fixture()).arg("field").arg("counter"));
     assert!(o.status.success());
     let out = stdout(&o);
-    assert!(out.contains("sget Hello->counter:I"), "{}", out);
-    assert!(out.contains("sput Hello->counter:I"), "{}", out);
+    assert!(out.contains("matched=(LHello;->counter:I)"), "{}", out);
 
     // type (any naming form normalizes)
     let o = run(ddc().arg("findrefs").arg(fixture()).arg("type").arg("Greeter"));
     assert!(o.status.success());
     let out = stdout(&o);
-    assert!(out.contains("new-instance LGreeter;"), "{}", out);
+    assert!(out.contains("matched=(LGreeter;)"), "{}", out);
 }
 
 #[test]
@@ -149,7 +148,7 @@ fn findrefs_with_class_filter() {
             .arg("Greeter"),
     );
     assert!(o.status.success(), "{}", stderr(&o));
-    assert!(stdout(&o).contains("invoke Greeter->greet()"));
+    assert!(stdout(&o).contains("matched=(LGreeter;->greet()"));
 
     // Wrong class: no method ids resolve → no hits, and stdout mode
     // stays silent on stderr.
@@ -175,7 +174,7 @@ fn findrefs_with_class_filter() {
             .arg("hi"),
     );
     assert!(o.status.success(), "{}", stderr(&o));
-    assert!(stdout(&o).contains("const-string \"hi \""));
+    assert!(stdout(&o).contains("matched=(hi )"));
 
     // --dex with no matching image errors and lists what IS available.
     let o = run(

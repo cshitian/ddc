@@ -714,15 +714,20 @@ fn cmd_findrefs(args: &[String], t0: std::time::Instant) -> Result<()> {
     }
     hits.sort_by(|a, b| a.class.cmp(&b.class).then(a.method.cmp(&b.method)));
 
+    // ASC-format lines: `dex | Lclass;->method | matched=(...)`. The
+    // explicit `L...;->` separator disambiguates class from method (a
+    // dotted `a.b.c.d(...)` leaves the class/method boundary guessable
+    // only from the last dot — ambiguous when descriptors are absent or
+    // the method name contains one).
     let lines: Vec<String> = hits
         .iter()
         .map(|h| {
             format!(
-                "{}.{}  ->  {} {}",
-                h.class.replace('/', "."),
+                "{} | L{};->{} | matched=({})",
+                h.dex,
+                h.class,
                 h.method,
-                h.insn,
-                h.target
+                h.target.trim_matches('"')
             )
         })
         .collect();
