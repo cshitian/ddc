@@ -1612,11 +1612,13 @@ fn run() -> Result<()> {
             worker,
             100.0 * busy / worker.max(0.001)
         );
-        let (dc, db) = ddc_dec::method::dom_counters();
-        eprintln!(
-            "[dom] {} compute_dominators calls, {} total blocks scanned",
-            dc, db
-        );
+        {
+            let (dc, db) = ddc_dec::method::dom_counters();
+            eprintln!(
+                "[dom] {} compute_dominators calls, {} total blocks scanned",
+                dc, db
+            );
+        }
     }
 
     if std::env::var("DDC_PHASES").is_ok() {
