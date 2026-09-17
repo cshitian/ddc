@@ -70,7 +70,7 @@ cargo build --release   # release profile 自带 LTO fat + codegen-units=1
 // Source file: Foo.java                  ← dex 的 SourceFile 属性
 ```
 
-刻意**不含时间戳**：输出字节级可复现，方便两次运行 diff 与回归测试。多 dex
+刻意**不含时间戳**：方便两次运行 diff 与回归测试（注意：极少数变量编号仍受 std HashMap 随机种子影响存在运行间微差，语义等价）。多 dex
 APK 里 `From:` 是定位类所在镜像的最快线索（jadx 的 `loaded from:` 模式）。
 运行结束在 stderr 打一行摘要（含总用时，从进程启动到落盘完成计）：
 `ddc: wrote 98348 file(s) to out/, 1 failed in 5.54s`；`-l` 与 stdout 模式

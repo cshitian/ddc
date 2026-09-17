@@ -809,8 +809,21 @@ impl<'a> Lifter<'a> {
         self.drop_pending_call();
         self.materialize_impure_at_exit();
 
-        let out = OutState { regs: self.regs.clone(), write_pc: self.write_pc.clone() };
-        Ok((BlockResult { stmts: self.stmts, out_stack: Vec::new(), term }, out))
+        // Move (not clone): the lifter is consumed after build_block, and
+        // these two clones — regs deep-copies boxed Exprs for any Pending
+        // states — ran 3.7M times on weibo.
+        let out = OutState {
+            regs: std::mem::take(&mut self.regs),
+            write_pc: std::mem::take(&mut self.write_pc),
+        };
+        Ok((
+            BlockResult {
+                stmts: std::mem::take(&mut self.stmts),
+                out_stack: Vec::new(),
+                term,
+            },
+            out,
+        ))
     }
 
     fn do_invoke(

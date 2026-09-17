@@ -22,11 +22,11 @@ use crate::lift::MethodEnv;
 // ---------------------------------------------------------------------------
 
 /// Deep expression rewrite over a statement tree.
-pub fn rewrite_exprs(s: &mut Stmt, f: &mut dyn FnMut(&mut Expr)) {
+pub fn rewrite_exprs<F: FnMut(&mut Expr)>(s: &mut Stmt, f: &mut F) {
     walk_stmt_exprs(s, f);
 }
 
-fn walk_stmt_exprs(s: &mut Stmt, f: &mut dyn FnMut(&mut Expr)) {
+fn walk_stmt_exprs<F: FnMut(&mut Expr)>(s: &mut Stmt, f: &mut F) {
     match s {
         Stmt::Block(v) => {
             for x in v.iter_mut() {
@@ -126,12 +126,12 @@ fn walk_stmt_exprs(s: &mut Stmt, f: &mut dyn FnMut(&mut Expr)) {
 }
 
 /// Visit every expression (immutable).
-fn visit_exprs(e: &Expr, f: &mut dyn FnMut(&Expr)) {
+fn visit_exprs<F: FnMut(&Expr)>(e: &Expr, f: &mut F) {
     f(e);
     for_each_child(e, &mut |c| visit_exprs(c, f));
 }
 
-fn for_each_child(e: &Expr, f: &mut dyn FnMut(&Expr)) {
+fn for_each_child<F: FnMut(&Expr)>(e: &Expr, f: &mut F) {
     match e {
         Expr::Un { e, .. } | Expr::Cast { e, .. } | Expr::InstanceOf { e, .. } => f(e),
         Expr::Bin { l, r, .. } => {
@@ -207,7 +207,7 @@ fn for_each_child(e: &Expr, f: &mut dyn FnMut(&Expr)) {
 }
 
 /// Mutable child walk (one level).
-fn for_each_child_mut(e: &mut Expr, f: &mut dyn FnMut(&mut Expr)) {
+fn for_each_child_mut<F: FnMut(&mut Expr)>(e: &mut Expr, f: &mut F) {
     match e {
         Expr::Un { e, .. } | Expr::Cast { e, .. } | Expr::InstanceOf { e, .. } => f(e),
         Expr::Bin { l, r, .. } => {
@@ -283,7 +283,7 @@ fn for_each_child_mut(e: &mut Expr, f: &mut dyn FnMut(&mut Expr)) {
 }
 
 /// Deep mutable expression rewrite.
-fn deep_rewrite(e: &mut Expr, f: &mut dyn FnMut(&mut Expr)) {
+fn deep_rewrite<F: FnMut(&mut Expr)>(e: &mut Expr, f: &mut F) {
     f(e);
     for_each_child_mut(e, &mut |c| deep_rewrite(c, f));
 }
@@ -410,7 +410,7 @@ fn stmt_collect_vars(s: &Stmt, out: &mut HashSet<u32>, assignments: bool) {
     }
 }
 
-fn walk_all(s: &Stmt, f: &mut dyn FnMut(&Stmt)) {
+fn walk_all<F: FnMut(&Stmt)>(s: &Stmt, f: &mut F) {
     f(s);
     match s {
         Stmt::Block(v) => {
@@ -644,7 +644,7 @@ pub fn prune_unreachable(s: &mut Stmt) {
     }
 }
 
-fn walk_mut(s: &mut Stmt, f: &mut dyn FnMut(&mut Stmt)) {
+fn walk_mut<F: FnMut(&mut Stmt)>(s: &mut Stmt, f: &mut F) {
     match s {
         Stmt::Block(v) => {
             for x in v.iter_mut() {
@@ -1204,7 +1204,7 @@ fn is_sbish(e: &Expr) -> bool {
     }
 }
 
-fn walk_mut_deep(s: &mut Stmt, f: &mut dyn FnMut(&mut Stmt)) {
+fn walk_mut_deep<F: FnMut(&mut Stmt)>(s: &mut Stmt, f: &mut F) {
     f(s);
     walk_mut(s, &mut |x| walk_mut_deep(x, f));
 }
@@ -1620,7 +1620,7 @@ fn join_numeric(a: &JavaType, b: &JavaType) -> JavaType {
 }
 
 /// Gather per-var type evidence from one expression.
-fn expr_evidence(e: &Expr, f: &mut dyn FnMut(u32, JavaType)) {
+fn expr_evidence<F: FnMut(u32, JavaType)>(e: &Expr, f: &mut F) {
     visit_exprs(e, &mut |x| match x {
         Expr::Method { owner, args, desc, is_static, cls, .. } => {
             if !*is_static {

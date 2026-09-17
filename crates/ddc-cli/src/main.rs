@@ -238,15 +238,24 @@ fn cmd_listclasses(args: &[String], t0: std::time::Instant) -> Result<()> {
         }
         i += 1;
     }
+    // Class names need only the class_defs + type tables — iterate the
+    // parsed images directly; NO pool build (PoolClass construction plus
+    // annotation reads for 145k classes cost ~0.2s on weibo).
     let files = expand_inputs(&[input])?;
     let parsed = parse_images(collect_images(&files)?)?;
-    let mut pool = DexPool::new();
-    for (label, dex) in parsed {
-        let idx = pool.add_dex(dex);
-        pool.set_dex_label(idx, label);
+    let mut total = 0usize;
+    let mut all: Vec<String> = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+    for (_, dex) in &parsed {
+        for cd in &dex.class_defs {
+            let name = dex.class_name(cd.class_idx);
+            total += 1;
+            if seen.insert(name.clone()) {
+                all.push(name);
+            }
+        }
     }
-    let all: Vec<&str> = pool.class_names().collect();
-    let shown: Vec<&str> = match &pattern {
+    let shown: Vec<String> = match &pattern {
         Some(p) => {
             let lp = p.to_ascii_lowercase();
             all.into_iter()
@@ -262,7 +271,7 @@ fn cmd_listclasses(args: &[String], t0: std::time::Instant) -> Result<()> {
         Some(p) => eprintln!(
             "ddc: listed {} of {} classes matching {:?} in {}",
             shown.len(),
-            pool.len(),
+            total,
             p,
             fmt_secs(t0.elapsed())
         ),
@@ -305,9 +314,11 @@ fn cmd_getclass(args: &[String], t0: std::time::Instant) -> Result<()> {
     let fqcn = fqcn.context("getclass needs a class name (com.example.Foo)")?;
     let files = expand_inputs(&[input])?;
     let parsed = parse_images(collect_images(&files)?)?;
+    // Names registered, classes materialized on demand — getclass pays
+    // the annotation-read cost for ONE family, not 145k classes.
     let mut pool = DexPool::new();
     for (label, dex) in parsed {
-        let idx = pool.add_dex(dex);
+        let idx = pool.add_dex_lazy(dex);
         pool.set_dex_label(idx, label);
     }
     let pool = std::sync::Arc::new(pool);
@@ -541,16 +552,16 @@ fn run() -> Result<()> {
     let parsed = parse_images(collect_images(&files)?)?;
     let t_inflate = t_wall.elapsed();
 
+    // Lazy registration + parallel materialization: identical semantics
+    // to the eager build (the outer map consults annotations only after
+    // everything is materialized), but the 145k annotation reads run on
+    // worker threads instead of the serial pool build.
     let mut pool = DexPool::new();
     for (label, dex) in parsed {
-        let before = pool.len();
-        let ver = dex.version.clone();
-        let idx = pool.add_dex(dex);
+        let idx = pool.add_dex_lazy(dex);
         pool.set_dex_label(idx, label.clone());
-        if verbose {
-            eprintln!("[+] {} ({} classes, DEX {})", label, pool.len() - before, ver);
-        }
     }
+    pool.materialize_all(workers);
     let dex_count = pool.dex_count();
     if std::env::var("DDC_WALL").is_ok() {
         eprintln!(
@@ -684,10 +695,10 @@ fn run() -> Result<()> {
         q: std::sync::Mutex::new(std::collections::VecDeque::new()),
         not_empty: std::sync::Condvar::new(),
         not_full: std::sync::Condvar::new(),
-        // Effectively unbounded: the 992MB of weibo output fits the page
-        // cache, and blocking the decompile workers on APFS metadata (the
-        // measured 64s stall) costs far more than a transient memory bump.
-        cap: 1 << 20,
+        // Bounded at 1024 pending sources: enough runway that writers
+        // never starve the workers (APFS metadata is the writer cost, not
+        // throughput), while capping the transient text buffer memory.
+        cap: 1024,
     });
     let n_writers = workers.clamp(2, 4);
     let uses_writers = matches!(sink, Sink::Dir(_)) && !nowrite;

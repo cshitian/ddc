@@ -93,6 +93,16 @@ impl PoolMethod {
     }
 }
 
+/// One pool entry: either already built, or name-registered with its
+/// (dex index, class_def index) locator for on-demand construction.
+enum ClassEntry {
+    Eager(PoolClass),
+    Lazy {
+        at: (usize, usize),
+        pc: std::sync::OnceLock<PoolClass>,
+    },
+}
+
 /// A class materialized from one `class_def_item` (with ids resolved to
 /// names and the class data expanded).
 #[derive(Debug, Clone)]
@@ -174,7 +184,11 @@ pub struct DexPool {
     /// Human label per image ("weibo!classes.dex") for the provenance
     /// header; defaults to "dex N" until the CLI names the inputs.
     pub dex_labels: Vec<String>,
-    classes: HashMap<String, PoolClass>,
+    /// Name → class entry. Eager pools materialize everything at add
+    /// time (full decompile, tests); lazy pools register names only and
+    /// materialize on first `get` (progressive `getclass` — one class's
+    /// PoolClass costs annotation reads, 145k of them cost ~0.2s).
+    classes: HashMap<String, ClassEntry>,
     /// Class names in insertion order (stable for output).
     pub order: Vec<String>,
     /// name → outer (computed once; `$` heuristic + dalvik annotations).
@@ -245,7 +259,32 @@ impl DexPool {
                 continue;
             }
             let pc = pool_class_of(&dex, dex.raw(), cd, dex_idx);
-            self.classes.insert(name.clone(), pc);
+            self.classes
+                .insert(name.clone(), ClassEntry::Eager(pc));
+            self.order.push(name);
+        }
+        self.dexes.push(dex);
+        self.dex_labels.push(format!("dex {}", dex_idx));
+        dex_idx
+    }
+
+    /// Registers class NAMES only; the PoolClass (annotation reads
+    /// included) is materialized on first `get`. Duplicate class names
+    /// keep their first definition, matching `add_dex`.
+    pub fn add_dex_lazy(&mut self, dex: DexFile) -> usize {
+        let dex_idx = self.dexes.len();
+        for (ci, cd) in dex.class_defs.iter().enumerate() {
+            let name = dex.class_name(cd.class_idx);
+            if self.classes.contains_key(&name) {
+                continue;
+            }
+            self.classes.insert(
+                name.clone(),
+                ClassEntry::Lazy {
+                    at: (dex_idx, ci),
+                    pc: std::sync::OnceLock::new(),
+                },
+            );
             self.order.push(name);
         }
         self.dexes.push(dex);
@@ -269,7 +308,57 @@ impl DexPool {
     }
 
     pub fn get(&self, internal: &str) -> Option<&PoolClass> {
-        self.classes.get(internal)
+        match self.classes.get(internal)? {
+            ClassEntry::Eager(pc) => Some(pc),
+            ClassEntry::Lazy { at, pc } => {
+                if let Some(built) = pc.get() {
+                    return Some(built);
+                }
+                let (di, ci) = *at;
+                let dex = self.dexes.get(di)?;
+                let cd = dex.class_defs.get(ci)?;
+                let built = pool_class_of(dex, dex.raw(), cd, di);
+                Some(pc.get_or_init(move || built))
+            }
+        }
+    }
+
+    /// Materialize every lazy entry (parallel across the given chunk
+    /// count). After this the pool is observationally identical to an
+    /// eagerly-built one — including the annotation-aware outer-map —
+    /// while the annotation reads ran on worker threads instead of the
+    /// serial pool build (~0.2s on weibo).
+    pub fn materialize_all(&self, threads: usize) {
+        let keys: Vec<String> = self
+            .classes
+            .iter()
+            .filter(|(_, e)| matches!(e, ClassEntry::Lazy { .. }))
+            .map(|(k, _)| k.clone())
+            .collect();
+        let threads = threads.max(1);
+        let next = std::sync::atomic::AtomicUsize::new(0);
+        std::thread::scope(|scope| {
+            for _ in 0..threads {
+                scope.spawn(|| loop {
+                    let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    let Some(k) = keys.get(i) else { break };
+                    let _ = self.get(k);
+                });
+            }
+        });
+    }
+
+    /// `get` without materializing: None for not-yet-built lazy entries.
+    fn get_if_materialized(&self, internal: &str) -> Option<&PoolClass> {
+        match self.classes.get(internal)? {
+            ClassEntry::Eager(pc) => Some(pc),
+            ClassEntry::Lazy { pc, .. } => pc.get(),
+        }
+    }
+
+    /// Name registered (no materialization).
+    pub fn has_name(&self, internal: &str) -> bool {
+        self.classes.contains_key(internal)
     }
 
     pub fn dex(&self, idx: usize) -> Option<&DexFile> {
@@ -468,7 +557,11 @@ pub fn desc_type(desc: &str) -> JavaType {
 /// Nesting evidence for `internal`: dalvik annotations first, then the
 /// `$`-name heuristic against the pool.
 pub fn find_outer_name(pool: &DexPool, internal: &str) -> Option<String> {
-    if let Some(pc) = pool.get(internal) {
+    // Annotation refinement only for ALREADY-MATERIALIZED classes: eager
+    // pools (full decompile) behave exactly as before; lazy pools
+    // (progressive getclass) fall straight to the `$` chain without
+    // materializing the world.
+    if let Some(pc) = pool.get_if_materialized(internal) {
         if let Some(enc) = &pc.nesting.enclosing_class {
             return Some(enc.clone());
         }
@@ -476,7 +569,7 @@ pub fn find_outer_name(pool: &DexPool, internal: &str) -> Option<String> {
     let mut rest = internal;
     while let Some(d) = rest.rfind('$') {
         let cand = &rest[..d];
-        if pool.get(cand).is_some() {
+        if pool.has_name(cand) {
             return Some(cand.to_string());
         }
         rest = cand;
