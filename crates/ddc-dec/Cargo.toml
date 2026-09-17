@@ -9,3 +9,7 @@ description = "DEX → Java decompiler front-end over jdc-core"
 ddc-dex = { workspace = true }
 jdc-core = { path = "../../../jdc-core" }
 anyhow = { workspace = true }
+
+[features]
+visit-stats = ["jdc-core/visit-stats"]
+

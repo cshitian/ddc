@@ -530,8 +530,39 @@ pub fn decompile_method(
     let groups = jdc_core::structure::group_exceptions_with(&core_cfg, Some(&results));
     let dom_universe: std::collections::HashSet<usize> = (0..core_cfg.blocks.len()).collect();
     let dom = jdc_core::structure::compute_dominators(&core_cfg, &dom_universe, core_cfg.entry);
+    if std::env::var("DDC_TRACE").is_ok() {
+        eprintln!("[mshape] {}.{} blocks={}", class.name, m.name, n);
+    }
+    #[cfg(feature = "visit-stats")]
+    {
+        jdc_core::structure::reset_visit_stats();
+    }
+    // Walk-visit budget, proportional to the block count: walk() runs
+    // roughly once per structured scope for sane CFGs, so 40n+512 is
+    // generous headroom — but the EXPONENTIAL explorations (Telegram
+    // SendMessagesHelper family: deep if/loop/try nesting whose scope
+    // count multiplies) consume visits geometrically and get cut to a
+    // Goto, which terminates the walk. Without this a single <16k-insn
+    // method can recurse for effectively forever while the worker (and
+    // the process) never finishes — Telegram's full run wrote every file
+    // yet hung for 300+ seconds on 25 such classes.
+    let walk_budget: u64 = std::env::var("DDC_WALKBUDGET").ok().and_then(|v| v.parse().ok()).unwrap_or(8 * n as u64 + 128);
+    // Wall-clock guard for the walk: legit methods finish far under this
+    // (weibo's largest legit monster ~150ms); the exponential explorations
+    // (Telegram sendMessage family) cut to Gotos, same degradation as the
+    // visit budget. Covers cases where per-visit cost makes a visit-count
+    // budget too slow (6ms/visit × 14k visits = minutes).
+    let walk_deadline = std::time::Instant::now()
+        + std::time::Duration::from_millis(
+            std::env::var("DDC_WALKMS")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(1500),
+        );
     loop {
         jdc_core::structure::set_budget_override(Some(budget));
+        jdc_core::structure::set_walk_visit_budget(Some(walk_budget));
+        jdc_core::structure::set_walk_deadline(Some(walk_deadline));
         let mut st = Structurer::with_precomputed_groups(
             &core_cfg,
             &results,
@@ -543,6 +574,8 @@ pub fn decompile_method(
         let mut converter = Converter::with_precomputed(&core_cfg, &results, groups.clone(), dom.clone());
         let candidate = converter.convert(region);
         jdc_core::structure::set_budget_override(None);
+        jdc_core::structure::set_walk_visit_budget(None);
+        jdc_core::structure::set_walk_deadline(None);
         let size = {
             let mut c = 0usize;
             passes::count_stmts_deep(&candidate, &mut c);
@@ -565,6 +598,11 @@ pub fn decompile_method(
             )));
         }
         budget /= 2;
+    }
+    #[cfg(feature = "visit-stats")]
+    if std::env::var("DDC_TRACE").is_ok() && n > 3 {
+        let used = jdc_core::structure::walk_visits_consumed();
+        eprintln!("[visits] {}.{} blocks={} consumed={} ratio={:.1}", class.name, m.name, n, used, used as f64 / n as f64);
     }
     phase_hit_n(1, n, t_fix);
     let mut body = body.unwrap();
