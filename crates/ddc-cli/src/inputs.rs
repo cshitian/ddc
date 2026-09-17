@@ -6,12 +6,16 @@ use std::path::{Path, PathBuf};
 use anyhow::{bail, Context, Result};
 use ddc_dex::DexFile;
 
-use crate::{inflate, zip_entries, ZipMethod};
+use crate::{inflate, zip_entries, ZipEntry, ZipMethod};
 
-/// A raw (possibly still deflated) DEX image with its origin label.
+/// A raw (possibly still deflated) DEX image with its origin label. The
+/// archive bytes are SHARED (Arc) and each image is a range slice — the
+/// old per-entry owned copies doubled a 353MB APK's resident footprint
+/// before the first inflate.
 pub struct Image {
     pub label: String,
-    data: Vec<u8>,
+    data: std::sync::Arc<Vec<u8>>,
+    range: std::ops::Range<usize>,
     method: ZipMethod,
 }
 
@@ -71,7 +75,9 @@ pub fn dir_has_dex_files(dir: &Path) -> bool {
 pub fn collect_images(files: &[PathBuf]) -> Result<Vec<Image>> {
     let mut images: Vec<Image> = Vec::new();
     for f in files {
-        let bytes = std::fs::read(f).with_context(|| format!("read {}", f.display()))?;
+        let bytes = std::sync::Arc::new(
+            std::fs::read(f).with_context(|| format!("read {}", f.display()))?,
+        );
         let stem = f
             .file_stem()
             .and_then(|s| s.to_str())
@@ -79,18 +85,18 @@ pub fn collect_images(files: &[PathBuf]) -> Result<Vec<Image>> {
             .to_string();
         if bytes.len() >= 4 && &bytes[..2] == b"PK" {
             let entries = zip_entries(&bytes)?;
-            let mut dexes: Vec<(u64, String, Vec<u8>, ZipMethod)> = Vec::new();
-            let mut extra: Vec<(String, Vec<u8>, ZipMethod)> = Vec::new();
-            for (name, data, method) in entries {
-                if !name.ends_with(".dex") {
+            let mut dexes: Vec<(u64, ZipEntry)> = Vec::new();
+            let mut extra: Vec<ZipEntry> = Vec::new();
+            for e in entries {
+                if !e.name.ends_with(".dex") {
                     continue;
                 }
-                let core = name.trim_end_matches(".dex");
+                let core = e.name.trim_end_matches(".dex");
                 if let Some(num) = core.strip_prefix("classes") {
                     let key = num.parse::<u64>().unwrap_or(0);
-                    dexes.push((key, name, data, method));
+                    dexes.push((key, e));
                 } else {
-                    extra.push((name, data, method));
+                    extra.push(e);
                 }
             }
             if dexes.is_empty() && extra.is_empty() {
@@ -99,25 +105,21 @@ pub fn collect_images(files: &[PathBuf]) -> Result<Vec<Image>> {
                     f.display()
                 );
             }
-            dexes.sort_by_key(|(k, _, _, _)| *k);
-            for (_, name, data, method) in dexes {
-                images.push(Image {
-                    label: format!("{}!{}", stem, name),
-                    data,
-                    method,
-                });
-            }
-            for (name, data, method) in extra {
-                images.push(Image {
-                    label: format!("{}!{}", stem, name),
-                    data,
-                    method,
-                });
-            }
+            dexes.sort_by_key(|(k, _)| *k);
+            let mk = |e: ZipEntry| Image {
+                label: format!("{}!{}", stem, e.name),
+                data: bytes.clone(),
+                range: e.range,
+                method: e.method,
+            };
+            images.extend(dexes.into_iter().map(|(_, e)| mk(e)));
+            images.extend(extra.into_iter().map(mk));
         } else if bytes.len() >= 4 && &bytes[..3] == b"dex" {
+            let n = bytes.len();
             images.push(Image {
                 label: stem,
                 data: bytes,
+                range: 0..n,
                 method: ZipMethod::Stored,
             });
         } else {
@@ -175,8 +177,9 @@ pub fn parse_images(images: Vec<Image>) -> Result<Vec<(String, DexFile)>> {
             label,
             std::thread::spawn(move || {
                 let raw = match img.method {
-                    ZipMethod::Stored => img.data,
-                    ZipMethod::Deflate => inflate(&img.data).map_err(|e| e.to_string())?,
+                    ZipMethod::Stored => img.data[img.range].to_vec(),
+                    ZipMethod::Deflate => inflate(&img.data[img.range])
+                        .map_err(|e| e.to_string())?,
                 };
                 DexFile::parse(raw)
                     .map_err(|e| e.to_string())

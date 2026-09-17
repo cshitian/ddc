@@ -171,6 +171,25 @@ AXML 解码器在 `ddc-cli/src/axml.rs`（字符串池 UTF-16/UTF-8 双格式、
 typedValue 渲染），输入也接受裸 `.axml` 文件。渐进式工作流：
 `info → listclasses → findrefs → getclass`，最后才按需全量。
 
+### 对比 ASC（同机同查询交替 3 轮取中位，`bench/`）
+
+5 个真实 APK（62-353MB）渐进式查询，stdout 丢弃；正确性交叉验证 107/107 重合：
+
+| 查询 | ddc | ASC | 倍率 |
+|---|---|---|---|
+| findrefs string（lark 353MB） | **0.32s** | 0.61s | 1.9× |
+| findrefs string（weixin 268MB） | **0.22s** | 0.52s | 2.4× |
+| findrefs string（weibo 226MB） | **0.19s** | 0.44s | 2.3× |
+| findrefs type/method（全部 5 个） | **0.09-0.31s** | 0.29-0.66s | 2-3× |
+| getclass（lark/weixin/weibo） | 0.18-0.42s | **0.10-0.12s** | ASC 快 |
+| getclass（Telegram，类本身大） | **0.05s** | 0.11s | ddc 快 |
+| findrefs 内存（lark） | ~820MB | ~170MB | ASC 省 |
+
+getclass 的分野：ASC 用 zip 比特流探测定位后**只膨胀目标 dex**（多 dex 大 APK
+上底座更低）；ddc 解析全部镜像头表（~0.2s 底座）后 lazy 物化——类本身昂贵时
+反超，类便宜时让位于底座。findrefs 的扫描域 ddc 全面更快（流水线：解析波次
+产出 → 有界通道 → 扫描线程消费即丢弃；Arc 共享 APK 字节消除压缩副本）。
+
 ## 真实 APK 基准
 
 | APK | 类数 | 结果 | 耗时 | 峰值内存 |

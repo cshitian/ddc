@@ -167,15 +167,15 @@ fn cmd_manifest(args: &[String], t0: std::time::Instant) -> Result<()> {
         let bytes = std::fs::read(&input).with_context(|| format!("read {}", input.display()))?;
         if bytes.len() >= 4 && &bytes[..2] == b"PK" {
             let entries = zip_entries(&bytes)?;
-            let (name, data, method) = entries
+            let entry = entries
                 .into_iter()
-                .find(|(n, _, _)| n == "AndroidManifest.xml")
+                .find(|n| n.name == "AndroidManifest.xml")
                 .with_context(|| format!("{}: no AndroidManifest.xml entry", input.display()))?;
-            let raw = match method {
-                ZipMethod::Stored => data,
-                ZipMethod::Deflate => inflate(&data)?,
+            let raw = match entry.method {
+                ZipMethod::Stored => bytes[entry.range].to_vec(),
+                ZipMethod::Deflate => inflate(&bytes[entry.range])?,
             };
-            input = PathBuf::from(name);
+            input = PathBuf::from(entry.name);
             raw
         } else {
             bytes
@@ -474,23 +474,59 @@ fn cmd_findrefs(args: &[String], t0: std::time::Instant) -> Result<()> {
     };
 
     let files = expand_inputs(&[input])?;
-    let parsed = parse_images(filter_images_by_dex(
-        collect_images(&files)?,
-        &dex_filters,
-    )?)?;
-    // One scan thread per dex image (weibo: 20 images → 20 threads).
-    let mut handles = Vec::new();
-    for (label, dex) in parsed {
-        let query = query.clone();
-        handles.push(std::thread::spawn(move || findrefs::scan_dex(&label, &dex, &query)));
-    }
+    let images = filter_images_by_dex(collect_images(&files)?, &dex_filters)?;
+    // PIPELINED scan: a producer parses images in small waves and feeds a
+    // channel; scanner threads consume and DROP each dex — the inflate of
+    // wave N+1 overlaps the scan of wave N, so the parallel decode
+    // bandwidth survives while resident memory stays bounded to the
+    // in-flight images (holding every image resident cost ~1.2GB on a
+    // 353MB APK; ASC's per-worker streaming runs ~170MB).
+    const WAVE: usize = 10 10;
+    const SCANNERS: usize = 8;
+    const IN_FLIGHT: usize = ;
+    let chan = std::sync::Arc::new(Chan::<(String, DexFile)>::new(IN_FLIGHT));
+    let producer = {
+        let chan = chan.clone();
+        std::thread::spawn(move || -> Result<()> {
+            let result = (|| {
+                let mut rest = images;
+                while !rest.is_empty() {
+                    let wave = rest.split_off(rest.len().saturating_sub(WAVE));
+                    for pair in parse_images(wave)? {
+                        chan.push(pair);
+                    }
+                }
+                Ok(())
+            })();
+            chan.close();
+            result
+        })
+    };
     let mut hits = Vec::new();
-    for h in handles {
-        let one = h
-            .join()
-            .map_err(|_| anyhow::anyhow!("scan thread panicked"))??;
-        hits.extend(one);
-    }
+    std::thread::scope(|scope| {
+        let mut handles = Vec::new();
+        for _ in 0..SCANNERS {
+            let chan = &chan;
+            let query = query.clone();
+            handles.push(scope.spawn(move || -> Vec<findrefs::Hit> {
+                let mut out = Vec::new();
+                while let Some((label, dex)) = chan.pop() {
+                    if let Ok(mut one) = findrefs::scan_dex(&label, &dex, &query) {
+                        out.append(&mut one);
+                    }
+                }
+                out
+            }));
+        }
+        for h in handles {
+            if let Ok(v) = h.join() {
+                hits.extend(v);
+            }
+        }
+    });
+    producer
+        .join()
+        .map_err(|_| anyhow::anyhow!("parse producer panicked"))??;
     hits.sort_by(|a, b| a.class.cmp(&b.class).then(a.method.cmp(&b.method)));
 
     let lines: Vec<String> = hits
@@ -529,6 +565,61 @@ fn cmd_findrefs(args: &[String], t0: std::time::Instant) -> Result<()> {
         }
     }
     Ok(())
+}
+
+/// Bounded MPMC hand-off queue: producers block when full (memory stays
+/// capped at `cap` in-flight items), consumers block while empty and wake
+/// correctly on close. (std mpsc has no multi-consumer; wrapping its
+/// recv in a Mutex serializes all waiters.)
+struct Chan<T> {
+    q: std::sync::Mutex<std::collections::VecDeque<T>>,
+    not_empty: std::sync::Condvar,
+    not_full: std::sync::Condvar,
+    cap: usize,
+    closed: std::sync::atomic::AtomicBool,
+}
+
+impl<T> Chan<T> {
+    fn new(cap: usize) -> Self {
+        Chan {
+            q: std::sync::Mutex::new(std::collections::VecDeque::new()),
+            not_empty: std::sync::Condvar::new(),
+            not_full: std::sync::Condvar::new(),
+            cap,
+            closed: std::sync::atomic::AtomicBool::new(false),
+        }
+    }
+    fn push(&self, v: T) {
+        let mut q = self.q.lock().unwrap();
+        while q.len() >= self.cap
+            && !self.closed.load(std::sync::atomic::Ordering::Acquire)
+        {
+            q = self.not_full.wait(q).unwrap();
+        }
+        if self.closed.load(std::sync::atomic::Ordering::Acquire) {
+            return;
+        }
+        q.push_back(v);
+        self.not_empty.notify_one();
+    }
+    fn close(&self) {
+        self.closed.store(true, std::sync::atomic::Ordering::Release);
+        self.not_empty.notify_all();
+        self.not_full.notify_all();
+    }
+    fn pop(&self) -> Option<T> {
+        let mut q = self.q.lock().unwrap();
+        loop {
+            if let Some(v) = q.pop_front() {
+                self.not_full.notify_one();
+                return Some(v);
+            }
+            if self.closed.load(std::sync::atomic::Ordering::Acquire) {
+                return None;
+            }
+            q = self.not_empty.wait(q).unwrap();
+        }
+    }
 }
 
 /// Where the decompiled source goes.
@@ -1175,7 +1266,15 @@ pub(crate) enum ZipMethod {
     Deflate,
 }
 
-pub(crate) fn zip_entries(data: &[u8]) -> Result<Vec<(String, Vec<u8>, ZipMethod)>> {
+/// One zip entry as a (name, compressed byte range, method) — zero-copy
+/// slices of the archive image; the caller inflates on demand.
+pub(crate) struct ZipEntry {
+    pub name: String,
+    pub range: std::ops::Range<usize>,
+    pub method: ZipMethod,
+}
+
+pub(crate) fn zip_entries(data: &[u8]) -> Result<Vec<ZipEntry>> {
     // Find EOCD (22 bytes + optional comment).
     let eocd = find_eocd(data).context("zip: EOCD not found")?;
     let cd_size = u32le(data, eocd + 12) as usize;
@@ -1201,7 +1300,6 @@ pub(crate) fn zip_entries(data: &[u8]) -> Result<Vec<(String, Vec<u8>, ZipMethod
             let l_extra_len = u16le(data, lho + 28) as usize;
             let start = lho + 30 + l_name_len + l_extra_len;
             let end = (start + csize).min(data.len());
-            let comp = data[start..end].to_vec();
             let m = match method {
                 0 => ZipMethod::Stored,
                 8 => ZipMethod::Deflate,
@@ -1210,7 +1308,7 @@ pub(crate) fn zip_entries(data: &[u8]) -> Result<Vec<(String, Vec<u8>, ZipMethod
                     continue;
                 }
             };
-            out.push((name, comp, m));
+            out.push(ZipEntry { name, range: start..end, method: m });
         }
         p += 46 + name_len + extra_len + comm_len;
     }
