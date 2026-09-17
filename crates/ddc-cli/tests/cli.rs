@@ -58,11 +58,50 @@ fn count_java(dir: &Path) -> usize {
 fn help_and_version() {
     let o = run(ddc().arg("--help"));
     assert!(o.status.success());
-    assert!(stdout(&o).contains("Usage: ddc [OPTIONS] <INPUT>... [OUTPUT]"));
+    let out = stdout(&o);
+    assert!(
+        out.contains("Usage: ddc [OPTIONS] <INPUT>... [OUTPUT]"),
+        "usage:\n{}",
+        out
+    );
+    // Name, version and homepage lead the help.
+    assert!(out.starts_with("ddc "), "header:\n{}", out);
+    assert!(out.contains(env!("CARGO_PKG_VERSION")), "version:\n{}", out);
+    assert!(
+        out.contains("https://github.com/ejfkdev/ddc"),
+        "homepage:\n{}",
+        out
+    );
+    // Worked examples and the subcommand menu are part of the help.
+    assert!(out.contains("Examples:"), "examples:\n{}", out);
+    assert!(
+        out.contains("ddc pkg <input> com.foo [-o DIR]"),
+        "subcommands:\n{}",
+        out
+    );
 
-    let o = run(ddc().arg("-V"));
+    // Same for the bare `help` command.
+    let o = run(ddc().arg("help"));
     assert!(o.status.success());
     assert!(stdout(&o).starts_with("ddc "));
+
+    // -V and `version` both print name, version, homepage.
+    for flag in ["-V", "version"] {
+        let o = run(ddc().arg(flag));
+        assert!(o.status.success());
+        let out = stdout(&o);
+        assert!(out.starts_with("ddc "), "{flag} header:\n{}", out);
+        assert!(
+            out.contains(env!("CARGO_PKG_VERSION")),
+            "{flag} version:\n{}",
+            out
+        );
+        assert!(
+            out.contains("https://github.com/ejfkdev/ddc"),
+            "{flag} homepage:\n{}",
+            out
+        );
+    }
 }
 
 #[test]

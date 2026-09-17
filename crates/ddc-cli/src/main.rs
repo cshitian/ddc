@@ -32,93 +32,115 @@ static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 use ddc_dec::{top_level_classes, ClassOptions, DexPool};
 use ddc_dex::DexFile;
 
+fn print_version() {
+    println!("ddc {} — DEX → Java decompiler", env!("CARGO_PKG_VERSION"));
+    println!("https://github.com/ejfkdev/ddc");
+}
+
 fn print_help() {
-    println!(
-        "ddc {} — DEX decompiler (Dalvik → Java)",
-        env!("CARGO_PKG_VERSION")
-    );
+    println!("ddc {} — DEX → Java decompiler", env!("CARGO_PKG_VERSION"));
+    println!("https://github.com/ejfkdev/ddc  (MIT license)");
     println!();
-    println!("Decompiles DEX images (versions 035-041, multi-dex APKs, invoke-custom)");
-    println!("back into readable Java source.");
+    println!("Decompiles Android DEX images (versions 035-041, multi-dex APKs,");
+    println!("XAPK/APKS/APKM containers, invoke-custom) back into readable Java —");
+    println!("fast enough for real-world app bundles (98k classes in ~5s) and");
+    println!("queryable like a database through the subcommands below.");
     println!();
-    println!("Usage: ddc [OPTIONS] <INPUT>... [OUTPUT]");
-    println!("       ddc <help|version>");
+    println!("Usage: ddc [OPTIONS] <INPUT>... [OUTPUT]     # full decompile");
+    println!("       ddc <SUBCOMMAND> [ARGS...]             # progressive analysis");
+    println!("       ddc help | version | -h | -V");
     println!();
-    println!("INPUT is a .dex file, an .apk/.jar/.zip archive containing");
-    println!("classes.dex / classes2.dex..., an .xapk/.apks/.apkm container");
-    println!("(a zip of APKs: base + config splits — every inner APK's dexes");
-    println!("are merged, base first), or a directory (scanned recursively).");
-    println!("Multiple inputs merge into one class pool (duplicates skipped).");
+    println!("INPUT is a .dex file, an .apk/.jar/.zip archive (classes.dex,");
+    println!("classes2.dex, ...), an .xapk/.apks/.apkm container (a zip of APKs:");
+    println!("base + config splits; every inner APK's dexes merge, base first),");
+    println!("or a directory (scanned recursively). Multiple inputs merge into");
+    println!("one class pool (duplicate classes skipped).");
     println!();
-    println!("OUTPUT, given either as the last positional argument or -o:");
-    println!("  <dir>       output root, package structure preserved");
-    println!("  <file.java> one class only (single-class input or -c)");
-    println!("  -           stdout (`// ===== class =====` separators)");
-    println!("  Default: <input-stem>-out/ next to the input.");
+    println!("OUTPUT, as the last positional argument or via -o:");
+    println!("  <dir>         output root, package structure preserved");
+    println!("  <file.java>   one class (single-class input or -c)");
+    println!("  -             stdout (`// ===== class =====` separators)");
+    println!("  default: <input-stem>-out/ next to the input");
     println!();
     println!("Options:");
-    println!("  -o, --output <path>   output location (see OUTPUT above)");
+    println!("  -o, --output <path>   output location (dir / file.java / -)");
     println!("  -c, --class FQCN      decompile only this class (dotted/slashed)");
     println!("  -l, --list            list class names and exit");
+    println!("  -t, --threads <n>     parallel workers (default: CPU count;");
+    println!("                        stdout output forces one thread for pool order)");
     println!("  --no-comments         omit the provenance header");
-    println!("  -t, --threads <n>     parallel workers (default: CPU count)");
-    println!("  -v, --verbose         stats per dex and slow classes on stderr");
+    println!("  -v, --verbose         per-dex stats and slow classes on stderr");
     println!("  -h, --help            print this help");
-    println!("  -V, --version         print version");
+    println!("  -V, --version         print name, version and homepage");
     println!();
-    println!("Progressive analysis (query the artifact as a database — no full");
-    println!("decompile; metadata loads take well under a second). stdout output");
-    println!("is clean — timing prints only with -o:");
-    println!("  ddc manifest <apk> [--component C]  # AndroidManifest.xml → text XML;");
-    println!("                                      # --component launcher|activity|service|");
-    println!("                                      # receiver|provider|... filters to that");
-    println!("  ddc info <input>                   # per-dex class/method/field/string counts");
-    println!("  ddc listclasses <input> [pattern]  # class names, optional fuzzy filter");
-    println!("  ddc getclass <inputs...> <FQCN> [-o f] [--dex NAME] # one class (+nested)");
-    println!("  ddc findrefs <input> string TEXT   # refs to string literals");
-    println!("  ddc findrefs <input> type com.example.Foo");
-    println!("  ddc findrefs <input> method init --class com.example.Foo [--fuzzy-class]");
-    println!("  ddc findrefs <input> field CREATOR --class com.example --fuzzy-class");
-    println!("                                      # refs only — class/method names are");
-    println!("                                      # fuzzy (substring); --class defaults exact");
-    println!("  ddc strings <input> [-f TEXT] [--with-locations]");
-    println!("                                      # string table dump; -f filters,");
-    println!("                                      # --with-locations maps const-string");
-    println!("                                      # sites to their owner methods");
-    println!("  ddc members <input> [NAME] [--class FQCN] [--fuzzy-class]");
-    println!("                     [--method|--field]");
-    println!("                                      # method/field name search");
-    println!("  ddc hierarchy <input> FQCN         # lineage: extends/implements +");
-    println!("                                      # subclasses/implementors");
-    println!("  ddc largest <input> [-n N]         # top-N methods by insn count");
-    println!("  ddc disasm <input> FQCN[.method]   # raw bytecode of a class/method");
-    println!("  ddc callers <input> NAME [FQCN]    # who invokes method NAME");
-    println!("  ddc getmethod <input> FQCN.method  # decompile ONE method (overloads");
-    println!("                                      # included; bare class = whole class)");
-    println!("  ddc pkg <input> com.example.foo [-o DIR] [-t N]");
-    println!("                                      # decompile one package subtree; --app");
-    println!("                                      # takes the package from the manifest");
-    println!("  ddc mainactivity <apk>              # package + launcher activity from the");
-    println!("                                      # manifest, verified against the dex");
-    println!("  ddc res <apk> [entry] [-o FILE]     # list resource entries; dump one:");
-    println!("                                      # binary XML decoded, text as-is,");
-    println!("                                      # binary saved via -o");
-    println!("  -d, --dex NAME       restrict to dex images whose entry name contains");
-    println!("                      NAME (substring, repeatable) — resolves which dex");
-    println!("                      a class lives in and skips parsing the rest;");
-    println!("                      getclass also warns when a class name exists in");
-    println!("                      several images; findrefs -o FILE writes hits to a file.");
+    println!("Progressive analysis — query the artifact as a database, no full");
+    println!("decompile; metadata loads take well under a second. All accept");
+    println!("-d/--dex NAME (repeatable, entry-name substring) to restrict the");
+    println!("image set, and most take -o to write results to a file.");
+    println!();
+    println!("  Get oriented:");
+    println!("    ddc info <input>                    per-dex version/class/method counts");
+    println!("    ddc listclasses <input> [pattern]   class names, fuzzy filter");
+    println!("    ddc manifest <apk> [--component C]  AndroidManifest.xml → text XML");
+    println!("                                        (--component launcher|activity|");
+    println!("                                        service|receiver|provider)");
+    println!("    ddc mainactivity <apk>              package + launcher activity,");
+    println!("                                        verified against the dex");
+    println!("    ddc res <apk> [entry] [-o FILE]     list archive entries; dump one");
+    println!("                                        (binary XML decoded, binary via -o)");
+    println!();
+    println!("  Find things:");
+    println!("    ddc strings <input> [-f TEXT] [--with-locations]");
+    println!("                                        string table; hits mapped to methods");
+    println!("    ddc findrefs <input> string TEXT    every string-literal reference");
+    println!("    ddc findrefs <input> type|method|field NAME [--class FQCN]");
+    println!("                                        refs to a type/call site/field");
+    println!("                                        (names fuzzy; --class exact unless");
+    println!("                                        --fuzzy-class)");
+    println!("    ddc callers <input> NAME [FQCN]     who invokes method NAME");
+    println!("    ddc members <input> [NAME] [--class FQCN] [--method|--field]");
+    println!("                                        method/field name search");
+    println!();
+    println!("  Understand structure:");
+    println!("    ddc hierarchy <input> FQCN          lineage: extends/implements +");
+    println!("                                        subclasses/implementors");
+    println!("    ddc largest <input> [-n N]          top-N methods by instruction count");
+    println!("    ddc disasm <input> FQCN[.method]    raw bytecode (opcode + pc)");
+    println!();
+    println!("  Decompile surgically:");
+    println!("    ddc getclass <input> FQCN [-o f]    one class (+nested)");
+    println!("    ddc getmethod <input> FQCN.method   one method, all overloads");
+    println!("    ddc pkg <input> com.foo [-o DIR]    a whole package; --app takes");
+    println!("                                        the package from the manifest");
     println!();
     println!("Exit status: 0 ok; 1 some classes failed; 2 usage error.");
     println!();
     println!("Examples:");
-    println!("  ddc app.apk                       # app-out/ next to the apk");
-    println!("  ddc app.apk src/                  # dae-style positional output");
-    println!("  ddc classes.dex -o out/           # explicit output root");
-    println!("  ddc app.apk -o -                  # dump everything to stdout");
-    println!("  ddc app.apk -c com.example.Foo    # one class to stdout");
-    println!("  ddc app.apk -c com.example.Foo -o Foo.java");
-    println!("  ddc base.apk patch.dex -o merged/ # split inputs, one pool");
+    println!("  # full decompile");
+    println!("  ddc app.apk                          # → app-out/ next to the apk");
+    println!("  ddc app.apk src/                     # dae-style positional output");
+    println!("  ddc app.apk -o - | less              # everything to stdout");
+    println!("  ddc base.apk patch.dex -o merged/    # split inputs, one pool");
+    println!();
+    println!("  # one class / one method");
+    println!("  ddc app.apk -c com.example.Foo");
+    println!("  ddc getclass app.apk com.example.Foo -o Foo.java --dex classes3");
+    println!("  ddc getmethod app.apk com.example.Foo.toString");
+    println!();
+    println!("  # find things");
+    println!("  ddc findrefs app.apk string api_key");
+    println!("  ddc findrefs app.apk method onCreate --class android/app/Activity");
+    println!("  ddc strings app.apk -f token --with-locations");
+    println!("  ddc callers app.apk sendMessage");
+    println!();
+    println!("  # understand the app before decompiling anything");
+    println!("  ddc mainactivity app.apk");
+    println!("  ddc manifest app.apk --component launcher");
+    println!("  ddc hierarchy app.apk androidx.fragment.app.FragmentActivity");
+    println!("  ddc pkg app.apk --app -o own/        # just the app's own code");
+    println!();
+    println!("More: benchmarks, formats and design notes live in the README");
+    println!("(English and 简体中文) at https://github.com/ejfkdev/ddc");
 }
 
 #[allow(dead_code)]
@@ -888,7 +910,7 @@ fn run() -> Result<()> {
                     return Ok(());
                 }
                 "version" => {
-                    println!("ddc {}", env!("CARGO_PKG_VERSION"));
+                    print_version();
                     return Ok(());
                 }
                 _ => {}
@@ -918,7 +940,7 @@ fn run() -> Result<()> {
                 return Ok(());
             }
             "-V" | "--version" => {
-                println!("ddc {}", env!("CARGO_PKG_VERSION"));
+                print_version();
                 return Ok(());
             }
             "-o" | "--output" => out = Some(take_value!()),
