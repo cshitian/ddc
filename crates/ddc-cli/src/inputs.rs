@@ -8,15 +8,32 @@ use ddc_dex::DexFile;
 
 use crate::{inflate, zip_entries, ZipEntry, ZipMethod};
 
+/// Input file bytes: mmap-backed when possible (zero heap copy — the old
+/// `fs::read` copied a 353MB APK into the heap before the first inflate,
+/// costing ~80ms and the whole file's RSS), heap for tiny/odd cases.
+pub enum Source {
+    Map(memmap2::Mmap),
+    Heap(Vec<u8>),
+}
+
+impl Source {
+    pub fn bytes(&self) -> &[u8] {
+        match self {
+            Source::Map(m) => &m[..],
+            Source::Heap(v) => &v[..],
+        }
+    }
+}
+
 /// A raw (possibly still deflated) DEX image with its origin label. The
 /// archive bytes are SHARED (Arc) and each image is a range slice — the
 /// old per-entry owned copies doubled a 353MB APK's resident footprint
 /// before the first inflate.
 pub struct Image {
     pub label: String,
-    data: std::sync::Arc<Vec<u8>>,
-    range: std::ops::Range<usize>,
-    method: ZipMethod,
+    pub data: std::sync::Arc<Source>,
+    pub range: std::ops::Range<usize>,
+    pub method: ZipMethod,
 }
 
 /// Expand input paths: files pass through, directories are scanned
@@ -72,19 +89,37 @@ pub fn dir_has_dex_files(dir: &Path) -> bool {
 /// their `*.dex` entries (classes.dex, classes2.dex... numeric order
 /// first), raw dex files contribute themselves. Labels read
 /// `<input-stem>!<zip-entry>`.
+pub fn map_source(f: &Path) -> Result<Source> {
+    let file = std::fs::File::open(f).with_context(|| format!("open {}", f.display()))?;
+    let len = file
+        .metadata()
+        .with_context(|| format!("stat {}", f.display()))?
+        .len();
+    if len >= 1 << 20 {
+        // Mmap faults pages in as touched (the CD scan touches the tail,
+        // inflates touch entry ranges); the heap copy touched everything.
+        let map = unsafe { memmap2::Mmap::map(&file) }
+            .with_context(|| format!("map {}", f.display()))?;
+        Ok(Source::Map(map))
+    } else {
+        Ok(Source::Heap(
+            std::fs::read(f).with_context(|| format!("read {}", f.display()))?,
+        ))
+    }
+}
+
 pub fn collect_images(files: &[PathBuf]) -> Result<Vec<Image>> {
     let mut images: Vec<Image> = Vec::new();
     for f in files {
-        let bytes = std::sync::Arc::new(
-            std::fs::read(f).with_context(|| format!("read {}", f.display()))?,
-        );
+        let src = std::sync::Arc::new(map_source(f)?);
         let stem = f
             .file_stem()
             .and_then(|s| s.to_str())
             .unwrap_or("input")
             .to_string();
+        let bytes: &[u8] = src.bytes();
         if bytes.len() >= 4 && &bytes[..2] == b"PK" {
-            let entries = zip_entries(&bytes)?;
+            let entries = zip_entries(bytes)?;
             let mut dexes: Vec<(u64, ZipEntry)> = Vec::new();
             let mut extra: Vec<ZipEntry> = Vec::new();
             for e in entries {
@@ -108,7 +143,7 @@ pub fn collect_images(files: &[PathBuf]) -> Result<Vec<Image>> {
             dexes.sort_by_key(|(k, _)| *k);
             let mk = |e: ZipEntry| Image {
                 label: format!("{}!{}", stem, e.name),
-                data: bytes.clone(),
+                data: src.clone(),
                 range: e.range,
                 method: e.method,
             };
@@ -118,7 +153,7 @@ pub fn collect_images(files: &[PathBuf]) -> Result<Vec<Image>> {
             let n = bytes.len();
             images.push(Image {
                 label: stem,
-                data: bytes,
+                data: src,
                 range: 0..n,
                 method: ZipMethod::Stored,
             });
@@ -167,6 +202,94 @@ pub fn filter_images_by_dex(
     Ok(kept)
 }
 
+/// Streaming prefix inflation with a decision callback: `decide` sees the
+/// bytes produced so far and either keeps going, commits to a needed byte
+/// count, or aborts (the bytes so far stay exact). zlib-ng under the hood.
+pub fn inflate_until(
+    data: &[u8],
+    range: std::ops::Range<usize>,
+    mut decide: impl FnMut(&[u8]) -> PrefixStep,
+) -> Result<Vec<u8>> {
+    use std::io::Read;
+    let compressed = &data[range];
+    // `decide` runs at checkpoints (immediately, then after each
+    // Continue(n) has produced n more bytes) and may run repeatedly — a
+    // checkpoint is not a stop, it is "ask me again here". Abort returns
+    // the exact prefix produced so far; Continue(usize::MAX) drains the
+    // rest of the stream without further callbacks.
+    const CHUNK: usize = 1 << 18;
+    let mut reader = flate2::read::DeflateDecoder::new(compressed);
+    let mut out: Vec<u8> = Vec::new();
+    let mut checkpoint = 0usize;
+    let mut drain = false;
+    let mut chunk = vec![0u8; CHUNK];
+    loop {
+        if !drain && out.len() >= checkpoint {
+            match decide(&out) {
+                PrefixStep::Continue(n) => {
+                    if n == usize::MAX {
+                        drain = true;
+                    } else {
+                        checkpoint = out.len() + n.max(1);
+                    }
+                }
+                PrefixStep::Abort => return Ok(out),
+            }
+        }
+        let read = reader.read(&mut chunk)?;
+        if read > 0 {
+            out.extend_from_slice(&chunk[..read]);
+        } else {
+            return Ok(out);
+        }
+    }
+}
+
+/// What the prefix decider wants next.
+pub enum PrefixStep {
+    /// Keep going; the number is how many bytes are needed before the next
+    /// decision (0 = ask again after the next chunk).
+    Continue(usize),
+    /// Stop: the prefix is all that is needed.
+    Abort,
+}
+
+/// How far into a DEX image the id tables + string data reach (the
+/// reference-search working set): max(class_defs end, string-data end).
+/// `None` while the prefix is too short to answer.
+pub fn scan_prefix_needed(image: &[u8]) -> Option<usize> {
+    if image.len() < 0x70 || !image.starts_with(b"dex\n") {
+        return None;
+    }
+    let u4 = |o: usize| -> usize {
+        u32::from_le_bytes([image[o], image[o + 1], image[o + 2], image[o + 3]]) as usize
+    };
+    let str_n = u4(0x38);
+    let str_off = u4(0x3c);
+    let cls_n = u4(0x60);
+    let cls_off = u4(0x64);
+    let ids_end = str_off + 4 * str_n;
+    let defs_end = cls_off + 32 * cls_n;
+    let tables_end = ids_end.max(defs_end);
+    if tables_end > image.len() {
+        return None; // id/class tables not fully in the prefix yet
+    }
+    // String data end: max data offset + a walkable margin; offsets point
+    // into the data section which may extend beyond the current prefix, so
+    // this is a LOWER bound request — the decider re-runs as it grows.
+    let mut max_off = 0usize;
+    for i in 0..str_n {
+        let off = u4(str_off + 4 * i);
+        if off > max_off {
+            max_off = off;
+        }
+    }
+    if max_off >= image.len() {
+        return Some(max_off + 4096); // need at least up to this string
+    }
+    Some(tables_end.max(max_off + 64))
+}
+
 /// Inflate AND parse each image on its own thread. Returns
 /// `(label, DexFile)` pairs in input order.
 pub fn parse_images(images: Vec<Image>) -> Result<Vec<(String, DexFile)>> {
@@ -177,8 +300,8 @@ pub fn parse_images(images: Vec<Image>) -> Result<Vec<(String, DexFile)>> {
             label,
             std::thread::spawn(move || {
                 let raw = match img.method {
-                    ZipMethod::Stored => img.data[img.range].to_vec(),
-                    ZipMethod::Deflate => inflate(&img.data[img.range])
+                    ZipMethod::Stored => img.data.bytes()[img.range].to_vec(),
+                    ZipMethod::Deflate => inflate(img.data.bytes()[img.range].as_ref())
                         .map_err(|e| e.to_string())?,
                 };
                 DexFile::parse(raw)

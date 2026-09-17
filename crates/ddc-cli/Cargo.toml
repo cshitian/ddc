@@ -13,5 +13,7 @@ path = "src/main.rs"
 ddc-dex = { workspace = true }
 ddc-dec = { workspace = true }
 anyhow = { workspace = true }
-flate2 = "1"
+flate2 = { version = "1", default-features = false, features = ["zlib-ng"] }
+memchr = "2"
+memmap2 = "0.9"
 mimalloc = "0.1.52"

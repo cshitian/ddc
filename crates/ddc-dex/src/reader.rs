@@ -104,6 +104,19 @@ impl<'a> Cursor<'a> {
     /// Read a MUTF-8 string of `utf16_len` code units starting at `pos`
     /// (does not consume the cursor).
     pub fn read_mutf8(&self, pos: usize, utf16_len: u64) -> Option<String> {
+        // Fast path: pure-ASCII (and terminating NUL) strings — the vast
+        // majority of a dex's string table — decode straight through
+        // `str::from_utf8`. The per-byte state machine below stays for
+        // the multi-byte/edge cases.
+        if let Some(nul) = self.data[pos..].iter().position(|&b| b == 0) {
+            let ascii = &self.data[pos..pos + nul];
+            if !ascii.is_empty() && ascii.is_ascii() {
+                // ASCII bytes are valid UTF-8 by construction.
+                return Some(unsafe {
+                    std::str::from_utf8_unchecked(ascii).to_string()
+                });
+            }
+        }
         let mut out = String::new();
         let mut i = pos;
         let mut units = 0u64;

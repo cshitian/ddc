@@ -476,6 +476,101 @@ impl DexFile {
         CodeItem::parse(&self.data, off as usize)
     }
 
+    /// Class descriptors straight from an inflated image, WITHOUT a full
+    /// `DexFile::parse` (which decodes the whole string table — the class
+    /// names are a small slice of it). Class listing pays for exactly what
+    /// it prints.
+    pub fn class_names_from_image(image: &[u8]) -> Vec<String> {
+        if image.len() < 0x70 || &image[..4] != b"dex\n" {
+            return Vec::new();
+        }
+        let u4 = |o: usize| -> u32 {
+            u32::from_le_bytes([image[o], image[o + 1], image[o + 2], image[o + 3]])
+        };
+        let strings_size = u4(0x38) as usize;
+        let strings_off = u4(0x3c) as usize;
+        let types_size = u4(0x40) as usize;
+        let types_off = u4(0x44) as usize;
+        let classes_size = u4(0x60) as usize;
+        let classes_off = u4(0x64) as usize;
+        if strings_off + 4 * strings_size > image.len()
+            || types_off + 4 * types_size > image.len()
+            || classes_off + 32 * classes_size > image.len()
+        {
+            return Vec::new();
+        }
+        let u4at = |o: usize| -> u32 {
+            u32::from_le_bytes([image[o], image[o + 1], image[o + 2], image[o + 3]])
+        };
+        let string_at = |idx: u32| -> Option<String> {
+            let so = u4at(strings_off + 4 * idx as usize) as usize;
+            if so >= image.len() {
+                return None;
+            }
+            // mutf8 string_data_item: uleb len (utf16 units), bytes, NUL.
+            let mut p = so;
+            // uleb128
+            let mut len = 0u64;
+            let mut shift = 0;
+            loop {
+                if p >= image.len() {
+                    return None;
+                }
+                let b = image[p];
+                p += 1;
+                len |= ((b & 0x7f) as u64) << shift;
+                shift += 7;
+                if b & 0x80 == 0 {
+                    break;
+                }
+            }
+            let end = image[p..].iter().position(|&b| b == 0)? + p;
+            crate::reader::mutf8_decode(&image[p..end], len)
+        };
+        let mut out = Vec::with_capacity(classes_size);
+        for i in 0..classes_size {
+            let cd = classes_off + 32 * i;
+            let class_idx = u4at(cd) as usize;
+            if class_idx >= types_size {
+                continue;
+            }
+            let string_idx = u4at(types_off + 4 * class_idx);
+            if let Some(name) = string_at(string_idx) {
+                // type strings are descriptors (Lcom/foo/Bar;): strip the
+                // L; shell to match DexFile::class_name's plain form.
+                let plain = name
+                    .strip_prefix('L')
+                    .and_then(|s| s.strip_suffix(';'))
+                    .map(str::to_string)
+                    .unwrap_or(name);
+                out.push(plain);
+            }
+        }
+        out
+    }
+
+    /// The raw insns byte section of one code item (zero-copy) for the
+    /// boundary-walking scan path — skips try tables and full decode.
+    pub fn code_insns_bytes_at(&self, off: u32) -> Option<&[u8]> {
+        if off == 0 {
+            return None;
+        }
+        let off = off as usize;
+        let d = &self.data;
+        if off + 16 > d.len() {
+            return None;
+        }
+        // code_item: 4×u2 header, u4 debug_info_off, u4 insns_size(units).
+        let insns_size =
+            u32::from_le_bytes([d[off + 12], d[off + 13], d[off + 14], d[off + 15]]) as usize;
+        let start = off + 16;
+        let end = start + 2 * insns_size;
+        if end > d.len() {
+            return None;
+        }
+        Some(&d[start..end])
+    }
+
     /// Static field initial values (aligned with `static_fields` order).
     pub fn static_values(&self, off: u32) -> Vec<EncodedValue> {
         if off == 0 {

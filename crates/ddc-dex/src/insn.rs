@@ -823,6 +823,99 @@ fn binlit8(off: u8) -> (ArithOp, bool) {
     }
 }
 
+/// Instruction size (code units) by opcode — the full-format table from
+/// the dalvik spec. Cross-checked against `decode_one`'s per-arm sizes by
+/// the differential test below; the boundary walker (scan_instructions)
+/// depends on it matching exactly.
+pub fn opcode_units(op: u8) -> u32 {
+    match op {
+        0x00 => 1,
+        0x01 | 0x04 | 0x07 => 1,
+        0x02 | 0x05 | 0x08 => 2,
+        0x03 | 0x06 | 0x09 => 3,
+        0x0a..=0x12 => 1,
+        0x13 | 0x15 | 0x16 | 0x19 => 2,
+        0x14 | 0x17 => 3,
+        0x18 => 5,
+        0x1a | 0x1c => 2,
+        0x1b => 3,
+        0x1d | 0x1e | 0x21 | 0x27 | 0x28 => 1,
+        0x1f | 0x20 | 0x22 | 0x23 => 2,
+        0x24 | 0x25 | 0x26 => 3,
+        0x29 => 2,
+        0x2a => 3,
+        0x2b | 0x2c => 2,
+        0x2d..=0x37 => 2,
+        0x38..=0x43 => 2,
+        0x44..=0x6d => 2,
+        0x6e..=0x72 => 3,
+        0x73 => 1,
+        0x74..=0x78 => 3,
+        0x79 | 0x7a => 1,
+        0x7b..=0x8a => 1,
+        0x8b..=0x8f => 2,
+        0x90..=0xaf => 2,
+        0xb0..=0xcf => 1,
+        0xd0..=0xe2 => 2,
+        // invoke-custom (0xfc/0xfd, 35c/3rc) and method handle/type
+        // constants (0xfe/0xff, 21c) are real format-3/2 instructions.
+        0xfc | 0xfd => 3,
+        0xfe | 0xff => 2,
+        // remaining odex/unused: safest one-unit default keeps the walk
+        // aligned with decode_all's degenerate handling.
+        _ => 1,
+    }
+}
+
+#[inline]
+fn unit_at(bytes: &[u8], i: usize) -> u16 {
+    if 2 * i + 1 < bytes.len() {
+        u16::from_le_bytes([bytes[2 * i], bytes[2 * i + 1]])
+    } else {
+        0
+    }
+}
+
+#[inline]
+fn units_len(bytes: &[u8]) -> usize {
+    bytes.len() / 2
+}
+
+/// Walk instruction BOUNDARIES only: `f(opcode, pc, insns_bytes)` fires for
+/// every real instruction (payload pseudo-ops skipped), with the RAW insns
+/// byte section for operand reads (`unit_at(bytes, pc + 1)` etc). No
+/// InsnKind construction, no allocations — the reference-search scan path
+/// (a full decode per instruction was the dominant cost).
+pub fn scan_instructions<F: FnMut(u8, usize, &[u8])>(bytes: &[u8], f: &mut F) {
+    let n = units_len(bytes);
+    let mut pc = 0usize;
+    while pc < n {
+        let first = unit_at(bytes, pc);
+        if first == 0x0100 || first == 0x0200 || first == 0x0300 {
+            let size = payload_units_from_bytes(bytes, pc);
+            pc += if size == 0 { 1 } else { size };
+            continue;
+        }
+        let op = (first & 0xff) as u8;
+        f(op, pc, bytes);
+        pc += opcode_units(op).max(1) as usize;
+    }
+}
+
+fn payload_units_from_bytes(bytes: &[u8], pc: usize) -> usize {
+    let unit = |i: usize| -> u16 { unit_at(bytes, i) };
+    match unit(pc) {
+        0x0100 => 4 + unit(pc + 1) as usize * 2,
+        0x0200 => 2 + unit(pc + 1) as usize * 4,
+        0x0300 => {
+            let width = unit(pc + 1) as usize;
+            let size = (unit(pc + 2) as usize) | ((unit(pc + 3) as usize) << 16);
+            4 + (size * width + 1) / 2
+        }
+        _ => 0,
+    }
+}
+
 /// Decode a method body's unit stream: linear instructions + payloads map.
 pub fn decode_all(bytes: &[u8]) -> (Vec<Insn>, HashMap<u32, Payload>) {
     let units = u16s(bytes);

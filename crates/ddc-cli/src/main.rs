@@ -162,11 +162,13 @@ fn cmd_manifest(args: &[String], t0: std::time::Instant) -> Result<()> {
         i += 1;
     }
     // A ZIP/APK contributes its AndroidManifest.xml entry; a raw file is
-    // itself a binary XML (`.axml`) — no dex parse either way.
+    // itself a binary XML (`.axml`) — no dex parse either way. mmap the
+    // archive: only the manifest entry's range ever gets touched.
     let xml = {
-        let bytes = std::fs::read(&input).with_context(|| format!("read {}", input.display()))?;
+        let src = inputs::map_source(&input)?;
+        let bytes: &[u8] = src.bytes();
         if bytes.len() >= 4 && &bytes[..2] == b"PK" {
-            let entries = zip_entries(&bytes)?;
+            let entries = zip_entries(bytes)?;
             let entry = entries
                 .into_iter()
                 .find(|n| n.name == "AndroidManifest.xml")
@@ -178,7 +180,7 @@ fn cmd_manifest(args: &[String], t0: std::time::Instant) -> Result<()> {
             input = PathBuf::from(entry.name);
             raw
         } else {
-            bytes
+            bytes.to_vec()
         }
     };
     let text = axml::axml_to_xml(&xml)
@@ -251,23 +253,55 @@ fn cmd_listclasses(args: &[String], _t0: std::time::Instant) -> Result<()> {
         i += 1;
     }
     let input = input.context("listclasses needs an input file")?;
-    // Class names need only the class_defs + type tables — iterate the
-    // parsed images directly; NO pool build (PoolClass construction plus
-    // annotation reads for 145k classes cost ~0.2s on weibo).
+    // Class names need only each image's class_defs → type_ids → the
+    // class-name STRING ENTRIES: prefix decoding straight off the inflated
+    // bytes (a full DexFile::parse decodes the whole string table — the
+    // names are a small slice of it).
     let files = expand_inputs(&[input])?;
-    let parsed = parse_images(filter_images_by_dex(
-        collect_images(&files)?,
-        &dex_filters,
-    )?)?;
+    let t_wall = std::time::Instant::now();
+    let images = filter_images_by_dex(collect_images(&files)?, &dex_filters)?;
+    let t_cd = t_wall.elapsed();
     let mut _total = 0usize;
     let mut all: Vec<String> = Vec::new();
     let mut seen = std::collections::HashSet::new();
-    for (_, dex) in &parsed {
-        for cd in &dex.class_defs {
-            let name = dex.class_name(cd.class_idx);
-            _total += 1;
-            if seen.insert(name.clone()) {
-                all.push(name);
+    let handles: Vec<_> = images
+        .into_iter()
+        .map(|img| {
+            std::thread::spawn(move || {
+                let raw = match img.method {
+                    ZipMethod::Stored => img.data.bytes()[img.range].to_vec(),
+                    ZipMethod::Deflate => {
+                        // Stream and STOP at the class-name working set
+                        // (id tables + string data): the code section —
+                        // most of the bytes — is never inflated.
+                        inputs::inflate_until(
+                            img.data.bytes(),
+                            img.range.clone(),
+                            |out| match inputs::scan_prefix_needed(out) {
+                                None => inputs::PrefixStep::Continue(0),
+                                Some(needed) => {
+                                    if out.len() >= needed {
+                                        inputs::PrefixStep::Abort
+                                    } else {
+                                        inputs::PrefixStep::Continue(needed - out.len())
+                                    }
+                                }
+                            },
+                        )
+                        .unwrap_or_default()
+                    }
+                };
+                DexFile::class_names_from_image(&raw)
+            })
+        })
+        .collect();
+    for h in handles {
+        if let Ok(names) = h.join() {
+            _total += names.len();
+            for name in names {
+                if seen.insert(name.clone()) {
+                    all.push(name);
+                }
             }
         }
     }
@@ -427,6 +461,49 @@ fn cmd_getclass(args: &[String], t0: std::time::Instant) -> Result<()> {
     Ok(())
 }
 
+/// Stream the entry; resolve the query's targets COMPLETELY as soon as the
+/// prefix holds the tables + the whole string data section. Zero targets →
+/// abort with empty (the code section — the bulk of the bytes — is never
+/// inflated); targets resolved → drain the rest and hand the resolution to
+/// the scanner (single pass: no second string matching); unresolved →
+/// drain and let the scanner resolve on the full image.
+fn prefix_or_full(
+    data: &[u8],
+    range: &std::ops::Range<usize>,
+    query: &findrefs::FindQuery,
+) -> std::result::Result<(Vec<u8>, Option<(u8, std::collections::BTreeSet<u32>)>), String> {
+    use std::collections::BTreeSet;
+    let mut resolved: Option<Option<(u8, BTreeSet<u32>)>> = None;
+    let image = inputs::inflate_until(data, range.clone(), |out| {
+        match inputs::scan_prefix_needed(out) {
+            None => inputs::PrefixStep::Continue(0),
+            Some(needed) => {
+                if out.len() >= needed {
+                    match findrefs::resolve_on_prefix(out, query) {
+                        // Zero targets: skip the code section entirely.
+                        Some((bit, set)) if set.is_empty() => {
+                            resolved = Some(Some((bit, set)));
+                            inputs::PrefixStep::Abort
+                        }
+                        // Targets resolved: drain, pass them along.
+                        p @ Some(_) => {
+                            resolved = Some(p);
+                            inputs::PrefixStep::Continue(usize::MAX)
+                        }
+                        // Cannot resolve yet: drain, scanner resolves.
+                        None => inputs::PrefixStep::Continue(usize::MAX),
+                    }
+                } else {
+                    inputs::PrefixStep::Continue(needed - out.len())
+                }
+            }
+        }
+    })
+    .map_err(|e| e.to_string())?;
+    let pre = resolved.flatten();
+    Ok((image, pre))
+}
+
 // ---- findrefs ---------------------------------------------------------------
 
 fn cmd_findrefs(args: &[String], t0: std::time::Instant) -> Result<()> {
@@ -474,32 +551,77 @@ fn cmd_findrefs(args: &[String], t0: std::time::Instant) -> Result<()> {
     };
 
     let files = expand_inputs(&[input])?;
+    let t_wall = std::time::Instant::now();
     let images = filter_images_by_dex(collect_images(&files)?, &dex_filters)?;
+    let t_cd = t_wall.elapsed();
     // PIPELINED scan: a producer parses images in small waves and feeds a
     // channel; scanner threads consume and DROP each dex — the inflate of
     // wave N+1 overlaps the scan of wave N, so the parallel decode
     // bandwidth survives while resident memory stays bounded to the
     // in-flight images (holding every image resident cost ~1.2GB on a
     // 353MB APK; ASC's per-worker streaming runs ~170MB).
-    const WAVE: usize = 6;
     const SCANNERS: usize = 8;
     const IN_FLIGHT: usize = 12;
-    let chan = std::sync::Arc::new(Chan::<(String, DexFile)>::new(IN_FLIGHT));
+    type Payload = (String, Vec<u8>, Option<(u8, std::collections::BTreeSet<u32>)>);
+    // One inflate/parse thread PER IMAGE (full decode parallelism); the
+    // bounded channel backpressures the producers, so resident memory is
+    // capped at IN_FLIGHT inflated images regardless of the dex count —
+    // the old fixed-width waves serialized the inflate bursts.
+    let chan = std::sync::Arc::new(Chan::<Payload>::new(IN_FLIGHT));
     let producer = {
         let chan = chan.clone();
+        let query = query.clone();
         std::thread::spawn(move || -> Result<()> {
-            let result = (|| {
-                let mut rest = images;
-                while !rest.is_empty() {
-                    let wave = rest.split_off(rest.len().saturating_sub(WAVE));
-                    for pair in parse_images(wave)? {
-                        chan.push(pair);
+            let handles: Vec<std::thread::JoinHandle<std::result::Result<(), String>>> =
+                images
+                    .into_iter()
+                    .map(|img| {
+                        let chan = chan.clone();
+                        let query = query.clone();
+                        std::thread::spawn(move || -> std::result::Result<(), String> {
+                            // Inflate only: the scan path works on the raw
+                            // image (zero table materialization). Deflated
+                            // entries stream through a PREFIX decider:
+                            // once the id tables + string data are in, the
+                            // query resolves on the prefix; a dex with NO
+                            // matching targets is dropped without paying
+                            // for its code section (the bulk of the bytes).
+                            let (raw, pre): (Vec<u8>, _) = match img.method {
+                                ZipMethod::Stored => {
+                                    (img.data.bytes()[img.range].to_vec(), None)
+                                }
+                                ZipMethod::Deflate => prefix_or_full(
+                                    img.data.bytes(),
+                                    &img.range,
+                                    &query,
+                                )?,
+                            };
+                            if raw.is_empty() {
+                                // Prefix resolution found no targets here.
+                                return Ok(());
+                            }
+                            chan.push((img.label, raw, pre));
+                            Ok(())
+                        })
+                    })
+                    .collect();
+            let mut first_err: Option<String> = None;
+            for h in handles {
+                match h.join() {
+                    Ok(Ok(())) => {}
+                    Ok(Err(e)) => {
+                        first_err.get_or_insert(e);
+                    }
+                    Err(_) => {
+                        first_err.get_or_insert("parse thread panicked".into());
                     }
                 }
-                Ok(())
-            })();
+            }
             chan.close();
-            result
+            match first_err {
+                Some(e) => Err(anyhow::anyhow!("{e}")),
+                None => Ok(()),
+            }
         })
     };
     let mut hits = Vec::new();
@@ -510,8 +632,8 @@ fn cmd_findrefs(args: &[String], t0: std::time::Instant) -> Result<()> {
             let query = query.clone();
             handles.push(scope.spawn(move || -> Vec<findrefs::Hit> {
                 let mut out = Vec::new();
-                while let Some((label, dex)) = chan.pop() {
-                    if let Ok(mut one) = findrefs::scan_dex(&label, &dex, &query) {
+                while let Some((label, image, pre)) = chan.pop() {
+                    if let Ok(mut one) = findrefs::scan_image(&label, &image, &query, pre) {
                         out.append(&mut one);
                     }
                 }
@@ -527,6 +649,15 @@ fn cmd_findrefs(args: &[String], t0: std::time::Instant) -> Result<()> {
     producer
         .join()
         .map_err(|_| anyhow::anyhow!("parse producer panicked"))??;
+    let t_scan = t_wall.elapsed();
+    if std::env::var("DDC_WALL").is_ok() {
+        eprintln!(
+            "[wall] cd+collect={:?} inflate+scan={:?} hits={}",
+            t_cd,
+            t_scan - t_cd,
+            hits.len()
+        );
+    }
     hits.sort_by(|a, b| a.class.cmp(&b.class).then(a.method.cmp(&b.method)));
 
     let lines: Vec<String> = hits
@@ -603,6 +734,11 @@ impl<T> Chan<T> {
         self.not_empty.notify_one();
     }
     fn close(&self) {
+        // The flag flip MUST hold the queue lock: otherwise a consumer can
+        // observe closed=false, release the lock, and enter wait() after
+        // the notify_all has already fired — a lost wakeup that hangs the
+        // scanner forever (seen as a 12-minute zombie test process).
+        let _q = self.q.lock().unwrap();
         self.closed.store(true, std::sync::atomic::Ordering::Release);
         self.not_empty.notify_all();
         self.not_full.notify_all();
@@ -728,8 +864,8 @@ fn run() -> Result<()> {
     }
     let inputs = positionals;
 
-    let files = expand_inputs(&inputs)?;
     let t_wall = std::time::Instant::now();
+    let files = expand_inputs(&inputs)?;
     let t_read = t_wall.elapsed();
     let parsed = parse_images(collect_images(&files)?)?;
     let t_inflate = t_wall.elapsed();

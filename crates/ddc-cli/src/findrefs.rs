@@ -1,20 +1,24 @@
-//! Cross-reference search over DEX images WITHOUT decompiling: resolve the
-//! query against the id tables (strings / types / method_ids / field_ids),
-//! then scan every method's decoded instructions for the matching indices.
-//! Ascending-C-style "query the artifact as a database" — the pool parse
-//! (~0.35s on weibo) is the only fixed cost; the scan is pure decoding,
-//! no lifting/structuring/rendering.
+//! Cross-reference search over DEX images WITHOUT decompiling.
+//!
+//! The rasc playbook, ported: the image is scanned DIRECTLY (zero-copy
+//! header/table-range validation only — no DexFile::parse, no materialized
+//! tables, no decoded string table); targets resolve in BYTE space with
+//! SIMD substring search (memchr) over the raw MUTF-8; a raw-code prefilter
+//! (memmem for the encoded index bytes) skips whole methods when the query
+//! has few targets; per-method names decode lazily, only for hits. Matching
+//! is case-sensitive substring (literal), like grep.
 
-use std::collections::HashSet;
+use std::collections::BTreeSet;
 
-use anyhow::Result;
-use ddc_dex::insn::InsnKind;
-use ddc_dex::DexFile;
+use anyhow::{bail, Result};
+use memchr::{memchr, memmem};
+
+use ddc_dex::insn::scan_instructions;
 
 /// What the user is looking for.
 #[derive(Debug, Clone)]
 pub enum FindQuery {
-    /// Substring match (case-insensitive) against string literals.
+    /// Substring match (literal, case-sensitive) against string literals.
     String(String),
     /// Substring match against type names (`com.poc.Main`,
     /// `com/poc/Main`, `Lcom/poc/Main;` all normalize).
@@ -42,33 +46,6 @@ impl FindQuery {
     }
 }
 
-/// Normalize any of `com.poc.Main`, `com/poc/Main`, `Lcom/poc/Main;` to
-/// the internal slashed form `com/poc/Main`.
-pub fn normalize_type(q: &str) -> String {
-    let mut s = q.trim();
-    if let Some(stripped) = s.strip_prefix('L') {
-        if s.ends_with(';') {
-            s = &stripped[..stripped.len().saturating_sub(1)];
-        }
-    }
-    s.replace('.', "/")
-}
-
-fn matches(hay: &str, needle: &str) -> bool {
-    hay.to_ascii_lowercase()
-        .contains(&needle.to_ascii_lowercase())
-}
-
-fn class_matches(type_name: &str, class: &str, fuzzy: bool) -> bool {
-    let hay = type_name.trim_start_matches('L').trim_end_matches(';');
-    let needle = normalize_type(class);
-    if fuzzy {
-        matches(hay, &needle)
-    } else {
-        hay == needle
-    }
-}
-
 /// One reference hit.
 pub struct Hit {
     /// Owner class, slashed internal form.
@@ -81,193 +58,593 @@ pub struct Hit {
     pub target: String,
 }
 
-/// Scan one dex image for `query`. Returns hits in class/method order.
-pub fn scan_dex(_label: &str, dex: &DexFile, query: &FindQuery) -> Result<Vec<Hit>> {
-    // 1. Resolve the target index set.
-    let string_idx: HashSet<u32> = match query {
-        FindQuery::String(pat) => (0..dex.string_count() as u32)
-            .filter(|&i| matches(dex.string(i), pat))
-            .collect(),
-        _ => HashSet::new(),
-    };
-    let type_idx: HashSet<u32> = match query {
-        FindQuery::Type(pat) => {
-            let norm = normalize_type(pat);
-            (0..dex.type_count() as u32)
-                .filter(|&i| {
-                    let t = dex.type_name(i);
-                    let t = t.trim_start_matches('L').trim_end_matches(';');
-                    t.to_ascii_lowercase().contains(&norm.to_ascii_lowercase())
-                })
-                .collect()
+/// The four reference-carrying opcode families, one bit each.
+const K_STRING: u8 = 1;
+const K_TYPE: u8 = 2;
+const K_FIELD: u8 = 4;
+const K_METHOD: u8 = 8;
+
+const fn opcode_kinds(op: u8) -> u8 {
+    let mut mask = 0;
+    if matches!(op, 0x1a | 0x1b) {
+        mask |= K_STRING;
+    }
+    if matches!(op, 0x1c | 0x1f | 0x20 | 0x22..=0x25) {
+        mask |= K_TYPE;
+    }
+    if matches!(op, 0x52..=0x6d) {
+        mask |= K_FIELD;
+    }
+    if matches!(op, 0x6e..=0x72 | 0x74..=0x78) {
+        mask |= K_METHOD;
+    }
+    mask
+}
+
+/// Kind mask per opcode — one array load decides whether an instruction can
+/// carry the queried reference kind.
+const OPCODE_KINDS: [u8; 256] = {
+    let mut table = [0u8; 256];
+    let mut op = 0usize;
+    while op < 256 {
+        table[op] = opcode_kinds(op as u8);
+        op += 1;
+    }
+    table
+};
+
+/// A raw DEX image view: header fields + validated table ranges, nothing
+/// decoded.
+struct RawDex<'a> {
+    d: &'a [u8],
+    str_n: usize,
+    str_off: usize,
+    type_n: usize,
+    type_off: usize,
+    proto_off: usize,
+    field_n: usize,
+    field_off: usize,
+    method_n: usize,
+    method_off: usize,
+    cls_n: usize,
+    cls_off: usize,
+}
+
+impl<'a> RawDex<'a> {
+    fn parse(d: &'a [u8]) -> Result<Self> {
+        if d.len() < 0x70 || !d.starts_with(b"dex\n") {
+            bail!("not a DEX image");
         }
-        _ => HashSet::new(),
-    };
-    let method_idx: HashSet<u32> = match query {
-        FindQuery::Method { class, name, fuzzy_class } => {
-            let name = name.to_ascii_lowercase();
-            (0..dex.method_count() as u32)
-                .filter(|&i| {
-                    let m = dex.method(i);
-                    let mname = dex.string(m.name_idx).to_ascii_lowercase();
-                    if !mname.contains(&name) {
-                        return false;
-                    }
-                    match class {
-                        Some(c) => class_matches(&dex.class_name(m.class_idx), c, *fuzzy_class),
-                        None => true,
-                    }
-                })
-                .collect()
+        let u4 = |o: usize| -> usize {
+            u32::from_le_bytes([d[o], d[o + 1], d[o + 2], d[o + 3]]) as usize
+        };
+        let dex = RawDex {
+            d,
+            str_n: u4(0x38),
+            str_off: u4(0x3c),
+            type_n: u4(0x40),
+            type_off: u4(0x44),
+            proto_off: u4(0x4c),
+            field_n: u4(0x50),
+            field_off: u4(0x54),
+            method_n: u4(0x58),
+            method_off: u4(0x5c),
+            cls_n: u4(0x60),
+            cls_off: u4(0x64),
+        };
+        let ok = |off: usize, n: usize, w: usize| off + w * n <= d.len();
+        if !ok(dex.str_off, dex.str_n, 4)
+            || !ok(dex.type_off, dex.type_n, 4)
+            || !ok(dex.field_off, dex.field_n, 8)
+            || !ok(dex.method_off, dex.method_n, 8)
+            || !ok(dex.cls_off, dex.cls_n, 32)
+        {
+            bail!("DEX table ranges out of bounds");
         }
-        _ => HashSet::new(),
-    };
-    let field_idx: HashSet<u32> = match query {
-        FindQuery::Field { class, name, fuzzy_class } => {
-            let name = name.to_ascii_lowercase();
-            (0..dex.field_count() as u32)
-                .filter(|&i| {
-                    let f = dex.field(i);
-                    let fname = dex.string(f.name_idx).to_ascii_lowercase();
-                    if !fname.contains(&name) {
-                        return false;
-                    }
-                    match class {
-                        Some(c) => class_matches(&dex.class_name(f.class_idx), c, *fuzzy_class),
-                        None => true,
-                    }
-                })
-                .collect()
-        }
-        _ => HashSet::new(),
-    };
-    if string_idx.is_empty()
-        && type_idx.is_empty()
-        && method_idx.is_empty()
-        && field_idx.is_empty()
-    {
-        return Ok(Vec::new());
+        Ok(dex)
     }
 
-    // 2. Walk every method's decoded instructions.
-    let mut hits = Vec::new();
-    for cd in &dex.class_defs {
-        let class = dex.class_name(cd.class_idx);
-        let data = dex.class_data(cd);
-        let methods = data.direct_methods.iter().chain(data.virtual_methods.iter());
-        for m in methods {
-            if m.code_off == 0 {
-                continue;
+    #[inline]
+    fn u4(&self, o: usize) -> u32 {
+        u32::from_le_bytes([self.d[o], self.d[o + 1], self.d[o + 2], self.d[o + 3]])
+    }
+
+    /// Raw MUTF-8 bytes of string `idx` (uleb length skipped).
+    fn string_bytes(&self, idx: u32) -> Option<&'a [u8]> {
+        let mut off = self.u4(self.str_off + 4 * idx as usize) as usize;
+        if off >= self.d.len() {
+            return None;
+        }
+        loop {
+            if off >= self.d.len() {
+                return None;
             }
-            let Some(code) = dex.code_at(m.code_off) else {
-                continue;
-            };
-            let mid = dex.method(m.method_idx);
-            let mname = dex.string(mid.name_idx);
-            let desc = render_proto(dex, mid.proto_idx);
-            let owner = format!("{mname}{desc}");
-            for insn in &code.insns {
-                match &insn.kind {
-                    InsnKind::ConstString { str_idx, .. } => {
-                        if string_idx.contains(str_idx) {
-                            hits.push(Hit {
-                                class: class.clone(),
-                                method: owner.clone(),
-                                insn: "const-string",
-                                target: format!("{:?}", dex.string(*str_idx)),
-                            });
-                        }
-                    }
-                    InsnKind::ConstClass { type_idx: idx, .. }
-                    | InsnKind::CheckCast { type_idx: idx, .. }
-                    | InsnKind::InstanceOf { type_idx: idx, .. }
-                    | InsnKind::NewInstance { type_idx: idx, .. }
-                    | InsnKind::NewArray { type_idx: idx, .. }
-                    | InsnKind::FilledNewArray { type_idx: idx, .. } => {
-                        if type_idx.contains(idx) {
-                            hits.push(Hit {
-                                class: class.clone(),
-                                method: owner.clone(),
-                                insn: kind_name(&insn.kind),
-                                target: dex.type_name(*idx).to_string(),
-                            });
-                        }
-                    }
-                    InsnKind::IGet { field_idx: idx, .. }
-                    | InsnKind::IPut { field_idx: idx, .. }
-                    | InsnKind::SGet { field_idx: idx, .. }
-                    | InsnKind::SPut { field_idx: idx, .. } => {
-                        if field_idx.contains(idx) {
-                            hits.push(Hit {
-                                class: class.clone(),
-                                method: owner.clone(),
-                                insn: kind_name(&insn.kind),
-                                target: render_field(dex, *idx),
-                            });
-                        }
-                    }
-                    InsnKind::Invoke { method_idx: idx, .. } => {
-                        if method_idx.contains(idx) {
-                            hits.push(Hit {
-                                class: class.clone(),
-                                method: owner.clone(),
-                                insn: "invoke",
-                                target: render_method(dex, *idx),
-                            });
-                        }
-                    }
-                    _ => {}
+            let b = self.d[off];
+            off += 1;
+            if b & 0x80 == 0 {
+                break;
+            }
+        }
+        let end = memchr(0, &self.d[off..])? + off;
+        Some(&self.d[off..end])
+    }
+
+    fn string(&self, idx: u32) -> Option<String> {
+        Some(decode_mutf8_lossy(self.string_bytes(idx)?))
+    }
+
+    /// The raw descriptor bytes of a type (`Lcom/foo/Bar;`).
+    fn type_bytes(&self, idx: u32) -> Option<&'a [u8]> {
+        if idx as usize >= self.type_n {
+            return None;
+        }
+        let sidx = self.u4(self.type_off + 4 * idx as usize);
+        self.string_bytes(sidx)
+    }
+
+    /// Class internal name from a type index (descriptor shell stripped).
+    fn class_name(&self, type_idx: u32) -> String {
+        match self.type_bytes(type_idx) {
+            Some(b) => {
+                let s = decode_mutf8_lossy(b);
+                s.strip_prefix('L')
+                    .and_then(|t| t.strip_suffix(';'))
+                    .map(str::to_string)
+                    .unwrap_or(s)
+            }
+            None => String::new(),
+        }
+    }
+
+    /// (class_idx, proto_idx, name bytes) of a method id.
+    fn method_parts(&self, idx: u32) -> Option<(u32, u32, &'a [u8])> {
+        let o = self.method_off + 8 * idx as usize;
+        if o + 8 > self.d.len() {
+            return None;
+        }
+        let class_idx = u16::from_le_bytes([self.d[o], self.d[o + 1]]) as u32;
+        let proto_idx = u16::from_le_bytes([self.d[o + 2], self.d[o + 3]]) as u32;
+        let name_idx = self.u4(o + 4);
+        Some((class_idx, proto_idx, self.string_bytes(name_idx)?))
+    }
+
+    /// (class_idx, name bytes, type bytes) of a field id
+    /// (field_id: class_idx u2, type_idx u2, name_idx u4).
+    fn field_parts(&self, idx: u32) -> Option<(u32, &'a [u8], &'a [u8])> {
+        let o = self.field_off + 8 * idx as usize;
+        if o + 8 > self.d.len() {
+            return None;
+        }
+        let class_idx = u16::from_le_bytes([self.d[o], self.d[o + 1]]) as u32;
+        let type_idx = u16::from_le_bytes([self.d[o + 2], self.d[o + 3]]) as u32;
+        let name_idx = self.u4(o + 4);
+        Some((class_idx, self.string_bytes(name_idx)?, self.type_bytes(type_idx)?))
+    }
+
+    /// `name(params)ret` from a proto id (12-byte proto_id items).
+    fn proto_desc(&self, proto_idx: u32) -> String {
+        let o = self.proto_off + 12 * proto_idx as usize;
+        if o + 12 > self.d.len() {
+            return String::new();
+        }
+        let ret = self.u4(o + 4);
+        let params_off = self.u4(o + 8) as usize;
+        let mut out = String::from("(");
+        if params_off != 0 && params_off + 4 <= self.d.len() {
+            let n = u32::from_le_bytes([
+                self.d[params_off],
+                self.d[params_off + 1],
+                self.d[params_off + 2],
+                self.d[params_off + 3],
+            ]) as usize;
+            for i in 0..n {
+                let p = params_off + 4 + 2 * i;
+                if p + 2 > self.d.len() {
+                    break;
+                }
+                let t = u16::from_le_bytes([self.d[p], self.d[p + 1]]) as u32;
+                if let Some(b) = self.type_bytes(t) {
+                    out.push_str(&decode_mutf8_lossy(b));
                 }
             }
         }
+        out.push(')');
+        if let Some(b) = self.type_bytes(ret) {
+            out.push_str(&decode_mutf8_lossy(b));
+        }
+        out
+    }
+
+    /// String indices whose raw bytes contain `needle` (SIMD memmem).
+    fn matching_strings(&self, needle: &[u8]) -> Vec<u32> {
+        if needle.is_empty() {
+            return Vec::new();
+        }
+        let finder = memmem::Finder::new(needle);
+        let mut out = Vec::new();
+        for idx in 0..self.str_n as u32 {
+            if let Some(bytes) = self.string_bytes(idx) {
+                if finder.find(bytes).is_some() {
+                    out.push(idx);
+                }
+            }
+        }
+        out
+    }
+
+    /// Type indices whose type string contains `needle`.
+    fn matching_types(&self, needle: &[u8]) -> Vec<u32> {
+        let strs: BTreeSet<u32> = self.matching_strings(needle).into_iter().collect();
+        let mut out = Vec::new();
+        for idx in 0..self.type_n as u32 {
+            let sidx = self.u4(self.type_off + 4 * idx as usize);
+            if strs.contains(&sidx) {
+                out.push(idx);
+            }
+        }
+        out
+    }
+}
+
+fn decode_mutf8_lossy(b: &[u8]) -> String {
+    if b.is_ascii() {
+        // Fast path: ASCII bytes are their own MUTF-8/UTF-8 decoding.
+        unsafe { std::str::from_utf8_unchecked(b).to_string() }
+    } else {
+        String::from_utf8_lossy(b).into_owned()
+    }
+}
+
+/// Normalize any of `com.poc.Main`, `com/poc/Main`, `Lcom/poc/Main;` to
+/// the slashed form.
+fn normalize_type(q: &str) -> String {
+    let mut s = q.trim();
+    if let Some(stripped) = s.strip_prefix('L') {
+        if s.ends_with(';') {
+            s = &stripped[..stripped.len().saturating_sub(1)];
+        }
+    }
+    s.replace('.', "/")
+}
+
+/// Class-side match for method/field queries against a type descriptor.
+fn class_matches(type_bytes: &[u8], class: &str, fuzzy: bool) -> bool {
+    let hay = String::from_utf8_lossy(type_bytes);
+    let hay = hay.trim_start_matches('L').trim_end_matches(';');
+    let needle = normalize_type(class);
+    if fuzzy {
+        hay.contains(&needle)
+    } else {
+        hay == needle
+    }
+}
+
+/// Encoded target indices for the raw-code prefilter: when the query has
+/// few targets, memmem for the index's own bytes skips whole methods
+/// before any opcode walk.
+struct Prefilter {
+    pairs: Vec<[u8; 2]>,
+    quads: Vec<[u8; 4]>,
+}
+
+impl Prefilter {
+    fn new(targets: &BTreeSet<u32>) -> Option<Self> {
+        // Above ~4 targets the filter costs more than the decode it skips.
+        if targets.len() > 4 {
+            return None;
+        }
+        let mut pairs = Vec::new();
+        let mut quads = Vec::new();
+        for &t in targets {
+            if t <= u16::MAX as u32 {
+                pairs.push((t as u16).to_le_bytes());
+            } else {
+                quads.push(t.to_le_bytes());
+            }
+        }
+        Some(Prefilter { pairs, quads })
+    }
+
+    fn might_hit(&self, code: &[u8]) -> bool {
+        self.pairs.iter().any(|p| contains_pair(code, *p))
+            || self.quads.iter().any(|q| memmem::find(code, q).is_some())
+    }
+}
+
+/// Two-byte search: memchr the first byte, check both neighbor positions
+/// (a 16-bit operand can start one byte before the found position).
+fn contains_pair(code: &[u8], [first, second]: [u8; 2]) -> bool {
+    let mut from = 0;
+    while let Some(found) = memchr(first, &code[from..]) {
+        let at = from + found;
+        if code.get(at + 1) == Some(&second) || (at > 0 && code[at - 1] == second) {
+            return true;
+        }
+        from = at + 1;
+    }
+    false
+}
+
+/// Whether the query resolves to ZERO targets on a (possibly partial)
+/// image. `None` when the prefix cannot answer yet (incomplete tables or
+/// string data beyond its end) — the caller keeps inflating.
+pub fn resolve_on_prefix(
+    image: &[u8],
+    query: &FindQuery,
+) -> Option<(u8, BTreeSet<u32>)> {
+    let dex = RawDex::parse(image).ok()?;
+    // Completeness: every string must sit fully inside the prefix —
+    // otherwise the resolution would silently miss targets.
+    for idx in 0..dex.str_n as u32 {
+        dex.string_bytes(idx)?;
+    }
+    Some(resolve_targets(&dex, query))
+}
+
+/// Scan one inflated DEX image for `query`. `pre` carries targets the
+/// producer already resolved on the string-data-complete prefix (single
+/// pass: the scanner then skips resolution entirely).
+pub fn scan_image(
+    label: &str,
+    image: &[u8],
+    query: &FindQuery,
+    pre: Option<(u8, BTreeSet<u32>)>,
+) -> Result<Vec<Hit>> {
+    let _ = label;
+    let dex = RawDex::parse(image)?;
+    let (kind_bit, targets): (u8, BTreeSet<u32>) =
+        pre.unwrap_or_else(|| resolve_targets(&dex, query));
+    if targets.is_empty() {
+        return Ok(Vec::new());
+    }
+    let prefilter = Prefilter::new(&targets);
+    let mut hits = Vec::new();
+    for ci in 0..dex.cls_n {
+        let cd = dex.cls_off + 32 * ci;
+        let class_type_idx = dex.u4(cd);
+        let class = dex.class_name(class_type_idx);
+        let class_data_off = dex.u4(cd + 24) as usize;
+        if class_data_off == 0 {
+            continue;
+        }
+        scan_class(&dex, class_data_off, &class, kind_bit, &targets, &prefilter, &mut hits);
     }
     Ok(hits)
 }
 
-fn kind_name(k: &InsnKind) -> &'static str {
-    match k {
-        InsnKind::ConstClass { .. } => "const-class",
-        InsnKind::CheckCast { .. } => "check-cast",
-        InsnKind::InstanceOf { .. } => "instance-of",
-        InsnKind::NewInstance { .. } => "new-instance",
-        InsnKind::NewArray { .. } => "new-array",
-        InsnKind::FilledNewArray { .. } => "filled-new-array",
-        InsnKind::IGet { .. } => "iget",
-        InsnKind::IPut { .. } => "iput",
-        InsnKind::SGet { .. } => "sget",
-        InsnKind::SPut { .. } => "sput",
-        _ => "ref",
+/// Target resolution + the opcode-kind bit, split out so the producer's
+/// prefix pass can run it once and hand the result to the scanner.
+pub fn resolve_targets(dex: &RawDex, query: &FindQuery) -> (u8, BTreeSet<u32>) {
+    match query {
+        FindQuery::String(p) => (
+            K_STRING,
+            dex.matching_strings(p.as_bytes()).into_iter().collect(),
+        ),
+        FindQuery::Type(p) => (
+            K_TYPE,
+            dex.matching_types(normalize_type(p).as_bytes()).into_iter().collect(),
+        ),
+        FindQuery::Method { class, name, fuzzy_class } => (
+            K_METHOD,
+            matching_members(dex, true, name, class.as_deref(), *fuzzy_class),
+        ),
+        FindQuery::Field { class, name, fuzzy_class } => (
+            K_FIELD,
+            matching_members(dex, false, name, class.as_deref(), *fuzzy_class),
+        ),
     }
 }
 
-fn render_proto(dex: &DexFile, proto_idx: u32) -> String {
-    let params: String = dex
-        .proto_params(proto_idx)
-        .into_iter()
-        .map(|t| dex.type_name(t).to_string())
-        .collect();
-    // dex.proto() returns &ProtoId directly (Option is only on lookup).
-    let ret = dex.type_name(dex.proto(proto_idx).return_type_idx).to_string();
-    format!("({params}){ret}")
+fn matching_members(
+    dex: &RawDex,
+    is_method: bool,
+    name: &str,
+    class: Option<&str>,
+    fuzzy_class: bool,
+) -> BTreeSet<u32> {
+    let mut set = BTreeSet::new();
+    let n = if is_method { dex.method_n } else { dex.field_n };
+    for idx in 0..n as u32 {
+        let parts = if is_method {
+            dex.method_parts(idx).map(|(c, _p, nb)| (c, nb))
+        } else {
+            dex.field_parts(idx).map(|(c, nb, _t)| (c, nb))
+        };
+        if let Some((class_idx, name_b)) = parts {
+            if memmem::find(name_b, name.as_bytes()).is_none() {
+                continue;
+            }
+            if let Some(c) = class {
+                let cb = match dex.type_bytes(class_idx) {
+                    Some(b) => b,
+                    None => continue,
+                };
+                if !class_matches(cb, c, fuzzy_class) {
+                    continue;
+                }
+            }
+            set.insert(idx);
+        }
+    }
+    set
 }
 
-fn render_field(dex: &DexFile, idx: u32) -> String {
-    let f = dex.field(idx);
-    format!(
-        "{}->{}:{}",
-        dex.class_name(f.class_idx),
-        dex.string(f.name_idx),
-        dex.type_name(f.type_idx)
-    )
+/// One class's methods, walked from raw class_data bytes.
+#[allow(clippy::too_many_arguments)]
+fn scan_class(
+    dex: &RawDex,
+    class_data_off: usize,
+    class: &str,
+    kind_bit: u8,
+    targets: &BTreeSet<u32>,
+    prefilter: &Option<Prefilter>,
+    hits: &mut Vec<Hit>,
+) {
+        let mut cur = class_data_off;
+        let d = dex.d;
+        let mut uleb = move || -> Option<u32> {
+            let mut v: u32 = 0;
+            let mut shift = 0;
+            loop {
+                if cur >= d.len() {
+                    return None;
+                }
+                let b = d[cur];
+                cur += 1;
+                v |= ((b & 0x7f) as u32) << shift;
+                shift += 7;
+                if b & 0x80 == 0 {
+                    return Some(v);
+                }
+            }
+        };
+        let (Some(sf), Some(inf), Some(dm), Some(vm)) = (uleb(), uleb(), uleb(), uleb()) else {
+            return;
+        };
+        for _ in 0..sf + inf {
+            uleb();
+            uleb();
+        }
+        for count in [dm, vm] {
+            let mut method_idx = 0u32;
+            for _ in 0..count {
+                let Some(diff) = uleb() else { break };
+                method_idx = method_idx.wrapping_add(diff);
+                uleb();
+                let code_off = uleb().unwrap_or(0) as usize;
+                if code_off == 0 {
+                    continue;
+                }
+                // code_item header: 4×u2, u4 debug, u4 insns_size.
+                if code_off + 16 > dex.d.len() {
+                    continue;
+                }
+                let insns_size = dex.u4(code_off + 12) as usize;
+                let start = code_off + 16;
+                let end = (start + 2 * insns_size).min(dex.d.len());
+                if start >= end {
+                    continue;
+                }
+                let code = &dex.d[start..end];
+                if let Some(pf) = &prefilter {
+                    if !pf.might_hit(code) {
+                        continue;
+                    }
+                }
+                let mut owner: Option<String> = None;
+                scan_instructions(code, &mut |op, pc, bytes| {
+                    if OPCODE_KINDS[op as usize] & kind_bit == 0 {
+                        return;
+                    }
+                    let idx = if op == 0x1b {
+                        (unit_at(bytes, pc + 1) as u32)
+                            | ((unit_at(bytes, pc + 2) as u32) << 16)
+                    } else {
+                        unit_at(bytes, pc + 1) as u32
+                    };
+                    if !targets.contains(&idx) {
+                        return;
+                    }
+                    if owner.is_none() {
+                        owner = Some(render_owner(&dex, method_idx));
+                    }
+                    let target = match kind_bit {
+                        K_STRING => dex.string(idx).map(|s| format!("{s:?}")).unwrap_or_default(),
+                        K_TYPE => match dex.type_bytes(idx) {
+                            Some(b) => decode_mutf8_lossy(b),
+                            None => String::new(),
+                        },
+                        K_METHOD => render_member(&dex, idx, true),
+                        _ => render_member(&dex, idx, false),
+                    };
+                    hits.push(Hit {
+                        class: class.to_string(),
+                        method: owner.clone().unwrap_or_default(),
+                        insn: kind_name(op),
+                        target,
+                    });
+                });
+            }
+        }
 }
 
-fn render_method(dex: &DexFile, idx: u32) -> String {
-    let m = dex.method(idx);
-    let desc = render_proto(dex, m.proto_idx);
-    format!(
-        "{}->{}{}",
-        dex.class_name(m.class_idx),
-        dex.string(m.name_idx),
-        desc
-    )
+#[inline]
+fn unit_at(bytes: &[u8], i: usize) -> u16 {
+    let o = 2 * i;
+    if o + 1 < bytes.len() {
+        u16::from_le_bytes([bytes[o], bytes[o + 1]])
+    } else {
+        0
+    }
+}
+
+fn kind_name(op: u8) -> &'static str {
+    match op {
+        0x1a => "const-string",
+        0x1b => "const-string/jumbo",
+        0x1c => "const-class",
+        0x1f => "check-cast",
+        0x20 => "instance-of",
+        0x22 => "new-instance",
+        0x23 => "new-array",
+        0x24 => "filled-new-array",
+        0x25 => "filled-new-array/range",
+        0x52..=0x58 => "iget",
+        0x59..=0x5f => "iput",
+        0x60..=0x66 => "sget",
+        0x67..=0x6d => "sput",
+        _ => "invoke",
+    }
+}
+
+fn render_owner(dex: &RawDex, method_idx: u32) -> String {
+    match dex.method_parts(method_idx) {
+        Some((_cls, proto, name)) => {
+            let mut s = decode_mutf8_lossy(name);
+            s.push_str(&dex.proto_desc(proto));
+            s
+        }
+        None => String::new(),
+    }
+}
+
+/// `cls->name(desc)` (method) or `cls->name:type` (field) — plain internal
+/// class names, matching the owner-class rendering.
+fn render_member(dex: &RawDex, idx: u32, is_method: bool) -> String {
+    let plain = |b: Option<&[u8]>| -> String {
+        match b {
+            Some(bytes) => {
+                let s = decode_mutf8_lossy(bytes);
+                s.strip_prefix('L')
+                    .and_then(|t| t.strip_suffix(';'))
+                    .map(str::to_string)
+                    .unwrap_or(s)
+            }
+            None => String::new(),
+        }
+    };
+    if is_method {
+        match dex.method_parts(idx) {
+            Some((class_idx, proto, name)) => {
+                let cls = plain(dex.type_bytes(class_idx));
+                format!(
+                    "{}->{}{}",
+                    cls,
+                    decode_mutf8_lossy(name),
+                    dex.proto_desc(proto)
+                )
+            }
+            None => String::new(),
+        }
+    } else {
+        match dex.field_parts(idx) {
+            Some((class_idx, name, ty)) => format!(
+                "{}->{}:{}",
+                plain(dex.type_bytes(class_idx)),
+                decode_mutf8_lossy(name),
+                decode_mutf8_lossy(ty)
+            ),
+            None => String::new(),
+        }
+    }
 }
