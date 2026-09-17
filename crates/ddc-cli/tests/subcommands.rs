@@ -480,7 +480,7 @@ fn walk(dir: &PathBuf) -> Vec<String> {
 
 /// A stored-zip "APK": manifest + a res XML + a text asset + hello.dex.
 /// (Zip layout via the same hand-rolled builder xapk.rs uses.)
-fn apk_fixture() -> PathBuf {
+fn apk_fixture(tag: &str) -> PathBuf {
     let manifest = std::fs::read(axml_fixture()).expect("manifest fixture");
     let dex = std::fs::read(fixture()).expect("dex fixture");
     let items: Vec<(&str, Vec<u8>)> = vec![
@@ -489,7 +489,9 @@ fn apk_fixture() -> PathBuf {
         ("assets/note.txt", b"hello asset\n".to_vec()),
         ("classes.dex", dex),
     ];
-    let dir = tmp("apk-fixture");
+    // Tests in this binary run in parallel — one dir per caller, or a
+    // neighbor's remove_dir_all races this one's read.
+    let dir = tmp(&format!("apk-fixture-{tag}"));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
     let p = dir.join("app.apk");
@@ -599,7 +601,7 @@ fn manifest_component_filter() {
 
 #[test]
 fn mainactivity_reports_entry_point() {
-    let o = run(ddc().arg("mainactivity").arg(apk_fixture()));
+    let o = run(ddc().arg("mainactivity").arg(apk_fixture("main")));
     assert!(o.status.success(), "{}", stderr(&o));
     let out = stdout(&o);
     assert!(
@@ -617,7 +619,7 @@ fn mainactivity_reports_entry_point() {
 
 #[test]
 fn res_lists_and_dumps_entries() {
-    let apk = apk_fixture();
+    let apk = apk_fixture("res");
     let o = run(ddc().arg("res").arg(&apk));
     assert!(o.status.success(), "{}", stderr(&o));
     let out = stdout(&o);
@@ -684,7 +686,7 @@ fn pkg_app_reports_unresolvable_package() {
     // same package here) — a clean error, not a crash.
     let o = run(ddc()
         .arg("pkg")
-        .arg(apk_fixture())
+        .arg(apk_fixture("pkg-app"))
         .arg("--app")
         .arg("-o")
         .arg(tmp("pkg-app-none")));
