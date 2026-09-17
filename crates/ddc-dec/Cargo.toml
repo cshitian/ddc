@@ -3,11 +3,12 @@ name = "ddc-dec"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
 description = "DEX → Java decompiler front-end over jdc-core"
 
 [dependencies]
 ddc-dex = { workspace = true }
-jdc-core = { path = "../../../jdc-core" }
+jdc-core = { workspace = true }
 anyhow = { workspace = true }
 
 [features]

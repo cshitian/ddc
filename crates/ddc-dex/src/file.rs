@@ -204,9 +204,7 @@ impl DexFile {
                 protos.push(ProtoId {
                     shorty_idx: u32at(base),
                     return_type_idx: {
-                        let v = u16::from_le_bytes(
-                            data[base + 4..base + 6].try_into().unwrap(),
-                        );
+                        let v = u16::from_le_bytes(data[base + 4..base + 6].try_into().unwrap());
                         v as u32
                     },
                     parameters_off: u32at(base + 8),
@@ -220,12 +218,9 @@ impl DexFile {
             for i in 0..field_ids_size {
                 let base = field_ids_off + 8 * i;
                 fields.push(FieldId {
-                    class_idx: u16::from_le_bytes(
-                        data[base..base + 2].try_into().unwrap(),
-                    ) as u32,
-                    type_idx: u16::from_le_bytes(
-                        data[base + 2..base + 4].try_into().unwrap(),
-                    ) as u32,
+                    class_idx: u16::from_le_bytes(data[base..base + 2].try_into().unwrap()) as u32,
+                    type_idx: u16::from_le_bytes(data[base + 2..base + 4].try_into().unwrap())
+                        as u32,
                     name_idx: u32at(base + 4),
                 });
             }
@@ -237,12 +232,9 @@ impl DexFile {
             for i in 0..method_ids_size {
                 let base = method_ids_off + 8 * i;
                 methods.push(MethodId {
-                    class_idx: u16::from_le_bytes(
-                        data[base..base + 2].try_into().unwrap(),
-                    ) as u32,
-                    proto_idx: u16::from_le_bytes(
-                        data[base + 2..base + 4].try_into().unwrap(),
-                    ) as u32,
+                    class_idx: u16::from_le_bytes(data[base..base + 2].try_into().unwrap()) as u32,
+                    proto_idx: u16::from_le_bytes(data[base + 2..base + 4].try_into().unwrap())
+                        as u32,
                     name_idx: u32at(base + 4),
                 });
             }
@@ -304,9 +296,7 @@ impl DexFile {
     pub fn raw(&self) -> &[u8] {
         let guard = self.data.lock().unwrap();
         match guard.as_ref() {
-            Some(bytes) => unsafe {
-                std::mem::transmute::<&[u8], &[u8]>(bytes.as_slice())
-            },
+            Some(bytes) => unsafe { std::mem::transmute::<&[u8], &[u8]>(bytes.as_slice()) },
             None => &[],
         }
     }
@@ -337,7 +327,10 @@ impl DexFile {
     }
 
     pub fn string(&self, idx: u32) -> &str {
-        self.strings.get(idx as usize).map(|s| s.as_str()).unwrap_or("")
+        self.strings
+            .get(idx as usize)
+            .map(|s| s.as_str())
+            .unwrap_or("")
     }
 
     pub fn string_count(&self) -> usize {
@@ -408,7 +401,11 @@ impl DexFile {
     pub fn field(&self, idx: u32) -> &FieldId {
         static EMPTY: std::sync::OnceLock<FieldId> = std::sync::OnceLock::new();
         self.fields.get(idx as usize).unwrap_or_else(|| {
-            EMPTY.get_or_init(|| FieldId { class_idx: 0, type_idx: 0, name_idx: 0 })
+            EMPTY.get_or_init(|| FieldId {
+                class_idx: 0,
+                type_idx: 0,
+                name_idx: 0,
+            })
         })
     }
 
@@ -419,7 +416,11 @@ impl DexFile {
     pub fn method(&self, idx: u32) -> &MethodId {
         static EMPTY: std::sync::OnceLock<MethodId> = std::sync::OnceLock::new();
         self.methods.get(idx as usize).unwrap_or_else(|| {
-            EMPTY.get_or_init(|| MethodId { class_idx: 0, proto_idx: 0, name_idx: 0 })
+            EMPTY.get_or_init(|| MethodId {
+                class_idx: 0,
+                proto_idx: 0,
+                name_idx: 0,
+            })
         })
     }
 
@@ -485,7 +486,12 @@ impl DexFile {
         let direct_methods = read_methods(dm, &mut c)?;
         let virtual_methods = read_methods(vm, &mut c)?;
 
-        Some(ClassData { static_fields, instance_fields, direct_methods, virtual_methods })
+        Some(ClassData {
+            static_fields,
+            instance_fields,
+            direct_methods,
+            virtual_methods,
+        })
     }
 
     /// (registers_size, insns_size) read straight from the code_item header

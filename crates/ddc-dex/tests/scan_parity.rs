@@ -18,11 +18,17 @@ fn opcode_size_table_matches_decode_one() {
         let dex = DexFile::parse(bytes).unwrap();
         for cd in &dex.class_defs {
             let data = dex.class_data(cd);
-            for m in data.direct_methods.iter().chain(data.virtual_methods.iter()) {
+            for m in data
+                .direct_methods
+                .iter()
+                .chain(data.virtual_methods.iter())
+            {
                 if m.code_off == 0 {
                     continue;
                 }
-                let Some(code) = dex.code_at(m.code_off) else { continue };
+                let Some(code) = dex.code_at(m.code_off) else {
+                    continue;
+                };
                 for insn in &code.insns {
                     let table = ddc_dex::insn::opcode_units(insn.op);
                     assert_eq!(
@@ -38,7 +44,11 @@ fn opcode_size_table_matches_decode_one() {
                 ddc_dex::insn::scan_instructions(raw, &mut |_op, pc, _u| {
                     seen.push(pc as u32);
                 });
-                assert_eq!(seen, expected, "{:?} method {:x}: walker pcs diverged", f, m.code_off);
+                assert_eq!(
+                    seen, expected,
+                    "{:?} method {:x}: walker pcs diverged",
+                    f, m.code_off
+                );
             }
         }
     }

@@ -76,7 +76,11 @@ pub(crate) fn cmd_strings(args: &[String]) -> Result<()> {
     while i < args.len() {
         match args[i].as_str() {
             "-f" | "--filter" => {
-                filter = Some(args.get(i + 1).context("--filter needs a value")?.to_string());
+                filter = Some(
+                    args.get(i + 1)
+                        .context("--filter needs a value")?
+                        .to_string(),
+                );
                 i += 1;
             }
             "--with-locations" => with_loc = true,
@@ -94,15 +98,31 @@ pub(crate) fn cmd_strings(args: &[String]) -> Result<()> {
     }
     let common = parse_common(&rest, "strings")?;
 
-    println!("{:10}  {}", "dex", if with_loc { "string  used-by" } else { "string" });
+    println!(
+        "{:10}  {}",
+        "dex",
+        if with_loc {
+            "string  used-by"
+        } else {
+            "string"
+        }
+    );
     for_each_image(&common.input, &common.dex_filters, &mut |label, image| {
-        let dex_name = label.rsplit_once('!').map(|(_, e)| e).unwrap_or(label).to_string();
-        let Ok(dex) = RawDex::parse(image) else { return };
+        let dex_name = label
+            .rsplit_once('!')
+            .map(|(_, e)| e)
+            .unwrap_or(label)
+            .to_string();
+        let Ok(dex) = RawDex::parse(image) else {
+            return;
+        };
         // Matching strings (SIMD memmem over raw bytes).
         let needle = filter.as_deref().map(str::as_bytes);
         let matched: std::collections::BTreeMap<u32, ()> = (0..dex.str_n as u32)
             .filter(|&idx| {
-                let Some(bytes) = dex.string_bytes(idx) else { return false };
+                let Some(bytes) = dex.string_bytes(idx) else {
+                    return false;
+                };
                 match needle {
                     Some(f) => bytes.len() >= f.len() && bytes.windows(f.len()).any(|w| w == f),
                     None => true,
@@ -115,9 +135,13 @@ pub(crate) fn cmd_strings(args: &[String]) -> Result<()> {
             std::collections::HashMap::new();
         if with_loc {
             for ci in 0..dex.cls_n {
-                let Some((ty, _, _, cdo, _)) = dex.class_def_parts(ci) else { continue };
+                let Some((ty, _, _, cdo, _)) = dex.class_def_parts(ci) else {
+                    continue;
+                };
                 let class = dex.class_name(ty);
-                let Some(methods) = dex.methods_of(cdo as usize) else { continue };
+                let Some(methods) = dex.methods_of(cdo as usize) else {
+                    continue;
+                };
                 for (midx, _acc, code_off) in methods {
                     if code_off == 0 || code_off as usize + 16 > dex.d.len() {
                         continue;
@@ -135,17 +159,22 @@ pub(crate) fn cmd_strings(args: &[String]) -> Result<()> {
                     }
                     let owner = dex
                         .method_parts(midx)
-                        .map(|(_, p, nb)| format!("{} {}{}", class, decode_mutf8_lossy(nb), dex.proto_desc(p)))
+                        .map(|(_, p, nb)| {
+                            format!("{} {}{}", class, decode_mutf8_lossy(nb), dex.proto_desc(p))
+                        })
                         .unwrap_or_default();
                     ddc_dex::insn::scan_instructions(&dex.d[start..end], &mut |op, _pc, bytes| {
                         if op != 0x1a && op != 0x1b {
                             return;
                         }
                         let lo = 2 * (_pc + 1);
-                        let idx = if op == 0x1b
-                            && lo + 4 <= bytes.len()
-                        {
-                            u32::from_le_bytes([bytes[lo], bytes[lo + 1], bytes[lo + 2], bytes[lo + 3]])
+                        let idx = if op == 0x1b && lo + 4 <= bytes.len() {
+                            u32::from_le_bytes([
+                                bytes[lo],
+                                bytes[lo + 1],
+                                bytes[lo + 2],
+                                bytes[lo + 3],
+                            ])
                         } else if lo + 2 <= bytes.len() {
                             u16::from_le_bytes([bytes[lo], bytes[lo + 1]]) as u32
                         } else {
@@ -183,7 +212,11 @@ pub(crate) fn cmd_members(args: &[String]) -> Result<()> {
     while i < args.len() {
         match args[i].as_str() {
             "--class" | "-C" => {
-                class = Some(args.get(i + 1).context("--class needs a value")?.to_string());
+                class = Some(
+                    args.get(i + 1)
+                        .context("--class needs a value")?
+                        .to_string(),
+                );
                 i += 1;
             }
             "--fuzzy-class" => fuzzy_class = true,
@@ -205,8 +238,14 @@ pub(crate) fn cmd_members(args: &[String]) -> Result<()> {
 
     println!("{:10}  {:<6}  {}", "dex", "kind", "class member");
     for_each_image(&common.input, &common.dex_filters, &mut |label, image| {
-        let dex_name = label.rsplit_once('!').map(|(_, e)| e).unwrap_or(label).to_string();
-        let Ok(dex) = RawDex::parse(image) else { return };
+        let dex_name = label
+            .rsplit_once('!')
+            .map(|(_, e)| e)
+            .unwrap_or(label)
+            .to_string();
+        let Ok(dex) = RawDex::parse(image) else {
+            return;
+        };
         let class_ok = |cb: &[u8]| -> bool {
             match &class {
                 None => true,
@@ -214,35 +253,61 @@ pub(crate) fn cmd_members(args: &[String]) -> Result<()> {
                     let hay = String::from_utf8_lossy(cb);
                     let hay = hay.trim_start_matches('L').trim_end_matches(';');
                     let needle = c.replace('.', "/");
-                    if fuzzy_class { hay.contains(&needle) } else { hay == needle }
+                    if fuzzy_class {
+                        hay.contains(&needle)
+                    } else {
+                        hay == needle
+                    }
                 }
             }
         };
         if kind_want != Some("field") {
             for mi in 0..dex.method_n as u32 {
-                let Some((cidx, proto, nb)) = dex.method_parts(mi) else { continue };
+                let Some((cidx, proto, nb)) = dex.method_parts(mi) else {
+                    continue;
+                };
                 if let Some(n) = name.as_deref() {
                     if !dex_match(nb, n.as_bytes()) {
                         continue;
                     }
                 }
                 if let Some(cb) = dex.type_bytes(cidx) {
-                    if !class_ok(cb) { continue; }
-                    println!("{:10}  {:<6}  {} {}{}", dex_name, "method",
-                        dex.class_name(cidx), decode_mutf8_lossy(nb), dex.proto_desc(proto));
+                    if !class_ok(cb) {
+                        continue;
+                    }
+                    println!(
+                        "{:10}  {:<6}  {} {}{}",
+                        dex_name,
+                        "method",
+                        dex.class_name(cidx),
+                        decode_mutf8_lossy(nb),
+                        dex.proto_desc(proto)
+                    );
                 }
             }
         }
         if kind_want != Some("method") {
             for fi in 0..dex.field_n as u32 {
-                let Some((cidx, nb, tb)) = dex.field_parts(fi) else { continue };
+                let Some((cidx, nb, tb)) = dex.field_parts(fi) else {
+                    continue;
+                };
                 if let Some(n) = name.as_deref() {
-                    if !dex_match(nb, n.as_bytes()) { continue; }
+                    if !dex_match(nb, n.as_bytes()) {
+                        continue;
+                    }
                 }
                 if let Some(cb) = dex.type_bytes(cidx) {
-                    if !class_ok(cb) { continue; }
-                    println!("{:10}  {:<6}  {} {} {}", dex_name, "field",
-                        dex.class_name(cidx), decode_mutf8_lossy(nb), decode_mutf8_lossy(tb));
+                    if !class_ok(cb) {
+                        continue;
+                    }
+                    println!(
+                        "{:10}  {:<6}  {} {} {}",
+                        dex_name,
+                        "field",
+                        dex.class_name(cidx),
+                        decode_mutf8_lossy(nb),
+                        decode_mutf8_lossy(tb)
+                    );
                 }
             }
         }
@@ -283,8 +348,14 @@ pub(crate) fn cmd_hierarchy(args: &[String]) -> Result<()> {
     println!("{:10}  {:<9}  {}", "dex", "relation", "class");
     // Map: super/interface type idx -> child classes (per image).
     for_each_image(&common.input, &common.dex_filters, &mut |label, image| {
-        let dex_name = label.rsplit_once('!').map(|(_, e)| e).unwrap_or(label).to_string();
-        let Ok(dex) = RawDex::parse(image) else { return };
+        let dex_name = label
+            .rsplit_once('!')
+            .map(|(_, e)| e)
+            .unwrap_or(label)
+            .to_string();
+        let Ok(dex) = RawDex::parse(image) else {
+            return;
+        };
         // Resolve the target's type idx in THIS image (name → idx).
         let mut target_idx: Option<u32> = None;
         for ti in 0..dex.type_n as u32 {
@@ -299,19 +370,31 @@ pub(crate) fn cmd_hierarchy(args: &[String]) -> Result<()> {
         }
         // Build the child map for whichever relation names we hit.
         for ci in 0..dex.cls_n {
-            let Some((ty, sup, iface_off, _, _)) = dex.class_def_parts(ci) else { continue };
+            let Some((ty, sup, iface_off, _, _)) = dex.class_def_parts(ci) else {
+                continue;
+            };
             let self_name = dex.class_name(ty);
             if target_idx.is_some() && ty == target_idx.unwrap() {
                 // print self + lineage up
                 println!("{:10}  {:<9}  {}", dex_name, "class", self_name);
                 if sup != u32::MAX {
                     if let Some(sb) = dex.type_bytes(sup) {
-                        println!("{:10}  {:<9}  {}", dex_name, "extends", decode_mutf8_lossy(sb));
+                        println!(
+                            "{:10}  {:<9}  {}",
+                            dex_name,
+                            "extends",
+                            decode_mutf8_lossy(sb)
+                        );
                     }
                 }
                 for it in dex.interface_types(iface_off) {
                     if let Some(ib) = dex.type_bytes(it) {
-                        println!("{:10}  {:<9}  {}", dex_name, "implements", decode_mutf8_lossy(ib));
+                        println!(
+                            "{:10}  {:<9}  {}",
+                            dex_name,
+                            "implements",
+                            decode_mutf8_lossy(ib)
+                        );
                     }
                 }
             }
@@ -361,7 +444,11 @@ pub(crate) fn cmd_largest(args: &[String]) -> Result<()> {
     while i < args.len() {
         match args[i].as_str() {
             "-n" => {
-                limit = args.get(i + 1).context("-n needs a count")?.parse().unwrap_or(20);
+                limit = args
+                    .get(i + 1)
+                    .context("-n needs a count")?
+                    .parse()
+                    .unwrap_or(20);
                 i += 1;
             }
             "-d" | "--dex" => {
@@ -386,12 +473,22 @@ pub(crate) fn cmd_largest(args: &[String]) -> Result<()> {
     }
     let mut rows: Vec<Row> = Vec::new();
     for_each_image(&common.input, &common.dex_filters, &mut |label, image| {
-        let dex_name = label.rsplit_once('!').map(|(_, e)| e).unwrap_or(label).to_string();
-        let Ok(dex) = RawDex::parse(image) else { return };
+        let dex_name = label
+            .rsplit_once('!')
+            .map(|(_, e)| e)
+            .unwrap_or(label)
+            .to_string();
+        let Ok(dex) = RawDex::parse(image) else {
+            return;
+        };
         for ci in 0..dex.cls_n {
-            let Some((ty, _, _, cdo, _)) = dex.class_def_parts(ci) else { continue };
+            let Some((ty, _, _, cdo, _)) = dex.class_def_parts(ci) else {
+                continue;
+            };
             let class = dex.class_name(ty);
-            let Some(methods) = dex.methods_of(cdo as usize) else { continue };
+            let Some(methods) = dex.methods_of(cdo as usize) else {
+                continue;
+            };
             for (midx, _acc, code_off) in methods {
                 if code_off == 0 || code_off as usize + 16 > dex.d.len() {
                     continue;
@@ -406,7 +503,12 @@ pub(crate) fn cmd_largest(args: &[String]) -> Result<()> {
                     .method_parts(midx)
                     .map(|(_, p, nb)| format!("{}{}", decode_mutf8_lossy(nb), dex.proto_desc(p)))
                     .unwrap_or_default();
-                rows.push(Row { insns, dex: dex_name.clone(), class: class.clone(), method });
+                rows.push(Row {
+                    insns,
+                    dex: dex_name.clone(),
+                    class: class.clone(),
+                    method,
+                });
             }
         }
     })?;
@@ -452,7 +554,9 @@ pub(crate) fn cmd_disasm(args: &[String]) -> Result<()> {
         .map(|(c, m)| (c.replace('.', "/"), m.to_string()));
 
     for_each_image(&common.input, &common.dex_filters, &mut |label, image| {
-        let Ok(dex) = RawDex::parse(image) else { return };
+        let Ok(dex) = RawDex::parse(image) else {
+            return;
+        };
         let (ci, method_want) = match dex.find_class(&class_full) {
             Some(ci) => (ci, None),
             None => {
@@ -465,7 +569,9 @@ pub(crate) fn cmd_disasm(args: &[String]) -> Result<()> {
         };
         let (ty, _, _, cdo, _) = dex.class_def_parts(ci).unwrap();
         println!("// {} {}", label, dex.class_name(ty));
-        let Some(methods) = dex.methods_of(cdo as usize) else { return };
+        let Some(methods) = dex.methods_of(cdo as usize) else {
+            return;
+        };
         for (midx, _acc, code_off) in methods {
             if code_off == 0 {
                 continue;
@@ -492,7 +598,12 @@ pub(crate) fn cmd_disasm(args: &[String]) -> Result<()> {
             let start = code_off as usize + 16;
             let end = (start + 2 * insns).min(dex.d.len());
             ddc_dex::insn::scan_instructions(&dex.d[start..end], &mut |op, pc, _b| {
-                println!("    {:04x}  {:02x}  {}", 2 * pc, op, ddc_dex::insn::op_name(op));
+                println!(
+                    "    {:04x}  {:02x}  {}",
+                    2 * pc,
+                    op,
+                    ddc_dex::insn::op_name(op)
+                );
             });
         }
     })
@@ -528,10 +639,7 @@ pub(crate) fn cmd_callers(args: &[String]) -> Result<()> {
         Some(c) => (target.clone(), Some(c.clone())),
         None => (target.clone(), None),
     };
-    let mut fwd: Vec<String> = vec![
-        common.input.display().to_string(),
-        "method".into(),
-    ];
+    let mut fwd: Vec<String> = vec![common.input.display().to_string(), "method".into()];
     if let Some(c) = class {
         fwd.push("--class".into());
         fwd.push(c);
@@ -546,7 +654,9 @@ pub(crate) fn cmd_pkg(args: &[String]) -> Result<()> {
     let mut rest: Vec<String> = Vec::new();
     let mut out_dir: Option<PathBuf> = None;
     let mut from_manifest = false;
-    let mut threads = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4);
+    let mut threads = std::thread::available_parallelism()
+        .map(|n| n.get())
+        .unwrap_or(4);
     let mut i = 0;
     while i < args.len() {
         match args[i].as_str() {
@@ -555,7 +665,11 @@ pub(crate) fn cmd_pkg(args: &[String]) -> Result<()> {
                 i += 1;
             }
             "-t" | "--threads" => {
-                threads = args.get(i + 1).context("-t needs a count")?.parse().unwrap_or(4);
+                threads = args
+                    .get(i + 1)
+                    .context("-t needs a count")?
+                    .parse()
+                    .unwrap_or(4);
                 i += 1;
             }
             "-d" | "--dex" => {
@@ -577,7 +691,10 @@ pub(crate) fn cmd_pkg(args: &[String]) -> Result<()> {
         // code, skipping androidx/library noise.
         let facts = crate::manifest::facts_for(&common.input)?;
         if facts.package.is_empty() {
-            bail!("{}: manifest has no package attribute", common.input.display());
+            bail!(
+                "{}: manifest has no package attribute",
+                common.input.display()
+            );
         }
         eprintln!("ddc: app package is {}", facts.package);
         facts.package
@@ -611,9 +728,13 @@ pub(crate) fn cmd_pkg(args: &[String]) -> Result<()> {
             format!("{}/", pkg.replace('.', "/"))
         };
         for_each_image(&common.input, &common.dex_filters, &mut |_label, image| {
-            let Ok(dex) = RawDex::parse(image) else { return };
+            let Ok(dex) = RawDex::parse(image) else {
+                return;
+            };
             for ci in 0..dex.cls_n {
-                let Some((ty, _, _, _, _)) = dex.class_def_parts(ci) else { continue };
+                let Some((ty, _, _, _, _)) = dex.class_def_parts(ci) else {
+                    continue;
+                };
                 let name = dex.class_name(ty);
                 if name.starts_with(&pkg_prefix) {
                     names.push(name);
@@ -683,33 +804,37 @@ pub(crate) fn cmd_pkg(args: &[String]) -> Result<()> {
             handles.push(
                 std::thread::Builder::new()
                     .stack_size(64 * 1024 * 1024)
-                    .spawn_scoped(scope, move || {
-                        loop {
-                            let qi = cursor_ref.fetch_add(1, crate::Ordering::Relaxed);
-                            let Some(chunk) = queue_ref.get(qi) else { break };
-                            for name in chunk {
-                                let Some(pc) = pool_ref.get(name) else { continue };
-                                let res = std::panic::catch_unwind(
-                                    std::panic::AssertUnwindSafe(|| {
-                                        ddc_dec::classdec::decompile_class(
-                                            pool_ref, pc, &crate::ClassOptions::default(), pending_ref,
-                                        )
-                                    }),
-                                );
-                                match res {
-                                    Ok(Ok(text)) => {
-                                        let path = crate::source_path(out_ref, name);
-                                        if let Some(parent) = path.parent() {
-                                            if dirs_ref.lock().unwrap().insert(parent.to_path_buf()) {
-                                                let _ = std::fs::create_dir_all(parent);
-                                            }
+                    .spawn_scoped(scope, move || loop {
+                        let qi = cursor_ref.fetch_add(1, crate::Ordering::Relaxed);
+                        let Some(chunk) = queue_ref.get(qi) else {
+                            break;
+                        };
+                        for name in chunk {
+                            let Some(pc) = pool_ref.get(name) else {
+                                continue;
+                            };
+                            let res =
+                                std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                                    ddc_dec::classdec::decompile_class(
+                                        pool_ref,
+                                        pc,
+                                        &crate::ClassOptions::default(),
+                                        pending_ref,
+                                    )
+                                }));
+                            match res {
+                                Ok(Ok(text)) => {
+                                    let path = crate::source_path(out_ref, name);
+                                    if let Some(parent) = path.parent() {
+                                        if dirs_ref.lock().unwrap().insert(parent.to_path_buf()) {
+                                            let _ = std::fs::create_dir_all(parent);
                                         }
-                                        let _ = std::fs::write(&path, text);
-                                        written_ref.fetch_add(1, crate::Ordering::Relaxed);
                                     }
-                                    Ok(Err(e)) => eprintln!("[!] {}: {e:#}", name.replace('/', ".")),
-                                    Err(_) => eprintln!("[!] {}: panic", name.replace('/', ".")),
+                                    let _ = std::fs::write(&path, text);
+                                    written_ref.fetch_add(1, crate::Ordering::Relaxed);
                                 }
+                                Ok(Err(e)) => eprintln!("[!] {}: {e:#}", name.replace('/', ".")),
+                                Err(_) => eprintln!("[!] {}: panic", name.replace('/', ".")),
                             }
                         }
                     }),
@@ -951,7 +1076,10 @@ pub(crate) fn cmd_mainactivity(args: &[String]) -> Result<()> {
     })?;
     match &found {
         Some(image) => println!("{:<11} {}", "dex", image),
-        None => println!("{:<11} - (not defined in the dex images: framework or missing)", "dex"),
+        None => println!(
+            "{:<11} - (not defined in the dex images: framework or missing)",
+            "dex"
+        ),
     }
     Ok(())
 }
@@ -1075,8 +1203,10 @@ pub(crate) fn cmd_res(args: &[String]) -> Result<()> {
         .iter()
         .find(|e| e.name == *want)
         .or_else(|| {
-            let sub: Vec<&FlatEntry> =
-                entries.iter().filter(|e| e.name.contains(want.as_str())).collect();
+            let sub: Vec<&FlatEntry> = entries
+                .iter()
+                .filter(|e| e.name.contains(want.as_str()))
+                .collect();
             (sub.len() == 1).then(|| sub[0])
         })
         .with_context(|| {
@@ -1092,16 +1222,19 @@ pub(crate) fn cmd_res(args: &[String]) -> Result<()> {
                 format!("res: {want:?} is ambiguous: {}", matches.join(", "))
             }
         })?;
-    let plain = hit.name.rsplit_once('!').map(|(_, n)| n).unwrap_or(&hit.name);
+    let plain = hit
+        .name
+        .rsplit_once('!')
+        .map(|(_, n)| n)
+        .unwrap_or(&hit.name);
     let bytes = dump_entry(&common.input, plain, &hit.container)?;
 
     // Binary XML? (first chunk 0x0003 = RES_XML_TYPE) — res/**.xml and
     // AndroidManifest.xml decode through the existing AXML decoder.
-    let is_axml =
-        bytes.len() >= 8 && u16::from_le_bytes([bytes[0], bytes[1]]) == 0x0003;
+    let is_axml = bytes.len() >= 8 && u16::from_le_bytes([bytes[0], bytes[1]]) == 0x0003;
     if is_axml {
-        let text = crate::axml::axml_to_xml(&bytes)
-            .map_err(|e| anyhow::anyhow!("{}: {e}", hit.name))?;
+        let text =
+            crate::axml::axml_to_xml(&bytes).map_err(|e| anyhow::anyhow!("{}: {e}", hit.name))?;
         match out {
             Some(f) => std::fs::write(&f, &text)?,
             None => print!("{text}"),

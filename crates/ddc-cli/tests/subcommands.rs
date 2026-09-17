@@ -49,7 +49,11 @@ fn manifest_decodes_real_axml() {
     assert!(o.status.success(), "{}", stderr(&o));
     let xml = stdout(&o);
     assert!(xml.contains("<manifest"), "root missing:\n{}", xml);
-    assert!(xml.contains("package=\"com.reqable.android\""), "package:\n{}", xml);
+    assert!(
+        xml.contains("package=\"com.reqable.android\""),
+        "package:\n{}",
+        xml
+    );
     assert!(xml.contains("uses-permission"), "permissions:\n{}", xml);
     assert!(xml.contains("<application"), "application:\n{}", xml);
     // Elements are balanced: every close matches an open.
@@ -69,7 +73,11 @@ fn listclasses_filters() {
     assert!(o.status.success());
     let filtered = stdout(&o);
     assert!(filtered.contains("Greeter"));
-    assert!(!filtered.contains("Hello\n"), "filter did not apply:\n{}", filtered);
+    assert!(
+        !filtered.contains("Hello\n"),
+        "filter did not apply:\n{}",
+        filtered
+    );
     // stdout mode is silent on stderr (no trailing summary).
     assert!(stderr(&o).is_empty(), "stderr noise:\n{}", stderr(&o));
 }
@@ -94,10 +102,17 @@ fn getclass_prints_one_class() {
 
     // -o writes the file instead.
     let f = tmp("gc").join("G.java");
-    let o = run(ddc().arg("getclass").arg(fixture()).arg("Greeter").arg("-o").arg(&f));
+    let o = run(ddc()
+        .arg("getclass")
+        .arg(fixture())
+        .arg("Greeter")
+        .arg("-o")
+        .arg(&f));
     assert!(o.status.success(), "{}", stderr(&o));
-    assert!(std::fs::read_to_string(&f).unwrap().contains("class Greeter {"));
-    std::fs::remove_dir_all(tmp("gc"));
+    assert!(std::fs::read_to_string(&f)
+        .unwrap()
+        .contains("class Greeter {"));
+    let _ = std::fs::remove_dir_all(tmp("gc"));
 }
 
 #[test]
@@ -113,25 +128,45 @@ fn findrefs_all_four_kinds() {
     let o = run(ddc().arg("findrefs").arg(fixture()).arg("string").arg("hi"));
     assert!(o.status.success(), "{}", stderr(&o));
     let out = stdout(&o);
-    assert!(out.starts_with("dex         kind"), "header missing:\n{}", out);
+    assert!(
+        out.starts_with("dex         kind"),
+        "header missing:\n{}",
+        out
+    );
     assert!(out.contains("const-string  Greeter greet()"), "{}", out);
     assert!(out.contains("\"hi \""), "{}", out);
 
     // method
-    let o = run(ddc().arg("findrefs").arg(fixture()).arg("method").arg("greet"));
+    let o = run(ddc()
+        .arg("findrefs")
+        .arg(fixture())
+        .arg("method")
+        .arg("greet"));
     assert!(o.status.success());
     let out = stdout(&o);
     assert!(out.contains("invoke        Hello main("), "{}", out);
-    assert!(out.contains("LGreeter;->greet()Ljava/lang/String;"), "{}", out);
+    assert!(
+        out.contains("LGreeter;->greet()Ljava/lang/String;"),
+        "{}",
+        out
+    );
 
     // field
-    let o = run(ddc().arg("findrefs").arg(fixture()).arg("field").arg("counter"));
+    let o = run(ddc()
+        .arg("findrefs")
+        .arg(fixture())
+        .arg("field")
+        .arg("counter"));
     assert!(o.status.success());
     let out = stdout(&o);
     assert!(out.contains("LHello;->counter:I"), "{}", out);
 
     // type (any naming form normalizes)
-    let o = run(ddc().arg("findrefs").arg(fixture()).arg("type").arg("Greeter"));
+    let o = run(ddc()
+        .arg("findrefs")
+        .arg(fixture())
+        .arg("type")
+        .arg("Greeter"));
     assert!(o.status.success());
     let out = stdout(&o);
     assert!(out.contains("LGreeter;"), "{}", out);
@@ -140,68 +175,71 @@ fn findrefs_all_four_kinds() {
 #[test]
 fn findrefs_with_class_filter() {
     // Exact class filter: name greet exists on Greeter only.
-    let o = run(
-        ddc().arg("findrefs")
-            .arg(fixture())
-            .arg("method")
-            .arg("greet")
-            .arg("--class")
-            .arg("Greeter"),
-    );
+    let o = run(ddc()
+        .arg("findrefs")
+        .arg(fixture())
+        .arg("method")
+        .arg("greet")
+        .arg("--class")
+        .arg("Greeter"));
     assert!(o.status.success(), "{}", stderr(&o));
     assert!(stdout(&o).contains("LGreeter;->greet()"));
 
     // Wrong class: no method ids resolve → no hits, and stdout mode
     // stays silent on stderr.
-    let o = run(
-        ddc().arg("findrefs")
-            .arg(fixture())
-            .arg("method")
-            .arg("greet")
-            .arg("--class")
-            .arg("Nope"),
-    );
+    let o = run(ddc()
+        .arg("findrefs")
+        .arg(fixture())
+        .arg("method")
+        .arg("greet")
+        .arg("--class")
+        .arg("Nope"));
     assert!(o.status.success());
     // No hits: header only (the table is the payload, not noise).
-    assert!(!stdout(&o).contains("Greeter"), "unexpected hit:\n{}", stdout(&o));
+    assert!(
+        !stdout(&o).contains("Greeter"),
+        "unexpected hit:\n{}",
+        stdout(&o)
+    );
     assert!(stderr(&o).is_empty(), "stderr noise:\n{}", stderr(&o));
 
     // --dex filters images before the scan (raw dex label = file stem).
-    let o = run(
-        ddc().arg("findrefs")
-            .arg(fixture())
-            .arg("--dex")
-            .arg("hello")
-            .arg("string")
-            .arg("hi"),
-    );
+    let o = run(ddc()
+        .arg("findrefs")
+        .arg(fixture())
+        .arg("--dex")
+        .arg("hello")
+        .arg("string")
+        .arg("hi"));
     assert!(o.status.success(), "{}", stderr(&o));
     assert!(stdout(&o).contains("\"hi \""));
 
     // --dex with no matching image errors and lists what IS available.
-    let o = run(
-        ddc().arg("findrefs")
-            .arg(fixture())
-            .arg("--dex")
-            .arg("classes9")
-            .arg("string")
-            .arg("hi"),
-    );
+    let o = run(ddc()
+        .arg("findrefs")
+        .arg(fixture())
+        .arg("--dex")
+        .arg("classes9")
+        .arg("string")
+        .arg("hi"));
     assert_eq!(o.status.code(), Some(2));
     assert!(stderr(&o).contains("no matching dex images"));
-    assert!(stderr(&o).contains("hello"), "available list:\n{}", stderr(&o));
+    assert!(
+        stderr(&o).contains("hello"),
+        "available list:\n{}",
+        stderr(&o)
+    );
 }
 
 #[test]
 fn getclass_reports_multi_dex_ambiguity() {
     // The same class name registered from two images: getclass names the
     // ambiguity and resolves from the first.
-    let o = run(
-        ddc().arg("getclass")
-            .arg(fixture())
-            .arg(fixture())
-            .arg("Greeter"),
-    );
+    let o = run(ddc()
+        .arg("getclass")
+        .arg(fixture())
+        .arg(fixture())
+        .arg("Greeter"));
     assert!(o.status.success(), "{}", stderr(&o));
     assert!(stdout(&o).contains("class Greeter {"));
     assert!(
@@ -209,7 +247,11 @@ fn getclass_reports_multi_dex_ambiguity() {
         "no ambiguity note:\n{}",
         stderr(&o)
     );
-    assert!(stderr(&o).contains("--dex"), "no --dex hint:\n{}", stderr(&o));
+    assert!(
+        stderr(&o).contains("--dex"),
+        "no --dex hint:\n{}",
+        stderr(&o)
+    );
 }
 
 #[test]
@@ -245,23 +287,48 @@ fn findrefs_bad_invocation() {
 
 #[test]
 fn strings_filter_and_locations() {
-    let o = run(ddc().arg("strings").arg(fixture()).arg("-f").arg("hi").arg("--with-locations"));
+    let o = run(ddc()
+        .arg("strings")
+        .arg(fixture())
+        .arg("-f")
+        .arg("hi")
+        .arg("--with-locations"));
     assert!(o.status.success(), "{}", stderr(&o));
     let out = stdout(&o);
     assert!(out.starts_with("dex         string"), "header:\n{}", out);
     assert!(out.contains("\"hi \""), "literal:\n{}", out);
-    assert!(out.contains("Greeter greet()Ljava/lang/String;"), "used-by:\n{}", out);
+    assert!(
+        out.contains("Greeter greet()Ljava/lang/String;"),
+        "used-by:\n{}",
+        out
+    );
 }
 
 #[test]
 fn members_scoped_to_class() {
-    let o = run(ddc().arg("members").arg(fixture()).arg("--class").arg("Greeter"));
+    let o = run(ddc()
+        .arg("members")
+        .arg(fixture())
+        .arg("--class")
+        .arg("Greeter"));
     assert!(o.status.success(), "{}", stderr(&o));
     let out = stdout(&o);
-    assert!(out.starts_with("dex         kind    class member"), "header:\n{}", out);
-    assert!(out.contains("method  Greeter greet()Ljava/lang/String;"), "method:\n{}", out);
+    assert!(
+        out.starts_with("dex         kind    class member"),
+        "header:\n{}",
+        out
+    );
+    assert!(
+        out.contains("method  Greeter greet()Ljava/lang/String;"),
+        "method:\n{}",
+        out
+    );
     // --class excludes other classes' members.
-    assert!(!out.contains("Hello main"), "unfiltered class leaked:\n{}", out);
+    assert!(
+        !out.contains("Hello main"),
+        "unfiltered class leaked:\n{}",
+        out
+    );
 }
 
 #[test]
@@ -270,9 +337,16 @@ fn hierarchy_lineage_and_subs() {
     assert!(o.status.success(), "{}", stderr(&o));
     let out = stdout(&o);
     assert!(out.contains("class      Greeter"), "self:\n{}", out);
-    assert!(out.contains("extends    Ljava/lang/Object;"), "super:\n{}", out);
+    assert!(
+        out.contains("extends    Ljava/lang/Object;"),
+        "super:\n{}",
+        out
+    );
 
-    let o = run(ddc().arg("hierarchy").arg(fixture()).arg("java.lang.Object"));
+    let o = run(ddc()
+        .arg("hierarchy")
+        .arg(fixture())
+        .arg("java.lang.Object"));
     assert!(o.status.success(), "{}", stderr(&o));
     let out = stdout(&o);
     assert!(out.contains("sub        Greeter"), "sub:\n{}", out);
@@ -286,11 +360,20 @@ fn largest_orders_by_insn_count() {
     let out = stdout(&o);
     assert!(out.starts_with("  insns  dex"), "header:\n{}", out);
     // hello.dex's biggest method is Hello.main (23 insns).
-    assert!(out.contains("Hello main([Ljava/lang/String;)V"), "top:\n{}", out);
+    assert!(
+        out.contains("Hello main([Ljava/lang/String;)V"),
+        "top:\n{}",
+        out
+    );
     let insns: Vec<usize> = out
         .lines()
         .skip(1)
-        .filter_map(|l| l.trim().split_whitespace().next().and_then(|n| n.parse().ok()))
+        .filter_map(|l| {
+            l.trim()
+                .split_whitespace()
+                .next()
+                .and_then(|n| n.parse().ok())
+        })
         .collect();
     assert_eq!(insns.len(), 2, "rows:\n{}", out);
     assert!(insns[0] >= insns[1], "not sorted desc:\n{}", out);
@@ -302,14 +385,22 @@ fn disasm_whole_class_and_single_method() {
     assert!(o.status.success(), "{}", stderr(&o));
     let out = stdout(&o);
     assert!(out.contains("// hello Greeter"), "banner:\n{}", out);
-    assert!(out.contains("greet()Ljava/lang/String;:"), "method:\n{}", out);
+    assert!(
+        out.contains("greet()Ljava/lang/String;:"),
+        "method:\n{}",
+        out
+    );
     assert!(out.contains("const-string"), "insn:\n{}", out);
 
     // Class.method narrows to one method.
     let o = run(ddc().arg("disasm").arg(fixture()).arg("Greeter.greet"));
     assert!(o.status.success(), "{}", stderr(&o));
     let out = stdout(&o);
-    assert!(out.contains("greet()Ljava/lang/String;:"), "method:\n{}", out);
+    assert!(
+        out.contains("greet()Ljava/lang/String;:"),
+        "method:\n{}",
+        out
+    );
     assert!(!out.contains("<init>"), "other methods leaked:\n{}", out);
 }
 
@@ -318,8 +409,16 @@ fn callers_finds_invokers() {
     let o = run(ddc().arg("callers").arg(fixture()).arg("println"));
     assert!(o.status.success(), "{}", stderr(&o));
     let out = stdout(&o);
-    assert!(out.contains("Hello main([Ljava/lang/String;)V"), "caller:\n{}", out);
-    assert!(out.contains("Ljava/io/PrintStream;->println"), "target:\n{}", out);
+    assert!(
+        out.contains("Hello main([Ljava/lang/String;)V"),
+        "caller:\n{}",
+        out
+    );
+    assert!(
+        out.contains("Ljava/io/PrintStream;->println"),
+        "target:\n{}",
+        out
+    );
 }
 
 #[test]
@@ -327,8 +426,16 @@ fn getmethod_keeps_provenance_header() {
     let o = run(ddc().arg("getmethod").arg(fixture()).arg("Greeter.greet"));
     assert!(o.status.success(), "{}", stderr(&o));
     let out = stdout(&o);
-    assert!(out.contains("// Decompiled by https://github.com/ejfkdev/ddc"), "header:\n{}", out);
-    assert!(out.contains("return \"hi \" + this.name;"), "method body:\n{}", out);
+    assert!(
+        out.contains("// Decompiled by https://github.com/ejfkdev/ddc"),
+        "header:\n{}",
+        out
+    );
+    assert!(
+        out.contains("return \"hi \" + this.name;"),
+        "method body:\n{}",
+        out
+    );
 }
 
 #[test]
@@ -344,7 +451,11 @@ fn pkg_decompiles_a_package_subtree() {
             n += 1;
         }
     }
-    assert!(n >= 2, "expected Hello+Greeter, got {n} file(s) in {}", dir.display());
+    assert!(
+        n >= 2,
+        "expected Hello+Greeter, got {n} file(s) in {}",
+        dir.display()
+    );
 }
 
 fn walk(dir: &PathBuf) -> Vec<String> {
@@ -391,7 +502,11 @@ fn crc32(data: &[u8]) -> u32 {
     for &b in data {
         crc ^= b as u32;
         for _ in 0..8 {
-            crc = if crc & 1 != 0 { (crc >> 1) ^ 0xEDB8_8320 } else { crc >> 1 };
+            crc = if crc & 1 != 0 {
+                (crc >> 1) ^ 0xEDB8_8320
+            } else {
+                crc >> 1
+            };
         }
     }
     !crc
@@ -456,14 +571,26 @@ fn stored_zip(items: &[(&str, Vec<u8>)]) -> Vec<u8> {
 
 #[test]
 fn manifest_component_filter() {
-    let o = run(ddc().arg("manifest").arg(axml_fixture()).arg("--component").arg("activity"));
+    let o = run(ddc()
+        .arg("manifest")
+        .arg(axml_fixture())
+        .arg("--component")
+        .arg("activity"));
     assert!(o.status.success(), "{}", stderr(&o));
     let out = stdout(&o);
     assert!(out.contains("<manifest"), "header kept:\n{}", out);
     assert!(out.contains("<activity"), "activity kept:\n{}", out);
-    assert!(!out.contains("uses-permission"), "permissions filtered:\n{}", out);
+    assert!(
+        !out.contains("uses-permission"),
+        "permissions filtered:\n{}",
+        out
+    );
 
-    let o = run(ddc().arg("manifest").arg(axml_fixture()).arg("--component").arg("launcher"));
+    let o = run(ddc()
+        .arg("manifest")
+        .arg(axml_fixture())
+        .arg("--component")
+        .arg("launcher"));
     assert!(o.status.success(), "{}", stderr(&o));
     let out = stdout(&o);
     assert!(out.contains("<activity"), "launcher activity:\n{}", out);
@@ -475,8 +602,16 @@ fn mainactivity_reports_entry_point() {
     let o = run(ddc().arg("mainactivity").arg(apk_fixture()));
     assert!(o.status.success(), "{}", stderr(&o));
     let out = stdout(&o);
-    assert!(out.contains("package     com.reqable.android"), "package:\n{}", out);
-    assert!(out.contains("launcher    com.reqable.android.MainActivity"), "launcher:\n{}", out);
+    assert!(
+        out.contains("package     com.reqable.android"),
+        "package:\n{}",
+        out
+    );
+    assert!(
+        out.contains("launcher    com.reqable.android.MainActivity"),
+        "launcher:\n{}",
+        out
+    );
     assert!(out.contains("dex         "), "dex verification:\n{}", out);
 }
 
@@ -488,7 +623,11 @@ fn res_lists_and_dumps_entries() {
     let out = stdout(&o);
     let header: Vec<&str> = out.lines().next().unwrap().split_whitespace().collect();
     assert_eq!(header, vec!["method", "size", "entry"], "header:\n{}", out);
-    assert!(out.contains("res/values/strings.xml"), "xml entry:\n{}", out);
+    assert!(
+        out.contains("res/values/strings.xml"),
+        "xml entry:\n{}",
+        out
+    );
     assert!(out.contains("assets/note.txt"), "asset entry:\n{}", out);
 
     // Text entry dumps verbatim.
@@ -500,7 +639,11 @@ fn res_lists_and_dumps_entries() {
     let o = run(ddc().arg("res").arg(&apk).arg("res/values/strings.xml"));
     assert!(o.status.success(), "{}", stderr(&o));
     let out = stdout(&o);
-    assert!(out.contains("<manifest") || out.contains("<resources"), "decoded xml:\n{}", out);
+    assert!(
+        out.contains("<manifest") || out.contains("<resources"),
+        "decoded xml:\n{}",
+        out
+    );
 }
 
 #[test]
@@ -508,14 +651,30 @@ fn getmethod_slices_one_method() {
     let o = run(ddc().arg("getmethod").arg(fixture()).arg("Greeter.greet"));
     assert!(o.status.success(), "{}", stderr(&o));
     let out = stdout(&o);
-    assert!(out.contains("java.lang.String greet() {"), "signature:\n{}", out);
-    assert!(out.contains("return \"hi \" + this.name;"), "body:\n{}", out);
-    assert!(!out.contains("class Greeter {"), "whole class leaked:\n{}", out);
+    assert!(
+        out.contains("java.lang.String greet() {"),
+        "signature:\n{}",
+        out
+    );
+    assert!(
+        out.contains("return \"hi \" + this.name;"),
+        "body:\n{}",
+        out
+    );
+    assert!(
+        !out.contains("class Greeter {"),
+        "whole class leaked:\n{}",
+        out
+    );
 
     // Unknown method: error lists what the class has.
     let o = run(ddc().arg("getmethod").arg(fixture()).arg("Greeter.nope"));
     assert_eq!(o.status.code(), Some(2));
-    assert!(stderr(&o).contains("methods: Greeter, greet"), "hint:\n{}", stderr(&o));
+    assert!(
+        stderr(&o).contains("methods: Greeter, greet"),
+        "hint:\n{}",
+        stderr(&o)
+    );
 }
 
 #[test]
@@ -523,7 +682,16 @@ fn pkg_app_reports_unresolvable_package() {
     // hello.dex's classes live in the default package, so the manifest's
     // com.reqable.android has nothing under it (launcher fallback is the
     // same package here) — a clean error, not a crash.
-    let o = run(ddc().arg("pkg").arg(apk_fixture()).arg("--app").arg("-o").arg(tmp("pkg-app-none")));
+    let o = run(ddc()
+        .arg("pkg")
+        .arg(apk_fixture())
+        .arg("--app")
+        .arg("-o")
+        .arg(tmp("pkg-app-none")));
     assert_eq!(o.status.code(), Some(2));
-    assert!(stderr(&o).contains("no classes under package"), "{}", stderr(&o));
+    assert!(
+        stderr(&o).contains("no classes under package"),
+        "{}",
+        stderr(&o)
+    );
 }

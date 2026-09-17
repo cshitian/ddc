@@ -1,8 +1,8 @@
 //! Native invoke-custom (DEX 039, `--no-desugaring`): call sites, method
 //! handles, lambdas and StringConcatFactory folding.
 
-use ddc_dex::DexFile;
 use ddc_dec::{ClassOptions, DexPool};
+use ddc_dex::DexFile;
 
 fn pool() -> std::sync::Arc<DexPool> {
     let bytes = std::fs::read("tests/fixtures/lambda_indy.dex").unwrap();
@@ -21,9 +21,9 @@ fn version_and_call_sites() {
     // A LambdaMetafactory site with its impl method.
     let any_meta = (0..dex.call_site_count() as u32).any(|i| {
         let cs = dex.call_site(i).unwrap();
-        cs.linker_args.iter().any(|v| {
-            matches!(v, ddc_dex::annotations::EncodedValue::MethodHandle(_))
-        })
+        cs.linker_args
+            .iter()
+            .any(|v| matches!(v, ddc_dex::annotations::EncodedValue::MethodHandle(_)))
     });
     assert!(any_meta, "no lambda site");
 }
@@ -32,7 +32,14 @@ fn version_and_call_sites() {
 fn lambda_and_methodref_render() {
     let pool = pool();
     let lt = pool.get("LambdaTest").expect("LambdaTest");
-    let out = ddc_dec::classdec::decompile_class(&pool, lt, &ClassOptions::default(), &std::sync::Mutex::new(Vec::new())).map_err(|e| anyhow::anyhow!("{:#}", e)).unwrap();
+    let out = ddc_dec::classdec::decompile_class(
+        &pool,
+        lt,
+        &ClassOptions::default(),
+        &std::sync::Mutex::new(Vec::new()),
+    )
+    .map_err(|e| anyhow::anyhow!("{:#}", e))
+    .unwrap();
     // Method reference: Comparator.comparing(String::length).
     assert!(
         out.contains("java.lang.String::length"),

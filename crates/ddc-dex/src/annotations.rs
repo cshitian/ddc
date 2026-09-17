@@ -75,11 +75,17 @@ pub fn read_encoded_value(data: &[u8], pos: usize) -> Option<(EncodedValue, usiz
         }
         0x10 => {
             let v = little_extend(&take(data, c.pos, varg + 1)?, false, varg + 1);
-            Some((EncodedValue::Float(f32::from_bits(v as u32)), c.pos + varg + 1 - pos))
+            Some((
+                EncodedValue::Float(f32::from_bits(v as u32)),
+                c.pos + varg + 1 - pos,
+            ))
         }
         0x11 => {
             let v = little_extend(&take(data, c.pos, varg + 1)?, false, varg + 1);
-            Some((EncodedValue::Double(f64::from_bits(v as u64)), c.pos + varg + 1 - pos))
+            Some((
+                EncodedValue::Double(f64::from_bits(v as u64)),
+                c.pos + varg + 1 - pos,
+            ))
         }
         0x15 | 0x16 | 0x17 | 0x18 | 0x19 | 0x1a | 0x1b => {
             let v = little_extend(&take(data, c.pos, varg + 1)?, false, varg + 1);

@@ -60,8 +60,7 @@ impl DexCfg {
     /// millions of instruction clones).
     pub fn build(code: &mut CodeItem, type_name: &dyn Fn(u32) -> String) -> DexCfg {
         let insns = std::mem::take(&mut code.insns);
-        let code_units: u32 =
-            insns.last().map(|last| last.pc + last.size).unwrap_or(0);
+        let code_units: u32 = insns.last().map(|last| last.pc + last.size).unwrap_or(0);
 
         // 1. Leaders.
         let mut leaders: Vec<u32> = vec![0];
@@ -133,7 +132,11 @@ impl DexCfg {
         // slice whose pcs fall in [start, end).)
         let mut blocks: Vec<Block> = Vec::with_capacity(leaders.len());
         for (id, &start) in leaders.iter().enumerate() {
-            let end = leaders.get(id + 1).copied().unwrap_or(code_units).max(start);
+            let end = leaders
+                .get(id + 1)
+                .copied()
+                .unwrap_or(code_units)
+                .max(start);
             let lo = insns.partition_point(|i| i.pc < start);
             let hi = insns.partition_point(|i| i.pc < end);
             blocks.push(Block {
@@ -230,7 +233,14 @@ impl DexCfg {
 
         let mut starts = leaders;
         starts.sort_unstable();
-        DexCfg { blocks, entry: 0, exc_ranges: ranges, insns, code_units, starts }
+        DexCfg {
+            blocks,
+            entry: 0,
+            exc_ranges: ranges,
+            insns,
+            code_units,
+            starts,
+        }
     }
 
     /// The block's instructions (slice of the linear decode stream).
@@ -319,12 +329,14 @@ fn insn_targets(ins: &Insn) -> Vec<u32> {
 /// Absolute case targets of a switch from its payload.
 pub fn switch_targets(payload: Option<&Payload>, switch_pc: u32) -> Vec<u32> {
     match payload {
-        Some(Payload::Packed { targets, .. }) => {
-            targets.iter().map(|t| (switch_pc as i64 + *t as i64) as u32).collect()
-        }
-        Some(Payload::Sparse { pairs }) => {
-            pairs.iter().map(|(_, t)| (switch_pc as i64 + *t as i64) as u32).collect()
-        }
+        Some(Payload::Packed { targets, .. }) => targets
+            .iter()
+            .map(|t| (switch_pc as i64 + *t as i64) as u32)
+            .collect(),
+        Some(Payload::Sparse { pairs }) => pairs
+            .iter()
+            .map(|(_, t)| (switch_pc as i64 + *t as i64) as u32)
+            .collect(),
         _ => Vec::new(),
     }
 }

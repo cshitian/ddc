@@ -214,7 +214,10 @@ impl<'a> Lifter<'a> {
     }
 
     fn local_expr(&self, v: u32) -> Expr {
-        Expr::Local { var: v, ty: self.vt.var(v).ty.clone() }
+        Expr::Local {
+            var: v,
+            ty: self.vt.var(v).ty.clone(),
+        }
     }
 
     // -- register access -----------------------------------------------------
@@ -397,7 +400,10 @@ impl<'a> Lifter<'a> {
         };
         Expr::Invokedynamic {
             name: name.into(),
-            desc: MethodDescriptor { args: vec![], ret: JavaType::Int },
+            desc: MethodDescriptor {
+                args: vec![],
+                ret: JavaType::Int,
+            },
             args: vec![l, r],
             bsm_text: String::new(),
             bsm_static_args: vec![],
@@ -447,10 +453,8 @@ impl<'a> Lifter<'a> {
                 }
                 InsnKind::MoveResult { dst } => {
                     if let Some(e) = self.pending_call.take() {
-                        let wide = matches!(
-                            e.type_ref().erased(),
-                            JavaType::Long | JavaType::Double
-                        );
+                        let wide =
+                            matches!(e.type_ref().erased(), JavaType::Long | JavaType::Double);
                         self.write_call_result(*dst, e, ins.pc);
                         if wide {
                             self.mark_wide_hi(*dst + 1, ins.pc);
@@ -483,7 +487,9 @@ impl<'a> Lifter<'a> {
                         self.regs[*dst as usize] = Reg::Live(v);
                     }
                 }
-                InsnKind::ReturnVoid | InsnKind::Return { .. } | InsnKind::Throw { .. }
+                InsnKind::ReturnVoid
+                | InsnKind::Return { .. }
+                | InsnKind::Throw { .. }
                 | InsnKind::Goto { .. }
                 | InsnKind::PackedSwitch { .. }
                 | InsnKind::SparseSwitch { .. }
@@ -522,12 +528,7 @@ impl<'a> Lifter<'a> {
                 InsnKind::InstanceOf { dst, src, type_idx } => {
                     let e = self.read_nest(*src);
                     let ty = TypeRef::J(self.env.java_type(*type_idx));
-                    self.write(
-                        *dst,
-                        Expr::InstanceOf { e: Box::new(e), ty },
-                        ins.pc,
-                        false,
-                    );
+                    self.write(*dst, Expr::InstanceOf { e: Box::new(e), ty }, ins.pc, false);
                 }
                 InsnKind::ArrayLength { dst, src } => {
                     let e = self.read_nest(*src);
@@ -545,12 +546,21 @@ impl<'a> Lifter<'a> {
                     let ty = TypeRef::J(JavaType::Object(cls.clone()));
                     self.write(
                         *dst,
-                        Expr::New { cls, ty, args: vec![], raw: true },
+                        Expr::New {
+                            cls,
+                            ty,
+                            args: vec![],
+                            raw: true,
+                        },
                         ins.pc,
                         false,
                     );
                 }
-                InsnKind::NewArray { dst, size, type_idx } => {
+                InsnKind::NewArray {
+                    dst,
+                    size,
+                    type_idx,
+                } => {
                     let elem_desc = self.env.type_name(*type_idx);
                     // The type id names the ARRAY type: strip one `[`.
                     let elem = crate::desc_type(elem_desc.trim_start_matches('['));
@@ -580,8 +590,11 @@ impl<'a> Lifter<'a> {
                     });
                 }
                 InsnKind::FillArrayData { reg, payload_pc } => {
-                    if let Some(Payload::ArrayData { elem_width, size, data }) =
-                        payloads.get(payload_pc)
+                    if let Some(Payload::ArrayData {
+                        elem_width,
+                        size,
+                        data,
+                    }) = payloads.get(payload_pc)
                     {
                         let elems = payload_consts(*elem_width, *size, data);
                         let cur = self.regs.get(*reg as usize).cloned().unwrap_or(Reg::Undef);
@@ -623,17 +636,27 @@ impl<'a> Lifter<'a> {
                     *self.mflags = self.mflags.with_cmp();
                     self.write(*dst, Self::cmp_sentinel(*kind, l, r), ins.pc, false);
                 }
-                InsnKind::AGet { dst, array, index, .. } => {
+                InsnKind::AGet {
+                    dst, array, index, ..
+                } => {
                     let a = self.read_nest(*array);
                     let i = self.read_nest(*index);
                     self.write(
                         *dst,
-                        Expr::ArrayIndex { array: Box::new(a), index: Box::new(i) },
+                        Expr::ArrayIndex {
+                            array: Box::new(a),
+                            index: Box::new(i),
+                        },
                         ins.pc,
                         false,
                     );
                 }
-                InsnKind::APut { value, array, index, .. } => {
+                InsnKind::APut {
+                    value,
+                    array,
+                    index,
+                    ..
+                } => {
                     self.drop_pending_call();
                     let v = self.read_nest(*value);
                     let a = self.read_nest(*array);
@@ -648,7 +671,11 @@ impl<'a> Lifter<'a> {
                         value: Box::new(v),
                     }));
                 }
-                InsnKind::IGet { dst, obj, field_idx } => {
+                InsnKind::IGet {
+                    dst,
+                    obj,
+                    field_idx,
+                } => {
                     self.drop_pending_call();
                     let (cls, name, ty) = self.env.field_ref(*field_idx);
                     let owner = self.read_nest(*obj);
@@ -666,7 +693,11 @@ impl<'a> Lifter<'a> {
                         false,
                     );
                 }
-                InsnKind::IPut { value, obj, field_idx } => {
+                InsnKind::IPut {
+                    value,
+                    obj,
+                    field_idx,
+                } => {
                     self.drop_pending_call();
                     let (cls, name, ty) = self.env.field_ref(*field_idx);
                     let v = self.read_nest(*value);
@@ -718,24 +749,39 @@ impl<'a> Lifter<'a> {
                         value: Box::new(v),
                     }));
                 }
-                InsnKind::Invoke { kind, regs, method_idx } => {
+                InsnKind::Invoke {
+                    kind,
+                    regs,
+                    method_idx,
+                } => {
                     self.drop_pending_call();
                     self.do_invoke(*kind, regs, *method_idx, ins.pc)?;
                 }
-                InsnKind::InvokeCustom { call_site_idx, regs } => {
+                InsnKind::InvokeCustom {
+                    call_site_idx,
+                    regs,
+                } => {
                     self.drop_pending_call();
                     let e = self.build_invoke_custom(*call_site_idx, regs, ins.pc);
                     self.pending_call = Some(e);
                 }
-                InsnKind::Un { dst, src, op, from: _, to } => {
+                InsnKind::Un {
+                    dst,
+                    src,
+                    op,
+                    from: _,
+                    to,
+                } => {
                     let e = self.read_nest(*src);
                     let ne = match op {
-                        ddc_dex::insn::UnArith::Neg => {
-                            Expr::Un { op: UnOp::Neg, e: Box::new(e) }
-                        }
-                        ddc_dex::insn::UnArith::Not => {
-                            Expr::Un { op: UnOp::BitNot, e: Box::new(e) }
-                        }
+                        ddc_dex::insn::UnArith::Neg => Expr::Un {
+                            op: UnOp::Neg,
+                            e: Box::new(e),
+                        },
+                        ddc_dex::insn::UnArith::Not => Expr::Un {
+                            op: UnOp::BitNot,
+                            e: Box::new(e),
+                        },
                         ddc_dex::insn::UnArith::Conv => Expr::Cast {
                             ty: TypeRef::J(primitive_type(*to)),
                             e: Box::new(e),
@@ -757,7 +803,13 @@ impl<'a> Lifter<'a> {
                     let wide = matches!(*ty, 'J' | 'D');
                     self.write(*dst, e, ins.pc, wide);
                 }
-                InsnKind::BinLit { op, dst, a, lit, rsub } => {
+                InsnKind::BinLit {
+                    op,
+                    dst,
+                    a,
+                    lit,
+                    rsub,
+                } => {
                     let av = self.read_nest(*a);
                     let e = if *rsub {
                         Expr::Bin {
@@ -838,7 +890,11 @@ impl<'a> Lifter<'a> {
             *self.mflags = self.mflags.with_sb();
         }
         let is_static = matches!(kind, InvokeKind::Static);
-        let receiver_reg = if is_static { None } else { regs.first().copied() };
+        let receiver_reg = if is_static {
+            None
+        } else {
+            regs.first().copied()
+        };
         let arg_regs: Vec<u16> = if is_static {
             regs.to_vec()
         } else {
@@ -857,13 +913,25 @@ impl<'a> Lifter<'a> {
         // Constructor call: fold `new C` receivers; this/super otherwise.
         if name == "<init>" && matches!(kind, InvokeKind::Direct) {
             let recv_reg = receiver_reg.unwrap_or(0);
-            let recv_state = self.regs.get(recv_reg as usize).cloned().unwrap_or(Reg::Undef);
-            if let Reg::Pending(Expr::New { raw: true, cls: nc, .. }) = &recv_state {
+            let recv_state = self
+                .regs
+                .get(recv_reg as usize)
+                .cloned()
+                .unwrap_or(Reg::Undef);
+            if let Reg::Pending(Expr::New {
+                raw: true, cls: nc, ..
+            }) = &recv_state
+            {
                 if nc == &cls {
                     let ty = TypeRef::J(JavaType::Object(cls.clone()));
                     self.write(
                         recv_reg,
-                        Expr::New { cls: cls.clone(), ty, args, raw: false },
+                        Expr::New {
+                            cls: cls.clone(),
+                            ty,
+                            args,
+                            raw: false,
+                        },
                         pc,
                         false,
                     );
@@ -968,7 +1036,9 @@ impl<'a> Lifter<'a> {
             .into_iter()
             .map(|t| self.env.java_type(t))
             .collect();
-        let ret = self.env.java_type(self.env.dex.proto(cs.proto_idx).return_type_idx);
+        let ret = self
+            .env
+            .java_type(self.env.dex.proto(cs.proto_idx).return_type_idx);
 
         let (bs_cls, bs_name) = match self.env.dex.method_handle(cs.bootstrap_handle) {
             Some(h) if !h.is_field => {
@@ -1020,8 +1090,7 @@ impl<'a> Lifter<'a> {
                                 if !h.is_field {
                                     let m = self.env.dex.method(h.target_id);
                                     impl_m = Some((
-                                        self.env.dex.class_name(m.class_idx)
-                                            .replace('/', "."),
+                                        self.env.dex.class_name(m.class_idx).replace('/', "."),
                                         self.env.dex.string(m.name_idx).to_string(),
                                     ));
                                 }
@@ -1058,9 +1127,7 @@ impl<'a> Lifter<'a> {
                         Some(p) => self.env.dex.proto_params(p).len(),
                         None => params.len(),
                     };
-                    let pnames: Vec<String> = (0..n_params)
-                        .map(|i| format!("a{}", i))
-                        .collect();
+                    let pnames: Vec<String> = (0..n_params).map(|i| format!("a{}", i)).collect();
                     return Expr::Raw(format!(
                         "({}) -> {}.{}({})",
                         pnames.join(", "),
@@ -1125,8 +1192,7 @@ impl<'a> Lifter<'a> {
             InsnKind::If { op, a, b, z, .. } => {
                 let cond = if *z {
                     let v = self.read_nest(*a);
-                    let (l, r, realop) =
-                        jdc_core::ir::build::unfold_cmp(v, Self::cmp_op(*op));
+                    let (l, r, realop) = jdc_core::ir::build::unfold_cmp(v, Self::cmp_op(*op));
                     Expr::Bin {
                         op: realop,
                         l: Box::new(l),
@@ -1165,7 +1231,11 @@ impl<'a> Lifter<'a> {
                     },
                     _ => SwitchTargets::Lookup { pairs: vec![] },
                 };
-                Term::Switch { selector, targets, default }
+                Term::Switch {
+                    selector,
+                    targets,
+                    default,
+                }
             }
             // Fell off the analysis end (payload region after): goto.
             _ => {
@@ -1243,7 +1313,11 @@ fn count_nodes(e: &Expr, n: &mut usize) {
         }
         Expr::PreIncDec { e, .. } | Expr::PostIncDec { e, .. } => count_nodes(e, n),
         Expr::Field { owner: Some(o), .. } => count_nodes(o, n),
-        Expr::Method { owner: Some(o), args, .. } => {
+        Expr::Method {
+            owner: Some(o),
+            args,
+            ..
+        } => {
             count_nodes(o, n);
             for a in args {
                 count_nodes(a, n);
@@ -1302,7 +1376,10 @@ fn value_of_cmp(e: &Expr) -> Expr {
                 "\0cmpl-float" | "\0cmpg-float" => ("java/lang/Float", JavaType::Float),
                 _ => ("java/lang/Double", JavaType::Double),
             };
-            let desc = MethodDescriptor { args: vec![ty.clone(), ty], ret: JavaType::Int };
+            let desc = MethodDescriptor {
+                args: vec![ty.clone(), ty],
+                ret: JavaType::Int,
+            };
             return Expr::Method {
                 owner: None,
                 cls: cls.into(),

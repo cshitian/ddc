@@ -102,7 +102,10 @@ fn nested_apk_images(
     entries: &[ZipEntry],
     stem: &str,
 ) -> Result<Vec<Image>> {
-    let mut apks: Vec<&ZipEntry> = entries.iter().filter(|e| e.name.ends_with(".apk")).collect();
+    let mut apks: Vec<&ZipEntry> = entries
+        .iter()
+        .filter(|e| e.name.ends_with(".apk"))
+        .collect();
     apks.sort_by_key(|e| {
         let base = e.name == "base.apk"
             || e.name == format!("{stem}.apk")
@@ -159,8 +162,8 @@ pub fn map_source(f: &Path) -> Result<Source> {
     if len >= 1 << 20 {
         // Mmap faults pages in as touched (the CD scan touches the tail,
         // inflates touch entry ranges); the heap copy touched everything.
-        let map = unsafe { memmap2::Mmap::map(&file) }
-            .with_context(|| format!("map {}", f.display()))?;
+        let map =
+            unsafe { memmap2::Mmap::map(&file) }.with_context(|| format!("map {}", f.display()))?;
         Ok(Source::Map(map))
     } else {
         Ok(Source::Heap(
@@ -242,10 +245,7 @@ pub fn collect_images(files: &[PathBuf]) -> Result<Vec<Image>> {
 /// part of `<stem>!classes20.dex`; a bare raw dex matches its whole
 /// label). Substring, case-insensitive; multiple patterns OR. Filtering
 /// BEFORE the parse keeps unwanted images off the decode entirely.
-pub fn filter_images_by_dex(
-    images: Vec<Image>,
-    patterns: &[String],
-) -> Result<Vec<Image>> {
+pub fn filter_images_by_dex(images: Vec<Image>, patterns: &[String]) -> Result<Vec<Image>> {
     if patterns.is_empty() {
         return Ok(images);
     }
@@ -255,16 +255,20 @@ pub fn filter_images_by_dex(
     // segment may be the thing the user names (`--dex base`,
     // `--dex config.arm64`, `--dex classes2`).
     let pats: Vec<String> = patterns.iter().map(|p| p.to_ascii_lowercase()).collect();
-    let (kept, dropped): (Vec<Image>, Vec<Image>) = images
-        .into_iter()
-        .partition(|img| {
-            let e = img.label.to_ascii_lowercase();
-            pats.iter().any(|p| e.contains(p.as_str()))
-        });
+    let (kept, dropped): (Vec<Image>, Vec<Image>) = images.into_iter().partition(|img| {
+        let e = img.label.to_ascii_lowercase();
+        pats.iter().any(|p| e.contains(p.as_str()))
+    });
     if kept.is_empty() {
         let mut names: Vec<String> = dropped
             .iter()
-            .map(|img| img.label.rsplit_once('!').map(|(_, e)| e).unwrap_or(&img.label).to_string())
+            .map(|img| {
+                img.label
+                    .rsplit_once('!')
+                    .map(|(_, e)| e)
+                    .unwrap_or(&img.label)
+                    .to_string()
+            })
             .collect();
         names.sort();
         names.dedup();
@@ -368,9 +372,7 @@ pub fn scan_prefix_needed(image: &[u8]) -> Option<usize> {
 /// Inflate each image on its own thread WITHOUT DexFile::parse — the raw
 /// bytes go straight to the caller (the browse commands run their own
 /// zero-materialization queries on them).
-pub fn inflate_images(
-    images: Vec<Image>,
-) -> Result<Vec<(String, Vec<u8>)>> {
+pub fn inflate_images(images: Vec<Image>) -> Result<Vec<(String, Vec<u8>)>> {
     let mut handles = Vec::new();
     for img in images {
         let label = img.label.clone();
@@ -379,8 +381,9 @@ pub fn inflate_images(
             std::thread::spawn(move || {
                 let raw = match img.method {
                     ZipMethod::Stored => img.data.bytes()[img.range].to_vec(),
-                    ZipMethod::Deflate => inflate(img.data.bytes()[img.range].as_ref())
-                        .map_err(|e| e.to_string())?,
+                    ZipMethod::Deflate => {
+                        inflate(img.data.bytes()[img.range].as_ref()).map_err(|e| e.to_string())?
+                    }
                 };
                 Ok::<_, String>(raw)
             }),
@@ -408,8 +411,9 @@ pub fn parse_images(images: Vec<Image>) -> Result<Vec<(String, DexFile)>> {
             std::thread::spawn(move || {
                 let raw = match img.method {
                     ZipMethod::Stored => img.data.bytes()[img.range].to_vec(),
-                    ZipMethod::Deflate => inflate(img.data.bytes()[img.range].as_ref())
-                        .map_err(|e| e.to_string())?,
+                    ZipMethod::Deflate => {
+                        inflate(img.data.bytes()[img.range].as_ref()).map_err(|e| e.to_string())?
+                    }
                 };
                 DexFile::parse(raw)
                     .map_err(|e| e.to_string())

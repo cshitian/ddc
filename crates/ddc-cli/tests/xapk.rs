@@ -121,7 +121,10 @@ fn xapk_fixture(dir: &Path) -> PathBuf {
     ]);
     let config = stored_zip(&[("classes.dex", dex)]);
     let outer = stored_zip(&[
-        ("manifest.json", br#"{"package_name":"com.example"}"#.to_vec()),
+        (
+            "manifest.json",
+            br#"{"package_name":"com.example"}"#.to_vec(),
+        ),
         ("config.arm64_v8a.apk", config),
         ("base.apk", base),
     ]);
@@ -199,7 +202,7 @@ fn xapk_full_pipeline() {
     let o = run(ddc().arg(&xapk).arg(&outdir));
     assert!(o.status.success(), "{}", stderr(&o));
     assert_eq!(count_java(&outdir), 2, "duplicate split classes must dedup");
-    std::fs::remove_dir_all(&dir);
+    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
@@ -209,19 +212,24 @@ fn xapk_dex_filter_targets_inner_apk() {
     let xapk = xapk_fixture(&dir);
 
     // `--dex base` keeps only the base APK's images.
-    let o = run(ddc().arg("findrefs").arg(&xapk).arg("--dex").arg("base").arg("string").arg("hi"));
+    let o = run(ddc()
+        .arg("findrefs")
+        .arg(&xapk)
+        .arg("--dex")
+        .arg("base")
+        .arg("string")
+        .arg("hi"));
     assert!(o.status.success(), "{}", stderr(&o));
     assert!(stdout(&o).contains("\"hi \""));
 
     // `--dex config` keeps only the config split.
-    let o = run(
-        ddc().arg("findrefs")
-            .arg(&xapk)
-            .arg("--dex")
-            .arg("config.arm64")
-            .arg("string")
-            .arg("hi"),
-    );
+    let o = run(ddc()
+        .arg("findrefs")
+        .arg(&xapk)
+        .arg("--dex")
+        .arg("config.arm64")
+        .arg("string")
+        .arg("hi"));
     assert!(o.status.success(), "{}", stderr(&o));
     assert!(stdout(&o).contains("\"hi \""));
 
@@ -231,5 +239,5 @@ fn xapk_dex_filter_targets_inner_apk() {
     let out = stdout(&o);
     assert!(out.contains("base.apk"), "{}", out);
     assert!(out.contains("config.arm64_v8a.apk"), "{}", out);
-    std::fs::remove_dir_all(&dir);
+    let _ = std::fs::remove_dir_all(&dir);
 }

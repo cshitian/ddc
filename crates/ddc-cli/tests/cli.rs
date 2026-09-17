@@ -88,8 +88,12 @@ fn default_output_is_input_sibling_dir() {
     assert_eq!(count_java(&out.join("hello-out")), 2);
     assert!(stderr(&o).contains("wrote 2 file(s)"));
     // Total time rides the summary line (stderr, never stdout).
-    assert!(regex_secs(&stderr(&o)), "summary has no elapsed:\n{}", stderr(&o));
-    std::fs::remove_dir_all(&out);
+    assert!(
+        regex_secs(&stderr(&o)),
+        "summary has no elapsed:\n{}",
+        stderr(&o)
+    );
+    let _ = std::fs::remove_dir_all(&out);
 }
 
 /// `in <secs>` on a summary line: 1-3 decimals + 's'.
@@ -106,8 +110,12 @@ fn provenance_header_names_the_input() {
     let text = std::fs::read_to_string(out.join("Hello.java")).unwrap();
     assert!(text.starts_with("// Decompiled by https://github.com/ejfkdev/ddc "));
     // The dex image label (input stem) + DEX version, before Source file.
-    assert!(text.contains("// From: hello (DEX "), "From line:\n{}", text);
-    std::fs::remove_dir_all(tmp("prov"));
+    assert!(
+        text.contains("// From: hello (DEX "),
+        "From line:\n{}",
+        text
+    );
+    let _ = std::fs::remove_dir_all(tmp("prov"));
 }
 
 #[test]
@@ -116,7 +124,7 @@ fn positional_output_dir() {
     let o = run(ddc().arg(fixture()).arg(&out));
     assert!(o.status.success(), "{}", stderr(&o));
     assert_eq!(count_java(&out), 2);
-    std::fs::remove_dir_all(tmp("positional"));
+    let _ = std::fs::remove_dir_all(tmp("positional"));
 }
 
 #[test]
@@ -133,7 +141,9 @@ fn stdout_sink_has_separators_and_order() {
     let mut prev = 0usize;
     for name in &list {
         let needle = format!("// ===== {} =====", name);
-        let pos = s.find(&needle).unwrap_or_else(|| panic!("{} missing", needle));
+        let pos = s
+            .find(&needle)
+            .unwrap_or_else(|| panic!("{} missing", needle));
         assert!(prev <= pos, "{} out of order", name);
         prev = pos;
     }
@@ -149,12 +159,17 @@ fn single_class_flag_defaults_to_stdout() {
 #[test]
 fn single_class_flag_to_file() {
     let f = tmp("onefile").join("G.java");
-    let o = run(ddc().arg(fixture()).arg("-c").arg("Greeter").arg("-o").arg(&f));
+    let o = run(ddc()
+        .arg(fixture())
+        .arg("-c")
+        .arg("Greeter")
+        .arg("-o")
+        .arg(&f));
     assert!(o.status.success(), "{}", stderr(&o));
     assert!(f.is_file());
     let text = std::fs::read_to_string(&f).unwrap();
     assert!(text.contains("class Greeter {"));
-    std::fs::remove_dir_all(tmp("onefile"));
+    let _ = std::fs::remove_dir_all(tmp("onefile"));
 }
 
 #[test]
@@ -176,7 +191,7 @@ fn directory_input_scans_recursively() {
     let o = run(ddc().arg(&root).arg(&out));
     assert!(o.status.success(), "{}", stderr(&o));
     assert_eq!(count_java(&out), 2);
-    std::fs::remove_dir_all(&root);
+    let _ = std::fs::remove_dir_all(&root);
 }
 
 #[test]
@@ -187,7 +202,7 @@ fn multi_input_positional_merge() {
     let o = run(ddc().arg(fixture()).arg(fixture()).arg(&out));
     assert!(o.status.success(), "{}", stderr(&o));
     assert_eq!(count_java(&out), 2);
-    std::fs::remove_dir_all(&out);
+    let _ = std::fs::remove_dir_all(&out);
 }
 
 #[test]
@@ -198,7 +213,7 @@ fn not_a_dex_reports_cleanly() {
     let o = run(ddc().arg(&f));
     assert_eq!(o.status.code(), Some(2));
     assert!(stderr(&o).contains("not a DEX image or ZIP/APK archive"));
-    std::fs::remove_dir_all(tmp("bogus"));
+    let _ = std::fs::remove_dir_all(tmp("bogus"));
 }
 
 #[test]
@@ -214,7 +229,7 @@ fn existing_dir_without_dex_is_output() {
     assert!(o.status.success(), "{}", stderr(&o));
     assert!(stderr(&o).contains("wrote 2 file(s) to"), "{}", stderr(&o));
     assert_eq!(count_java(&target), 3); // old.java + Hello + Greeter
-    std::fs::remove_dir_all(&root);
+    let _ = std::fs::remove_dir_all(&root);
 }
 
 #[test]
@@ -236,7 +251,7 @@ fn dex_bearing_dir_stays_input() {
     // input's sibling, NOT inside dump/.
     assert_eq!(count_java(&root.join("first-out")), 2);
     assert!(!dump.join("Hello.java").exists(), "dump/ became the output");
-    std::fs::remove_dir_all(&root);
+    let _ = std::fs::remove_dir_all(&root);
 }
 
 #[test]
@@ -246,14 +261,16 @@ fn empty_dir_input_bails_loudly() {
     let o = run(ddc().arg(root.join("void")));
     assert_eq!(o.status.code(), Some(2));
     assert!(stderr(&o).contains("no .dex/.apk/.jar/.zip files under"));
-    std::fs::remove_dir_all(&root);
+    let _ = std::fs::remove_dir_all(&root);
 }
 
 #[test]
 fn inline_option_values() {
     let out = tmp("inline");
-    let o = run(ddc().arg(fixture()).arg(format!("--output={}", out.display())));
+    let o = run(ddc()
+        .arg(fixture())
+        .arg(format!("--output={}", out.display())));
     assert!(o.status.success(), "{}", stderr(&o));
     assert_eq!(count_java(&out), 2);
-    std::fs::remove_dir_all(&out);
+    let _ = std::fs::remove_dir_all(&out);
 }

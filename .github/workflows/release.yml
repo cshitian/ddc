@@ -1,0 +1,112 @@
+# Tag-triggered release: builds ddc for five native targets, UPX-compresses
+# where upx supports the platform (everything but macOS), and uploads the
+# RAW binaries — no zip/tar wrapping.
+#
+# The binary reports the tag's version: the workflow rewrites
+# workspace.package.version (inherited by every crate, feeding
+# CARGO_PKG_VERSION) from the tag name before building.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: ddc ${{ matrix.target }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - os: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+          - os: macos-13
+            target: x86_64-apple-darwin
+          - os: macos-14
+            target: aarch64-apple-darwin
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+    runs-on: ${{ matrix.os }}
+    env:
+      TARGET: ${{ matrix.target }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # Strip the leading 'v': v1.2.3 → 1.2.3.
+      - name: Tag → version
+        shell: bash
+        run: |
+          echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+          echo "TAG=${GITHUB_REF_NAME}" >> "$GITHUB_ENV"
+
+      # First `^version = "…"` in the root manifest is [workspace.package];
+      # every crate inherits it, so CARGO_PKG_VERSION (binary --version and
+      # the provenance header) follows the tag.
+      - name: Stamp version
+        shell: bash
+        run: |
+          python -c "
+          import re
+          s = open('Cargo.toml').read()
+          s = re.sub(r'^version = \"[^\"]+\"', 'version = \"${VERSION}\"', s, count=1, flags=re.M)
+          open('Cargo.toml', 'w').write(s)
+          "
+          grep -n '^version' Cargo.toml
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build
+        run: cargo build --release --locked --target "$TARGET"
+
+      # upx has no support for darwin/arm64 (and modern macOS signing makes
+      # packed binaries unusable) — compress everything else.
+      - name: Install upx
+        if: runner.os != 'macOS'
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            sudo apt-get update && sudo apt-get install -y upx-ucl
+          else
+            choco install upx
+          fi
+
+      - name: Compress
+        if: runner.os != 'macOS'
+        shell: bash
+        run: |
+          BIN="target/$TARGET/release/ddc"
+          [ "$RUNNER_OS" = "Windows" ] && BIN="$BIN.exe"
+          before=$(stat -c%s "$BIN" 2>/dev/null || stat -f%z "$BIN")
+          upx --best "$BIN"
+          after=$(stat -c%s "$BIN" 2>/dev/null || stat -f%z "$BIN")
+          echo "upx: $before -> $after bytes"
+
+      - name: Verify binary
+        shell: bash
+        run: |
+          BIN="target/$TARGET/release/ddc"
+          [ "$RUNNER_OS" = "Windows" ] && BIN="$BIN.exe"
+          OUT="$("$BIN" --version)"
+          echo "$OUT"
+          case "$OUT" in *" $VERSION"*) ;; *) echo "::error::version mismatch: want $VERSION"; exit 1;; esac
+
+      # Raw binaries as release assets — deliberately NOT zipped/tarballed.
+      - name: Stage asset
+        shell: bash
+        run: |
+          EXT=""
+          [ "$RUNNER_OS" = "Windows" ] && EXT=".exe"
+          cp "target/$TARGET/release/ddc$EXT" "ddc-$TAG-$TARGET$EXT"
+          ls -la "ddc-$TAG-$TARGET$EXT"
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: ddc-${{ env.TAG }}-${{ matrix.target }}*

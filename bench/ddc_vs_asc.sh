@@ -1,10 +1,10 @@
 #!/bin/bash
 # ddc vs ASC progressive-analysis benchmark.
 set -u
-DDC=/Users/e/Documents/project/ddc/target/release/ddc
-ASC=/Users/e/Documents/github/ASC
+DDC="${DDC:-$PWD/../target/release/ddc}"
+ASC="${ASC:-$HOME/Documents/github/ASC}"
 PY=$ASC/.venv/bin/python3
-DL=/Users/e/Downloads
+DL="${DL:-$HOME/Downloads}"
 
 run_ddc() { /usr/bin/time -p "$DDC" "$@" >/dev/null 2>/tmp/ddc-t.txt; grep '^real' /tmp/ddc-t.txt | awk '{print $2}'; }
 run_asc() { (cd "$ASC" && timeout 300 /usr/bin/time -p "$PY" main.py "$@" >/dev/null 2>/tmp/asc-t.txt); grep '^real' /tmp/asc-t.txt | awk '{print $2}'; }

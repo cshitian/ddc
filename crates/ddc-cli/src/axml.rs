@@ -244,7 +244,11 @@ fn render_value(a: &Attr, pool: &[String]) -> Result<String, String> {
     match a.data_type {
         TYPE_STRING => pool_get(pool, a.data as i32),
         TYPE_REFERENCE => Ok(format!("@0x{:08x}", a.data)),
-        TYPE_INT_BOOLEAN => Ok(if a.data != 0 { "true".into() } else { "false".into() }),
+        TYPE_INT_BOOLEAN => Ok(if a.data != 0 {
+            "true".into()
+        } else {
+            "false".into()
+        }),
         TYPE_INT_HEX => Ok(format!("0x{:x}", a.data as i32)),
         TYPE_INT_DEC => Ok((a.data as i32).to_string()),
         TYPE_FLOAT => Ok(format!("{:.6}", f32::from_bits(a.data))),

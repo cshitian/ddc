@@ -53,8 +53,7 @@ pub fn decompile_class(
         let _ = std::thread::Builder::new()
             .stack_size(64 * 1024 * 1024)
             .spawn(move || {
-                let r = decompile_class_impl(&pool2, &cls, &opts2)
-                    .map_err(|e| format!("{:#}", e));
+                let r = decompile_class_impl(&pool2, &cls, &opts2).map_err(|e| format!("{:#}", e));
                 let _ = tx.send(r);
             });
         pending.lock().unwrap().push((rx, name, deadline));
@@ -182,7 +181,11 @@ fn emit_class_body(
             }
         }
         if !class.interfaces.is_empty() {
-            head.push_str(if is_iface { " extends " } else { " implements " });
+            head.push_str(if is_iface {
+                " extends "
+            } else {
+                " implements "
+            });
             head.push_str(&join_dotted(&class.interfaces));
         }
     }
@@ -196,7 +199,15 @@ fn emit_class_body(
         if i > 0 || !class.instance_fields.is_empty() {
             out.push('\n');
         }
-        emit_field(pool, f, class.static_values.get(i), &class.name, out, depth + 1, true);
+        emit_field(
+            pool,
+            f,
+            class.static_values.get(i),
+            &class.name,
+            out,
+            depth + 1,
+            true,
+        );
     }
     if !class.instance_fields.is_empty() && !class.static_fields.is_empty() {
         out.push('\n');
@@ -401,13 +412,12 @@ fn emit_method(
     let param_names: Vec<String> = body
         .as_ref()
         .map(|b| {
-            let mut ps: Vec<(u16, String)> = b
-                .vt
-                .vars
-                .iter()
-                .filter(|v| v.is_param && v.name != "this")
-                .map(|v| (v.slot, v.name.clone()))
-                .collect();
+            let mut ps: Vec<(u16, String)> =
+                b.vt.vars
+                    .iter()
+                    .filter(|v| v.is_param && v.name != "this")
+                    .map(|v| (v.slot, v.name.clone()))
+                    .collect();
             ps.sort_by_key(|(s, _)| *s);
             ps.into_iter().map(|(_, n)| n).collect()
         })
@@ -436,7 +446,10 @@ fn emit_method(
             if i > 0 {
                 sig.push_str(", ");
             }
-            let name = param_names.get(i).cloned().unwrap_or_else(|| format!("p{}", i));
+            let name = param_names
+                .get(i)
+                .cloned()
+                .unwrap_or_else(|| format!("p{}", i));
             if varargs && i + 1 == n {
                 if let JavaType::Array(inner) = arg {
                     sig.push_str(&type_name(pool, inner));
@@ -457,8 +470,8 @@ fn emit_method(
         let Some(b) = body else { return Ok(None) };
         let printer = Printer::new(ctx, &b.vt);
         let t_print = std::time::Instant::now();
-    let body_text = printer.into_string(&b.body);
-    crate::method::phase_hit(3, t_print);
+        let body_text = printer.into_string(&b.body);
+        crate::method::phase_hit(3, t_print);
         let mut out = String::new();
         out.push_str(&ind);
         out.push_str("static {\n");
@@ -545,7 +558,11 @@ pub fn dotted(internal: &str) -> String {
 }
 
 fn join_dotted(names: &[String]) -> String {
-    names.iter().map(|n| dotted(n)).collect::<Vec<_>>().join(", ")
+    names
+        .iter()
+        .map(|n| dotted(n))
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 /// A printable type name (arrays render with `[]` suffixes). Nested class

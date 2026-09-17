@@ -35,8 +35,10 @@ pub(crate) fn manifest_bytes(input: &Path) -> Result<(String, Vec<u8>)> {
         .file_stem()
         .and_then(|s| s.to_str())
         .unwrap_or("input");
-    let mut apks: Vec<&crate::ZipEntry> =
-        entries.iter().filter(|e| e.name.ends_with(".apk")).collect();
+    let mut apks: Vec<&crate::ZipEntry> = entries
+        .iter()
+        .filter(|e| e.name.ends_with(".apk"))
+        .collect();
     apks.sort_by_key(|e| {
         let base = e.name == "base.apk"
             || e.name == format!("{stem}.apk")
@@ -48,7 +50,9 @@ pub(crate) fn manifest_bytes(input: &Path) -> Result<(String, Vec<u8>)> {
         if inner.len() < 4 || &inner[..2] != b"PK" {
             continue;
         }
-        if let Some(e) = zip_entries(&inner)?.into_iter().find(|n| n.name == "AndroidManifest.xml")
+        if let Some(e) = zip_entries(&inner)?
+            .into_iter()
+            .find(|n| n.name == "AndroidManifest.xml")
         {
             let raw = entry_bytes(&inner, &e)?;
             return Ok((format!("{}!{}", apk.name, e.name), raw));
@@ -197,4 +201,3 @@ pub(crate) fn facts_for(input: &Path) -> Result<ManifestFacts> {
     let (_, xml) = manifest_xml(input)?;
     Ok(parse_facts(&xml))
 }
-

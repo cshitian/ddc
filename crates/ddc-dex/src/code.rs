@@ -72,7 +72,11 @@ impl CodeItem {
             // Raw byte offset from the start of the handler list; resolved
             // below once the list has been walked.
             let handler_off = c.u2()? as usize;
-            tries.push(TryItem { start_addr, insn_count, handler_idx: handler_off });
+            tries.push(TryItem {
+                start_addr,
+                insn_count,
+                handler_idx: handler_off,
+            });
         }
 
         // encoded_catch_handler_list: uleb size, then handlers back to back.
@@ -116,7 +120,10 @@ impl CodeItem {
 
     fn parse_handler(mut c: Cursor<'_>) -> Option<CatchHandler> {
         let sz = c.read_sleb128()?;
-        let mut h = CatchHandler { catches: Vec::new(), catch_all: None };
+        let mut h = CatchHandler {
+            catches: Vec::new(),
+            catch_all: None,
+        };
         if sz != 0 {
             for _ in 0..sz.unsigned_abs() {
                 let ty = c.read_uleb128()? as u32;

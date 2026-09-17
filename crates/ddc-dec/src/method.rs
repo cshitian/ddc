@@ -74,11 +74,13 @@ pub fn decompile_method(
     // Pathological inputs (R8-merged model classes, obfuscated switch
     // cascades) can explode the copied-tail rendering; guard up front.
     if insn_count > 30_000 || n > 8_000 {
-        return Ok(Some(stub_body(format!(
-            "$DDC: method too large to decompile ({} insns, {} blocks)",
-            insn_count,
-            n
-        ), desc)));
+        return Ok(Some(stub_body(
+            format!(
+                "$DDC: method too large to decompile ({} insns, {} blocks)",
+                insn_count, n
+            ),
+            desc,
+        )));
     }
 
     // Visiting order: reverse postorder, then any stragglers (so every block
@@ -152,7 +154,10 @@ pub fn decompile_method(
     let try_entry_flags: Vec<bool> = (0..n)
         .map(|b| {
             !cfg.blocks[b].handlers.is_empty()
-                || cfg.exc_ranges.iter().any(|r| cfg.block_at(r.start) == Some(b))
+                || cfg
+                    .exc_ranges
+                    .iter()
+                    .any(|r| cfg.block_at(r.start) == Some(b))
         })
         .collect();
     let handler_types: Vec<Vec<Option<String>>> =
@@ -165,11 +170,15 @@ pub fn decompile_method(
     // large methods.
     let mut ver: Vec<u64> = vec![0; n]; // out-state version per block
     let mut built_ver: Vec<u64> = vec![u64::MAX; n]; // input signature when built
-    // input signature: entry=0; otherwise XOR/sum of (pred, ver[pred]) pairs.
+                                                     // input signature: entry=0; otherwise XOR/sum of (pred, ver[pred]) pairs.
     fn input_sig(cfg: &DexCfg, bid: usize, ver: &[u64]) -> u64 {
         let mut h: u64 = 1;
         for &p in &cfg.blocks[bid].pred {
-            h = h.wrapping_mul(31).wrapping_add(p as u64).wrapping_mul(31).wrapping_add(ver[p]);
+            h = h
+                .wrapping_mul(31)
+                .wrapping_add(p as u64)
+                .wrapping_mul(31)
+                .wrapping_add(ver[p]);
         }
         // Handler blocks also depend on their try-entry block's input.
         h
@@ -201,12 +210,13 @@ pub fn decompile_method(
         // 1. Signature gate FIRST: a visit whose input versions are
         //    unchanged skips the (clone-heavy) input-state computation
         //    entirely — that clone was the fixpoint's dominant cost.
-        let sig = input_sig(&cfg, bid, &ver) ^ (if is_handler {
-            let eb = handler_entry_block[&bid];
-            (eb as u64) << 32
-        } else {
-            0
-        });
+        let sig = input_sig(&cfg, bid, &ver)
+            ^ (if is_handler {
+                let eb = handler_entry_block[&bid];
+                (eb as u64) << 32
+            } else {
+                0
+            });
         let need_build = !built_once[bid] || built_ver[bid] != sig;
         if !need_build {
             // Handler blocks depend on their try-entry block's INPUT —
@@ -304,7 +314,10 @@ pub fn decompile_method(
             try_entry_snapshots.insert(bid, ins.clone());
         }
         BUILD_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-        INSN_LIFTED.fetch_add(cfg.block_ins(&cfg.blocks[bid]).len() as u64, std::sync::atomic::Ordering::Relaxed);
+        INSN_LIFTED.fetch_add(
+            cfg.block_ins(&cfg.blocks[bid]).len() as u64,
+            std::sync::atomic::Ordering::Relaxed,
+        );
         let htypes = &handler_types[bid];
         let block_ins = cfg.block_ins(&cfg.blocks[bid]);
         let lifter = Lifter::new(&env, &mut vt, ins, bid, &mut stable_vars, &mut mflags);
@@ -413,8 +426,7 @@ pub fn decompile_method(
         if term_is_exit {
             continue;
         }
-        let phi_set: std::collections::HashSet<u32> =
-            adds.iter().map(|(_, v, _)| *v).collect();
+        let phi_set: std::collections::HashSet<u32> = adds.iter().map(|(_, v, _)| *v).collect();
         let mut snapshots: Vec<Stmt> = Vec::new();
         // (phi, value) pairs with snapshot temps substituted.
         let mut emitted: Vec<(u32, Expr)> = Vec::new();
@@ -452,7 +464,10 @@ pub fn decompile_method(
         }
         for (v, e) in emitted {
             results[p].stmts.push(Stmt::ExprStmt(Expr::Assign {
-                target: Box::new(Expr::Local { var: v, ty: vt.var(v).ty.clone() }),
+                target: Box::new(Expr::Local {
+                    var: v,
+                    ty: vt.var(v).ty.clone(),
+                }),
                 op: jdc_core::ir::expr::AssignOp::Plain,
                 value: Box::new(e),
             }));
@@ -469,7 +484,11 @@ pub fn decompile_method(
     if n == 1 && !entry_is_handler && cfg.blocks[0].pred.is_empty() {
         let r = std::mem::replace(
             &mut results[0],
-            BlockResult { stmts: vec![], out_stack: vec![], term: jdc_core::ir::build::Term::Goto },
+            BlockResult {
+                stmts: vec![],
+                out_stack: vec![],
+                term: jdc_core::ir::build::Term::Goto,
+            },
         );
         let mut body = r.stmts;
         match r.term {
@@ -545,7 +564,10 @@ pub fn decompile_method(
     // method can recurse for effectively forever while the worker (and
     // the process) never finishes — Telegram's full run wrote every file
     // yet hung for 300+ seconds on 25 such classes.
-    let walk_budget: u64 = std::env::var("DDC_WALKBUDGET").ok().and_then(|v| v.parse().ok()).unwrap_or(8 * n as u64 + 128);
+    let walk_budget: u64 = std::env::var("DDC_WALKBUDGET")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(8 * n as u64 + 128);
     // Wall-clock guard for the walk: legit methods finish far under this
     // (weibo's largest legit monster ~150ms); the exponential explorations
     // (Telegram sendMessage family) cut to Gotos, same degradation as the
@@ -570,7 +592,8 @@ pub fn decompile_method(
             Default::default(),
         );
         let region = st.structure_method();
-        let mut converter = Converter::with_precomputed(&core_cfg, &results, groups.clone(), dom.clone());
+        let mut converter =
+            Converter::with_precomputed(&core_cfg, &results, groups.clone(), dom.clone());
         let candidate = converter.convert(region);
         jdc_core::structure::set_budget_override(None);
         jdc_core::structure::set_walk_visit_budget(None);
@@ -583,7 +606,10 @@ pub fn decompile_method(
         if std::env::var("DDC_TRACE").is_ok() {
             static TRACE_ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
             if *TRACE_ON.get_or_init(|| std::env::var("DDC_TRACE").is_ok()) {
-                eprintln!("[guard] {}.{} size={} budget={}", class.name, m.name, size, budget);
+                eprintln!(
+                    "[guard] {}.{} size={} budget={}",
+                    class.name, m.name, size, budget
+                );
             }
         }
         if size <= TREE_GUARD {
@@ -592,7 +618,10 @@ pub fn decompile_method(
         }
         if budget <= 16 {
             return Ok(Some(stub_body(
-                format!("$DDC: statement tree exploded ({} nodes) even at copy budget 16", size),
+                format!(
+                    "$DDC: statement tree exploded ({} nodes) even at copy budget 16",
+                    size
+                ),
                 desc,
             )));
         }
@@ -601,7 +630,14 @@ pub fn decompile_method(
     #[cfg(feature = "visit-stats")]
     if std::env::var("DDC_TRACE").is_ok() && n > 3 {
         let used = jdc_core::structure::walk_visits_consumed();
-        eprintln!("[visits] {}.{} blocks={} consumed={} ratio={:.1}", class.name, m.name, n, used, used as f64 / n as f64);
+        eprintln!(
+            "[visits] {}.{} blocks={} consumed={} ratio={:.1}",
+            class.name,
+            m.name,
+            n,
+            used,
+            used as f64 / n as f64
+        );
     }
     phase_hit_n(1, n, t_fix);
     let mut body = body.unwrap();
@@ -725,7 +761,10 @@ pub(crate) fn phase_hit(i: usize, t: std::time::Instant) {
     if !PHASE_ON.load(std::sync::atomic::Ordering::Relaxed) {
         return;
     }
-    PHASE_MICROS[i].fetch_add(t.elapsed().as_micros() as u64, std::sync::atomic::Ordering::Relaxed);
+    PHASE_MICROS[i].fetch_add(
+        t.elapsed().as_micros() as u64,
+        std::sync::atomic::Ordering::Relaxed,
+    );
 }
 
 /// Enable phase timers (DDC_PHASES=1).
@@ -877,7 +916,10 @@ fn record_bucket(n: usize, t0: std::time::Instant) {
         4
     };
     BUCKET_COUNT[bucket].fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-    BUCKET_MICROS[bucket].fetch_add(t0.elapsed().as_micros() as u64, std::sync::atomic::Ordering::Relaxed);
+    BUCKET_MICROS[bucket].fetch_add(
+        t0.elapsed().as_micros() as u64,
+        std::sync::atomic::Ordering::Relaxed,
+    );
 }
 
 /// True when the expression references any of the phi vars.
@@ -909,7 +951,11 @@ fn visit_phi_refs(e: &Expr, phis: &std::collections::HashSet<u32>, hit: &mut boo
         }
         Expr::PreIncDec { e, .. } | Expr::PostIncDec { e, .. } => kids.push(e),
         Expr::Field { owner: Some(o), .. } => kids.push(o),
-        Expr::Method { owner: Some(o), args, .. } => {
+        Expr::Method {
+            owner: Some(o),
+            args,
+            ..
+        } => {
             kids.push(o);
             kids.extend(args.iter());
         }
@@ -998,7 +1044,10 @@ fn join_side_types(vt: &VarTable, sides: &[&[Reg]], r: usize) -> TypeRef {
         let st = s.get(r).cloned().unwrap_or(Reg::Undef);
         let e = match st {
             Reg::Pending(e) | Reg::PendingCall(e) => e,
-            Reg::Live(v) => Expr::Local { var: v, ty: vt.var(v).ty.clone() },
+            Reg::Live(v) => Expr::Local {
+                var: v,
+                ty: vt.var(v).ty.clone(),
+            },
             _ => continue,
         };
         let t = e.type_ref().erased();

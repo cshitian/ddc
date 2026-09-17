@@ -5,7 +5,9 @@
 //! generic-aware queries answer "unknown" and the core degrades gracefully.
 
 use jdc_core::ir::expr::{Expr, TypeRef};
-use jdc_core::types::{ClassAccessFlags, FieldAccessFlags, GenericType, JavaType, MethodAccessFlags, MethodDescriptor};
+use jdc_core::types::{
+    ClassAccessFlags, FieldAccessFlags, GenericType, JavaType, MethodAccessFlags, MethodDescriptor,
+};
 use jdc_core::{Ctx, Family, NestedClass, NestedKind};
 
 use crate::access::*;
@@ -33,7 +35,9 @@ impl<'a> DexCtx<'a> {
 
     fn class_access_flags(&self, internal: &str) -> ClassAccessFlags {
         let mut f = ClassAccessFlags::empty();
-        let Some(pc) = self.find_class(internal) else { return f };
+        let Some(pc) = self.find_class(internal) else {
+            return f;
+        };
         let a = pc.access;
         if a & ACC_PUBLIC != 0 {
             f |= ClassAccessFlags::PUBLIC;
@@ -77,7 +81,10 @@ impl<'a> Ctx for DexCtx<'a> {
     }
 
     fn family(&self, root: &str) -> Family {
-        let mut fam = Family { root: root.to_string(), ..Default::default() };
+        let mut fam = Family {
+            root: root.to_string(),
+            ..Default::default()
+        };
         // Cached child index: BFS over the `$` chain from `root`.
         let mut queue: std::collections::VecDeque<String> =
             self.pool.children_of(root).iter().cloned().collect();
@@ -88,7 +95,9 @@ impl<'a> Ctx for DexCtx<'a> {
                     queue.push_back(c.clone());
                 }
             }
-            let Some(_) = self.find_class(&name) else { continue };
+            let Some(_) = self.find_class(&name) else {
+                continue;
+            };
             let root_prefix = format!("{}$", root);
             let rest: String = if name.starts_with(&root_prefix) {
                 name[root_prefix.len()..].to_string()
@@ -148,7 +157,9 @@ impl<'a> Ctx for DexCtx<'a> {
     }
 
     fn is_interface(&self, internal: &str) -> bool {
-        self.find_class(internal).map(|pc| pc.is_interface()).unwrap_or(false)
+        self.find_class(internal)
+            .map(|pc| pc.is_interface())
+            .unwrap_or(false)
     }
 
     fn is_sealed(&self, _internal: &str) -> bool {
@@ -156,7 +167,8 @@ impl<'a> Ctx for DexCtx<'a> {
     }
 
     fn super_name(&self, internal: &str) -> Option<String> {
-        self.find_class(internal).and_then(|pc| pc.super_name.clone())
+        self.find_class(internal)
+            .and_then(|pc| pc.super_name.clone())
     }
 
     fn has_class(&self, internal: &str) -> bool {
@@ -201,12 +213,7 @@ impl<'a> Ctx for DexCtx<'a> {
         Some(raw_field_flags(raw))
     }
 
-    fn method_flags(
-        &self,
-        internal: &str,
-        name: &str,
-        desc: &str,
-    ) -> Option<MethodAccessFlags> {
+    fn method_flags(&self, internal: &str, name: &str, desc: &str) -> Option<MethodAccessFlags> {
         let pc = self.find_class(internal)?;
         let m = pc.find_method(name, desc)?;
         Some(raw_method_flags(m.access))
@@ -241,11 +248,7 @@ impl<'a> Ctx for DexCtx<'a> {
         None
     }
 
-    fn ctor_formals_by_arity(
-        &self,
-        internal: &str,
-        arity: usize,
-    ) -> Option<Vec<GenericType>> {
+    fn ctor_formals_by_arity(&self, internal: &str, arity: usize) -> Option<Vec<GenericType>> {
         let pc = self.find_class(internal)?;
         let ctors = pc.ctors_by_arity(arity);
         let m = ctors.first()?;
@@ -368,9 +371,7 @@ fn raw_method_flags(raw: u32) -> MethodAccessFlags {
 pub fn java_type_to_generic(t: &JavaType) -> GenericType {
     match t {
         JavaType::Object(n) => GenericType::Class(class_sig_of(n)),
-        JavaType::Array(inner) => {
-            GenericType::Array(Box::new(java_type_to_generic(inner)))
-        }
+        JavaType::Array(inner) => GenericType::Array(Box::new(java_type_to_generic(inner))),
         other => GenericType::Primitive(other.primitive_char().unwrap_or('V')),
     }
 }

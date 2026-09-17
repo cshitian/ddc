@@ -15,22 +15,28 @@ use anyhow::{bail, Context, Result};
 
 mod axml;
 mod browse;
-mod manifest;
 mod findrefs;
 mod inputs;
+mod manifest;
 
-use inputs::{collect_images, dir_has_dex_files, expand_inputs, filter_images_by_dex, is_dex_ext, parse_images};
+use inputs::{
+    collect_images, dir_has_dex_files, expand_inputs, filter_images_by_dex, is_dex_ext,
+    parse_images,
+};
 
 // Expr-tree-heavy workloads do billions of small allocations; the system
 // allocator serializes cross-thread frees. mimalloc's per-thread heaps
 // unlock the flat thread-scaling curve.
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
-use ddc_dex::DexFile;
 use ddc_dec::{top_level_classes, ClassOptions, DexPool};
+use ddc_dex::DexFile;
 
 fn print_help() {
-    println!("ddc {} — DEX decompiler (Dalvik → Java)", env!("CARGO_PKG_VERSION"));
+    println!(
+        "ddc {} — DEX decompiler (Dalvik → Java)",
+        env!("CARGO_PKG_VERSION")
+    );
     println!();
     println!("Decompiles DEX images (versions 035-041, multi-dex APKs, invoke-custom)");
     println!("back into readable Java source.");
@@ -152,9 +158,21 @@ fn main() {
 fn is_subcommand(word: &str) -> bool {
     matches!(
         word,
-        "getclass" | "listclasses" | "findrefs" | "manifest" | "info"
-            | "strings" | "members" | "hierarchy" | "largest" | "disasm"
-            | "callers" | "pkg" | "getmethod" | "mainactivity" | "res"
+        "getclass"
+            | "listclasses"
+            | "findrefs"
+            | "manifest"
+            | "info"
+            | "strings"
+            | "members"
+            | "hierarchy"
+            | "largest"
+            | "disasm"
+            | "callers"
+            | "pkg"
+            | "getmethod"
+            | "mainactivity"
+            | "res"
     )
 }
 
@@ -200,9 +218,7 @@ fn cmd_manifest(args: &[String], t0: std::time::Instant) -> Result<()> {
     while i < args.len() {
         match args[i].as_str() {
             "-o" | "--output" => {
-                out = Some(PathBuf::from(
-                    args.get(i + 1).context("-o needs a value")?,
-                ));
+                out = Some(PathBuf::from(args.get(i + 1).context("-o needs a value")?));
                 i += 1;
             }
             "-c" | "--component" => {
@@ -251,7 +267,10 @@ fn cmd_info(args: &[String], _t0: std::time::Instant) -> Result<()> {
     let files = expand_inputs(&[input])?;
     let parsed = parse_images(collect_images(&files)?)?;
     let mut total_classes = 0usize;
-    println!("{:>10}  {:>8}  {:>10}  {:>10}  {:>9}  {:>10}", "image", "dex", "classes", "methods", "fields", "strings");
+    println!(
+        "{:>10}  {:>8}  {:>10}  {:>10}  {:>9}  {:>10}",
+        "image", "dex", "classes", "methods", "fields", "strings"
+    );
     for (label, dex) in &parsed {
         let classes = dex.class_defs.len();
         total_classes += classes;
@@ -265,7 +284,11 @@ fn cmd_info(args: &[String], _t0: std::time::Instant) -> Result<()> {
             dex.string_count(),
         );
     }
-    println!("total: {} image(s), {} classes", parsed.len(), total_classes);
+    println!(
+        "total: {} image(s), {} classes",
+        parsed.len(),
+        total_classes
+    );
     Ok(())
 }
 
@@ -315,10 +338,8 @@ fn cmd_listclasses(args: &[String], _t0: std::time::Instant) -> Result<()> {
                         // Stream and STOP at the class-name working set
                         // (id tables + string data): the code section —
                         // most of the bytes — is never inflated.
-                        inputs::inflate_until(
-                            img.data.bytes(),
-                            img.range.clone(),
-                            |out| match inputs::scan_prefix_needed(out) {
+                        inputs::inflate_until(img.data.bytes(), img.range.clone(), |out| {
+                            match inputs::scan_prefix_needed(out) {
                                 None => inputs::PrefixStep::Continue(0),
                                 Some(needed) => {
                                     if out.len() >= needed {
@@ -327,8 +348,8 @@ fn cmd_listclasses(args: &[String], _t0: std::time::Instant) -> Result<()> {
                                         inputs::PrefixStep::Continue(needed - out.len())
                                     }
                                 }
-                            },
-                        )
+                            }
+                        })
                         .unwrap_or_default()
                     }
                 };
@@ -432,10 +453,7 @@ pub(crate) fn getclass_text(
     dex_filters: &[String],
 ) -> Result<(String, Vec<String>)> {
     let files = expand_inputs(inputs)?;
-    let parsed = parse_images(filter_images_by_dex(
-        collect_images(&files)?,
-        dex_filters,
-    )?)?;
+    let parsed = parse_images(filter_images_by_dex(collect_images(&files)?, dex_filters)?)?;
     let internal = fqcn.replace('.', "/");
 
     // Which images actually define the class? (The pool is first-wins —
@@ -575,7 +593,11 @@ fn cmd_findrefs(args: &[String], t0: std::time::Instant) -> Result<()> {
     while i < args.len() {
         match args[i].as_str() {
             "--class" | "-C" => {
-                class = Some(args.get(i + 1).context("--class needs a value")?.to_string());
+                class = Some(
+                    args.get(i + 1)
+                        .context("--class needs a value")?
+                        .to_string(),
+                );
                 i += 1;
             }
             "--fuzzy-class" => fuzzy_class = true,
@@ -604,8 +626,16 @@ fn cmd_findrefs(args: &[String], t0: std::time::Instant) -> Result<()> {
     let query = match kind.as_str() {
         "string" => findrefs::FindQuery::String(value),
         "type" => findrefs::FindQuery::Type(value),
-        "method" => findrefs::FindQuery::Method { class, name: value, fuzzy_class },
-        "field" => findrefs::FindQuery::Field { class, name: value, fuzzy_class },
+        "method" => findrefs::FindQuery::Method {
+            class,
+            name: value,
+            fuzzy_class,
+        },
+        "field" => findrefs::FindQuery::Field {
+            class,
+            name: value,
+            fuzzy_class,
+        },
         other => bail!("findrefs: unknown kind {other:?} (string|type|method|field)"),
     };
 
@@ -622,7 +652,11 @@ fn cmd_findrefs(args: &[String], t0: std::time::Instant) -> Result<()> {
     // 353MB APK; ASC's per-worker streaming runs ~170MB).
     const SCANNERS: usize = 8;
     const IN_FLIGHT: usize = 12;
-    type Payload = (String, Vec<u8>, Option<(u8, std::collections::BTreeSet<u32>)>);
+    type Payload = (
+        String,
+        Vec<u8>,
+        Option<(u8, std::collections::BTreeSet<u32>)>,
+    );
     // One inflate/parse thread PER IMAGE (full decode parallelism); the
     // bounded channel backpressures the producers, so resident memory is
     // capped at IN_FLIGHT inflated images regardless of the dex count —
@@ -632,39 +666,34 @@ fn cmd_findrefs(args: &[String], t0: std::time::Instant) -> Result<()> {
         let chan = chan.clone();
         let query = query.clone();
         std::thread::spawn(move || -> Result<()> {
-            let handles: Vec<std::thread::JoinHandle<std::result::Result<(), String>>> =
-                images
-                    .into_iter()
-                    .map(|img| {
-                        let chan = chan.clone();
-                        let query = query.clone();
-                        std::thread::spawn(move || -> std::result::Result<(), String> {
-                            // Inflate only: the scan path works on the raw
-                            // image (zero table materialization). Deflated
-                            // entries stream through a PREFIX decider:
-                            // once the id tables + string data are in, the
-                            // query resolves on the prefix; a dex with NO
-                            // matching targets is dropped without paying
-                            // for its code section (the bulk of the bytes).
-                            let (raw, pre): (Vec<u8>, _) = match img.method {
-                                ZipMethod::Stored => {
-                                    (img.data.bytes()[img.range].to_vec(), None)
-                                }
-                                ZipMethod::Deflate => prefix_or_full(
-                                    img.data.bytes(),
-                                    &img.range,
-                                    &query,
-                                )?,
-                            };
-                            if raw.is_empty() {
-                                // Prefix resolution found no targets here.
-                                return Ok(());
+            let handles: Vec<std::thread::JoinHandle<std::result::Result<(), String>>> = images
+                .into_iter()
+                .map(|img| {
+                    let chan = chan.clone();
+                    let query = query.clone();
+                    std::thread::spawn(move || -> std::result::Result<(), String> {
+                        // Inflate only: the scan path works on the raw
+                        // image (zero table materialization). Deflated
+                        // entries stream through a PREFIX decider:
+                        // once the id tables + string data are in, the
+                        // query resolves on the prefix; a dex with NO
+                        // matching targets is dropped without paying
+                        // for its code section (the bulk of the bytes).
+                        let (raw, pre): (Vec<u8>, _) = match img.method {
+                            ZipMethod::Stored => (img.data.bytes()[img.range].to_vec(), None),
+                            ZipMethod::Deflate => {
+                                prefix_or_full(img.data.bytes(), &img.range, &query)?
                             }
-                            chan.push((img.label, raw, pre));
-                            Ok(())
-                        })
+                        };
+                        if raw.is_empty() {
+                            // Prefix resolution found no targets here.
+                            return Ok(());
+                        }
+                        chan.push((img.label, raw, pre));
+                        Ok(())
                     })
-                    .collect();
+                })
+                .collect();
             let mut first_err: Option<String> = None;
             for h in handles {
                 match h.join() {
@@ -790,9 +819,7 @@ impl<T> Chan<T> {
     }
     fn push(&self, v: T) {
         let mut q = self.q.lock().unwrap();
-        while q.len() >= self.cap
-            && !self.closed.load(std::sync::atomic::Ordering::Acquire)
-        {
+        while q.len() >= self.cap && !self.closed.load(std::sync::atomic::Ordering::Acquire) {
             q = self.not_full.wait(q).unwrap();
         }
         if self.closed.load(std::sync::atomic::Ordering::Acquire) {
@@ -807,7 +834,8 @@ impl<T> Chan<T> {
         // the notify_all has already fired — a lost wakeup that hangs the
         // scanner forever (seen as a 12-minute zombie test process).
         let _q = self.q.lock().unwrap();
-        self.closed.store(true, std::sync::atomic::Ordering::Release);
+        self.closed
+            .store(true, std::sync::atomic::Ordering::Release);
         self.not_empty.notify_all();
         self.not_full.notify_all();
     }
@@ -845,7 +873,9 @@ fn run() -> Result<()> {
     let mut only: Option<String> = None;
     let mut list = false;
     let mut comments = true;
-    let mut workers = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4);
+    let mut workers = std::thread::available_parallelism()
+        .map(|n| n.get())
+        .unwrap_or(4);
     let mut verbose = false;
 
     let mut i = 0;
@@ -960,11 +990,7 @@ fn run() -> Result<()> {
     }
 
     if verbose {
-        eprintln!(
-            "[i] {} dex file(s), {} classes",
-            dex_count,
-            pool.len()
-        );
+        eprintln!("[i] {} dex file(s), {} classes", dex_count, pool.len());
     }
 
     if list {
@@ -984,7 +1010,9 @@ fn run() -> Result<()> {
         ddc_dec::method::phases_enable();
         ddc_dec::method::dom_counters_enable();
     }
-    let opts = ClassOptions { provenance: comments };
+    let opts = ClassOptions {
+        provenance: comments,
+    };
     let targets: Vec<String> = match &only {
         Some(one) => {
             let internal = one.replace('.', "/");
@@ -1025,8 +1053,7 @@ fn run() -> Result<()> {
     // class; a dex whose counter hits zero releases its inflated bytes —
     // on lark that is ~360MB reclaimed progressively instead of resident
     // for the whole run.
-    let retire_mode = std::env::var("DDC_NORETIRE").is_err()
-        && !matches!(sink, Sink::Stdout);
+    let retire_mode = std::env::var("DDC_NORETIRE").is_err() && !matches!(sink, Sink::Stdout);
     if retire_mode {
         pool.arm_retirement();
     }
@@ -1143,105 +1170,122 @@ fn run() -> Result<()> {
                 std::thread::Builder::new()
                     .stack_size(64 * 1024 * 1024)
                     .spawn_scoped(scope, move || -> usize {
-                let mut local_failed = 0usize;
-                let worker_start = std::time::Instant::now();
-                let mut busy = std::time::Duration::ZERO;
-                let mut iter_start = std::time::Instant::now();
-                loop {
-                    let qi = cursor_ref.fetch_add(1, Ordering::Relaxed);
-                    let Some(chunk) = queue_ref.get(qi) else { break };
-                    // (includes the fetch itself — negligible next to a
-                    // chunk of 32 classes)
-                    busy += iter_start.elapsed();
-                    iter_start = std::time::Instant::now();
-                    for name in chunk {
-                    let ct0 = std::time::Instant::now();
-                    let Some(pc) = pool_ref.get(&name) else { continue };
-                    // A panic in one class must not take down the worker
-                    // (the whole chunk would be lost); pathological CFGs run
-                    // on a detached monitored thread (decompile_class
-                    // decides) whose handle is awaited with its deadline at
-                    // the END — the worker never blocks on it.
-                    let out = std::panic::catch_unwind(
-                        std::panic::AssertUnwindSafe(|| {
-                            ddc_dec::classdec::decompile_class(
-                                pool_ref,
-                                pc,
-                                opts_ref,
-                                pending_ref,
-                            )
-                        }),
-                    );
-                    let finished = match &out {
-                        Ok(Ok(_)) | Ok(Err(_)) | Err(_) => true,
-                    };
-                    if retire_mode {
-                        if let Some(image) = pool_ref.report_class_done(&name) {
-                            // Last class of this image: release it right
-                            // here (mark_released is &self-safe; bytes drop
-                            // when the final snapshot drops).
-                            pool_ref.release_images(&[image]);
-                        }
-                    }
-                    let _ = finished;
-                    match out {
-                        Ok(Ok(text)) => {
-                            match sink_ref {
-                                Sink::Stdout => {
-                                    if total > 1 {
-                                        println!("\n// ===== {} =====", name.replace('/', "."));
+                        let mut local_failed = 0usize;
+                        let worker_start = std::time::Instant::now();
+                        let mut busy = std::time::Duration::ZERO;
+                        let mut iter_start = std::time::Instant::now();
+                        loop {
+                            let qi = cursor_ref.fetch_add(1, Ordering::Relaxed);
+                            let Some(chunk) = queue_ref.get(qi) else {
+                                break;
+                            };
+                            // (includes the fetch itself — negligible next to a
+                            // chunk of 32 classes)
+                            busy += iter_start.elapsed();
+                            iter_start = std::time::Instant::now();
+                            for name in chunk {
+                                let ct0 = std::time::Instant::now();
+                                let Some(pc) = pool_ref.get(&name) else {
+                                    continue;
+                                };
+                                // A panic in one class must not take down the worker
+                                // (the whole chunk would be lost); pathological CFGs run
+                                // on a detached monitored thread (decompile_class
+                                // decides) whose handle is awaited with its deadline at
+                                // the END — the worker never blocks on it.
+                                let out =
+                                    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                                        ddc_dec::classdec::decompile_class(
+                                            pool_ref,
+                                            pc,
+                                            opts_ref,
+                                            pending_ref,
+                                        )
+                                    }));
+                                let finished = match &out {
+                                    Ok(Ok(_)) | Ok(Err(_)) | Err(_) => true,
+                                };
+                                if retire_mode {
+                                    if let Some(image) = pool_ref.report_class_done(&name) {
+                                        // Last class of this image: release it right
+                                        // here (mark_released is &self-safe; bytes drop
+                                        // when the final snapshot drops).
+                                        pool_ref.release_images(&[image]);
                                     }
-                                    println!("{}", text);
                                 }
-                                Sink::File(f) => {
-                                    if !nowrite {
-                                        if let Some(parent) = f.parent() {
-                                            let _ = std::fs::create_dir_all(parent);
+                                let _ = finished;
+                                match out {
+                                    Ok(Ok(text)) => {
+                                        match sink_ref {
+                                            Sink::Stdout => {
+                                                if total > 1 {
+                                                    println!(
+                                                        "\n// ===== {} =====",
+                                                        name.replace('/', ".")
+                                                    );
+                                                }
+                                                println!("{}", text);
+                                            }
+                                            Sink::File(f) => {
+                                                if !nowrite {
+                                                    if let Some(parent) = f.parent() {
+                                                        let _ = std::fs::create_dir_all(parent);
+                                                    }
+                                                    let _ = std::fs::write(f, text);
+                                                }
+                                            }
+                                            Sink::Dir(d) => {
+                                                if !nowrite {
+                                                    // Hand off to the writer pool; the bounded
+                                                    // queue blocks only when writers fall
+                                                    // behind (backpressure, not a stall).
+                                                    wq_ref.push((source_path(d, &name), text));
+                                                }
+                                            }
                                         }
-                                        let _ = std::fs::write(f, text);
+                                    }
+                                    Ok(Err(e)) => {
+                                        if format!("{:#}", e)
+                                            .contains("deferred to monitored thread")
+                                        {
+                                            // Result arrives via the pending registry
+                                            // (awaited after the chunk phase).
+                                            continue;
+                                        }
+                                        local_failed += 1;
+                                        eprintln!("[!] {}: {:#}", name.replace('/', "."), e);
+                                    }
+                                    Err(e) => {
+                                        local_failed += 1;
+                                        let msg = e
+                                            .downcast_ref::<String>()
+                                            .cloned()
+                                            .or_else(|| {
+                                                e.downcast_ref::<&str>().map(|m| m.to_string())
+                                            })
+                                            .unwrap_or_else(|| "panic".into());
+                                        eprintln!("[!] {}: {}", name.replace('/', "."), msg);
                                     }
                                 }
-                                Sink::Dir(d) => {
-                                    if !nowrite {
-                                        // Hand off to the writer pool; the bounded
-                                        // queue blocks only when writers fall
-                                        // behind (backpressure, not a stall).
-                                        wq_ref.push((source_path(d, &name), text));
-                                    }
+                                let n = done_ref.fetch_add(1, Ordering::Relaxed) + 1;
+                                if class_time && ct0.elapsed().as_millis() >= 50 {
+                                    eprintln!(
+                                        "[ctime] {:>6}ms {}",
+                                        ct0.elapsed().as_millis(),
+                                        name
+                                    );
+                                }
+                                if verbose && n % 500 == 0 {
+                                    eprintln!("[i] {}/{} classes", n, total);
                                 }
                             }
                         }
-                        Ok(Err(e)) => {
-                            if format!("{:#}", e).contains("deferred to monitored thread") {
-                                // Result arrives via the pending registry
-                                // (awaited after the chunk phase).
-                                continue;
-                            }
-                            local_failed += 1;
-                            eprintln!("[!] {}: {:#}", name.replace('/', "."), e);
-                        }
-                        Err(e) => {
-                            local_failed += 1;
-                            let msg = e
-                                .downcast_ref::<String>()
-                                .cloned()
-                                .or_else(|| e.downcast_ref::<&str>().map(|m| m.to_string()))
-                                .unwrap_or_else(|| "panic".into());
-                            eprintln!("[!] {}: {}", name.replace('/', "."), msg);
-                        }
-                    }
-                        let n = done_ref.fetch_add(1, Ordering::Relaxed) + 1;
-                        if class_time && ct0.elapsed().as_millis() >= 50 {
-                            eprintln!("[ctime] {:>6}ms {}", ct0.elapsed().as_millis(), name);
-                        }
-                        if verbose && n % 500 == 0 {
-                            eprintln!("[i] {}/{} classes", n, total);
-                        }
-                    }
-                }
-                WORKER_MICROS.fetch_add(worker_start.elapsed().as_micros() as u64, Ordering::Relaxed);
-                BUSY_MICROS.fetch_add(busy.as_micros() as u64, Ordering::Relaxed);
-                local_failed
+                        WORKER_MICROS.fetch_add(
+                            worker_start.elapsed().as_micros() as u64,
+                            Ordering::Relaxed,
+                        );
+                        BUSY_MICROS.fetch_add(busy.as_micros() as u64, Ordering::Relaxed);
+                        local_failed
                     })
                     .map(|h| h),
             );
@@ -1267,36 +1311,37 @@ fn run() -> Result<()> {
             std::time::Duration::ZERO
         };
         match rx.recv_timeout(remaining) {
-            Ok(Ok(text)) => {
-                match &sink {
-                    Sink::Stdout => {
-                        if total > 1 {
-                            println!("\n// ===== {} =====", name.replace('/', "."));
-                        }
-                        println!("{}", text);
+            Ok(Ok(text)) => match &sink {
+                Sink::Stdout => {
+                    if total > 1 {
+                        println!("\n// ===== {} =====", name.replace('/', "."));
                     }
-                    Sink::File(f) => {
-                        if !nowrite {
-                            if let Some(parent) = f.parent() {
-                                let _ = std::fs::create_dir_all(parent);
-                            }
-                            let _ = std::fs::write(f, text);
+                    println!("{}", text);
+                }
+                Sink::File(f) => {
+                    if !nowrite {
+                        if let Some(parent) = f.parent() {
+                            let _ = std::fs::create_dir_all(parent);
                         }
-                    }
-                    Sink::Dir(d) => {
-                        if !nowrite {
-                            wq.push((source_path(d, &name), text));
-                        }
+                        let _ = std::fs::write(f, text);
                     }
                 }
-            }
+                Sink::Dir(d) => {
+                    if !nowrite {
+                        wq.push((source_path(d, &name), text));
+                    }
+                }
+            },
             Ok(Err(e)) => {
                 failed.fetch_add(1, Ordering::Relaxed);
                 eprintln!("[!] {}: {}", name.replace('/', "."), e);
             }
             Err(_) => {
                 failed.fetch_add(1, Ordering::Relaxed);
-                eprintln!("[!] {}: decompile timed out (pathological CFG)", name.replace('/', "."));
+                eprintln!(
+                    "[!] {}: decompile timed out (pathological CFG)",
+                    name.replace('/', ".")
+                );
             }
         }
     }
@@ -1322,7 +1367,10 @@ fn run() -> Result<()> {
             100.0 * busy / worker.max(0.001)
         );
         let (dc, db) = ddc_dec::method::dom_counters();
-        eprintln!("[dom] {} compute_dominators calls, {} total blocks scanned", dc, db);
+        eprintln!(
+            "[dom] {} compute_dominators calls, {} total blocks scanned",
+            dc, db
+        );
     }
 
     if std::env::var("DDC_PHASES").is_ok() {
@@ -1346,7 +1394,10 @@ fn run() -> Result<()> {
         let (b, i) = ddc_dec::method::dump_builds();
         eprintln!("[builds] {} block-lifts, {} insns lifted", b, i);
         let (ch, ci) = ddc_dec::method::dump_caps();
-        eprintln!("[caps] {} methods hit visit cap, {} (insns*1000+blocks sum)", ch, ci);
+        eprintln!(
+            "[caps] {} methods hit visit cap, {} (insns*1000+blocks sum)",
+            ch, ci
+        );
         let b = ddc_dec::method::dump_buckets();
         let labels = ["<=1 blk", "2-5 blk", "6-20 blk", "21-100 blk", ">100 blk"];
         eprintln!("[buckets]");
@@ -1419,11 +1470,7 @@ fn fmt_secs(d: std::time::Duration) -> String {
 /// directory. With no output given, every input writes to a sibling
 /// `<stem>-out/` directory (single .dex inputs included: a dex always
 /// carries many classes, unlike jcdc's single .class).
-fn resolve_sink(
-    inputs: &[PathBuf],
-    out: Option<&str>,
-    targets: &[String],
-) -> Result<Sink> {
+fn resolve_sink(inputs: &[PathBuf], out: Option<&str>, targets: &[String]) -> Result<Sink> {
     let single_class = targets.len() == 1;
     match out {
         Some("-") => Ok(Sink::Stdout),
@@ -1471,9 +1518,6 @@ fn resolve_sink(
         }
     }
 }
-
-
-
 
 /// `com/foo/Bar$Inner` → `<out>/com/foo/Bar$Inner.java`.
 fn source_path(out: &Path, internal: &str) -> PathBuf {
@@ -1536,7 +1580,11 @@ pub(crate) fn zip_entries(data: &[u8]) -> Result<Vec<ZipEntry>> {
                     continue;
                 }
             };
-            out.push(ZipEntry { name, range: start..end, method: m });
+            out.push(ZipEntry {
+                name,
+                range: start..end,
+                method: m,
+            });
         }
         p += 46 + name_len + extra_len + comm_len;
     }

@@ -220,8 +220,8 @@ impl<'a> RawDex<'a> {
             return Vec::new();
         }
         let p = interfaces_off as usize;
-        let n = u32::from_le_bytes([self.d[p], self.d[p + 1], self.d[p + 2], self.d[p + 3]])
-            as usize;
+        let n =
+            u32::from_le_bytes([self.d[p], self.d[p + 1], self.d[p + 2], self.d[p + 3]]) as usize;
         let mut out = Vec::with_capacity(n);
         for i in 0..n {
             let q = p + 4 + 2 * i;
@@ -246,10 +246,7 @@ impl<'a> RawDex<'a> {
     }
 
     /// Iterate the class's methods: (method_idx, access, code_off).
-    pub(crate) fn methods_of(
-        &self,
-        class_data_off: usize,
-    ) -> Option<Vec<(u32, u32, u32)>> {
+    pub(crate) fn methods_of(&self, class_data_off: usize) -> Option<Vec<(u32, u32, u32)>> {
         if class_data_off == 0 {
             return Some(Vec::new());
         }
@@ -313,7 +310,11 @@ impl<'a> RawDex<'a> {
         let class_idx = u16::from_le_bytes([self.d[o], self.d[o + 1]]) as u32;
         let type_idx = u16::from_le_bytes([self.d[o + 2], self.d[o + 3]]) as u32;
         let name_idx = self.u4(o + 4);
-        Some((class_idx, self.string_bytes(name_idx)?, self.type_bytes(type_idx)?))
+        Some((
+            class_idx,
+            self.string_bytes(name_idx)?,
+            self.type_bytes(type_idx)?,
+        ))
     }
 
     /// `name(params)ret` from a proto id (12-byte proto_id items).
@@ -463,10 +464,7 @@ fn contains_pair(code: &[u8], [first, second]: [u8; 2]) -> bool {
 /// Whether the query resolves to ZERO targets on a (possibly partial)
 /// image. `None` when the prefix cannot answer yet (incomplete tables or
 /// string data beyond its end) — the caller keeps inflating.
-pub fn resolve_on_prefix(
-    image: &[u8],
-    query: &FindQuery,
-) -> Option<(u8, BTreeSet<u32>)> {
+pub fn resolve_on_prefix(image: &[u8], query: &FindQuery) -> Option<(u8, BTreeSet<u32>)> {
     let dex = RawDex::parse(image).ok()?;
     // Completeness: every string must sit fully inside the prefix —
     // otherwise the resolution would silently miss targets.
@@ -485,7 +483,11 @@ pub fn scan_image(
     query: &FindQuery,
     pre: Option<(u8, BTreeSet<u32>)>,
 ) -> Result<Vec<Hit>> {
-    let dex_name = label.rsplit_once('!').map(|(_, e)| e).unwrap_or(label).to_string();
+    let dex_name = label
+        .rsplit_once('!')
+        .map(|(_, e)| e)
+        .unwrap_or(label)
+        .to_string();
     let dex = RawDex::parse(image)?;
     let (kind_bit, targets): (u8, BTreeSet<u32>) =
         pre.unwrap_or_else(|| resolve_targets(&dex, query));
@@ -526,13 +528,23 @@ pub fn resolve_targets(dex: &RawDex, query: &FindQuery) -> (u8, BTreeSet<u32>) {
         ),
         FindQuery::Type(p) => (
             K_TYPE,
-            dex.matching_types(normalize_type(p).as_bytes()).into_iter().collect(),
+            dex.matching_types(normalize_type(p).as_bytes())
+                .into_iter()
+                .collect(),
         ),
-        FindQuery::Method { class, name, fuzzy_class } => (
+        FindQuery::Method {
+            class,
+            name,
+            fuzzy_class,
+        } => (
             K_METHOD,
             matching_members(dex, true, name, class.as_deref(), *fuzzy_class),
         ),
-        FindQuery::Field { class, name, fuzzy_class } => (
+        FindQuery::Field {
+            class,
+            name,
+            fuzzy_class,
+        } => (
             K_FIELD,
             matching_members(dex, false, name, class.as_deref(), *fuzzy_class),
         ),
@@ -585,109 +597,108 @@ fn scan_class(
     prefilter: &Option<Prefilter>,
     hits: &mut Vec<Hit>,
 ) {
-        let mut cur = class_data_off;
-        let d = dex.d;
-        let mut uleb = move || -> Option<u32> {
-            let mut v: u32 = 0;
-            let mut shift = 0;
-            loop {
-                if cur >= d.len() {
-                    return None;
-                }
-                let b = d[cur];
-                cur += 1;
-                v |= ((b & 0x7f) as u32) << shift;
-                shift += 7;
-                if b & 0x80 == 0 {
-                    return Some(v);
+    let mut cur = class_data_off;
+    let d = dex.d;
+    let mut uleb = move || -> Option<u32> {
+        let mut v: u32 = 0;
+        let mut shift = 0;
+        loop {
+            if cur >= d.len() {
+                return None;
+            }
+            let b = d[cur];
+            cur += 1;
+            v |= ((b & 0x7f) as u32) << shift;
+            shift += 7;
+            if b & 0x80 == 0 {
+                return Some(v);
+            }
+        }
+    };
+    let (Some(sf), Some(inf), Some(dm), Some(vm)) = (uleb(), uleb(), uleb(), uleb()) else {
+        return;
+    };
+    for _ in 0..sf + inf {
+        uleb();
+        uleb();
+    }
+    for count in [dm, vm] {
+        let mut method_idx = 0u32;
+        for _ in 0..count {
+            let Some(diff) = uleb() else { break };
+            method_idx = method_idx.wrapping_add(diff);
+            uleb();
+            let code_off = uleb().unwrap_or(0) as usize;
+            if code_off == 0 {
+                continue;
+            }
+            // code_item header: 4×u2, u4 debug, u4 insns_size.
+            if code_off + 16 > dex.d.len() {
+                continue;
+            }
+            let insns_size = dex.u4(code_off + 12) as usize;
+            let start = code_off + 16;
+            let end = (start + 2 * insns_size).min(dex.d.len());
+            if start >= end {
+                continue;
+            }
+            let code = &dex.d[start..end];
+            if let Some(pf) = &prefilter {
+                if !pf.might_hit(code) {
+                    continue;
                 }
             }
-        };
-        let (Some(sf), Some(inf), Some(dm), Some(vm)) = (uleb(), uleb(), uleb(), uleb()) else {
-            return;
-        };
-        for _ in 0..sf + inf {
-            uleb();
-            uleb();
-        }
-        for count in [dm, vm] {
-            let mut method_idx = 0u32;
-            for _ in 0..count {
-                let Some(diff) = uleb() else { break };
-                method_idx = method_idx.wrapping_add(diff);
-                uleb();
-                let code_off = uleb().unwrap_or(0) as usize;
-                if code_off == 0 {
-                    continue;
+            // Per-method aggregation: one Hit with every matched
+            // target (a method with several hits stays ONE line —
+            // the instruction kind is that of the first hit).
+            let mut owner: Option<String> = None;
+            let mut matched: Vec<String> = Vec::new();
+            let mut first_insn: Option<&'static str> = None;
+            scan_instructions(code, &mut |op, pc, bytes| {
+                if OPCODE_KINDS[op as usize] & kind_bit == 0 {
+                    return;
                 }
-                // code_item header: 4×u2, u4 debug, u4 insns_size.
-                if code_off + 16 > dex.d.len() {
-                    continue;
+                let idx = if op == 0x1b {
+                    (unit_at(bytes, pc + 1) as u32) | ((unit_at(bytes, pc + 2) as u32) << 16)
+                } else {
+                    unit_at(bytes, pc + 1) as u32
+                };
+                if !targets.contains(&idx) {
+                    return;
                 }
-                let insns_size = dex.u4(code_off + 12) as usize;
-                let start = code_off + 16;
-                let end = (start + 2 * insns_size).min(dex.d.len());
-                if start >= end {
-                    continue;
+                if owner.is_none() {
+                    owner = Some(render_owner(&dex, method_idx));
                 }
-                let code = &dex.d[start..end];
-                if let Some(pf) = &prefilter {
-                    if !pf.might_hit(code) {
-                        continue;
-                    }
+                if first_insn.is_none() {
+                    first_insn = Some(kind_name(op));
                 }
-                // Per-method aggregation: one Hit with every matched
-                // target (a method with several hits stays ONE line —
-                // the instruction kind is that of the first hit).
-                let mut owner: Option<String> = None;
-                let mut matched: Vec<String> = Vec::new();
-                let mut first_insn: Option<&'static str> = None;
-                scan_instructions(code, &mut |op, pc, bytes| {
-                    if OPCODE_KINDS[op as usize] & kind_bit == 0 {
-                        return;
-                    }
-                    let idx = if op == 0x1b {
-                        (unit_at(bytes, pc + 1) as u32)
-                            | ((unit_at(bytes, pc + 2) as u32) << 16)
-                    } else {
-                        unit_at(bytes, pc + 1) as u32
-                    };
-                    if !targets.contains(&idx) {
-                        return;
-                    }
-                    if owner.is_none() {
-                        owner = Some(render_owner(&dex, method_idx));
-                    }
-                    if first_insn.is_none() {
-                        first_insn = Some(kind_name(op));
-                    }
-                    let target = match kind_bit {
-                        K_STRING => match dex.string(idx) {
-                            Some(s) => format!("{s:?}"),
-                            None => return,
-                        },
-                        K_TYPE => match dex.type_bytes(idx) {
-                            Some(b) => decode_mutf8_lossy(b),
-                            None => return,
-                        },
-                        K_METHOD => render_member(&dex, idx, true),
-                        _ => render_member(&dex, idx, false),
-                    };
-                    if !matched.contains(&target) {
-                        matched.push(target);
-                    }
+                let target = match kind_bit {
+                    K_STRING => match dex.string(idx) {
+                        Some(s) => format!("{s:?}"),
+                        None => return,
+                    },
+                    K_TYPE => match dex.type_bytes(idx) {
+                        Some(b) => decode_mutf8_lossy(b),
+                        None => return,
+                    },
+                    K_METHOD => render_member(&dex, idx, true),
+                    _ => render_member(&dex, idx, false),
+                };
+                if !matched.contains(&target) {
+                    matched.push(target);
+                }
+            });
+            if owner.is_some() {
+                hits.push(Hit {
+                    dex: dex_name.to_string(),
+                    class: class.to_string(),
+                    method: owner.unwrap_or_default(),
+                    insn: first_insn.unwrap_or("ref"),
+                    targets: matched,
                 });
-                if owner.is_some() {
-                    hits.push(Hit {
-                        dex: dex_name.to_string(),
-                        class: class.to_string(),
-                        method: owner.unwrap_or_default(),
-                        insn: first_insn.unwrap_or("ref"),
-                        targets: matched,
-                    });
-                }
             }
         }
+    }
 }
 
 #[inline]

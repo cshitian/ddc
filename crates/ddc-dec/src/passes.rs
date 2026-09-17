@@ -42,7 +42,11 @@ fn walk_stmt_exprs<F: FnMut(&mut Expr)>(s: &mut Stmt, f: &mut F) {
                 f(e);
             }
         }
-        Stmt::If { cond, then_stmt, else_stmt } => {
+        Stmt::If {
+            cond,
+            then_stmt,
+            else_stmt,
+        } => {
             f(cond);
             walk_stmt_exprs(then_stmt, f);
             if let Some(e) = else_stmt {
@@ -57,7 +61,12 @@ fn walk_stmt_exprs<F: FnMut(&mut Expr)>(s: &mut Stmt, f: &mut F) {
             walk_stmt_exprs(body, f);
             f(cond);
         }
-        Stmt::For { init, cond, update, body } => {
+        Stmt::For {
+            init,
+            cond,
+            update,
+            body,
+        } => {
             for x in init.iter_mut() {
                 walk_stmt_exprs(x, f);
             }
@@ -73,7 +82,12 @@ fn walk_stmt_exprs<F: FnMut(&mut Expr)>(s: &mut Stmt, f: &mut F) {
             f(iterable);
             walk_stmt_exprs(body, f);
         }
-        Stmt::Switch { selector, cases, default, .. } => {
+        Stmt::Switch {
+            selector,
+            cases,
+            default,
+            ..
+        } => {
             f(selector);
             for c in cases {
                 for x in c.body.iter_mut() {
@@ -87,7 +101,11 @@ fn walk_stmt_exprs<F: FnMut(&mut Expr)>(s: &mut Stmt, f: &mut F) {
                 walk_stmt_exprs(d, f);
             }
         }
-        Stmt::Try { body, catches, finally } => {
+        Stmt::Try {
+            body,
+            catches,
+            finally,
+        } => {
             walk_stmt_exprs(body, f);
             for c in catches {
                 walk_stmt_exprs(&mut c.body, f);
@@ -96,7 +114,12 @@ fn walk_stmt_exprs<F: FnMut(&mut Expr)>(s: &mut Stmt, f: &mut F) {
                 walk_stmt_exprs(fl, f);
             }
         }
-        Stmt::TryWithResources { resources, body, catches, finally } => {
+        Stmt::TryWithResources {
+            resources,
+            body,
+            catches,
+            finally,
+        } => {
             for x in resources.iter_mut() {
                 walk_stmt_exprs(x, f);
             }
@@ -329,7 +352,11 @@ fn stmt_collect_vars(s: &Stmt, out: &mut HashSet<u32>, assignments: bool) {
                 collect_vars(e, out);
             }
         }
-        Stmt::If { cond, then_stmt, else_stmt } => {
+        Stmt::If {
+            cond,
+            then_stmt,
+            else_stmt,
+        } => {
             collect_vars(cond, out);
             stmt_collect_vars(then_stmt, out, assignments);
             if let Some(e) = else_stmt {
@@ -344,7 +371,12 @@ fn stmt_collect_vars(s: &Stmt, out: &mut HashSet<u32>, assignments: bool) {
             stmt_collect_vars(body, out, assignments);
             collect_vars(cond, out);
         }
-        Stmt::For { init, cond, update, body } => {
+        Stmt::For {
+            init,
+            cond,
+            update,
+            body,
+        } => {
             for x in init {
                 stmt_collect_vars(x, out, assignments);
             }
@@ -356,14 +388,24 @@ fn stmt_collect_vars(s: &Stmt, out: &mut HashSet<u32>, assignments: bool) {
             }
             stmt_collect_vars(body, out, assignments);
         }
-        Stmt::ForEach { var, iterable, body, .. } => {
+        Stmt::ForEach {
+            var,
+            iterable,
+            body,
+            ..
+        } => {
             if assignments {
                 out.insert(*var);
             }
             collect_vars(iterable, out);
             stmt_collect_vars(body, out, assignments);
         }
-        Stmt::Switch { selector, cases, default, .. } => {
+        Stmt::Switch {
+            selector,
+            cases,
+            default,
+            ..
+        } => {
             collect_vars(selector, out);
             for c in cases {
                 for x in &c.body {
@@ -374,7 +416,11 @@ fn stmt_collect_vars(s: &Stmt, out: &mut HashSet<u32>, assignments: bool) {
                 stmt_collect_vars(d, out, assignments);
             }
         }
-        Stmt::Try { body, catches, finally } => {
+        Stmt::Try {
+            body,
+            catches,
+            finally,
+        } => {
             stmt_collect_vars(body, out, assignments);
             for c in catches {
                 stmt_collect_vars(&c.body, out, assignments);
@@ -383,7 +429,12 @@ fn stmt_collect_vars(s: &Stmt, out: &mut HashSet<u32>, assignments: bool) {
                 stmt_collect_vars(f, out, assignments);
             }
         }
-        Stmt::TryWithResources { resources, body, catches, finally } => {
+        Stmt::TryWithResources {
+            resources,
+            body,
+            catches,
+            finally,
+        } => {
             for x in resources {
                 stmt_collect_vars(x, out, assignments);
             }
@@ -418,7 +469,11 @@ fn walk_all<F: FnMut(&Stmt)>(s: &Stmt, f: &mut F) {
                 walk_all(x, f);
             }
         }
-        Stmt::If { then_stmt, else_stmt, .. } => {
+        Stmt::If {
+            then_stmt,
+            else_stmt,
+            ..
+        } => {
             walk_all(then_stmt, f);
             if let Some(e) = else_stmt {
                 walk_all(e, f);
@@ -442,7 +497,11 @@ fn walk_all<F: FnMut(&Stmt)>(s: &Stmt, f: &mut F) {
                 walk_all(d, f);
             }
         }
-        Stmt::Try { body, catches, finally } => {
+        Stmt::Try {
+            body,
+            catches,
+            finally,
+        } => {
             walk_all(body, f);
             for c in catches {
                 walk_all(&c.body, f);
@@ -451,7 +510,12 @@ fn walk_all<F: FnMut(&Stmt)>(s: &Stmt, f: &mut F) {
                 walk_all(fl, f);
             }
         }
-        Stmt::TryWithResources { resources, body, catches, finally } => {
+        Stmt::TryWithResources {
+            resources,
+            body,
+            catches,
+            finally,
+        } => {
             for x in resources {
                 walk_all(x, f);
             }
@@ -476,7 +540,11 @@ fn walk_all<F: FnMut(&Stmt)>(s: &Stmt, f: &mut F) {
 /// from move-exception) becomes the catch variable.
 pub fn bind_catches(s: &mut Stmt, vt: &mut VarTable) {
     match s {
-        Stmt::Try { body, catches, finally } => {
+        Stmt::Try {
+            body,
+            catches,
+            finally,
+        } => {
             bind_catches(body, vt);
             for c in catches.iter_mut() {
                 if c.var == u32::MAX {
@@ -519,7 +587,11 @@ pub fn bind_catches(s: &mut Stmt, vt: &mut VarTable) {
                 bind_catches(x, vt);
             }
         }
-        Stmt::If { then_stmt, else_stmt, .. } => {
+        Stmt::If {
+            then_stmt,
+            else_stmt,
+            ..
+        } => {
             bind_catches(then_stmt, vt);
             if let Some(e) = else_stmt {
                 bind_catches(e, vt);
@@ -532,9 +604,9 @@ pub fn bind_catches(s: &mut Stmt, vt: &mut VarTable) {
             }
             bind_catches(body, vt);
         }
-        Stmt::ForEach { body, .. } | Stmt::Labeled { body, .. } | Stmt::Synchronized { body, .. } => {
-            bind_catches(body, vt)
-        }
+        Stmt::ForEach { body, .. }
+        | Stmt::Labeled { body, .. }
+        | Stmt::Synchronized { body, .. } => bind_catches(body, vt),
         Stmt::Switch { cases, default, .. } => {
             for c in cases.iter_mut() {
                 for x in c.body.iter_mut() {
@@ -576,7 +648,11 @@ fn strip_empty(s: &mut Stmt) {
                 strip_empty(x);
             }
         }
-        Stmt::If { then_stmt, else_stmt, .. } => {
+        Stmt::If {
+            then_stmt,
+            else_stmt,
+            ..
+        } => {
             strip_empty(then_stmt);
             if let Some(e) = else_stmt {
                 strip_empty(e);
@@ -599,7 +675,11 @@ fn strip_empty(s: &mut Stmt) {
                 strip_empty(d);
             }
         }
-        Stmt::Try { body, catches, finally } => {
+        Stmt::Try {
+            body,
+            catches,
+            finally,
+        } => {
             strip_empty(body);
             for c in catches {
                 strip_empty(&mut c.body);
@@ -651,7 +731,11 @@ fn walk_mut<F: FnMut(&mut Stmt)>(s: &mut Stmt, f: &mut F) {
                 f(x);
             }
         }
-        Stmt::If { then_stmt, else_stmt, .. } => {
+        Stmt::If {
+            then_stmt,
+            else_stmt,
+            ..
+        } => {
             f(then_stmt);
             if let Some(e) = else_stmt {
                 f(e);
@@ -675,7 +759,11 @@ fn walk_mut<F: FnMut(&mut Stmt)>(s: &mut Stmt, f: &mut F) {
                 f(d);
             }
         }
-        Stmt::Try { body, catches, finally } => {
+        Stmt::Try {
+            body,
+            catches,
+            finally,
+        } => {
             f(body);
             for c in catches {
                 f(&mut c.body);
@@ -742,9 +830,7 @@ pub fn fused_expr_rewrites(s: &mut Stmt, vt: &VarTable) {
                 if name.starts_with('\0') && args.len() == 2 {
                     let (cls, ty) = match name.as_str() {
                         "\0cmp-long" => ("java/lang/Long", JavaType::Long),
-                        "\0cmpl-float" | "\0cmpg-float" => {
-                            ("java/lang/Float", JavaType::Float)
-                        }
+                        "\0cmpl-float" | "\0cmpg-float" => ("java/lang/Float", JavaType::Float),
                         _ => ("java/lang/Double", JavaType::Double),
                     };
                     let desc = MethodDescriptor {
@@ -791,12 +877,7 @@ pub fn fused_expr_rewrites(s: &mut Stmt, vt: &VarTable) {
             if let Expr::Bin { op, l, r, .. } = x {
                 if matches!(
                     op,
-                    BinOp::Eq
-                        | BinOp::Ne
-                        | BinOp::Lt
-                        | BinOp::Ge
-                        | BinOp::Gt
-                        | BinOp::Le
+                    BinOp::Eq | BinOp::Ne | BinOp::Lt | BinOp::Ge | BinOp::Gt | BinOp::Le
                 ) {
                     let l_const = matches!(&**l, Expr::Const(_));
                     let r_var = matches!(&**r, Expr::Local { .. });
@@ -864,14 +945,23 @@ fn ternary_fold_walk(s: &mut Stmt, changed: &mut bool) {
         }
         return;
     }
-    let Stmt::If { cond, then_stmt, else_stmt } = s else { return };
+    let Stmt::If {
+        cond,
+        then_stmt,
+        else_stmt,
+    } = s
+    else {
+        return;
+    };
     ternary_fold_walk(then_stmt, changed);
     if let Some(e) = else_stmt {
         ternary_fold_walk(e, changed);
     }
     let Some(else_b) = else_stmt else { return };
     let target_of = |st: &Stmt| -> Option<u32> {
-        let Stmt::ExprStmt(Expr::Assign { target, .. }) = st else { return None };
+        let Stmt::ExprStmt(Expr::Assign { target, .. }) = st else {
+            return None;
+        };
         if let Expr::Local { var, .. } = &**target {
             Some(*var)
         } else {
@@ -884,7 +974,9 @@ fn ternary_fold_walk(s: &mut Stmt, changed: &mut bool) {
     if tv.len() != 1 || ev.len() != 1 {
         return;
     }
-    let (Some(vt_), Some(ve)) = (target_of(&tv[0]), target_of(&ev[0])) else { return };
+    let (Some(vt_), Some(ve)) = (target_of(&tv[0]), target_of(&ev[0])) else {
+        return;
+    };
     if vt_ != ve {
         return;
     }
@@ -892,7 +984,9 @@ fn ternary_fold_walk(s: &mut Stmt, changed: &mut bool) {
     // the fold — they are single statements, so a mention is a re-read at
     // worst; re-assignment only happens via assignments inside them.
     let mut touched = HashSet::new();
-    let (Stmt::ExprStmt(a_then), Stmt::ExprStmt(a_else)) = (&tv[0], &ev[0]) else { return };
+    let (Stmt::ExprStmt(a_then), Stmt::ExprStmt(a_else)) = (&tv[0], &ev[0]) else {
+        return;
+    };
     if let Expr::Assign { value, .. } = a_then {
         collect_vars(value, &mut touched);
     }
@@ -953,7 +1047,14 @@ pub fn fold_string_builders(s: &mut Stmt, vt: &VarTable) {
     // Builders with statement-form appends (their chains are incomplete).
     let mut appended_stmts: HashSet<u32> = HashSet::new();
     walk_all(s, &mut |st| {
-        if let Stmt::ExprStmt(Expr::Method { cls, name, owner, args, .. }) = st {
+        if let Stmt::ExprStmt(Expr::Method {
+            cls,
+            name,
+            owner,
+            args,
+            ..
+        }) = st
+        {
             if name == "append" && is_string_builder(cls) && args.len() == 1 {
                 if let Some(Expr::Local { var, .. }) = owner.as_deref() {
                     appended_stmts.insert(*var);
@@ -1021,7 +1122,9 @@ fn analyze_vars(s: &Stmt, a: &mut VarAnalysis) {
                 vec![e]
             }
             Stmt::Return(Some(e)) => vec![e],
-            Stmt::LocalDef { var, init: Some(e), .. } => {
+            Stmt::LocalDef {
+                var, init: Some(e), ..
+            } => {
                 grow_to(&mut a.assigns, *var);
                 let idx = *var as usize;
                 a.assigns[idx] += 1;
@@ -1070,7 +1173,9 @@ fn count_assignments(s: &Stmt, counts: &mut Vec<usize>) {
                 counts[*var as usize] += 1;
             }
         }
-        Stmt::LocalDef { var, init: Some(_), .. } => {
+        Stmt::LocalDef {
+            var, init: Some(_), ..
+        } => {
             grow_to(counts, *var);
             counts[*var as usize] += 1;
         }
@@ -1090,7 +1195,9 @@ fn record_assignments(s: &Stmt, counts: &[usize], out: &mut Vec<Option<Expr>>) {
                 }
             }
         }
-        Stmt::LocalDef { var, init: Some(e), .. } => {
+        Stmt::LocalDef {
+            var, init: Some(e), ..
+        } => {
             if counts.get(*var as usize).copied().unwrap_or(0) == 1 {
                 if *var as usize >= out.len() {
                     out.resize(*var as usize + 1, None);
@@ -1104,7 +1211,14 @@ fn record_assignments(s: &Stmt, counts: &[usize], out: &mut Vec<Option<Expr>>) {
 
 fn fold_concat_in_expr(e: &mut Expr, values: &[Option<Expr>], appended: &HashSet<u32>) {
     deep_rewrite(e, &mut |x| {
-        if let Expr::Method { cls, name, args, owner, .. } = x {
+        if let Expr::Method {
+            cls,
+            name,
+            args,
+            owner,
+            ..
+        } = x
+        {
             if name == "toString" && args.is_empty() && is_string_builder(&cls) {
                 if let Some(o) = owner {
                     // Statement-form appends attached to any chain var mean
@@ -1139,7 +1253,10 @@ fn resolve_local(e: &Expr, values: &[Option<Expr>]) -> Expr {
         Expr::Local { var, ty } => values
             .get(*var as usize)
             .and_then(|o| o.clone())
-            .unwrap_or_else(|| Expr::Local { var: *var, ty: ty.clone() }),
+            .unwrap_or_else(|| Expr::Local {
+                var: *var,
+                ty: ty.clone(),
+            }),
         other => other.clone(),
     }
 }
@@ -1150,12 +1267,24 @@ fn collect_sb_parts(e: &Expr, values: &[Option<Expr>], depth: u32) -> Option<Vec
         return None;
     }
     match e {
-        Expr::Method { cls, name, args, owner, .. } if name == "append" && is_string_builder(cls) && args.len() == 1 => {
-            let mut parts = collect_sb_parts(&resolve_local(owner.as_deref()?, values), values, depth + 1)?;
+        Expr::Method {
+            cls,
+            name,
+            args,
+            owner,
+            ..
+        } if name == "append" && is_string_builder(cls) && args.len() == 1 => {
+            let mut parts =
+                collect_sb_parts(&resolve_local(owner.as_deref()?, values), values, depth + 1)?;
             parts.push(ConcatPart::Str(args[0].clone()));
             Some(parts)
         }
-        Expr::New { cls, args, raw: false, .. } if is_string_builder(cls) => {
+        Expr::New {
+            cls,
+            args,
+            raw: false,
+            ..
+        } if is_string_builder(cls) => {
             let mut parts = Vec::new();
             for a in args {
                 if let Expr::Const(ConstVal::Str(sv)) = a {
@@ -1178,15 +1307,12 @@ fn drop_unused_assigns(s: &mut Stmt, reads: &HashSet<u32>) -> usize {
             v.retain(|x| match x {
                 // Drop only when unread AND a builder chain (folded
                 // consumer; `new StringBuilder` chains cannot NPE).
-                Stmt::ExprStmt(Expr::Assign { target, value, .. }) => {
-                    match &**target {
-                        Expr::Local { var, .. } => reads.contains(var) || !is_sbish(value),
-                        _ => true,
-                    }
-                }
+                Stmt::ExprStmt(Expr::Assign { target, value, .. }) => match &**target {
+                    Expr::Local { var, .. } => reads.contains(var) || !is_sbish(value),
+                    _ => true,
+                },
                 Stmt::LocalDef { var, init, .. } => {
-                    reads.contains(var)
-                        || !init.as_ref().map(|e| is_sbish(e)).unwrap_or(false)
+                    reads.contains(var) || !init.as_ref().map(|e| is_sbish(e)).unwrap_or(false)
                 }
                 _ => true,
             });
@@ -1198,7 +1324,9 @@ fn drop_unused_assigns(s: &mut Stmt, reads: &HashSet<u32>) -> usize {
 
 fn is_sbish(e: &Expr) -> bool {
     match e {
-        Expr::New { cls, raw: false, .. } => is_string_builder(cls),
+        Expr::New {
+            cls, raw: false, ..
+        } => is_string_builder(cls),
         Expr::Method { name, cls, .. } => name == "append" && is_string_builder(cls),
         _ => false,
     }
@@ -1234,8 +1362,17 @@ fn fold_sync_walk(s: &mut Stmt) {
 }
 
 fn try_sync_at(v: &Vec<Stmt>, i: usize) -> Option<Stmt> {
-    let Stmt::MonitorEnter(lock) = &v[i] else { return None };
-    let Stmt::Try { body, catches, finally } = &v[i + 1] else { return None };
+    let Stmt::MonitorEnter(lock) = &v[i] else {
+        return None;
+    };
+    let Stmt::Try {
+        body,
+        catches,
+        finally,
+    } = &v[i + 1]
+    else {
+        return None;
+    };
     if finally.is_some() || catches.len() != 1 {
         return None;
     }
@@ -1244,7 +1381,9 @@ fn try_sync_at(v: &Vec<Stmt>, i: usize) -> Option<Stmt> {
         return None;
     }
     // The catch-all body: monitorexit(lock) then rethrow.
-    let Stmt::Block(cv) = c.body.as_ref() else { return None };
+    let Stmt::Block(cv) = c.body.as_ref() else {
+        return None;
+    };
     let exit_matches = cv.len() >= 2
         && matches!(&cv[0], Stmt::MonitorExit(e) if expr_local_var(e) == expr_local_var(lock));
     let throws = cv.len() >= 2 && matches!(&cv[1], Stmt::Throw(_));
@@ -1325,7 +1464,13 @@ pub fn forward_single_use(s: &mut Stmt, _vt: &VarTable) {
     // 1. Pure values: inline anywhere.
     if pure.iter().any(|&b| b) {
         let vals: Vec<Option<Expr>> = (0..n_vars)
-            .map(|v| if pure[v] { values.get(v).cloned().flatten() } else { None })
+            .map(|v| {
+                if pure[v] {
+                    values.get(v).cloned().flatten()
+                } else {
+                    None
+                }
+            })
             .collect();
         rewrite_exprs(s, &mut |e| {
             deep_rewrite(e, &mut |x| {
@@ -1359,7 +1504,9 @@ fn count_reads(s: &Stmt, out: &mut Vec<usize>) {
                 }
                 v
             }
-            Stmt::ExprStmt(e) | Stmt::Throw(e) | Stmt::MonitorEnter(e) | Stmt::MonitorExit(e) => vec![e],
+            Stmt::ExprStmt(e) | Stmt::Throw(e) | Stmt::MonitorEnter(e) | Stmt::MonitorExit(e) => {
+                vec![e]
+            }
             Stmt::Return(Some(e)) => vec![e],
             Stmt::LocalDef { init: Some(e), .. } => vec![e],
             Stmt::If { cond, .. } => vec![cond],
@@ -1383,14 +1530,10 @@ fn drop_defs(s: &mut Stmt, vars: &[bool]) {
         if let Stmt::Block(v) = st {
             v.retain(|x| match x {
                 Stmt::ExprStmt(Expr::Assign { target, .. }) => match &**target {
-                    Expr::Local { var, .. } => {
-                        !vars.get(*var as usize).copied().unwrap_or(false)
-                    }
+                    Expr::Local { var, .. } => !vars.get(*var as usize).copied().unwrap_or(false),
                     _ => true,
                 },
-                Stmt::LocalDef { var, .. } => {
-                    !vars.get(*var as usize).copied().unwrap_or(false)
-                }
+                Stmt::LocalDef { var, .. } => !vars.get(*var as usize).copied().unwrap_or(false),
                 _ => true,
             });
         }
@@ -1464,54 +1607,66 @@ pub fn infer_types(vt: &mut VarTable, body: &mut Stmt, ret: &JavaType, env: &Met
         }
     };
 
-    walk_all(body, &mut |st| {
-        match st {
-            Stmt::LocalDef { var, init, .. } => {
-                if let Some(e) = init {
-                    expr_evidence(e, &mut |v, t| ev(&mut evidence, v, t));
-                    if let Expr::Local { var: src, .. } = e {
+    walk_all(body, &mut |st| match st {
+        Stmt::LocalDef { var, init, .. } => {
+            if let Some(e) = init {
+                expr_evidence(e, &mut |v, t| ev(&mut evidence, v, t));
+                if let Expr::Local { var: src, .. } = e {
+                    let _ = src;
+                }
+                if let Expr::Local { var: src, .. } = e {
+                    if evidence.get(*var as usize).is_some() {
                         let _ = src;
                     }
-                    if let Expr::Local { var: src, .. } = e {
-                        if evidence
-                            .get(*var as usize)
-                            .is_some()
-                        {
-                            let _ = src;
-                        }
-                    }
                 }
             }
-            Stmt::ExprStmt(e) => expr_evidence(e, &mut |v, t| ev(&mut evidence, v, t)),
-            Stmt::Throw(e) => {
-                expr_evidence(e, &mut |v, t| ev(&mut evidence, v, t));
-                if let Expr::Local { var, .. } = e {
-                    ev(&mut evidence, *var, JavaType::Object("java/lang/Throwable".into()));
-                }
-            }
-            Stmt::Return(Some(e)) => {
-                expr_evidence(e, &mut |v, t| ev(&mut evidence, v, t));
-                if let Expr::Local { var, .. } = e {
-                    ev(&mut evidence, *var, ret.clone());
-                }
-            }
-            Stmt::MonitorEnter(e) | Stmt::MonitorExit(e) => {
-                if let Expr::Local { var, .. } = e {
-                    ev(&mut evidence, *var, JavaType::Object("java/lang/Object".into()));
-                }
-            }
-            Stmt::ForEach { var, iterable, is_array, .. } => {
-                if let Expr::Local { var: v0, .. } = iterable {
-                    if *is_array {
-                        ev(&mut evidence, *v0, JavaType::Array(Box::new(JavaType::Int)));
-                    } else {
-                        ev(&mut evidence, *v0, JavaType::Object("java/lang/Object".into()));
-                    }
-                }
-                let _ = var;
-            }
-            _ => {}
         }
+        Stmt::ExprStmt(e) => expr_evidence(e, &mut |v, t| ev(&mut evidence, v, t)),
+        Stmt::Throw(e) => {
+            expr_evidence(e, &mut |v, t| ev(&mut evidence, v, t));
+            if let Expr::Local { var, .. } = e {
+                ev(
+                    &mut evidence,
+                    *var,
+                    JavaType::Object("java/lang/Throwable".into()),
+                );
+            }
+        }
+        Stmt::Return(Some(e)) => {
+            expr_evidence(e, &mut |v, t| ev(&mut evidence, v, t));
+            if let Expr::Local { var, .. } = e {
+                ev(&mut evidence, *var, ret.clone());
+            }
+        }
+        Stmt::MonitorEnter(e) | Stmt::MonitorExit(e) => {
+            if let Expr::Local { var, .. } = e {
+                ev(
+                    &mut evidence,
+                    *var,
+                    JavaType::Object("java/lang/Object".into()),
+                );
+            }
+        }
+        Stmt::ForEach {
+            var,
+            iterable,
+            is_array,
+            ..
+        } => {
+            if let Expr::Local { var: v0, .. } = iterable {
+                if *is_array {
+                    ev(&mut evidence, *v0, JavaType::Array(Box::new(JavaType::Int)));
+                } else {
+                    ev(
+                        &mut evidence,
+                        *v0,
+                        JavaType::Object("java/lang/Object".into()),
+                    );
+                }
+            }
+            let _ = var;
+        }
+        _ => {}
     });
     let _ = env;
 
@@ -1563,7 +1718,9 @@ fn coerce_num_consts(body: &mut Stmt, types: &[TypeRef]) {
                 Expr::Local { var, .. } => (*var, value),
                 _ => return,
             },
-            Stmt::LocalDef { var, init: Some(e), .. } => (*var, e),
+            Stmt::LocalDef {
+                var, init: Some(e), ..
+            } => (*var, e),
             _ => return,
         };
         let want = match types.get(var as usize) {
@@ -1590,7 +1747,9 @@ fn coerce_num_consts(body: &mut Stmt, types: &[TypeRef]) {
 }
 
 fn pick_object(evs: &[JavaType]) -> Option<JavaType> {
-    evs.iter().find(|t| t.is_reference() && !matches!(t, JavaType::Object(n) if n == "java/lang/Object")).cloned()
+    evs.iter()
+        .find(|t| t.is_reference() && !matches!(t, JavaType::Object(n) if n == "java/lang/Object"))
+        .cloned()
 }
 
 fn pick_numeric(evs: &[JavaType]) -> Option<JavaType> {
@@ -1622,7 +1781,14 @@ fn join_numeric(a: &JavaType, b: &JavaType) -> JavaType {
 /// Gather per-var type evidence from one expression.
 fn expr_evidence<F: FnMut(u32, JavaType)>(e: &Expr, f: &mut F) {
     visit_exprs(e, &mut |x| match x {
-        Expr::Method { owner, args, desc, is_static, cls, .. } => {
+        Expr::Method {
+            owner,
+            args,
+            desc,
+            is_static,
+            cls,
+            ..
+        } => {
             if !*is_static {
                 if let Some(o) = owner {
                     if let Expr::Local { var, .. } = &**o {
@@ -1638,7 +1804,12 @@ fn expr_evidence<F: FnMut(u32, JavaType)>(e: &Expr, f: &mut F) {
                 }
             }
         }
-        Expr::Field { owner, ty, is_static, .. } => {
+        Expr::Field {
+            owner,
+            ty,
+            is_static,
+            ..
+        } => {
             if !*is_static {
                 if let Some(o) = owner {
                     if let Expr::Local { var, .. } = &**o {
@@ -1686,7 +1857,13 @@ pub fn booleanize(vt: &mut VarTable, body: &mut Stmt) {
             _ => None,
         };
         if let Some(c) = cond {
-            if let Expr::Bin { op: BinOp::Eq | BinOp::Ne, l, r, .. } = c {
+            if let Expr::Bin {
+                op: BinOp::Eq | BinOp::Ne,
+                l,
+                r,
+                ..
+            } = c
+            {
                 for (x, other) in [(l, r), (r, l)] {
                     if let (Expr::Local { var, .. }, Expr::Const(ConstVal::Int(0))) =
                         (&**x, &**other)
@@ -1738,7 +1915,9 @@ pub fn booleanize(vt: &mut VarTable, body: &mut Stmt) {
                 Expr::Local { var, .. } => (var, &**value),
                 _ => return,
             },
-            Stmt::LocalDef { var, init: Some(e), .. } => (var, e),
+            Stmt::LocalDef {
+                var, init: Some(e), ..
+            } => (var, e),
             _ => return,
         };
         let i = *var as usize;
@@ -1822,7 +2001,10 @@ fn fold_bool_conditions(s: &mut Stmt, bv: &HashSet<u32>) {
                     }
                     BinOp::Eq => {
                         let inner = var_side.clone();
-                        *x = Expr::Un { op: UnOp::Not, e: Box::new(*inner) };
+                        *x = Expr::Un {
+                            op: UnOp::Not,
+                            e: Box::new(*inner),
+                        };
                     }
                     _ => {}
                 }
@@ -1851,7 +2033,10 @@ pub fn flip_const_compares(s: &mut Stmt) {
     rewrite_exprs(s, &mut |e| {
         deep_rewrite(e, &mut |x| {
             if let Expr::Bin { op, l, r, .. } = x {
-                if matches!(op, BinOp::Eq | BinOp::Ne | BinOp::Lt | BinOp::Ge | BinOp::Gt | BinOp::Le) {
+                if matches!(
+                    op,
+                    BinOp::Eq | BinOp::Ne | BinOp::Lt | BinOp::Ge | BinOp::Gt | BinOp::Le
+                ) {
                     let l_const = matches!(&**l, Expr::Const(_));
                     let r_var = matches!(&**r, Expr::Local { .. });
                     if l_const && r_var {
@@ -1940,7 +2125,12 @@ pub fn ensure_declared(body: &mut Stmt, vt: &VarTable) {
     if !needs_decl.is_empty() {
         let mut decls: Vec<Stmt> = needs_decl
             .into_iter()
-            .map(|v| Stmt::LocalDef { var: v, init: None, is_final: false, force_type: true })
+            .map(|v| Stmt::LocalDef {
+                var: v,
+                init: None,
+                is_final: false,
+                force_type: true,
+            })
             .collect();
         decls.reverse();
         match body {

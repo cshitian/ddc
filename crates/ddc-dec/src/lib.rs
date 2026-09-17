@@ -33,7 +33,9 @@ pub enum StaticValue {
     Other,
 }
 use ddc_dex::{ClassDef, DexFile};
-use jdc_core::types::{parse_field_descriptor, parse_method_descriptor, JavaType, MethodDescriptor};
+use jdc_core::types::{
+    parse_field_descriptor, parse_method_descriptor, JavaType, MethodDescriptor,
+};
 
 // ---------------------------------------------------------------------------
 // Access flags (Dalvik numbering, JVM-compatible subset).
@@ -153,19 +155,26 @@ impl PoolClass {
 
     /// All methods in declaration order.
     pub fn all_methods(&self) -> impl Iterator<Item = &PoolMethod> {
-        self.direct_methods.iter().chain(self.virtual_methods.iter())
+        self.direct_methods
+            .iter()
+            .chain(self.virtual_methods.iter())
     }
 
     /// Find a method by name + descriptor.
     pub fn find_method(&self, name: &str, desc: &str) -> Option<&PoolMethod> {
-        self.all_methods().find(|m| m.name == name && m.desc == desc)
+        self.all_methods()
+            .find(|m| m.name == name && m.desc == desc)
     }
 
     /// Constructors `<init>` matching `arity` descriptor arguments.
     pub fn ctors_by_arity(&self, arity: usize) -> Vec<&PoolMethod> {
         self.all_methods()
             .filter(|m| m.name == "<init>")
-            .filter(|m| m.parsed_desc().map(|d| d.args.len() == arity).unwrap_or(false))
+            .filter(|m| {
+                m.parsed_desc()
+                    .map(|d| d.args.len() == arity)
+                    .unwrap_or(false)
+            })
             .collect()
     }
 
@@ -269,8 +278,7 @@ impl DexPool {
                 continue;
             }
             let pc = pool_class_of(&dex, dex.raw(), cd, dex_idx);
-            self.classes
-                .insert(name.clone(), ClassEntry::Eager(pc));
+            self.classes.insert(name.clone(), ClassEntry::Eager(pc));
             self.order.push(name);
         }
         self.dexes.push(std::sync::Arc::new(dex));
@@ -395,8 +403,15 @@ impl DexPool {
         }
         // Arrays: covariance by element type when both are arrays.
         if let (Some(sub_elem), Some(sup_elem)) = (array_elem(sub), array_elem(sup)) {
-            if sub_elem.starts_with('L') && sup_elem.starts_with('L') && sub_elem.ends_with(';') && sup_elem.ends_with(';') {
-                return self.is_subtype(&sub_elem[1..sub_elem.len() - 1], &sup_elem[1..sup_elem.len() - 1]);
+            if sub_elem.starts_with('L')
+                && sup_elem.starts_with('L')
+                && sub_elem.ends_with(';')
+                && sup_elem.ends_with(';')
+            {
+                return self.is_subtype(
+                    &sub_elem[1..sub_elem.len() - 1],
+                    &sup_elem[1..sup_elem.len() - 1],
+                );
             }
             return sub_elem == sup_elem;
         }
@@ -453,7 +468,10 @@ fn resolve_static_value(v: &EncodedValue, dex: &DexFile) -> StaticValue {
         EncodedValue::Null => StaticValue::Null,
         EncodedValue::Enum(i) | EncodedValue::Field(i) => {
             let f = dex.field(*i);
-            StaticValue::Field(dex.class_name(f.class_idx), dex.string(f.name_idx).to_string())
+            StaticValue::Field(
+                dex.class_name(f.class_idx),
+                dex.string(f.name_idx).to_string(),
+            )
         }
         _ => StaticValue::Other,
     }
@@ -492,10 +510,16 @@ fn pool_class_of(dex: &DexFile, raw: &[u8], cd: &ClassDef, dex_idx: usize) -> Po
             is_static,
         }
     };
-    let static_fields: Vec<PoolField> =
-        data.static_fields.iter().map(|f| mk_field(f, true)).collect();
-    let instance_fields: Vec<PoolField> =
-        data.instance_fields.iter().map(|f| mk_field(f, false)).collect();
+    let static_fields: Vec<PoolField> = data
+        .static_fields
+        .iter()
+        .map(|f| mk_field(f, true))
+        .collect();
+    let instance_fields: Vec<PoolField> = data
+        .instance_fields
+        .iter()
+        .map(|f| mk_field(f, false))
+        .collect();
     let mk_method = |em: &ddc_dex::EncodedMethod| {
         let m = dex.method(em.method_idx);
         let proto = dex.proto(m.proto_idx);
@@ -506,11 +530,10 @@ fn pool_class_of(dex: &DexFile, raw: &[u8], cd: &ClassDef, dex_idx: usize) -> Po
             .collect();
         let ret = dex.type_name(proto.return_type_idx);
         let desc = format!("({}){}", params.join(""), ret);
-        let (code_off, debug_info_off) =
-            match dex.debug_info_off_at(em.code_off) {
-                Some(d) => (em.code_off, d),
-                None => (0, 0),
-            };
+        let (code_off, debug_info_off) = match dex.debug_info_off_at(em.code_off) {
+            Some(d) => (em.code_off, d),
+            None => (0, 0),
+        };
         PoolMethod {
             name: dex.string(m.name_idx).to_string(),
             desc,
@@ -538,7 +561,10 @@ fn pool_class_of(dex: &DexFile, raw: &[u8], cd: &ClassDef, dex_idx: usize) -> Po
         enclosing_class: raw.enclosing_class.map(|t| dex.class_name(t)),
         enclosing_method: raw.enclosing_method.map(|m| {
             let mid = dex.method(m);
-            (dex.class_name(mid.class_idx), dex.string(mid.name_idx).to_string())
+            (
+                dex.class_name(mid.class_idx),
+                dex.string(mid.name_idx).to_string(),
+            )
         }),
         member_classes: raw
             .member_classes
@@ -630,10 +656,7 @@ impl DexPool {
     /// Report one class finished; Some(image) when it was the image's
     /// last class (driver batches these into release_images).
     pub fn report_class_done(&self, class_name: &str) -> Option<usize> {
-        if !self
-            .retire_armed
-            .load(std::sync::atomic::Ordering::Acquire)
-        {
+        if !self.retire_armed.load(std::sync::atomic::Ordering::Acquire) {
             return None;
         }
         let entry = self.classes.get(class_name)?;

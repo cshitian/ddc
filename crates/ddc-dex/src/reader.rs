@@ -37,7 +37,8 @@ impl<'a> Cursor<'a> {
     }
 
     pub fn u4(&mut self) -> Option<u32> {
-        self.take(4).map(|s| u32::from_le_bytes([s[0], s[1], s[2], s[3]]))
+        self.take(4)
+            .map(|s| u32::from_le_bytes([s[0], s[1], s[2], s[3]]))
     }
 
     pub fn s4(&mut self) -> Option<i32> {
@@ -112,9 +113,7 @@ impl<'a> Cursor<'a> {
             let ascii = &self.data[pos..pos + nul];
             if !ascii.is_empty() && ascii.is_ascii() {
                 // ASCII bytes are valid UTF-8 by construction.
-                return Some(unsafe {
-                    std::str::from_utf8_unchecked(ascii).to_string()
-                });
+                return Some(unsafe { std::str::from_utf8_unchecked(ascii).to_string() });
             }
         }
         let mut out = String::new();
@@ -166,9 +165,7 @@ impl<'a> Cursor<'a> {
                                 let lo = (((self.data[i + 3] & 0x0f) as u32) << 12)
                                     | (((self.data[i + 4] & 0x3f) as u32) << 6)
                                     | ((self.data[i + 5] & 0x3f) as u32);
-                                let cp = 0x10000
-                                    + (((c as u32) - 0xd800) << 10)
-                                    + (lo - 0xdc00);
+                                let cp = 0x10000 + (((c as u32) - 0xd800) << 10) + (lo - 0xdc00);
                                 out.push(char::from_u32(cp).unwrap_or('\u{fffd}'));
                                 i += 6;
                                 units += 2;
