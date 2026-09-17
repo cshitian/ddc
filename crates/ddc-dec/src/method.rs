@@ -592,13 +592,14 @@ pub fn decompile_method(
             Default::default(),
         );
         let region = st.structure_method();
-        let mut converter =
-            Converter::with_precomputed(
-                &core_cfg,
-                &results,
-                groups.clone(),
-                jdc_core::structure::DomInfo { idom: dom.idom.clone() },
-            );
+        let mut converter = Converter::with_precomputed(
+            &core_cfg,
+            &results,
+            groups.clone(),
+            jdc_core::structure::DomInfo {
+                idom: dom.idom.clone(),
+            },
+        );
         let candidate = converter.convert(region);
         jdc_core::structure::set_budget_override(None);
         jdc_core::structure::set_walk_visit_budget(None);
@@ -848,7 +849,6 @@ pub fn dump_buckets() -> [(u64, u64); 5] {
 
 /// Dominator-recompute counters from jdc-core (perf diagnostics).
 pub fn dom_counters() -> (u64, u64) {
-
     (
         jdc_core::structure::DOM_CALLS.load(std::sync::atomic::Ordering::Relaxed),
         jdc_core::structure::DOM_BLOCKS.load(std::sync::atomic::Ordering::Relaxed),
