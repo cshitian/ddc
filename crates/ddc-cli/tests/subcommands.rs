@@ -70,7 +70,8 @@ fn listclasses_filters() {
     let filtered = stdout(&o);
     assert!(filtered.contains("Greeter"));
     assert!(!filtered.contains("Hello\n"), "filter did not apply:\n{}", filtered);
-    assert!(stderr(&o).contains("1 of 2 classes"), "{}", stderr(&o));
+    // stdout mode is silent on stderr (no trailing summary).
+    assert!(stderr(&o).is_empty(), "stderr noise:\n{}", stderr(&o));
 }
 
 #[test]
@@ -150,7 +151,8 @@ fn findrefs_with_class_filter() {
     assert!(o.status.success(), "{}", stderr(&o));
     assert!(stdout(&o).contains("invoke Greeter->greet()"));
 
-    // Wrong class: no method ids resolve → no hits.
+    // Wrong class: no method ids resolve → no hits, and stdout mode
+    // stays silent on stderr.
     let o = run(
         ddc().arg("findrefs")
             .arg(fixture())
@@ -160,7 +162,71 @@ fn findrefs_with_class_filter() {
             .arg("Nope"),
     );
     assert!(o.status.success());
-    assert!(stderr(&o).contains("0 hit(s)"), "{}", stderr(&o));
+    assert!(stdout(&o).is_empty());
+    assert!(stderr(&o).is_empty(), "stderr noise:\n{}", stderr(&o));
+
+    // --dex filters images before the scan (raw dex label = file stem).
+    let o = run(
+        ddc().arg("findrefs")
+            .arg(fixture())
+            .arg("--dex")
+            .arg("hello")
+            .arg("string")
+            .arg("hi"),
+    );
+    assert!(o.status.success(), "{}", stderr(&o));
+    assert!(stdout(&o).contains("const-string \"hi \""));
+
+    // --dex with no matching image errors and lists what IS available.
+    let o = run(
+        ddc().arg("findrefs")
+            .arg(fixture())
+            .arg("--dex")
+            .arg("classes9")
+            .arg("string")
+            .arg("hi"),
+    );
+    assert_eq!(o.status.code(), Some(2));
+    assert!(stderr(&o).contains("no matching dex images"));
+    assert!(stderr(&o).contains("hello"), "available list:\n{}", stderr(&o));
+}
+
+#[test]
+fn getclass_reports_multi_dex_ambiguity() {
+    // The same class name registered from two images: getclass names the
+    // ambiguity and resolves from the first.
+    let o = run(
+        ddc().arg("getclass")
+            .arg(fixture())
+            .arg(fixture())
+            .arg("Greeter"),
+    );
+    assert!(o.status.success(), "{}", stderr(&o));
+    assert!(stdout(&o).contains("class Greeter {"));
+    assert!(
+        stderr(&o).contains("defined in 2 images"),
+        "no ambiguity note:\n{}",
+        stderr(&o)
+    );
+    assert!(stderr(&o).contains("--dex"), "no --dex hint:\n{}", stderr(&o));
+}
+
+#[test]
+fn getclass_stdout_is_clean() {
+    // stdout carries the source only; timing lives on stderr nowhere in
+    // stdout mode.
+    let o = run(ddc().arg("getclass").arg(fixture()).arg("Greeter"));
+    assert!(o.status.success());
+    assert!(stdout(&o).contains("class Greeter {"));
+    assert!(stderr(&o).is_empty(), "stderr noise:\n{}", stderr(&o));
+}
+
+#[test]
+fn manifest_stdout_is_clean() {
+    let o = run(ddc().arg("manifest").arg(axml_fixture()));
+    assert!(o.status.success());
+    assert!(stdout(&o).contains("<manifest"));
+    assert!(stderr(&o).is_empty(), "stderr noise:\n{}", stderr(&o));
 }
 
 #[test]

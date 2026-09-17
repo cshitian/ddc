@@ -17,13 +17,14 @@ mod axml;
 mod findrefs;
 mod inputs;
 
-use inputs::{collect_images, dir_has_dex_files, expand_inputs, is_dex_ext, parse_images};
+use inputs::{collect_images, dir_has_dex_files, expand_inputs, filter_images_by_dex, is_dex_ext, parse_images};
 
 // Expr-tree-heavy workloads do billions of small allocations; the system
 // allocator serializes cross-thread frees. mimalloc's per-thread heaps
 // unlock the flat thread-scaling curve.
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
+use ddc_dex::DexFile;
 use ddc_dec::{top_level_classes, ClassOptions, DexPool};
 
 fn print_help() {
@@ -56,17 +57,23 @@ fn print_help() {
     println!("  -V, --version         print version");
     println!();
     println!("Progressive analysis (query the artifact as a database — no full");
-    println!("decompile; metadata loads take well under a second):");
+    println!("decompile; metadata loads take well under a second). stdout output");
+    println!("is clean — timing prints only with -o:");
     println!("  ddc manifest <apk>                 # AndroidManifest.xml → text XML");
     println!("  ddc info <input>                   # per-dex class/method/field/string counts");
     println!("  ddc listclasses <input> [pattern]  # class names, optional fuzzy filter");
-    println!("  ddc getclass <input> <FQCN> [-o f] # decompile one class (+nested)");
+    println!("  ddc getclass <inputs...> <FQCN> [-o f] [--dex NAME] # one class (+nested)");
     println!("  ddc findrefs <input> string TEXT   # refs to string literals");
     println!("  ddc findrefs <input> type com.example.Foo");
     println!("  ddc findrefs <input> method init --class com.example.Foo [--fuzzy-class]");
     println!("  ddc findrefs <input> field CREATOR --class com.example --fuzzy-class");
     println!("                                      # refs only — class/method names are");
     println!("                                      # fuzzy (substring); --class defaults exact");
+    println!("  -d, --dex NAME       restrict to dex images whose entry name contains");
+    println!("                      NAME (substring, repeatable) — resolves which dex");
+    println!("                      a class lives in and skips parsing the rest;");
+    println!("                      getclass also warns when a class name exists in");
+    println!("                      several images; findrefs -o FILE writes hits to a file.");
     println!();
     println!("Exit status: 0 ok; 1 some classes failed; 2 usage error.");
     println!();
@@ -185,8 +192,8 @@ fn cmd_manifest(args: &[String], t0: std::time::Instant) -> Result<()> {
             eprintln!("ddc: wrote manifest to {} in {}", f.display(), fmt_secs(t0.elapsed()));
         }
         None => {
+            // stdout mode: the XML only — no trailing timing noise.
             print!("{text}");
-            eprintln!("ddc: manifest in {}", fmt_secs(t0.elapsed()));
         }
     }
     Ok(())
@@ -194,7 +201,7 @@ fn cmd_manifest(args: &[String], t0: std::time::Instant) -> Result<()> {
 
 // ---- info -------------------------------------------------------------------
 
-fn cmd_info(args: &[String], t0: std::time::Instant) -> Result<()> {
+fn cmd_info(args: &[String], _t0: std::time::Instant) -> Result<()> {
     let input = sub_input(args, "info")?;
     let files = expand_inputs(&[input])?;
     let parsed = parse_images(collect_images(&files)?)?;
@@ -214,35 +221,44 @@ fn cmd_info(args: &[String], t0: std::time::Instant) -> Result<()> {
         );
     }
     println!("total: {} image(s), {} classes", parsed.len(), total_classes);
-    eprintln!("ddc: info in {}", fmt_secs(t0.elapsed()));
     Ok(())
 }
 
 // ---- listclasses ------------------------------------------------------------
 
-fn cmd_listclasses(args: &[String], t0: std::time::Instant) -> Result<()> {
-    let input = sub_input(args, "listclasses")?;
+fn cmd_listclasses(args: &[String], _t0: std::time::Instant) -> Result<()> {
+    let mut input: Option<PathBuf> = None;
     let mut pattern: Option<String> = None;
+    let mut dex_filters: Vec<String> = Vec::new();
     let mut i = 0;
-    let mut seen_input = false;
     while i < args.len() {
         match args[i].as_str() {
+            "-d" | "--dex" => {
+                dex_filters.push(args.get(i + 1).context("--dex needs a value")?.to_string());
+                i += 1;
+            }
             a if a.starts_with('-') => bail!("listclasses: unknown option {a}"),
             a => {
-                if seen_input {
+                if input.is_none() {
+                    input = Some(PathBuf::from(a));
+                } else if pattern.is_none() {
                     pattern = Some(a.to_string());
                 } else {
-                    seen_input = true;
+                    bail!("listclasses: too many arguments (input and optional pattern)");
                 }
             }
         }
         i += 1;
     }
+    let input = input.context("listclasses needs an input file")?;
     // Class names need only the class_defs + type tables — iterate the
     // parsed images directly; NO pool build (PoolClass construction plus
     // annotation reads for 145k classes cost ~0.2s on weibo).
     let files = expand_inputs(&[input])?;
-    let parsed = parse_images(collect_images(&files)?)?;
+    let parsed = parse_images(filter_images_by_dex(
+        collect_images(&files)?,
+        &dex_filters,
+    )?)?;
     let mut total = 0usize;
     let mut all: Vec<String> = Vec::new();
     let mut seen = std::collections::HashSet::new();
@@ -264,22 +280,9 @@ fn cmd_listclasses(args: &[String], t0: std::time::Instant) -> Result<()> {
         }
         None => all,
     };
+    // stdout mode: names only — no trailing summary/timing noise.
     for name in &shown {
         println!("{}", name.replace('/', "."));
-    }
-    match pattern {
-        Some(p) => eprintln!(
-            "ddc: listed {} of {} classes matching {:?} in {}",
-            shown.len(),
-            total,
-            p,
-            fmt_secs(t0.elapsed())
-        ),
-        None => eprintln!(
-            "ddc: listed {} classes in {}",
-            shown.len(),
-            fmt_secs(t0.elapsed())
-        ),
     }
     Ok(())
 }
@@ -287,9 +290,12 @@ fn cmd_listclasses(args: &[String], t0: std::time::Instant) -> Result<()> {
 // ---- getclass ---------------------------------------------------------------
 
 fn cmd_getclass(args: &[String], t0: std::time::Instant) -> Result<()> {
+    // All positionals but the LAST are inputs; the last is the class.
     let mut fqcn: Option<String> = None;
-    let mut input: Option<PathBuf> = None;
+    let mut inputs: Vec<PathBuf> = Vec::new();
     let mut out: Option<PathBuf> = None;
+    let mut dex_filters: Vec<String> = Vec::new();
+    let mut positionals: Vec<String> = Vec::new();
     let mut i = 0;
     while i < args.len() {
         match args[i].as_str() {
@@ -297,32 +303,84 @@ fn cmd_getclass(args: &[String], t0: std::time::Instant) -> Result<()> {
                 out = Some(PathBuf::from(args.get(i + 1).context("-o needs a value")?));
                 i += 1;
             }
-            a if a.starts_with('-') => bail!("getclass: unknown option {a}"),
-            a => {
-                if input.is_none() {
-                    input = Some(PathBuf::from(a));
-                } else if fqcn.is_none() {
-                    fqcn = Some(a.to_string());
-                } else {
-                    bail!("getclass: too many arguments (one input and one class)");
-                }
+            "-d" | "--dex" => {
+                dex_filters.push(args.get(i + 1).context("--dex needs a value")?.to_string());
+                i += 1;
             }
+            a if a.starts_with('-') => bail!("getclass: unknown option {a}"),
+            a => positionals.push(a.to_string()),
         }
         i += 1;
     }
-    let input = input.context("getclass needs an input file")?;
+    if let Some((last, heads)) = positionals.split_last() {
+        fqcn = Some(last.clone());
+        inputs = heads.iter().map(PathBuf::from).collect();
+    }
     let fqcn = fqcn.context("getclass needs a class name (com.example.Foo)")?;
-    let files = expand_inputs(&[input])?;
-    let parsed = parse_images(collect_images(&files)?)?;
-    // Names registered, classes materialized on demand — getclass pays
-    // the annotation-read cost for ONE family, not 145k classes.
+    let input = inputs
+        .first()
+        .cloned()
+        .context("getclass needs an input file")?;
+    let extra = &inputs[1..];
+    let files = expand_inputs(&inputs)?;
+    let parsed = parse_images(filter_images_by_dex(
+        collect_images(&files)?,
+        &dex_filters,
+    )?)?;
+    let internal = fqcn.replace('.', "/");
+
+    // Which images actually define the class? (The pool is first-wins —
+    // a name present in several dexes would otherwise resolve silently.)
+    let mut defining: Vec<usize> = parsed
+        .iter()
+        .enumerate()
+        .filter(|(_, (_, dex))| {
+            dex.class_defs
+                .iter()
+                .any(|cd| dex.class_name(cd.class_idx) == internal)
+        })
+        .map(|(i, _)| i)
+        .collect();
+    if defining.is_empty() {
+        let hint = if dex_filters.is_empty() {
+            " (try `ddc listclasses <input> <pattern>`)"
+        } else {
+            ""
+        };
+        bail!("class {fqcn} not found in the selected image(s){hint}");
+    }
+    if defining.len() > 1 {
+        let names: Vec<String> = defining
+            .iter()
+            .map(|&i| parsed[i].0.rsplit_once('!').map(|(_, e)| e).unwrap_or(&parsed[i].0).to_string())
+            .collect();
+        eprintln!(
+            "ddc: class {fqcn} is defined in {} images: {} — using {} (pass --dex <name> to pick another)",
+            defining.len(),
+            names.join(", "),
+            names[0]
+        );
+    }
+
+    // Register the defining image FIRST so the first-wins pool resolves
+    // the class from it; names registered, classes materialized on
+    // demand — getclass pays the annotation-read cost for ONE family,
+    // not 145k classes.
+    let mut order: Vec<usize> = Vec::with_capacity(parsed.len());
+    order.extend(defining.iter().copied());
+    for i in 0..parsed.len() {
+        if !defining.contains(&i) {
+            order.push(i);
+        }
+    }
+    let mut slots: Vec<Option<(String, DexFile)>> = parsed.into_iter().map(Some).collect();
     let mut pool = DexPool::new();
-    for (label, dex) in parsed {
+    for i in order {
+        let (label, dex) = slots[i].take().context("image index out of range")?;
         let idx = pool.add_dex_lazy(dex);
         pool.set_dex_label(idx, label);
     }
     let pool = std::sync::Arc::new(pool);
-    let internal = fqcn.replace('.', "/");
     let pc = pool.get(&internal).with_context(|| {
         format!("class {fqcn} not found (try `ddc listclasses <input> <pattern>`)")
     })?;
@@ -362,8 +420,8 @@ fn cmd_getclass(args: &[String], t0: std::time::Instant) -> Result<()> {
             eprintln!("ddc: wrote {} in {}", f.display(), fmt_secs(t0.elapsed()));
         }
         None => {
+            // stdout mode: the source only — no trailing timing noise.
             print!("{text}");
-            eprintln!("ddc: getclass {fqcn} in {}", fmt_secs(t0.elapsed()));
         }
     }
     Ok(())
@@ -375,6 +433,8 @@ fn cmd_findrefs(args: &[String], t0: std::time::Instant) -> Result<()> {
     let mut positionals: Vec<String> = Vec::new();
     let mut class: Option<String> = None;
     let mut fuzzy_class = false;
+    let mut dex_filters: Vec<String> = Vec::new();
+    let mut out: Option<PathBuf> = None;
     let mut i = 0;
     while i < args.len() {
         match args[i].as_str() {
@@ -383,6 +443,14 @@ fn cmd_findrefs(args: &[String], t0: std::time::Instant) -> Result<()> {
                 i += 1;
             }
             "--fuzzy-class" => fuzzy_class = true,
+            "-d" | "--dex" => {
+                dex_filters.push(args.get(i + 1).context("--dex needs a value")?.to_string());
+                i += 1;
+            }
+            "-o" | "--output" => {
+                out = Some(PathBuf::from(args.get(i + 1).context("-o needs a value")?));
+                i += 1;
+            }
             a if a.starts_with('-') => bail!("findrefs: unknown option {a}"),
             a => positionals.push(a.to_string()),
         }
@@ -406,7 +474,10 @@ fn cmd_findrefs(args: &[String], t0: std::time::Instant) -> Result<()> {
     };
 
     let files = expand_inputs(&[input])?;
-    let parsed = parse_images(collect_images(&files)?)?;
+    let parsed = parse_images(filter_images_by_dex(
+        collect_images(&files)?,
+        &dex_filters,
+    )?)?;
     // One scan thread per dex image (weibo: 20 images → 20 threads).
     let mut handles = Vec::new();
     for (label, dex) in parsed {
@@ -422,21 +493,41 @@ fn cmd_findrefs(args: &[String], t0: std::time::Instant) -> Result<()> {
     }
     hits.sort_by(|a, b| a.class.cmp(&b.class).then(a.method.cmp(&b.method)));
 
-    for h in &hits {
-        println!(
-            "{}.{}  ->  {} {}",
-            h.class.replace('/', "."),
-            h.method,
-            h.insn,
-            h.target
-        );
+    let lines: Vec<String> = hits
+        .iter()
+        .map(|h| {
+            format!(
+                "{}.{}  ->  {} {}",
+                h.class.replace('/', "."),
+                h.method,
+                h.insn,
+                h.target
+            )
+        })
+        .collect();
+    match out {
+        Some(f) => {
+            if let Some(parent) = f.parent() {
+                let _ = std::fs::create_dir_all(parent);
+            }
+            let mut text = lines.join("\n");
+            text.push('\n');
+            std::fs::write(&f, &text)?;
+            eprintln!(
+                "ddc: findrefs {} → {} hit(s) in {} to {}",
+                query.kind(),
+                lines.len(),
+                fmt_secs(t0.elapsed()),
+                f.display()
+            );
+        }
+        None => {
+            // stdout mode: results only — no trailing timing noise.
+            for l in &lines {
+                println!("{l}");
+            }
+        }
     }
-    eprintln!(
-        "ddc: findrefs {} → {} hit(s) in {}",
-        query.kind(),
-        hits.len(),
-        fmt_secs(t0.elapsed())
-    );
     Ok(())
 }
 
@@ -979,14 +1070,8 @@ fn run() -> Result<()> {
             elapsed
         ),
         Sink::Stdout => {
-            if !verbose {
-                eprintln!(
-                    "ddc: printed {} class(es) to stdout{} in {}",
-                    total - failed_n,
-                    failed_part,
-                    elapsed
-                );
-            }
+            // stdout results carry no trailing summary/timing (failure
+            // notices above are the only stderr noise).
         }
     }
     if failed_n > 0 {

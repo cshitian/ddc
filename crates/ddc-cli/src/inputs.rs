@@ -130,6 +130,41 @@ pub fn collect_images(files: &[PathBuf]) -> Result<Vec<Image>> {
     Ok(images)
 }
 
+/// Filter images by dex entry name (`--dex classes20` matches the entry
+/// part of `<stem>!classes20.dex`; a bare raw dex matches its whole
+/// label). Substring, case-insensitive; multiple patterns OR. Filtering
+/// BEFORE the parse keeps unwanted images off the decode entirely.
+pub fn filter_images_by_dex(
+    images: Vec<Image>,
+    patterns: &[String],
+) -> Result<Vec<Image>> {
+    if patterns.is_empty() {
+        return Ok(images);
+    }
+    let entry = |label: &str| match label.rsplit_once('!') {
+        Some((_, e)) => e.to_string(),
+        None => label.to_string(),
+    };
+    let pats: Vec<String> = patterns.iter().map(|p| p.to_ascii_lowercase()).collect();
+    let (kept, dropped): (Vec<Image>, Vec<Image>) = images
+        .into_iter()
+        .partition(|img| {
+            let e = entry(&img.label).to_ascii_lowercase();
+            pats.iter().any(|p| e.contains(p.as_str()))
+        });
+    if kept.is_empty() {
+        let mut names: Vec<String> = dropped.iter().map(|img| entry(&img.label)).collect();
+        names.sort();
+        names.dedup();
+        bail!(
+            "--dex {}: no matching dex images (available: {})",
+            patterns.join(", "),
+            names.join(", ")
+        );
+    }
+    Ok(kept)
+}
+
 /// Inflate AND parse each image on its own thread. Returns
 /// `(label, DexFile)` pairs in input order.
 pub fn parse_images(images: Vec<Image>) -> Result<Vec<(String, DexFile)>> {

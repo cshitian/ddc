@@ -151,6 +151,12 @@ APK 里 `From:` 是定位类所在镜像的最快线索（jadx 的 `loaded from:
 | `ddc getclass app.apk com.example.Foo [-o F.java]` | 单类（含嵌套）定点反编译 | **0.03s**（典型类） |
 | （全量对照）`ddc app.apk -o out/` | 98,348 个类全部反编译落盘 | 5.45s / 1.28GB |
 
+**定位类在哪个 dex**：`--dex NAME`（可重复，条目名子串匹配）把范围缩到指定镜像——
+过滤发生在解析之前（`getclass --dex classes20` 只解析一个镜像，weibo 上 0.09s）；
+类名出现在多个镜像时 `getclass` 会警告并列出镜像与 `--dex` 提示；`--dex` 传错时
+错误信息列出全部可用条目名。stdout 输出模式完全干净（stderr 静默），耗时只随
+`-o` 文件/目录输出打印；`findrefs -o FILE` 把命中行写入文件并打印耗时。
+
 `findrefs` 输出每行一个引用点（按类/方法排序，机器可 grep）：
 
 ```
