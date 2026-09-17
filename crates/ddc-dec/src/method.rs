@@ -47,9 +47,8 @@ pub fn decompile_method(
     let desc = m
         .parsed_desc()
         .ok_or_else(|| format!("bad descriptor {}", m.desc))?;
-    let Some(dex) = pool.dex(m.dex_idx) else {
-        return Err("missing dex image".into());
-    };
+    let dex = pool.dex(m.dex_idx).ok_or("missing dex image")?;
+    let dex = &*dex;
     let Some(mut code) = dex.code_at(m.code_off) else {
         return Ok(None);
     };

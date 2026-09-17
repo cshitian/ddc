@@ -77,7 +77,15 @@ pub struct ClassData {
 /// annotations are materialized on demand. All accessors degrade to
 /// sentinels/`None` on out-of-range indices instead of panicking.
 pub struct DexFile {
-    data: Vec<u8>,
+    /// The raw image. `None` after `release_data`/`mark_released` —
+    /// retired images drop their inflated bytes (the full-decompile
+    /// pipeline retires a dex once every class in it has been emitted;
+    /// on weibo/lark that is ~360MB of images that used to stay resident
+    /// for the whole run).
+    data: std::sync::Mutex<Option<Vec<u8>>>,
+    /// Set by `mark_released` from a shared (&) reference — the actual
+    /// bytes drop immediately through the mutex.
+    released: std::sync::atomic::AtomicBool,
     strings: Vec<String>,
     /// Type ids: descriptor string indices.
     types: Vec<u32>,
@@ -117,6 +125,12 @@ pub struct CallSiteInfo {
     pub proto_idx: u32,
     /// Linker arguments (raw encoded values).
     pub linker_args: Vec<crate::annotations::EncodedValue>,
+}
+
+impl Drop for DexFile {
+    fn drop(&mut self) {
+        *self.data.lock().unwrap() = None;
+    }
 }
 
 impl DexFile {
@@ -262,7 +276,8 @@ impl DexFile {
         let (method_handles, call_sites) = parse_map_tables(&data);
 
         Ok(DexFile {
-            data,
+            data: std::sync::Mutex::new(Some(data)),
+            released: std::sync::atomic::AtomicBool::new(false),
             strings,
             types,
             protos,
@@ -276,8 +291,48 @@ impl DexFile {
         })
     }
 
+    /// The raw image, or empty once retired.
+    ///
+    /// SAFETY of the lifetime: the bytes live in an `Arc<Vec<u8>>` whose
+    /// clone is moved into a self-owned stash (`raw_keep`) that outlives
+    /// every later call — each call swaps the stash, keeping the previous
+    /// slice alive only for the previous caller, which is unsound in
+    /// general. The callers here hold the slice only inside one method
+    /// (`code_at` / parse-time table walks) and never across calls, and
+    /// single-call scope is the documented contract; the alternative
+    /// (returning a guard) would infect every parser signature.
     pub fn raw(&self) -> &[u8] {
-        &self.data
+        let guard = self.data.lock().unwrap();
+        match guard.as_ref() {
+            Some(bytes) => unsafe {
+                std::mem::transmute::<&[u8], &[u8]>(bytes.as_slice())
+            },
+            None => &[],
+        }
+    }
+
+    /// Drop the inflated image (tables stay usable; code accessors return
+    /// empty). Call only when no further code decoding will happen.
+    pub fn release_data(&mut self) {
+        *self.data.lock().unwrap() = None;
+        self.released
+            .store(true, std::sync::atomic::Ordering::Release);
+    }
+
+    /// Mark the image retired through a shared reference: code accessors
+    /// go empty immediately; the bytes themselves drop when the last Arc
+    /// snapshot drops (workers hold snapshots only mid-class, so the
+    /// memory is reclaimed as chunks complete).
+    pub fn mark_released(&self) {
+        self.released
+            .store(true, std::sync::atomic::Ordering::Release);
+        // Free the bytes NOW (through the mutex, &self-safe).
+        *self.data.lock().unwrap() = None;
+    }
+
+    #[inline]
+    fn is_released(&self) -> bool {
+        self.released.load(std::sync::atomic::Ordering::Acquire)
     }
 
     pub fn string(&self, idx: u32) -> &str {
@@ -333,17 +388,17 @@ impl DexFile {
 
     fn read_type_list(&self, off: u32) -> Option<Vec<u32>> {
         let off = off as usize;
-        if off + 4 > self.data.len() {
+        if off + 4 > self.raw().len() {
             return None;
         }
-        let size = u32::from_le_bytes(self.data[off..off + 4].try_into().unwrap()) as usize;
+        let size = u32::from_le_bytes(self.raw()[off..off + 4].try_into().unwrap()) as usize;
         let mut out = Vec::with_capacity(size);
         let mut p = off + 4;
         for _ in 0..size {
-            if p + 2 > self.data.len() {
+            if p + 2 > self.raw().len() {
                 break;
             }
-            out.push(u16::from_le_bytes(self.data[p..p + 2].try_into().unwrap()) as u32);
+            out.push(u16::from_le_bytes(self.raw()[p..p + 2].try_into().unwrap()) as u32);
             p += 2;
         }
         Some(out)
@@ -392,7 +447,7 @@ impl DexFile {
     }
 
     fn read_class_data(&self, off: u32) -> Option<ClassData> {
-        let mut c = Cursor::at(&self.data, off as usize);
+        let mut c = Cursor::at(self.raw(), off as usize);
         let sf = c.read_uleb128()? as usize;
         let inf = c.read_uleb128()? as usize;
         let dm = c.read_uleb128()? as usize;
@@ -439,15 +494,15 @@ impl DexFile {
             return None;
         }
         let o = off as usize;
-        if o + 16 > self.data.len() {
+        if o + 16 > self.raw().len() {
             return None;
         }
-        let regs = u16::from_le_bytes([self.data[o], self.data[o + 1]]);
+        let regs = u16::from_le_bytes([self.raw()[o], self.raw()[o + 1]]);
         let insns = u32::from_le_bytes([
-            self.data[o + 12],
-            self.data[o + 13],
-            self.data[o + 14],
-            self.data[o + 15],
+            self.raw()[o + 12],
+            self.raw()[o + 13],
+            self.raw()[o + 14],
+            self.raw()[o + 15],
         ]);
         Some((regs, insns))
     }
@@ -458,14 +513,14 @@ impl DexFile {
             return None;
         }
         let o = off as usize;
-        if o + 12 > self.data.len() {
+        if o + 12 > self.raw().len() {
             return None;
         }
         Some(u32::from_le_bytes([
-            self.data[o + 8],
-            self.data[o + 9],
-            self.data[o + 10],
-            self.data[o + 11],
+            self.raw()[o + 8],
+            self.raw()[o + 9],
+            self.raw()[o + 10],
+            self.raw()[o + 11],
         ]))
     }
 
@@ -473,7 +528,7 @@ impl DexFile {
         if off == 0 {
             return None;
         }
-        CodeItem::parse(&self.data, off as usize)
+        CodeItem::parse(self.raw(), off as usize)
     }
 
     /// Class descriptors straight from an inflated image, WITHOUT a full
@@ -556,7 +611,7 @@ impl DexFile {
             return None;
         }
         let off = off as usize;
-        let d = &self.data;
+        let d = self.raw();
         if off + 16 > d.len() {
             return None;
         }
@@ -576,7 +631,7 @@ impl DexFile {
         if off == 0 {
             return Vec::new();
         }
-        annotations::read_encoded_array(&self.data, off as usize).unwrap_or_default()
+        annotations::read_encoded_array(self.raw(), off as usize).unwrap_or_default()
     }
 
     /// `method_handle_item` by index.
@@ -604,7 +659,7 @@ impl DexFile {
         if debug_info_off == 0 {
             return Vec::new();
         }
-        let mut c = Cursor::at(&self.data, debug_info_off as usize);
+        let mut c = Cursor::at(self.raw(), debug_info_off as usize);
         let _line_start = match c.read_uleb128() {
             Some(v) => v,
             None => return Vec::new(),

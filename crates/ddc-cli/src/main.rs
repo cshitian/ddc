@@ -89,6 +89,14 @@ fn print_help() {
     println!("  ddc base.apk patch.dex -o merged/ # split inputs, one pool");
 }
 
+#[allow(dead_code)]
+unsafe fn mimalloc_sys_collect() {
+    extern "C" {
+        fn mi_collect(force: bool);
+    }
+    mi_collect(false);
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     // Leading subcommand word (unless an actual path shadows it) routes
@@ -999,6 +1007,15 @@ fn run() -> Result<()> {
 
     let failed = AtomicUsize::new(0);
     let done = AtomicUsize::new(0);
+    // Image retirement (full mode only): workers report each finished
+    // class; a dex whose counter hits zero releases its inflated bytes —
+    // on lark that is ~360MB reclaimed progressively instead of resident
+    // for the whole run.
+    let retire_mode = std::env::var("DDC_NORETIRE").is_err()
+        && !matches!(sink, Sink::Stdout);
+    if retire_mode {
+        pool.arm_retirement();
+    }
     let total = targets.len();
     let pool_ref = &pool;
     let opts_ref = &opts;
@@ -1141,6 +1158,18 @@ fn run() -> Result<()> {
                             )
                         }),
                     );
+                    let finished = match &out {
+                        Ok(Ok(_)) | Ok(Err(_)) | Err(_) => true,
+                    };
+                    if retire_mode {
+                        if let Some(image) = pool_ref.report_class_done(&name) {
+                            // Last class of this image: release it right
+                            // here (mark_released is &self-safe; bytes drop
+                            // when the final snapshot drops).
+                            pool_ref.release_images(&[image]);
+                        }
+                    }
+                    let _ = finished;
                     match out {
                         Ok(Ok(text)) => {
                             match sink_ref {
@@ -1346,6 +1375,9 @@ fn run() -> Result<()> {
             // stdout results carry no trailing summary/timing (failure
             // notices above are the only stderr noise).
         }
+    }
+    if std::env::var("DDC_COLLECT").is_ok() {
+        unsafe { mimalloc_sys_collect() };
     }
     if failed_n > 0 {
         std::process::exit(1);

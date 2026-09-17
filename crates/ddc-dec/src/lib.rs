@@ -180,7 +180,12 @@ impl PoolClass {
 
 /// Multi-DEX class pool: classes from all images, first definition wins.
 pub struct DexPool {
-    dexes: Vec<DexFile>,
+    /// Images as Arcs: `dex()` hands out snapshots whose borrows stay
+    /// valid for the Arc's lifetime (decompile workers hold them), while
+    /// `release_images` empties the image data through exclusive access
+    /// when all of an image's classes are done (full-decompile driver
+    /// only — progressive callers keep images whole).
+    dexes: Vec<std::sync::Arc<DexFile>>,
     /// Human label per image ("weibo!classes.dex") for the provenance
     /// header; defaults to "dex N" until the CLI names the inputs.
     pub dex_labels: Vec<String>,
@@ -191,6 +196,9 @@ pub struct DexPool {
     classes: HashMap<String, ClassEntry>,
     /// Class names in insertion order (stable for output).
     pub order: Vec<String>,
+    /// Per-image remaining class count once `arm_retirement` fires.
+    retire_counts: std::sync::Mutex<Vec<u64>>,
+    retire_armed: std::sync::atomic::AtomicBool,
     /// name → outer (computed once; `$` heuristic + dalvik annotations).
     outers: std::sync::OnceLock<HashMap<String, Option<String>>>,
     /// outer → direct children (computed once).
@@ -201,9 +209,11 @@ impl DexPool {
     pub fn new() -> Self {
         DexPool {
             dexes: Vec::new(),
+            retire_armed: std::sync::atomic::AtomicBool::new(false),
             dex_labels: Vec::new(),
             classes: HashMap::new(),
             order: Vec::new(),
+            retire_counts: std::sync::Mutex::new(Vec::new()),
             outers: std::sync::OnceLock::new(),
             children: std::sync::OnceLock::new(),
         }
@@ -263,7 +273,8 @@ impl DexPool {
                 .insert(name.clone(), ClassEntry::Eager(pc));
             self.order.push(name);
         }
-        self.dexes.push(dex);
+        self.dexes.push(std::sync::Arc::new(dex));
+        self.retire_counts.lock().unwrap().push(0);
         self.dex_labels.push(format!("dex {}", dex_idx));
         dex_idx
     }
@@ -287,7 +298,8 @@ impl DexPool {
             );
             self.order.push(name);
         }
-        self.dexes.push(dex);
+        self.dexes.push(std::sync::Arc::new(dex));
+        self.retire_counts.lock().unwrap().push(0);
         self.dex_labels.push(format!("dex {}", dex_idx));
         dex_idx
     }
@@ -361,8 +373,10 @@ impl DexPool {
         self.classes.contains_key(internal)
     }
 
-    pub fn dex(&self, idx: usize) -> Option<&DexFile> {
-        self.dexes.get(idx)
+    /// One image as an Arc snapshot (borrows of the snapshot live as
+    /// long as the caller holds the Arc).
+    pub fn dex(&self, idx: usize) -> Option<std::sync::Arc<DexFile>> {
+        self.dexes.get(idx).cloned()
     }
 
     pub fn dex_count(&self) -> usize {
@@ -592,6 +606,74 @@ fn clean_member_tail(rest: &str) -> bool {
 
 /// Classes to emit as their own compilation units: top-level classes plus
 /// anonymous/local/lambda-shaped ones (clean members render inline).
+impl DexPool {
+    /// Arm image retirement (full-decompile driver only): count one
+    /// pending class per image by pool ownership.
+    pub fn arm_retirement(&self) {
+        self.retire_armed
+            .store(true, std::sync::atomic::Ordering::Release);
+        let mut counts = self.retire_counts.lock().unwrap();
+        for c in counts.iter_mut() {
+            *c = 0;
+        }
+        for entry in self.classes.values() {
+            let di = match entry {
+                ClassEntry::Eager(pc) => pc.dex_idx,
+                ClassEntry::Lazy { at, .. } => at.0,
+            };
+            if let Some(c) = counts.get_mut(di) {
+                *c += 1;
+            }
+        }
+    }
+
+    /// Report one class finished; Some(image) when it was the image's
+    /// last class (driver batches these into release_images).
+    pub fn report_class_done(&self, class_name: &str) -> Option<usize> {
+        if !self
+            .retire_armed
+            .load(std::sync::atomic::Ordering::Acquire)
+        {
+            return None;
+        }
+        let entry = self.classes.get(class_name)?;
+        let di = match entry {
+            ClassEntry::Eager(pc) => pc.dex_idx,
+            ClassEntry::Lazy { at, .. } => at.0,
+        };
+        let mut counts = self.retire_counts.lock().unwrap();
+        match counts.get_mut(di) {
+            Some(c) => {
+                *c = c.saturating_sub(1);
+                if *c == 0 {
+                    Some(di)
+                } else {
+                    None
+                }
+            }
+            None => None,
+        }
+    }
+
+    /// Release the images' inflated bytes. Safe: the driver calls this
+    /// only when every class of each image is emitted or failed; new
+    /// `dex()` snapshots still work (tables valid, code accessors empty).
+    pub fn release_images(&self, indexes: &[usize]) {
+        let mut counts = self.retire_counts.lock().unwrap();
+        for &i in indexes {
+            if let Some(dex) = self.dexes.get(i) {
+                // Mark the shared image: code accessors go empty
+                // immediately; the bytes drop when the last snapshot
+                // drops (workers hold snapshots only mid-class).
+                dex.mark_released();
+            }
+            if let Some(c) = counts.get_mut(i) {
+                *c = u64::MAX; // released marker
+            }
+        }
+    }
+}
+
 pub fn top_level_classes(pool: &DexPool) -> Vec<String> {
     pool.class_names()
         .filter(|name| match pool.outer_of(name) {
