@@ -162,12 +162,16 @@ APK 里 `From:` 是定位类所在镜像的最快线索（jadx 的 `loaded from:
 错误信息列出全部可用条目名。stdout 输出模式完全干净（stderr 静默），耗时只随
 `-o` 文件/目录输出打印；`findrefs -o FILE` 把命中行写入文件并打印耗时。
 
-`findrefs` 输出每行一个引用点（按类/方法排序，机器可 grep）：
+`findrefs` 输出采用 ASC 格式（`dex | L类;->方法(描述符) | matched=(串)`）——`L...;->`
+显式分隔类与方法（点分形式无法区分边界），并标注来源 dex 镜像：
 
 ```
-Hello.main([Ljava/lang/String;)V  ->  invoke Greeter->greet()Ljava/lang/String;
-Hello.main([Ljava/lang/String;)V  ->  sput Hello->counter:I
+classes.dex | LHello;->main([Ljava/lang/String;)V | matched=(LGreeter;->greet()Ljava/lang/String;)
+classes51.dex | Lcom/suite/lark/.../BillingTipsDialog;->g(L...BillingTipsDialog$Type;)Ljava/lang/String; | matched=(https://applink.feishu.cn/...)
 ```
+
+比 ASC 多保留方法描述符（ASC 省略）——键级与 ASC 完全一致（reqable 上
+69/69 方法键覆盖；多出的行是指令级逐命中 vs ASC 的方法级聚合）。
 
 匹配语义：string/type/名称为子串（大小写不敏感）；`--class` 默认精确（
 `com.poc.Main`/`com/poc/Main`/`Lcom/poc/Main;` 三种写法都归一化），加
