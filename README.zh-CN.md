@@ -8,52 +8,38 @@
 `ddc` 把 Android DEX 字节码反编译回可读的 Java —— 真实 App 级别的速度，
 并且可以像数据库一样查询。
 
-```bash
-$ ddc weibo.apk -o out/
-ddc：已写出 98348 个文件到 out/，用时 6.13s
-```
-
-| | |
-|---|---|
-| 398MB / 59 dex 的飞书 | 20.8 万个编译单元 → **6.1s** |
-| 374MB 的 QQ（巨兽） | **17.9s** |
-| 在这 398MB 里搜一个字符串 | **0.04s** —— 不做全量反编译 |
-
 ## 特性
 
-- **DEX 035–041 全版本支持** —— 多 dex APK、XAPK/APKS/APKM 分包容器、
-  `invoke-polymorphic` / `invoke-custom`；lambda 与字符串拼接调用点折叠回
-  真 Java（`(a) -> …`、`Cls::name`、`a + b`）。
-- **20+ 渐进式子命令** —— 字符串、交叉引用、类继承谱、manifest、资源、
-  方法粒度反编译 —— 毫秒级出答案，先于任何全量反编译。
-- **真实世界加固** —— 病态类跑在带截止期的受控线程上而不是拖死整个
-  运行；每类 panic 隔离。
+- **快** —— 226MB/20 dex 的 weibo（9.8 万个类）全量反编译 **6.1s**，
+  398MB 的飞书 **6.1s**；病态类跑在带截止期的受控线程上，不会拖死
+  整个运行。
+- **渐进式反编译** —— 20+ 查询子命令（字符串、交叉引用、继承谱、
+  manifest、资源、方法粒度反编译）毫秒级出答案：先查元数据、按需定点
+  反编译，绝大多数分析不必付全量的代价。
+- **DEX 035–041 全版本** —— 多 dex APK、XAPK/APKS/APKM 容器、
+  invoke-custom；lambda 与字符串拼接折叠回真 Java（`(a) -> …`、
+  `Cls::name`、`a + b`）。
 - **可复现输出** —— 无时间戳，两次运行 diff 干净。
 - **中英双语 CLI** —— 按环境变量自动识别语言（`DDC_LANG=zh|en` 强制
-  指定；回退英文）。
+  指定，回退英文）。
 - 基于 [`jdc-core`](https://crates.io/crates/jdc-core) —— 与
   [jcdc](https://github.com/ejfkdev/jcdc) 共用的机器无关反编译核心。
 
 ## 安装
 
-每个 [release](https://github.com/ejfkdev/ddc/releases) 附带各平台预编译
-二进制（Linux x86_64/aarch64、macOS x86_64/Apple 芯片、Windows x86_64）
-—— **裸二进制，无压缩包**；非 macOS 平台已 UPX 压缩。打 tag 即触发
-CI 构建，二进制版本号等于 tag 版本。
-
-源码构建（Rust stable）：
+各平台预编译二进制见 [releases](https://github.com/ejfkdev/ddc/releases)
+（Linux x86_64/aarch64、macOS x86_64/Apple 芯片、Windows x86_64；UPX
+压缩的裸二进制，打 tag 自动构建）。或源码构建：
 
 ```bash
 git clone https://github.com/ejfkdev/ddc && cd ddc
-cargo build --release        # release profile 自带 fat LTO + 1 CGU
-./target/release/ddc --help
+cargo build --release
 ```
 
 ## 用法
 
 ```bash
 ddc app.apk                          # 全量反编译 → app-out/
-ddc app.apk src/                     # dae/pycdc 风格位置参数输出
 ddc app.apk -c com.example.Foo       # 单类输出到 stdout
 ddc app.apk -o - | less              # 全部输出到 stdout
 
@@ -61,16 +47,13 @@ ddc mainactivity app.apk             # 入口：包名 + 启动 Activity
 ddc findrefs app.apk string token    # 每个 const-string "token" 引用点
 ddc getmethod app.apk Foo.toString   # 单方法，含全部重载
 ddc pkg app.apk --app -o own/        # 只反编译 App 自身代码
-ddc manifest app.apk --component launcher   #（详见 --help）
 ```
 
-`ddc --help` 输出完整选项、按工作流分组的子命令菜单与示例 —— 用你的
-语言。
+完整选项与示例见 `ddc --help`（按工作流分组的子命令菜单）。
 
 ## 性能
 
-七个真实 APK，release 构建，墙钟时间 3 连测取平均；峰值 RSS 来自
-`/usr/bin/time -l`。机器：Apple Silicon（6P+12E）。
+七个真实 APK，release 构建，3 连测取平均（Apple Silicon 6P+12E）：
 
 | APK | 大小 | 全量反编译 | 峰值 RSS |
 |---|---|---|---|
@@ -82,10 +65,9 @@ ddc manifest app.apk --component launcher   #（详见 --help）
 | lark | 398 MB | **6.08s** | 1580 MB |
 | qq | 374 MB | **17.85s** | 2330 MB |
 
-同一批 APK 上全部查询子命令（单元格：墙钟 / 峰值 RSS）。查询内容：
-`strings -f <包名> --with-locations`；`findrefs string <包名>`；
-`findrefs method onCreate`；`hierarchy`/`disasm`/`getclass` 用各 App 的
-启动类（Telegram 的 `LaunchActivity` 是特别大的类）：
+同一批 APK 上的查询子命令（单元格：耗时 / 峰值 RSS；`strings -f <包名>
+--with-locations`，`findrefs` 查包名字符串与方法 `onCreate`，
+`hierarchy`/`disasm`/`getclass` 用各 App 启动类）：
 
 | 子命令 | reqable | Telegram | WhatsApp | weibo | weixin | lark | qq |
 |---|---|---|---|---|---|---|---|
@@ -103,33 +85,27 @@ ddc manifest app.apk --component launcher   #（详见 --help）
 | `disasm` | 0.01s / 20MB | 0.04s / 85MB | 0.06s / 218MB | 0.08s / 365MB | 0.10s / 371MB | 0.13s / 436MB | 0.18s / 518MB |
 | `getclass` | 0.02s / 33MB | 0.61s / 196MB | 0.09s / 310MB | 0.16s / 646MB | 0.23s / 792MB | 0.29s / 1078MB | 0.40s / 1356MB |
 
-方法论与 ASC 对比：[docs/zh-CN/benchmarks.md](docs/zh-CN/benchmarks.md)
-（[English](docs/benchmarks.md)）。完整子命令参考、输出格式与匹配语义：
-[docs/zh-CN/subcommands.md](docs/zh-CN/subcommands.md)
-（[English](docs/subcommands.md)）。
-
 ## 文档
 
 | | |
 |---|---|
-| [架构](docs/zh-CN/architecture.md) | 三个 crate、提升/结构化/输出管线、DEX 版本、invoke-custom（[English](docs/architecture.md)） |
-| [子命令](docs/zh-CN/subcommands.md) | 渐进式分析参考（[English](docs/subcommands.md)） |
-| [基准](docs/zh-CN/benchmarks.md) | 七个真实 APK 的全量与查询耗时、方法论、与 ASC 对比（[English](docs/benchmarks.md)） |
-| [性能工程](docs/zh-CN/optimization.md) | 5 分钟 → 6s：六轮优化、实测排除的捷径、地板分析（[English](docs/optimization.md)） |
+| [架构](docs/zh-CN/architecture.md) | 三个 crate、提升/结构化/输出管线、DEX 版本、invoke-custom（[EN](docs/architecture.md)） |
+| [子命令](docs/zh-CN/subcommands.md) | 渐进式分析完整参考（[EN](docs/subcommands.md)） |
+| [基准](docs/zh-CN/benchmarks.md) | 耗时/内存、方法论、与 ASC 对比（[EN](docs/benchmarks.md)） |
+| [性能工程](docs/zh-CN/optimization.md) | 5 分钟 → 6s：六轮优化与实测排除的捷径（[EN](docs/optimization.md)） |
 
 ## 已知限制
 
 擦除类型（DEX 无 Signature）；d8 反糖的 `-$$Lambda$` 类独立成文件；极少数
-R8 巨兽方法超时降级；pattern-switch 与字符串 switch 呈现为反糖分发链。
-详见 [docs/zh-CN/architecture.md](docs/zh-CN/architecture.md)。
+R8 巨兽方法超时降级；pattern-switch 呈现为反糖分发链。详见
+[架构文档](docs/zh-CN/architecture.md)。
 
 ## 测试
 
 ```bash
-cargo test    # 56 个测试：解码/端到端 + CLI + 子命令集成
+cargo test    # 56 个测试
 ```
 
 ## 许可
 
-[MIT](LICENSE) © ejfkdev。[`jdc-core`](https://crates.io/crates/jdc-core)
-同为 MIT。
+[MIT](LICENSE) © ejfkdev

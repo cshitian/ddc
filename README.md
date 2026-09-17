@@ -5,77 +5,61 @@
 [![CI](https://github.com/ejfkdev/ddc/actions/workflows/ci.yml/badge.svg)](https://github.com/ejfkdev/ddc/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-`ddc` decompiles Android DEX bytecode back into readable Java, fast enough
-for real-world app bundles — and precise enough to query like a database.
-
-```bash
-$ ddc weibo.apk -o out/
-ddc: wrote 98348 file(s) to out/ in 6.13s
-```
-
-| | |
-|---|---|
-| 398 MB / 59-dex bundle (Lark/Feishu) | 208k units → **6.1s** |
-| 374 MB APK (QQ) | the heavyweight → **17.9s** |
-| a string search across that 398 MB | **0.04s** — no full decompile |
+`ddc` decompiles Android DEX bytecode back into readable Java — at
+real-world app scale, and queryable like a database.
 
 ## Highlights
 
-- **Full DEX 035–041 support** — multi-dex APKs, XAPK/APKS/APKM split
-  containers, `invoke-polymorphic` / `invoke-custom`; lambda and
-  string-concat call sites fold back to real Java (`(a) -> …`, `Cls::name`,
-  `a + b`).
-- **20+ progressive subcommands** — strings, cross-references, class
-  hierarchies, the manifest, resources, per-method decompiles — answers in
-  tens of milliseconds, before any full decompile.
-- **Real-world hardening** — pathological classes run on monitored threads
-  with deadlines instead of hanging the run; panics are contained per
-  class.
-- **Reproducible output** — no timestamps, so two runs diff cleanly.
-- **Bilingual CLI** — messages auto-localize to Chinese from the locale
-  (`DDC_LANG=zh|en` overrides; English fallback).
-- Built on [`jdc-core`](https://crates.io/crates/jdc-core) — the
-  machine-neutral decompiler core shared with
+- **Fast** — a 226 MB / 20-dex APK (weibo, 98k classes) fully
+  decompiles in **6.1s**, a 398 MB bundle (Lark) in **6.1s**;
+  pathological classes run on deadline-bounded monitored threads
+  instead of hanging the run.
+- **Progressive decompilation** — 20+ query subcommands (strings,
+  cross-references, hierarchies, manifest, resources, per-method
+  decompiles) answer in milliseconds: query metadata first, decompile
+  on demand, skip the full run entirely.
+- **DEX 035–041, complete** — multi-dex APKs, XAPK/APKS/APKM
+  containers, invoke-custom; lambdas and string concats fold back into
+  real Java (`(a) -> …`, `Cls::name`, `a + b`).
+- **Reproducible output** — no timestamps; two runs diff cleanly.
+- **Bilingual CLI** — messages localize automatically
+  (`DDC_LANG=zh|en` forces; English fallback).
+- Built on [`jdc-core`](https://crates.io/crates/jdc-core), the
+  machine-neutral core shared with
   [jcdc](https://github.com/ejfkdev/jcdc).
 
 ## Install
 
-Prebuilt binaries for Linux (x86_64, aarch64), macOS (x86_64, Apple
+Prebuilt binaries for Linux (x86_64/aarch64), macOS (x86_64/Apple
 silicon) and Windows (x86_64) ship with every
-[release](https://github.com/ejfkdev/ddc/releases) — raw binaries, no
-archives; non-macOS builds are UPX-compressed. Tag a version and CI builds
-all five targets with the binary version stamped from the tag.
-
-From source (Rust stable):
+[release](https://github.com/ejfkdev/ddc/releases) — raw UPX-compressed
+binaries, built automatically on tag. Or build from source:
 
 ```bash
 git clone https://github.com/ejfkdev/ddc && cd ddc
-cargo build --release        # the profile already sets fat LTO + 1 CGU
-./target/release/ddc --help
+cargo build --release
 ```
 
 ## Usage
 
 ```bash
 ddc app.apk                          # full decompile → app-out/
-ddc app.apk src/                     # dae/pycdc-style positional output
 ddc app.apk -c com.example.Foo       # one class to stdout
 ddc app.apk -o - | less              # everything to stdout
 
 ddc mainactivity app.apk             # entry point: package + launcher
 ddc findrefs app.apk string token    # every const-string "token" site
 ddc getmethod app.apk Foo.toString   # one method, all overloads
-ddc pkg app.apk --app -o own/        # app's own code only, no androidx
-ddc manifest app.apk --component launcher    # (see --help)
+ddc pkg app.apk --app -o own/        # the app's own code only
 ```
 
-`ddc --help` prints the full option list, the subcommand menu grouped by
-workflow, and worked examples — in your language.
+Full options and examples: `ddc --help` (subcommand menu grouped by
+workflow).
 
 ## Performance
 
-Seven real-world APKs, release build, 3-run averages of wall time; peak
-RSS via `/usr/bin/time -l`. Machine: Apple Silicon (6P+12E).
+Seven real-world APKs, release build, 3-run averages
+(Apple Silicon, 6P+12E):
 
 | APK | Size | Full decompile | Peak RSS |
 |---|---|---|---|
@@ -87,11 +71,10 @@ RSS via `/usr/bin/time -l`. Machine: Apple Silicon (6P+12E).
 | lark | 398 MB | **6.08s** | 1580 MB |
 | qq | 374 MB | **17.85s** | 2330 MB |
 
-Every query subcommand on the same seven APKs (cells: wall time / peak
-RSS). Queries: `strings -f <package> --with-locations`;
-`findrefs string <package>`; `findrefs method onCreate`;
-`hierarchy`/`disasm`/`getclass` use each app's launcher class
-(Telegram's `LaunchActivity` is an exceptionally large class):
+Query subcommands on the same APKs (cells: time / peak RSS;
+`strings -f <package> --with-locations`, `findrefs` on the package
+string and method `onCreate`, `hierarchy`/`disasm`/`getclass` on each
+app's launcher class):
 
 | Command | reqable | Telegram | WhatsApp | weibo | weixin | lark | qq |
 |---|---|---|---|---|---|---|---|
@@ -109,36 +92,28 @@ RSS). Queries: `strings -f <package> --with-locations`;
 | `disasm` | 0.01s / 20MB | 0.04s / 85MB | 0.06s / 218MB | 0.08s / 365MB | 0.10s / 371MB | 0.13s / 436MB | 0.18s / 518MB |
 | `getclass` | 0.02s / 33MB | 0.61s / 196MB | 0.09s / 310MB | 0.16s / 646MB | 0.23s / 792MB | 0.29s / 1078MB | 0.40s / 1356MB |
 
-Methodology and the ASC comparison:
-[docs/benchmarks.md](docs/benchmarks.md)
-([中文](docs/zh-CN/benchmarks.md)). Full subcommand reference, output
-formats and match semantics:
-[docs/subcommands.md](docs/subcommands.md)
-([中文](docs/zh-CN/subcommands.md)).
-
 ## Documentation
 
 | | |
 |---|---|
-| [Architecture](docs/architecture.md) | the three crates, the lift/structure/emit pipeline, DEX versions, invoke-custom ([中文](docs/zh-CN/architecture.md)) |
+| [Architecture](docs/architecture.md) | crates, the lift/structure/emit pipeline, DEX versions, invoke-custom ([中文](docs/zh-CN/architecture.md)) |
 | [Subcommands](docs/subcommands.md) | the progressive-analysis reference ([中文](docs/zh-CN/subcommands.md)) |
-| [Benchmarks](docs/benchmarks.md) | full-decompile and query timings across seven real APKs, methodology, comparison with ASC ([中文](docs/zh-CN/benchmarks.md)) |
-| [Performance engineering](docs/optimization.md) | 5min → 6s: the six rounds, the measured dead ends, the floor analysis ([中文](docs/zh-CN/optimization.md)) |
+| [Benchmarks](docs/benchmarks.md) | timings, memory, methodology, ASC comparison ([中文](docs/zh-CN/benchmarks.md)) |
+| [Performance engineering](docs/optimization.md) | 5min → 6s: six rounds, measured dead ends ([中文](docs/zh-CN/optimization.md)) |
 
 ## Known limitations
 
-Erased types (DEX carries no Signature); d8-desugared `-$$Lambda$` classes
-stay separate files; a handful of R8 monster methods degrade via timeout;
-pattern-switch and string-switch render as desugared dispatch chains.
-Details: [docs/architecture.md](docs/architecture.md).
+Erased types (DEX has no Signature); d8-desugared `-$$Lambda$` classes
+stay separate files; a few R8 monster methods degrade via timeout;
+pattern-switch renders as desugared dispatch chains. Details:
+[architecture](docs/architecture.md).
 
 ## Testing
 
 ```bash
-cargo test    # 56 tests: decode/end-to-end + CLI + subcommand integration
+cargo test    # 56 tests
 ```
 
 ## License
 
-[MIT](LICENSE) © ejfkdev. [`jdc-core`](https://crates.io/crates/jdc-core)
-is MIT as well.
+[MIT](LICENSE) © ejfkdev
