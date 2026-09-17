@@ -54,7 +54,9 @@ ddc pkg app.apk --app -o own/        # the app's own code only
 ```
 
 Full options and examples: `ddc --help` (subcommand menu grouped by
-workflow).
+workflow). The complete reference — every option's semantics, every
+subcommand's output format and behavior — lives in
+[docs/cli.md](docs/cli.md) ([中文](docs/zh-CN/cli.md)).
 
 ## Performance
 
@@ -97,6 +99,7 @@ app's launcher class):
 | | |
 |---|---|
 | [Architecture](docs/architecture.md) | crates, the lift/structure/emit pipeline, DEX versions, invoke-custom ([中文](docs/zh-CN/architecture.md)) |
+| [CLI reference](docs/cli.md) | every option and subcommand, in detail ([中文](docs/zh-CN/cli.md)) |
 | [Subcommands](docs/subcommands.md) | the progressive-analysis reference ([中文](docs/zh-CN/subcommands.md)) |
 | [Benchmarks](docs/benchmarks.md) | timings, memory, methodology, ASC comparison ([中文](docs/zh-CN/benchmarks.md)) |
 | [Performance engineering](docs/optimization.md) | 5min → 6s: six rounds, measured dead ends ([中文](docs/zh-CN/optimization.md)) |

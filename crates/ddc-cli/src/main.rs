@@ -154,8 +154,9 @@ fn print_help_en() {
     println!("  ddc hierarchy app.apk androidx.fragment.app.FragmentActivity");
     println!("  ddc pkg app.apk --app -o own/        # just the app's own code");
     println!();
-    println!("More: benchmarks, formats and design notes live in the README and");
-    println!("docs/ (English and 简体中文) at https://github.com/ejfkdev/ddc");
+    println!("More: the full CLI reference (every option and subcommand in");
+    println!("detail), benchmarks and design notes live in docs/ (English and");
+    println!("简体中文) at https://github.com/ejfkdev/ddc");
 }
 
 fn print_help_zh() {
@@ -260,8 +261,8 @@ fn print_help_zh() {
     println!("  ddc hierarchy app.apk androidx.fragment.app.FragmentActivity");
     println!("  ddc pkg app.apk --app -o own/        # 只反编译 App 自身代码");
     println!();
-    println!("更多：基准、格式与设计文档见 README 与 docs/（英文与简体中文）");
-    println!("https://github.com/ejfkdev/ddc");
+    println!("更多：完整 CLI 参考（全部选项与子命令详解）、基准与设计文档见");
+    println!("docs/（英文与简体中文）https://github.com/ejfkdev/ddc");
 }
 
 #[allow(dead_code)]

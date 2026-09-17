@@ -49,7 +49,9 @@ ddc getmethod app.apk Foo.toString   # 单方法，含全部重载
 ddc pkg app.apk --app -o own/        # 只反编译 App 自身代码
 ```
 
-完整选项与示例见 `ddc --help`（按工作流分组的子命令菜单）。
+完整选项与示例见 `ddc --help`（按工作流分组的子命令菜单）。更详细的
+完整参考 —— 每个选项的语义、每个子命令的输出格式与行为 —— 见
+[docs/zh-CN/cli.md](docs/zh-CN/cli.md)（[English](docs/cli.md)）。
 
 ## 性能
 
@@ -90,6 +92,7 @@ ddc pkg app.apk --app -o own/        # 只反编译 App 自身代码
 | | |
 |---|---|
 | [架构](docs/zh-CN/architecture.md) | 三个 crate、提升/结构化/输出管线、DEX 版本、invoke-custom（[EN](docs/architecture.md)） |
+| [CLI 参考](docs/zh-CN/cli.md) | 全部选项与子命令详解（[EN](docs/cli.md)） |
 | [子命令](docs/zh-CN/subcommands.md) | 渐进式分析完整参考（[EN](docs/subcommands.md)） |
 | [基准](docs/zh-CN/benchmarks.md) | 耗时/内存、方法论、与 ASC 对比（[EN](docs/benchmarks.md)） |
 | [性能工程](docs/zh-CN/optimization.md) | 5 分钟 → 6s：六轮优化与实测排除的捷径（[EN](docs/optimization.md)） |
