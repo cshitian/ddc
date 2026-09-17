@@ -116,7 +116,7 @@ pub(crate) struct RawDex<'a> {
 impl<'a> RawDex<'a> {
     pub(crate) fn parse(d: &'a [u8]) -> Result<Self> {
         if d.len() < 0x70 || !d.starts_with(b"dex\n") {
-            bail!("not a DEX image");
+            bail!(crate::lang::bi!("not a DEX image", "不是 DEX 镜像"));
         }
         let u4 = |o: usize| -> usize {
             u32::from_le_bytes([d[o], d[o + 1], d[o + 2], d[o + 3]]) as usize
@@ -142,7 +142,10 @@ impl<'a> RawDex<'a> {
             || !ok(dex.method_off, dex.method_n, 8)
             || !ok(dex.cls_off, dex.cls_n, 32)
         {
-            bail!("DEX table ranges out of bounds");
+            bail!(crate::lang::bi!(
+                "DEX table ranges out of bounds",
+                "DEX 表范围越界"
+            ));
         }
         Ok(dex)
     }

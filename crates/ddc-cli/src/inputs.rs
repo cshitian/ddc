@@ -43,15 +43,22 @@ pub fn expand_inputs(inputs: &[PathBuf]) -> Result<Vec<PathBuf>> {
     for input in inputs {
         if input.is_dir() {
             let before = files.len();
-            walk_dex_files(input, &mut files)
-                .with_context(|| format!("scanning {}", input.display()))?;
+            walk_dex_files(input, &mut files).with_context(
+                || crate::lang::bif!("scanning {0}", "正在扫描 {0}"; input.display()),
+            )?;
             if files.len() == before {
-                bail!("no .dex/.apk/.jar/.zip files under {}", input.display());
+                bail!(
+                    "{}",
+                    crate::lang::bif!("no .dex/.apk/.jar/.zip files under {0}", "{0} 下没有 .dex/.apk/.jar/.zip 文件"; input.display())
+                );
             }
         } else if input.is_file() {
             files.push(input.clone());
         } else {
-            bail!("input not found: {}", input.display());
+            bail!(
+                "{}",
+                crate::lang::bif!("input not found: {0}", "输入不存在：{0}"; input.display())
+            );
         }
     }
     Ok(files)
@@ -148,27 +155,31 @@ fn nested_apk_images(
         images.extend(extra.into_iter().map(mk));
     }
     if images.is_empty() {
-        bail!("XAPK container has no APK entries with *.dex files");
+        bail!(crate::lang::bi!(
+            "XAPK container has no APK entries with *.dex files",
+            "XAPK 容器中没有带 *.dex 的 APK 条目"
+        ));
     }
     Ok(images)
 }
 
 pub fn map_source(f: &Path) -> Result<Source> {
-    let file = std::fs::File::open(f).with_context(|| format!("open {}", f.display()))?;
+    let file = std::fs::File::open(f)
+        .with_context(|| crate::lang::bif!("open {0}", "打开 {0}"; f.display()))?;
     let len = file
         .metadata()
-        .with_context(|| format!("stat {}", f.display()))?
+        .with_context(|| crate::lang::bif!("stat {0}", "取属性 {0}"; f.display()))?
         .len();
     if len >= 1 << 20 {
         // Mmap faults pages in as touched (the CD scan touches the tail,
         // inflates touch entry ranges); the heap copy touched everything.
-        let map =
-            unsafe { memmap2::Mmap::map(&file) }.with_context(|| format!("map {}", f.display()))?;
+        let map = unsafe { memmap2::Mmap::map(&file) }
+            .with_context(|| crate::lang::bif!("map {0}", "映射 {0}"; f.display()))?;
         Ok(Source::Map(map))
     } else {
-        Ok(Source::Heap(
-            std::fs::read(f).with_context(|| format!("read {}", f.display()))?,
-        ))
+        Ok(Source::Heap(std::fs::read(f).with_context(
+            || crate::lang::bif!("read {0}", "读取 {0}"; f.display()),
+        )?))
     }
 }
 
@@ -273,9 +284,13 @@ pub fn filter_images_by_dex(images: Vec<Image>, patterns: &[String]) -> Result<V
         names.sort();
         names.dedup();
         bail!(
-            "--dex {}: no matching dex images (available: {})",
-            patterns.join(", "),
-            names.join(", ")
+            "{}",
+            crate::lang::bif!(
+                "--dex {0}: no matching dex images (available: {1})",
+                "--dex {0}：没有匹配的 dex 镜像（可用：{1}）";
+                patterns.join(", "),
+                names.join(", ")
+            )
         );
     }
     Ok(kept)

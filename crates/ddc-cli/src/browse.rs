@@ -9,6 +9,7 @@ use crate::findrefs::{decode_mutf8_lossy, RawDex};
 use crate::inputs::{
     collect_images, expand_inputs, filter_images_by_dex, inflate_images, parse_images,
 };
+use crate::lang::{bi, bif};
 
 /// Parse every image (parallel), handing each (label, image) to `f`.
 /// Bounded like the findrefs pipeline; progressive commands never hold all
@@ -47,10 +48,17 @@ pub(crate) fn parse_common(args: &[String], cmd: &str) -> Result<Common> {
     while i < args.len() {
         match args[i].as_str() {
             "-d" | "--dex" => {
-                dex_filters.push(args.get(i + 1).context("--dex needs a value")?.to_string());
+                dex_filters.push(
+                    args.get(i + 1)
+                        .context(bi!("--dex needs a value", "--dex 需要一个值"))?
+                        .to_string(),
+                );
                 i += 1;
             }
-            a if a.starts_with('-') => bail!("{cmd}: unknown option {a}"),
+            a if a.starts_with('-') => bail!(
+                "{}",
+                bif!("{0}: unknown option {1}", "{0}：未知选项 {1}"; cmd, a)
+            ),
             a => positionals.push(a.to_string()),
         }
         i += 1;
@@ -58,7 +66,7 @@ pub(crate) fn parse_common(args: &[String], cmd: &str) -> Result<Common> {
     let input = positionals
         .first()
         .cloned()
-        .context(format!("{cmd} needs an input file"))?;
+        .context(bif!("{0} needs an input file", "{0} 需要输入文件"; cmd))?;
     Ok(Common {
         input: PathBuf::from(input),
         dex_filters,
@@ -78,7 +86,7 @@ pub(crate) fn cmd_strings(args: &[String]) -> Result<()> {
             "-f" | "--filter" => {
                 filter = Some(
                     args.get(i + 1)
-                        .context("--filter needs a value")?
+                        .context(bi!("--filter needs a value", "--filter 需要一个值"))?
                         .to_string(),
                 );
                 i += 1;
@@ -88,10 +96,17 @@ pub(crate) fn cmd_strings(args: &[String]) -> Result<()> {
                 // parse_common owns -d/--dex, but this loop runs first —
                 // forward both tokens so it can see them.
                 rest.push(args[i].clone());
-                rest.push(args.get(i + 1).context("--dex needs a value")?.clone());
+                rest.push(
+                    args.get(i + 1)
+                        .context(bi!("--dex needs a value", "--dex 需要一个值"))?
+                        .clone(),
+                );
                 i += 1;
             }
-            a if a.starts_with('-') => bail!("strings: unknown option {a}"),
+            a if a.starts_with('-') => bail!(
+                "{}",
+                bif!("strings: unknown option {0}", "strings：未知选项 {0}"; a)
+            ),
             a => rest.push(a.to_string()),
         }
         i += 1;
@@ -102,9 +117,9 @@ pub(crate) fn cmd_strings(args: &[String]) -> Result<()> {
         "{:10}  {}",
         "dex",
         if with_loc {
-            "string  used-by"
+            bi!("string  used-by", "字符串    使用者")
         } else {
-            "string"
+            bi!("string", "字符串")
         }
     );
     for_each_image(&common.input, &common.dex_filters, &mut |label, image| {
@@ -214,7 +229,7 @@ pub(crate) fn cmd_members(args: &[String]) -> Result<()> {
             "--class" | "-C" => {
                 class = Some(
                     args.get(i + 1)
-                        .context("--class needs a value")?
+                        .context(bi!("--class needs a value", "--class 需要一个值"))?
                         .to_string(),
                 );
                 i += 1;
@@ -225,10 +240,17 @@ pub(crate) fn cmd_members(args: &[String]) -> Result<()> {
                 // parse_common owns -d/--dex, but this loop runs first —
                 // forward both tokens so it can see them.
                 rest.push(args[i].clone());
-                rest.push(args.get(i + 1).context("--dex needs a value")?.clone());
+                rest.push(
+                    args.get(i + 1)
+                        .context(bi!("--dex needs a value", "--dex 需要一个值"))?
+                        .clone(),
+                );
                 i += 1;
             }
-            a if a.starts_with('-') => bail!("members: unknown option {a}"),
+            a if a.starts_with('-') => bail!(
+                "{}",
+                bif!("members: unknown option {0}", "members：未知选项 {0}"; a)
+            ),
             a => rest.push(a.to_string()),
         }
         i += 1;
@@ -236,7 +258,12 @@ pub(crate) fn cmd_members(args: &[String]) -> Result<()> {
     let common = parse_common(&rest, "members")?;
     let name = common.rest.first().cloned();
 
-    println!("{:10}  {:<6}  {}", "dex", "kind", "class member");
+    println!(
+        "{:10}  {:<6}  {}",
+        "dex",
+        bi!("kind", "类型"),
+        bi!("class member", "类 成员")
+    );
     for_each_image(&common.input, &common.dex_filters, &mut |label, image| {
         let dex_name = label
             .rsplit_once('!')
@@ -330,10 +357,17 @@ pub(crate) fn cmd_hierarchy(args: &[String]) -> Result<()> {
                 // parse_common owns -d/--dex, but this loop runs first —
                 // forward both tokens so it can see them.
                 rest.push(args[i].clone());
-                rest.push(args.get(i + 1).context("--dex needs a value")?.clone());
+                rest.push(
+                    args.get(i + 1)
+                        .context(bi!("--dex needs a value", "--dex 需要一个值"))?
+                        .clone(),
+                );
                 i += 1;
             }
-            a if a.starts_with('-') => bail!("hierarchy: unknown option {a}"),
+            a if a.starts_with('-') => bail!(
+                "{}",
+                bif!("hierarchy: unknown option {0}", "hierarchy：未知选项 {0}"; a)
+            ),
             a => rest.push(a.to_string()),
         }
         i += 1;
@@ -342,10 +376,15 @@ pub(crate) fn cmd_hierarchy(args: &[String]) -> Result<()> {
     let target = common
         .rest
         .first()
-        .context("hierarchy needs a class name")?
+        .context(bi!("hierarchy needs a class name", "hierarchy 需要类名"))?
         .replace('.', "/");
 
-    println!("{:10}  {:<9}  {}", "dex", "relation", "class");
+    println!(
+        "{:10}  {:<9}  {}",
+        "dex",
+        bi!("relation", "关系"),
+        bi!("class", "类")
+    );
     // Map: super/interface type idx -> child classes (per image).
     for_each_image(&common.input, &common.dex_filters, &mut |label, image| {
         let dex_name = label
@@ -446,7 +485,7 @@ pub(crate) fn cmd_largest(args: &[String]) -> Result<()> {
             "-n" => {
                 limit = args
                     .get(i + 1)
-                    .context("-n needs a count")?
+                    .context(bi!("-n needs a count", "-n 需要一个数量"))?
                     .parse()
                     .unwrap_or(20);
                 i += 1;
@@ -455,10 +494,17 @@ pub(crate) fn cmd_largest(args: &[String]) -> Result<()> {
                 // parse_common owns -d/--dex, but this loop runs first —
                 // forward both tokens so it can see them.
                 rest.push(args[i].clone());
-                rest.push(args.get(i + 1).context("--dex needs a value")?.clone());
+                rest.push(
+                    args.get(i + 1)
+                        .context(bi!("--dex needs a value", "--dex 需要一个值"))?
+                        .clone(),
+                );
                 i += 1;
             }
-            a if a.starts_with('-') => bail!("largest: unknown option {a}"),
+            a if a.starts_with('-') => bail!(
+                "{}",
+                bif!("largest: unknown option {0}", "largest：未知选项 {0}"; a)
+            ),
             a => rest.push(a.to_string()),
         }
         i += 1;
@@ -513,7 +559,12 @@ pub(crate) fn cmd_largest(args: &[String]) -> Result<()> {
         }
     })?;
     rows.sort_by(|a, b| b.insns.cmp(&a.insns));
-    println!("{:>7}  {:<10}  {}", "insns", "dex", "class method");
+    println!(
+        "{:>7}  {:<10}  {}",
+        bi!("insns", "指令数"),
+        "dex",
+        bi!("class method", "类 方法")
+    );
     for r in rows.into_iter().take(limit) {
         println!("{:>7}  {:<10}  {} {}", r.insns, r.dex, r.class, r.method);
     }
@@ -531,19 +582,26 @@ pub(crate) fn cmd_disasm(args: &[String]) -> Result<()> {
                 // parse_common owns -d/--dex, but this loop runs first —
                 // forward both tokens so it can see them.
                 rest.push(args[i].clone());
-                rest.push(args.get(i + 1).context("--dex needs a value")?.clone());
+                rest.push(
+                    args.get(i + 1)
+                        .context(bi!("--dex needs a value", "--dex 需要一个值"))?
+                        .clone(),
+                );
                 i += 1;
             }
-            a if a.starts_with('-') => bail!("disasm: unknown option {a}"),
+            a if a.starts_with('-') => bail!(
+                "{}",
+                bif!("disasm: unknown option {0}", "disasm：未知选项 {0}"; a)
+            ),
             a => rest.push(a.to_string()),
         }
         i += 1;
     }
     let common = parse_common(&rest, "disasm")?;
-    let target = common
-        .rest
-        .first()
-        .context("disasm needs a class name (optionally Class.method)")?;
+    let target = common.rest.first().context(bi!(
+        "disasm needs a class name (optionally Class.method)",
+        "disasm 需要类名（可选 类.方法）"
+    ))?;
     let class_full = target.replace('.', "/");
     // `Cells.t1` (whole thing is a class) vs `Greeter.greet` (class + method):
     // try the whole string as a class first, then fall back to splitting at
@@ -620,10 +678,17 @@ pub(crate) fn cmd_callers(args: &[String]) -> Result<()> {
                 // parse_common owns -d/--dex, but this loop runs first —
                 // forward both tokens so it can see them.
                 rest.push(args[i].clone());
-                rest.push(args.get(i + 1).context("--dex needs a value")?.clone());
+                rest.push(
+                    args.get(i + 1)
+                        .context(bi!("--dex needs a value", "--dex 需要一个值"))?
+                        .clone(),
+                );
                 i += 1;
             }
-            a if a.starts_with('-') => bail!("callers: unknown option {a}"),
+            a if a.starts_with('-') => bail!(
+                "{}",
+                bif!("callers: unknown option {0}", "callers：未知选项 {0}"; a)
+            ),
             a => rest.push(a.to_string()),
         }
         i += 1;
@@ -631,10 +696,10 @@ pub(crate) fn cmd_callers(args: &[String]) -> Result<()> {
     let common = parse_common(&rest, "callers")?;
     // Reuse findrefs method machinery: callers of M = findrefs --kind method
     // name M (optionally scoped to one class).
-    let target = common
-        .rest
-        .first()
-        .context("callers needs a method name [class]")?;
+    let target = common.rest.first().context(bi!(
+        "callers needs a method name [class]",
+        "callers 需要方法名 [类名]"
+    ))?;
     let (name, class) = match common.rest.get(1) {
         Some(c) => (target.clone(), Some(c.clone())),
         None => (target.clone(), None),
@@ -661,13 +726,16 @@ pub(crate) fn cmd_pkg(args: &[String]) -> Result<()> {
     while i < args.len() {
         match args[i].as_str() {
             "-o" | "--output" => {
-                out_dir = Some(PathBuf::from(args.get(i + 1).context("-o needs a value")?));
+                out_dir = Some(PathBuf::from(
+                    args.get(i + 1)
+                        .context(bi!("-o needs a value", "-o 需要一个值"))?,
+                ));
                 i += 1;
             }
             "-t" | "--threads" => {
                 threads = args
                     .get(i + 1)
-                    .context("-t needs a count")?
+                    .context(bi!("-t needs a count", "-t 需要一个数量"))?
                     .parse()
                     .unwrap_or(4);
                 i += 1;
@@ -676,11 +744,18 @@ pub(crate) fn cmd_pkg(args: &[String]) -> Result<()> {
                 // parse_common owns -d/--dex, but this loop runs first —
                 // forward both tokens so it can see them.
                 rest.push(args[i].clone());
-                rest.push(args.get(i + 1).context("--dex needs a value")?.clone());
+                rest.push(
+                    args.get(i + 1)
+                        .context(bi!("--dex needs a value", "--dex 需要一个值"))?
+                        .clone(),
+                );
                 i += 1;
             }
             "--app" => from_manifest = true,
-            a if a.starts_with('-') => bail!("pkg: unknown option {a}"),
+            a if a.starts_with('-') => bail!(
+                "{}",
+                bif!("pkg: unknown option {0}", "pkg：未知选项 {0}"; a)
+            ),
             a => rest.push(a.to_string()),
         }
         i += 1;
@@ -692,17 +767,27 @@ pub(crate) fn cmd_pkg(args: &[String]) -> Result<()> {
         let facts = crate::manifest::facts_for(&common.input)?;
         if facts.package.is_empty() {
             bail!(
-                "{}: manifest has no package attribute",
-                common.input.display()
+                "{}",
+                bif!(
+                    "{0}: manifest has no package attribute",
+                    "{0}：manifest 没有 package 属性";
+                    common.input.display()
+                )
             );
         }
-        eprintln!("ddc: app package is {}", facts.package);
+        eprintln!(
+            "{}",
+            bif!("ddc: app package is {0}", "ddc：应用包名为 {0}"; facts.package)
+        );
         facts.package
     } else {
         common
             .rest
             .first()
-            .context("pkg needs a package name (com.example.foo), or --app")?
+            .context(bi!(
+                "pkg needs a package name (com.example.foo), or --app",
+                "pkg 需要包名（com.example.foo），或 --app"
+            ))?
             .clone()
     };
     let out = out_dir.unwrap_or_else(|| {
@@ -748,14 +833,20 @@ pub(crate) fn cmd_pkg(args: &[String]) -> Result<()> {
     if names.is_empty() && from_manifest {
         if let Some(launcher) = crate::manifest::facts_for(&common.input)?.launcher {
             if let Some((lp, _)) = launcher.rsplit_once('.') {
-                eprintln!("ddc: no classes under {package}; retrying with launcher package {lp}");
+                eprintln!(
+                    "{}",
+                    bif!("ddc: no classes under {0}; retrying with launcher package {1}", "ddc：包 {0} 下没有类；改用 launcher 所在包 {1}"; package, lp)
+                );
                 package = lp.to_string();
                 names = collect(&package)?;
             }
         }
     }
     if names.is_empty() {
-        bail!("no classes under package {package}");
+        bail!(
+            "{}",
+            bif!("no classes under package {0}", "包 {0} 下没有类"; package)
+        );
     }
 
     // Decompile those names through the full pipeline: build the pool with
@@ -863,25 +954,35 @@ pub(crate) fn cmd_getmethod(args: &[String]) -> Result<()> {
                 // parse_common owns -d/--dex, but this loop runs first —
                 // forward both tokens so it can see them.
                 rest.push(args[i].clone());
-                rest.push(args.get(i + 1).context("--dex needs a value")?.clone());
+                rest.push(
+                    args.get(i + 1)
+                        .context(bi!("--dex needs a value", "--dex 需要一个值"))?
+                        .clone(),
+                );
                 i += 1;
             }
-            a if a.starts_with('-') => bail!("getmethod: unknown option {a}"),
+            a if a.starts_with('-') => bail!(
+                "{}",
+                bif!("getmethod: unknown option {0}", "getmethod：未知选项 {0}"; a)
+            ),
             a => rest.push(a.to_string()),
         }
         i += 1;
     }
     let common = parse_common(&rest, "getmethod")?;
-    let target = common
-        .rest
-        .first()
-        .context("getmethod needs a Class.method target")?;
+    let target = common.rest.first().context(bi!(
+        "getmethod needs a Class.method target",
+        "getmethod 需要类.方法 目标"
+    ))?;
     let mut out: Option<PathBuf> = None;
     let mut i = 0;
     while i < args.len() {
         match args[i].as_str() {
             "-o" | "--output" => {
-                out = Some(PathBuf::from(args.get(i + 1).context("-o needs a value")?));
+                out = Some(PathBuf::from(
+                    args.get(i + 1)
+                        .context(bi!("-o needs a value", "-o 需要一个值"))?,
+                ));
                 i += 1;
             }
             _ => {}
@@ -908,7 +1009,10 @@ pub(crate) fn cmd_getmethod(args: &[String]) -> Result<()> {
                         Some(b) => b,
                         None => {
                             let avail = method_names(&text).join(", ");
-                            bail!("method {m} not found in {class} (methods: {avail})")
+                            bail!(
+                                "{}",
+                                bif!("method {0} not found in {1} (methods: {2})", "方法 {0} 不在 {1} 中（可用方法：{2}）"; m, class, avail)
+                            )
                         }
                     },
                     None => format!("{text}\n"),
@@ -927,7 +1031,12 @@ pub(crate) fn cmd_getmethod(args: &[String]) -> Result<()> {
             Err(e) => last_err = Some(e),
         }
     }
-    Err(last_err.unwrap_or_else(|| anyhow::anyhow!("getmethod: class not found")))
+    Err(last_err.unwrap_or_else(|| {
+        anyhow::anyhow!(
+            "{}",
+            bi!("getmethod: class not found", "getmethod：找不到类")
+        )
+    }))
 }
 
 /// Slice one method's block out of a decompiled class: keeps the
@@ -1030,10 +1139,17 @@ pub(crate) fn cmd_mainactivity(args: &[String]) -> Result<()> {
                 // parse_common owns -d/--dex, but this loop runs first —
                 // forward both tokens so it can see them.
                 rest.push(args[i].clone());
-                rest.push(args.get(i + 1).context("--dex needs a value")?.clone());
+                rest.push(
+                    args.get(i + 1)
+                        .context(bi!("--dex needs a value", "--dex 需要一个值"))?
+                        .clone(),
+                );
                 i += 1;
             }
-            a if a.starts_with('-') => bail!("mainactivity: unknown option {a}"),
+            a if a.starts_with('-') => bail!(
+                "{}",
+                bif!("mainactivity: unknown option {0}", "mainactivity：未知选项 {0}"; a)
+            ),
             a => rest.push(a.to_string()),
         }
         i += 1;
@@ -1042,19 +1158,31 @@ pub(crate) fn cmd_mainactivity(args: &[String]) -> Result<()> {
 
     let facts = crate::manifest::facts_for(&common.input)?;
     if facts.package.is_empty() {
-        bail!("manifest has no package attribute");
+        bail!(bi!(
+            "manifest has no package attribute",
+            "manifest 没有 package 属性"
+        ));
     }
-    println!("{:<11} {}", "package", facts.package);
+    println!("{:<11} {}", bi!("package", "包名"), facts.package);
     if let Some(app) = &facts.application {
-        println!("{:<11} {} (application)", "class", app);
+        println!(
+            "{:<11} {} {}",
+            bi!("class", "类"),
+            app,
+            bi!("(application)", "（Application 类）")
+        );
     }
     let Some(launcher) = &facts.launcher else {
         bail!(
-            "manifest declares no MAIN/LAUNCHER activity (headless app? try `ddc manifest {} --component activity-alias`)",
-            common.input.display()
+            "{}",
+            bif!(
+                "manifest declares no MAIN/LAUNCHER activity (headless app? try `ddc manifest {0} --component activity-alias`)",
+                "manifest 未声明 MAIN/LAUNCHER 入口 Activity（无界面应用？可试 `ddc manifest {0} --component activity-alias`）";
+                common.input.display()
+            )
         );
     };
-    println!("{:<11} {}", "launcher", launcher);
+    println!("{:<11} {}", bi!("launcher", "启动入口"), launcher);
 
     // Verify the launcher against the dex images: which one defines it?
     // (A name the manifest inherited from a library still resolves; a
@@ -1102,7 +1230,10 @@ fn flatten_entries(input: &std::path::Path) -> Result<Vec<FlatEntry>> {
     let src = crate::inputs::map_source(input)?;
     let bytes: &[u8] = src.bytes();
     if bytes.len() < 4 || &bytes[..2] != b"PK" {
-        bail!("{}: not a zip container", input.display());
+        bail!(
+            "{}",
+            bif!("{0}: not a zip container", "{0}：不是 zip 容器"; input.display())
+        );
     }
     let entries = crate::zip_entries(bytes)?;
     let mut out: Vec<FlatEntry> = Vec::new();
@@ -1148,26 +1279,28 @@ fn dump_entry(input: &std::path::Path, name: &str, container: &str) -> Result<Ve
     let src = crate::inputs::map_source(input)?;
     let bytes: &[u8] = src.bytes();
     if bytes.len() < 4 || &bytes[..2] != b"PK" {
-        bail!("{}: not a zip container", input.display());
+        bail!(
+            "{}",
+            bif!("{0}: not a zip container", "{0}：不是 zip 容器"; input.display())
+        );
     }
     let entries = crate::zip_entries(bytes)?;
     if container.is_empty() {
         let e = entries
             .iter()
             .find(|e| e.name == name)
-            .with_context(|| format!("res: no entry {name:?}"))?;
+            .with_context(|| bif!("res: no entry {0:?}", "res：没有条目 {0:?}"; name))?;
         return crate::manifest::entry_bytes(bytes, e);
     }
     let apk = entries
         .iter()
         .find(|e| e.name == container)
-        .with_context(|| format!("res: no inner APK {container:?}"))?;
+        .with_context(|| bif!("res: no inner APK {0:?}", "res：没有内层 APK {0:?}"; container))?;
     let inner = crate::manifest::entry_bytes(bytes, apk)?;
     let inner_entries = crate::zip_entries(&inner)?;
-    let e = inner_entries
-        .iter()
-        .find(|e| e.name == name)
-        .with_context(|| format!("res: no entry {name:?} in {container}"))?;
+    let e = inner_entries.iter().find(|e| e.name == name).with_context(
+        || bif!("res: no entry {0:?} in {1}", "res：{1} 中没有条目 {0:?}"; name, container),
+    )?;
     crate::manifest::entry_bytes(&inner, e)
 }
 
@@ -1178,10 +1311,16 @@ pub(crate) fn cmd_res(args: &[String]) -> Result<()> {
     while i < args.len() {
         match args[i].as_str() {
             "-o" | "--output" => {
-                out = Some(PathBuf::from(args.get(i + 1).context("-o needs a value")?));
+                out = Some(PathBuf::from(
+                    args.get(i + 1)
+                        .context(bi!("-o needs a value", "-o 需要一个值"))?,
+                ));
                 i += 1;
             }
-            a if a.starts_with('-') => bail!("res: unknown option {a}"),
+            a if a.starts_with('-') => bail!(
+                "{}",
+                bif!("res: unknown option {0}", "res：未知选项 {0}"; a)
+            ),
             a => rest.push(a.to_string()),
         }
         i += 1;
@@ -1190,11 +1329,19 @@ pub(crate) fn cmd_res(args: &[String]) -> Result<()> {
     let entries = flatten_entries(&common.input)?;
     let Some(want) = common.rest.first() else {
         // List mode: every entry, method + compressed size.
-        println!("{:<8}  {:>9}  {}", "method", "size", "entry");
+        println!(
+            "{:<8}  {:>9}  {}",
+            bi!("method", "压缩方式"),
+            bi!("size", "大小"),
+            bi!("entry", "条目")
+        );
         for e in &entries {
             println!("{:<8}  {:>9}  {}", e.method, e.size, e.name);
         }
-        println!("total: {} entries", entries.len());
+        println!(
+            "{}",
+            bif!("total: {0} entries", "合计：{0} 个条目"; entries.len())
+        );
         return Ok(());
     };
 
@@ -1217,9 +1364,9 @@ pub(crate) fn cmd_res(args: &[String]) -> Result<()> {
                 .take(5)
                 .collect();
             if matches.is_empty() {
-                format!("res: no entry matches {want:?}")
+                bif!("res: no entry matches {0:?}", "res：没有条目匹配 {0:?}"; want)
             } else {
-                format!("res: {want:?} is ambiguous: {}", matches.join(", "))
+                bif!("res: {0:?} is ambiguous: {1}", "res：{0:?} 有歧义：{1}"; want, matches.join(", "))
             }
         })?;
     let plain = hit
@@ -1250,16 +1397,24 @@ pub(crate) fn cmd_res(args: &[String]) -> Result<()> {
             Some(f) => {
                 std::fs::write(&f, &bytes)?;
                 eprintln!(
-                    "ddc: wrote {} ({} bytes) from {}",
-                    f.display(),
-                    bytes.len(),
-                    hit.name
+                    "{}",
+                    bif!(
+                        "ddc: wrote {0} ({1} bytes) from {2}",
+                        "ddc：已写出 {0}（{1} 字节），来自 {2}";
+                        f.display(),
+                        bytes.len(),
+                        hit.name
+                    )
                 );
             }
             None => bail!(
-                "{}: {} binary bytes — pass -o FILE to save",
-                hit.name,
-                bytes.len()
+                "{}",
+                bif!(
+                    "{0}: {1} binary bytes — pass -o FILE to save",
+                    "{0}：{1} 字节二进制内容 —— 加 -o 文件 保存";
+                    hit.name,
+                    bytes.len()
+                )
             ),
         },
     }

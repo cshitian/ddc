@@ -8,6 +8,9 @@ use std::process::{Command, Output};
 fn ddc() -> Command {
     let mut c = Command::new(env!("CARGO_BIN_EXE_ddc"));
     c.env_remove("DDC_NOWRITE").env_remove("DDC_CLASSTIME");
+    // Pin English: the binary localizes from the environment, and a
+    // zh_* locale on the dev machine would flip every assertion below.
+    c.env("DDC_LANG", "en");
     c
 }
 
@@ -312,4 +315,41 @@ fn inline_option_values() {
     assert!(o.status.success(), "{}", stderr(&o));
     assert_eq!(count_java(&out), 2);
     let _ = std::fs::remove_dir_all(&out);
+}
+
+#[test]
+fn language_autodetect_and_override() {
+    // DDC_LANG=zh selects Chinese outright.
+    let o = run(ddc().env("DDC_LANG", "zh").arg("-V"));
+    assert!(stdout(&o).contains("反编译器"), "{}", stdout(&o));
+
+    // LANG=zh alone (DDC_LANG unset) selects Chinese.
+    let o = run(ddc()
+        .env_remove("DDC_LANG")
+        .env("LANG", "zh_CN.UTF-8")
+        .arg("-V"));
+    assert!(stdout(&o).contains("反编译器"), "{}", stdout(&o));
+    let o = run(ddc()
+        .env("LANG", "zh_CN.UTF-8")
+        .env("DDC_LANG", "en")
+        .arg("-V"));
+    assert!(stdout(&o).contains("decompiler"), "{}", stdout(&o));
+
+    // English fallback for non-zh locales, with no DDC_LANG.
+    let o = run(ddc()
+        .env_remove("DDC_LANG")
+        .env("LANG", "C.UTF-8")
+        .arg("-V"));
+    assert!(stdout(&o).contains("decompiler"), "{}", stdout(&o));
+
+    // Errors localize too: LANG=zh + a bad option → Chinese message +
+    // the full (Chinese) help.
+    let o = run(ddc()
+        .env_remove("DDC_LANG")
+        .env("LANG", "zh_CN.UTF-8")
+        .arg("--bogus"));
+    assert_eq!(o.status.code(), Some(2));
+    assert!(stderr(&o).contains("未知选项"), "{}", stderr(&o));
+    // The full help follows the error — on stdout.
+    assert!(stdout(&o).contains("用法："), "{}", stdout(&o));
 }

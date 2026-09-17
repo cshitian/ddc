@@ -9,6 +9,7 @@ use std::process::{Command, Output};
 fn ddc() -> Command {
     let mut c = Command::new(env!("CARGO_BIN_EXE_ddc"));
     c.env_remove("DDC_NOWRITE").env_remove("DDC_CLASSTIME");
+    c.env("DDC_LANG", "en");
     c
 }
 

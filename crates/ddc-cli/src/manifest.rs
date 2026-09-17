@@ -4,6 +4,8 @@
 //! XML for package / launcher / component facts.
 
 use anyhow::Result;
+
+use crate::lang::bi;
 use std::path::Path;
 
 use crate::{inflate, zip_entries, ZipMethod};
@@ -59,8 +61,12 @@ pub(crate) fn manifest_bytes(input: &Path) -> Result<(String, Vec<u8>)> {
         }
     }
     anyhow::bail!(
-        "{}: no AndroidManifest.xml entry (in container or its APKs)",
-        input.display()
+        "{}",
+        crate::lang::bif!(
+            "{0}: no AndroidManifest.xml entry (in container or its APKs)",
+            "{0}：没有 AndroidManifest.xml 条目（容器及其 APK 中都没有）";
+            input.display()
+        )
     )
 }
 

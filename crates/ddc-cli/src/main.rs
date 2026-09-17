@@ -17,6 +17,7 @@ mod axml;
 mod browse;
 mod findrefs;
 mod inputs;
+mod lang;
 mod manifest;
 
 use inputs::{
@@ -29,17 +30,31 @@ use inputs::{
 // unlock the flat thread-scaling curve.
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
+use crate::lang::{bi, bif};
 use ddc_dec::{top_level_classes, ClassOptions, DexPool};
 use ddc_dex::DexFile;
 
 fn print_version() {
-    println!("ddc {} — DEX → Java decompiler", env!("CARGO_PKG_VERSION"));
+    match lang::lang() {
+        lang::Lang::Zh => println!("ddc {} — DEX → Java 反编译器", env!("CARGO_PKG_VERSION")),
+        lang::Lang::En => println!("ddc {} — DEX → Java decompiler", env!("CARGO_PKG_VERSION")),
+    }
     println!("https://github.com/ejfkdev/ddc");
 }
 
 fn print_help() {
+    match lang::lang() {
+        lang::Lang::Zh => print_help_zh(),
+        lang::Lang::En => print_help_en(),
+    }
+}
+
+fn print_help_en() {
     println!("ddc {} — DEX → Java decompiler", env!("CARGO_PKG_VERSION"));
     println!("https://github.com/ejfkdev/ddc  (MIT license)");
+    println!();
+    println!("Language: auto-detected from DDC_LANG/LC_ALL/LANG (zh* selects");
+    println!("Chinese, anything else English); DDC_LANG=zh|en forces one.");
     println!();
     println!("Decompiles Android DEX images (versions 035-041, multi-dex APKs,");
     println!("XAPK/APKS/APKM containers, invoke-custom) back into readable Java —");
@@ -139,8 +154,114 @@ fn print_help() {
     println!("  ddc hierarchy app.apk androidx.fragment.app.FragmentActivity");
     println!("  ddc pkg app.apk --app -o own/        # just the app's own code");
     println!();
-    println!("More: benchmarks, formats and design notes live in the README");
-    println!("(English and 简体中文) at https://github.com/ejfkdev/ddc");
+    println!("More: benchmarks, formats and design notes live in the README and");
+    println!("docs/ (English and 简体中文) at https://github.com/ejfkdev/ddc");
+}
+
+fn print_help_zh() {
+    println!("ddc {} — DEX → Java 反编译器", env!("CARGO_PKG_VERSION"));
+    println!("https://github.com/ejfkdev/ddc （MIT 许可）");
+    println!();
+    println!("语言：按 DDC_LANG/LC_ALL/LANG 自动识别（zh* 选中文，其余英文），");
+    println!("可用 DDC_LANG=zh|en 强制指定。");
+    println!();
+    println!("把 Android DEX 镜像（版本 035-041、多 dex APK、XAPK/APKS/APKM 容器、");
+    println!("invoke-custom）反编译回可读的 Java —— 真实 App 级别的速度（9.8 万个");
+    println!("类约 5 秒），并可通过下面的子命令像查数据库一样查询。");
+    println!();
+    println!("用法：ddc [选项] <输入>... [输出]          # 全量反编译");
+    println!("      ddc <子命令> [参数...]               # 渐进式分析");
+    println!("      ddc help | version | -h | -V");
+    println!();
+    println!("输入是 .dex 文件、.apk/.jar/.zip 归档（classes.dex、classes2.dex、…）、");
+    println!(".xapk/.apks/.apkm 容器（一 zip 的 APK：base + config 分包，每个内层");
+    println!("APK 的 dex 都并入池，base 优先）或目录（递归扫描）。多个输入合并进");
+    println!("一个类池（重名类自动去重）。");
+    println!();
+    println!("输出（最后一个位置参数或 -o）：");
+    println!("  <目录>        输出根目录，保留包结构");
+    println!("  <文件.java>   单类（单类输入或 -c）");
+    println!("  -             stdout（`// ===== class =====` 分隔）");
+    println!("  默认：输入旁的 <输入名>-out/");
+    println!();
+    println!("选项：");
+    println!("  -o, --output <路径>  输出位置（目录 / 文件.java / -）");
+    println!("  -c, --class FQCN     只反编译这个类（点分/斜杠均可）");
+    println!("  -l, --list           列出类名后退出");
+    println!("  -t, --threads <n>    并行 worker 数（默认 CPU 数；stdout 模式强制");
+    println!("                       单线程保证池序）");
+    println!("  --no-comments        去掉出处注释头");
+    println!("  -v, --verbose        stderr 输出逐 dex 统计与慢类");
+    println!("  -h, --help           打印本帮助");
+    println!("  -V, --version        打印名称、版本与主页");
+    println!();
+    println!("渐进式分析 —— 把编译产物当数据库查询，不做全量反编译；元数据加载");
+    println!("远低于一秒。所有子命令都接受 -d/--dex NAME（可重复，条目名子串）");
+    println!("缩小镜像范围，多数支持 -o 把结果写入文件。");
+    println!();
+    println!("  先摸清全貌：");
+    println!("    ddc info <输入>                     每镜像版本/类/方法计数");
+    println!("    ddc listclasses <输入> [模式]       类名清单，可模糊过滤");
+    println!("    ddc manifest <apk> [--component C]  AndroidManifest.xml → 文本 XML");
+    println!("                                        （--component launcher|activity|");
+    println!("                                        service|receiver|provider）");
+    println!("    ddc mainactivity <apk>              包名 + 启动 Activity，并在 dex");
+    println!("                                        里定位验证");
+    println!("    ddc res <apk> [条目] [-o 文件]      列出归档条目；输出单个内容");
+    println!("                                        （二进制 XML 解码，二进制 -o 保存）");
+    println!();
+    println!("  找东西：");
+    println!("    ddc strings <输入> [-f 文本] [--with-locations]");
+    println!("                                        字符串表；命中映射到所属方法");
+    println!("    ddc findrefs <输入> string 文本     全部字符串字面量引用");
+    println!("    ddc findrefs <输入> type|method|field 名字 [--class FQCN]");
+    println!("                                        类型/调用点/字段引用（名字模糊");
+    println!("                                        匹配；--class 默认精确，");
+    println!("                                        --fuzzy-class 变模糊）");
+    println!("    ddc callers <输入> 名字 [FQCN]      谁调用了这个方法");
+    println!("    ddc members <输入> [名字] [--class FQCN] [--method|--field]");
+    println!("                                        方法/字段名检索");
+    println!();
+    println!("  看清结构：");
+    println!("    ddc hierarchy <输入> FQCN           继承谱：extends/implements +");
+    println!("                                        子类/实现类");
+    println!("    ddc largest <输入> [-n N]           按指令数排序的 top-N 方法");
+    println!("    ddc disasm <输入> FQCN[.方法]       原始字节码（操作码 + pc）");
+    println!();
+    println!("  精准反编译：");
+    println!("    ddc getclass <输入> FQCN [-o 文件]  单类（含嵌套）");
+    println!("    ddc getmethod <输入> FQCN.方法      单方法，含全部重载");
+    println!("    ddc pkg <输入> com.foo [-o 目录]    整个包；--app 自动取 manifest");
+    println!("                                        包名");
+    println!();
+    println!("退出码：0 成功；1 部分类失败；2 用法错误。");
+    println!();
+    println!("示例：");
+    println!("  # 全量反编译");
+    println!("  ddc app.apk                          # → apk 旁的 app-out/");
+    println!("  ddc app.apk src/                     # dae 风格位置参数输出");
+    println!("  ddc app.apk -o - | less              # 全部输出到 stdout");
+    println!("  ddc base.apk patch.dex -o merged/    # 分体输入合并一个池");
+    println!();
+    println!("  # 单类 / 单方法");
+    println!("  ddc app.apk -c com.example.Foo");
+    println!("  ddc getclass app.apk com.example.Foo -o Foo.java --dex classes3");
+    println!("  ddc getmethod app.apk com.example.Foo.toString");
+    println!();
+    println!("  # 找东西");
+    println!("  ddc findrefs app.apk string api_key");
+    println!("  ddc findrefs app.apk method onCreate --class android/app/Activity");
+    println!("  ddc strings app.apk -f token --with-locations");
+    println!("  ddc callers app.apk sendMessage");
+    println!();
+    println!("  # 反编译之前先摸清这个 App");
+    println!("  ddc mainactivity app.apk");
+    println!("  ddc manifest app.apk --component launcher");
+    println!("  ddc hierarchy app.apk androidx.fragment.app.FragmentActivity");
+    println!("  ddc pkg app.apk --app -o own/        # 只反编译 App 自身代码");
+    println!();
+    println!("更多：基准、格式与设计文档见 README 与 docs/（英文与简体中文）");
+    println!("https://github.com/ejfkdev/ddc");
 }
 
 #[allow(dead_code)]
@@ -218,7 +339,10 @@ fn run_subcommand(cmd: &str, args: &[String]) -> Result<()> {
         "getmethod" => browse::cmd_getmethod(args),
         "mainactivity" => browse::cmd_mainactivity(args),
         "res" => browse::cmd_res(args),
-        _ => bail!("unknown subcommand: {cmd}"),
+        _ => bail!(
+            "{}",
+            bif!("unknown subcommand: {0}", "未知子命令：{0}"; cmd)
+        ),
     }
 }
 
@@ -240,18 +364,24 @@ fn cmd_manifest(args: &[String], t0: std::time::Instant) -> Result<()> {
     while i < args.len() {
         match args[i].as_str() {
             "-o" | "--output" => {
-                out = Some(PathBuf::from(args.get(i + 1).context("-o needs a value")?));
+                out = Some(PathBuf::from(
+                    args.get(i + 1)
+                        .context(bi!("-o needs a value", "-o 需要一个值"))?,
+                ));
                 i += 1;
             }
             "-c" | "--component" => {
                 component = Some(
                     args.get(i + 1)
-                        .context("--component needs a value")?
+                        .context(bi!("--component needs a value", "--component 需要一个值"))?
                         .clone(),
                 );
                 i += 1;
             }
-            a if a.starts_with('-') => bail!("manifest: unknown option {a}"),
+            a if a.starts_with('-') => bail!(
+                "{}",
+                bif!("manifest: unknown option {0}", "manifest：未知选项 {0}"; a)
+            ),
             _ => {}
         }
         i += 1;
@@ -291,7 +421,12 @@ fn cmd_info(args: &[String], _t0: std::time::Instant) -> Result<()> {
     let mut total_classes = 0usize;
     println!(
         "{:>10}  {:>8}  {:>10}  {:>10}  {:>9}  {:>10}",
-        "image", "dex", "classes", "methods", "fields", "strings"
+        bi!("image", "镜像"),
+        bi!("dex", "版本"),
+        bi!("classes", "类"),
+        bi!("methods", "方法"),
+        bi!("fields", "字段"),
+        bi!("strings", "字符串")
     );
     for (label, dex) in &parsed {
         let classes = dex.class_defs.len();
@@ -307,9 +442,13 @@ fn cmd_info(args: &[String], _t0: std::time::Instant) -> Result<()> {
         );
     }
     println!(
-        "total: {} image(s), {} classes",
-        parsed.len(),
-        total_classes
+        "{}",
+        bif!(
+            "total: {0} image(s), {1} classes",
+            "合计：{0} 个镜像，{1} 个类";
+            parsed.len(),
+            total_classes
+        )
     );
     Ok(())
 }
@@ -324,23 +463,39 @@ fn cmd_listclasses(args: &[String], _t0: std::time::Instant) -> Result<()> {
     while i < args.len() {
         match args[i].as_str() {
             "-d" | "--dex" => {
-                dex_filters.push(args.get(i + 1).context("--dex needs a value")?.to_string());
+                dex_filters.push(
+                    args.get(i + 1)
+                        .context(bi!("--dex needs a value", "--dex 需要一个值"))?
+                        .to_string(),
+                );
                 i += 1;
             }
-            a if a.starts_with('-') => bail!("listclasses: unknown option {a}"),
+            a if a.starts_with('-') => bail!(
+                "{}",
+                bif!("listclasses: unknown option {0}", "listclasses：未知选项 {0}"; a)
+            ),
             a => {
                 if input.is_none() {
                     input = Some(PathBuf::from(a));
                 } else if pattern.is_none() {
                     pattern = Some(a.to_string());
                 } else {
-                    bail!("listclasses: too many arguments (input and optional pattern)");
+                    bail!(
+                        "{}",
+                        bi!(
+                            "listclasses: too many arguments (input and optional pattern)",
+                            "listclasses：参数过多（输入 + 可选模式）"
+                        )
+                    );
                 }
             }
         }
         i += 1;
     }
-    let input = input.context("listclasses needs an input file")?;
+    let input = input.context(bi!(
+        "listclasses needs an input file",
+        "listclasses 需要输入文件"
+    ))?;
     // Class names need only each image's class_defs → type_ids → the
     // class-name STRING ENTRIES: prefix decoding straight off the inflated
     // bytes (a full DexFile::parse decodes the whole string table — the
@@ -418,14 +573,24 @@ fn cmd_getclass(args: &[String], t0: std::time::Instant) -> Result<()> {
     while i < args.len() {
         match args[i].as_str() {
             "-o" | "--output" => {
-                out = Some(PathBuf::from(args.get(i + 1).context("-o needs a value")?));
+                out = Some(PathBuf::from(
+                    args.get(i + 1)
+                        .context(bi!("-o needs a value", "-o 需要一个值"))?,
+                ));
                 i += 1;
             }
             "-d" | "--dex" => {
-                dex_filters.push(args.get(i + 1).context("--dex needs a value")?.to_string());
+                dex_filters.push(
+                    args.get(i + 1)
+                        .context(bi!("--dex needs a value", "--dex 需要一个值"))?
+                        .to_string(),
+                );
                 i += 1;
             }
-            a if a.starts_with('-') => bail!("getclass: unknown option {a}"),
+            a if a.starts_with('-') => bail!(
+                "{}",
+                bif!("getclass: unknown option {0}", "getclass：未知选项 {0}"; a)
+            ),
             a => positionals.push(a.to_string()),
         }
         i += 1;
@@ -434,19 +599,27 @@ fn cmd_getclass(args: &[String], t0: std::time::Instant) -> Result<()> {
         fqcn = Some(last.clone());
         inputs = heads.iter().map(PathBuf::from).collect();
     }
-    let fqcn = fqcn.context("getclass needs a class name (com.example.Foo)")?;
+    let fqcn = fqcn.context(bi!(
+        "getclass needs a class name (com.example.Foo)",
+        "getclass 需要类名（com.example.Foo）"
+    ))?;
     inputs
         .first()
         .cloned()
-        .context("getclass needs an input file")?;
+        .context(bi!("getclass needs an input file", "getclass 需要输入文件"))?;
     let (text, defining_names) = getclass_text(&inputs, &fqcn, &dex_filters)?;
     let text = format!("{text}\n");
     if defining_names.len() > 1 {
         eprintln!(
-            "ddc: class {fqcn} is defined in {} images: {} — using {} (pass --dex <name> to pick another)",
-            defining_names.len(),
-            defining_names.join(", "),
-            defining_names[0]
+            "{}",
+            bif!(
+                "ddc: class {0} is defined in {1} images: {2} — using {3} (pass --dex <name> to pick another)",
+                "ddc：类 {0} 定义在 {1} 个镜像中：{2} —— 使用 {3}（可用 --dex <name> 指定）";
+                fqcn,
+                defining_names.len(),
+                defining_names.join(", "),
+                defining_names[0]
+            )
         );
     }
     match out {
@@ -455,7 +628,10 @@ fn cmd_getclass(args: &[String], t0: std::time::Instant) -> Result<()> {
                 let _ = std::fs::create_dir_all(parent);
             }
             std::fs::write(&f, &text)?;
-            eprintln!("ddc: wrote {} in {}", f.display(), fmt_secs(t0.elapsed()));
+            eprintln!(
+                "{}",
+                bif!("ddc: wrote {0} in {1}", "ddc：已写出 {0}，用时 {1}"; f.display(), fmt_secs(t0.elapsed()))
+            );
         }
         None => {
             // stdout mode: the source only — no trailing timing noise.
@@ -496,7 +672,10 @@ pub(crate) fn getclass_text(
         } else {
             ""
         };
-        bail!("class {fqcn} not found in the selected image(s){hint}");
+        bail!(
+            "{}",
+            bif!("class {0} not found in the selected image(s){1}", "在所选镜像中找不到类 {0}{1}"; fqcn, hint)
+        );
     }
     let defining_names: Vec<String> = defining
         .iter()
@@ -529,7 +708,7 @@ pub(crate) fn getclass_text(
     }
     let pool = std::sync::Arc::new(pool);
     let pc = pool.get(&internal).with_context(|| {
-        format!("class {fqcn} not found (try `ddc listclasses <input> <pattern>`)")
+        bif!("class {0} not found (try `ddc listclasses <input> <pattern>`)", "找不到类 {0}（可用 `ddc listclasses <输入> <模式>`）"; fqcn)
     })?;
 
     let pending: std::sync::Mutex<
@@ -550,7 +729,12 @@ pub(crate) fn getclass_text(
                 let now = std::time::Instant::now();
                 let remaining = deadline.saturating_duration_since(now);
                 rx.recv_timeout(remaining)
-                    .map_err(|_| anyhow::anyhow!("{name}: decompile timed out"))?
+                    .map_err(|_| {
+                        anyhow::anyhow!(
+                            "{}",
+                            bif!("{0}: decompile timed out", "{0}：反编译超时"; name)
+                        )
+                    })?
                     .map_err(|e| anyhow::anyhow!("{e}"))?
             } else {
                 return Err(e);
@@ -617,29 +801,44 @@ fn cmd_findrefs(args: &[String], t0: std::time::Instant) -> Result<()> {
             "--class" | "-C" => {
                 class = Some(
                     args.get(i + 1)
-                        .context("--class needs a value")?
+                        .context(bi!("--class needs a value", "--class 需要一个值"))?
                         .to_string(),
                 );
                 i += 1;
             }
             "--fuzzy-class" => fuzzy_class = true,
             "-d" | "--dex" => {
-                dex_filters.push(args.get(i + 1).context("--dex needs a value")?.to_string());
+                dex_filters.push(
+                    args.get(i + 1)
+                        .context(bi!("--dex needs a value", "--dex 需要一个值"))?
+                        .to_string(),
+                );
                 i += 1;
             }
             "-o" | "--output" => {
-                out = Some(PathBuf::from(args.get(i + 1).context("-o needs a value")?));
+                out = Some(PathBuf::from(
+                    args.get(i + 1)
+                        .context(bi!("-o needs a value", "-o 需要一个值"))?,
+                ));
                 i += 1;
             }
-            a if a.starts_with('-') => bail!("findrefs: unknown option {a}"),
+            a if a.starts_with('-') => bail!(
+                "{}",
+                bif!("findrefs: unknown option {0}", "findrefs：未知选项 {0}"; a)
+            ),
             a => positionals.push(a.to_string()),
         }
         i += 1;
     }
     if positionals.len() < 3 {
         bail!(
-            "findrefs needs: <input> <string|type|method|field> <query> \\
-             (method/field also take --class X, --fuzzy-class)"
+            "{}",
+            bi!(
+                "findrefs needs: <input> <string|type|method|field> <query> \\
+             (method/field also take --class X, --fuzzy-class)",
+                "findrefs 需要：<输入> <string|type|method|field> <查询> \\
+             （method/field 还可加 --class X、--fuzzy-class）"
+            )
         );
     }
     let input = PathBuf::from(&positionals[0]);
@@ -658,7 +857,10 @@ fn cmd_findrefs(args: &[String], t0: std::time::Instant) -> Result<()> {
             name: value,
             fuzzy_class,
         },
-        other => bail!("findrefs: unknown kind {other:?} (string|type|method|field)"),
+        other => bail!(
+            "{}",
+            bif!("findrefs: unknown kind {0:?} (string|type|method|field)", "findrefs：未知类别 {0:?}（string|type|method|field）"; other)
+        ),
     };
 
     let files = expand_inputs(&[input])?;
@@ -788,7 +990,12 @@ fn cmd_findrefs(args: &[String], t0: std::time::Instant) -> Result<()> {
             )
         })
         .collect();
-    let header = format!("{:10}  {:<12}  {}", "dex", "kind", "class method refs");
+    let header = format!(
+        "{:10}  {:<12}  {}",
+        bi!("dex", "镜像"),
+        bi!("kind", "类型"),
+        bi!("class method refs", "类 方法 引用")
+    );
     let mut all = vec![header];
     all.extend(lines);
     match out {
@@ -953,7 +1160,10 @@ fn run() -> Result<()> {
             "-v" | "--verbose" => verbose = true,
             other => {
                 if other.starts_with('-') {
-                    bail!("unknown option {} (try --help)", other);
+                    bail!(
+                        "{}",
+                        bif!("unknown option {0} (try --help)", "未知选项 {0}（见 --help）"; other)
+                    );
                 }
                 positionals.push(PathBuf::from(other));
             }
@@ -961,7 +1171,10 @@ fn run() -> Result<()> {
         i += 1;
     }
     if positionals.is_empty() {
-        bail!("no input given (try --help)");
+        bail!(
+            "{}",
+            bi!("no input given (try --help)", "未提供输入文件（见 --help）")
+        );
     }
     // dae/pycdc-style positional output: with no -o and TWO OR MORE
     // positionals, a LAST argument is the OUTPUT unless it looks like an
@@ -1039,7 +1252,10 @@ fn run() -> Result<()> {
         Some(one) => {
             let internal = one.replace('.', "/");
             if pool.get(&internal).is_none() {
-                bail!("class not found: {} (try --list)", one);
+                bail!(
+                    "{}",
+                    bif!("class not found: {0} (try --list)", "找不到类 {0}（可用 --list 列出）"; one)
+                );
             }
             vec![internal]
         }
@@ -1356,13 +1572,20 @@ fn run() -> Result<()> {
             },
             Ok(Err(e)) => {
                 failed.fetch_add(1, Ordering::Relaxed);
-                eprintln!("[!] {}: {}", name.replace('/', "."), e);
+                eprintln!(
+                    "{}",
+                    bif!("[!] {0}: {1}", "[!] {0}：{1}"; name.replace('/', "."), e)
+                );
             }
             Err(_) => {
                 failed.fetch_add(1, Ordering::Relaxed);
                 eprintln!(
-                    "[!] {}: decompile timed out (pathological CFG)",
-                    name.replace('/', ".")
+                    "{}",
+                    bif!(
+                        "[!] {0}: decompile timed out (pathological CFG)",
+                        "[!] {0}：反编译超时（病态 CFG）";
+                        name.replace('/', ".")
+                    )
                 );
             }
         }
@@ -1439,24 +1662,32 @@ fn run() -> Result<()> {
     let failed_n = failed.load(Ordering::Relaxed);
     let elapsed = fmt_secs(t_start.elapsed());
     let failed_part = if failed_n > 0 {
-        format!(", {failed_n} failed")
+        bif!(", {0} failed", "（{0} 个失败）"; failed_n)
     } else {
         String::new()
     };
     match &sink {
         Sink::Dir(d) => eprintln!(
-            "ddc: wrote {} file(s) to {}{} in {}",
-            total - failed_n,
-            d.display(),
-            failed_part,
-            elapsed
+            "{}",
+            bif!(
+                "ddc: wrote {0} file(s) to {1}{2} in {3}",
+                "ddc：已写出 {0} 个文件到 {1}{2}，用时 {3}";
+                total - failed_n,
+                d.display(),
+                failed_part,
+                elapsed
+            )
         ),
         Sink::File(f) => eprintln!(
-            "ddc: wrote {} file to {}{} in {}",
-            total - failed_n,
-            f.display(),
-            failed_part,
-            elapsed
+            "{}",
+            bif!(
+                "ddc: wrote {0} file to {1}{2} in {3}",
+                "ddc：已写出 {0} 个文件到 {1}{2}，用时 {3}";
+                total - failed_n,
+                f.display(),
+                failed_part,
+                elapsed
+            )
         ),
         Sink::Stdout => {
             // stdout results carry no trailing summary/timing (failure
@@ -1503,10 +1734,14 @@ fn resolve_sink(inputs: &[PathBuf], out: Option<&str>, targets: &[String]) -> Re
             if is_file {
                 if !single_class {
                     bail!(
-                        "-o {} names a file but {} class(es) would be written \
-                         (use a directory, `-c`, or `-`)",
-                        o,
-                        targets.len()
+                        "{}",
+                        bif!(
+                            "-o {0} names a file but {1} class(es) would be written \
+                             (use a directory, `-c`, or `-`)",
+                            "-o {0} 指向文件，但要写出 {1} 个类（请用目录、`-c` 或 `-`）";
+                            o,
+                            targets.len()
+                        )
                     );
                 }
                 return Ok(Sink::File(p));
@@ -1520,14 +1755,15 @@ fn resolve_sink(inputs: &[PathBuf], out: Option<&str>, targets: &[String]) -> Re
             if single_class {
                 return Ok(Sink::Stdout);
             }
-            let input = inputs
-                .first()
-                .context("no input to derive an output path from")?;
+            let input = inputs.first().context(bi!(
+                "no input to derive an output path from",
+                "没有输入，无法推导输出路径"
+            ))?;
             let stem = input
                 .file_stem()
                 .or_else(|| input.file_name())
                 .and_then(|s| s.to_str())
-                .context("input has no usable name")?;
+                .context(bi!("input has no usable name", "输入没有可用文件名"))?;
             let dir = input
                 .parent()
                 .unwrap_or(Path::new("."))
