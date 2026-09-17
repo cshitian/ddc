@@ -306,9 +306,7 @@ fn cmd_listclasses(args: &[String], _t0: std::time::Instant) -> Result<()> {
     // bytes (a full DexFile::parse decodes the whole string table — the
     // names are a small slice of it).
     let files = expand_inputs(&[input])?;
-    let t_wall = std::time::Instant::now();
     let images = filter_images_by_dex(collect_images(&files)?, &dex_filters)?;
-    let t_cd = t_wall.elapsed();
     let mut _total = 0usize;
     let mut all: Vec<String> = Vec::new();
     let mut seen = std::collections::HashSet::new();
@@ -399,11 +397,10 @@ fn cmd_getclass(args: &[String], t0: std::time::Instant) -> Result<()> {
         inputs = heads.iter().map(PathBuf::from).collect();
     }
     let fqcn = fqcn.context("getclass needs a class name (com.example.Foo)")?;
-    let input = inputs
+    inputs
         .first()
         .cloned()
         .context("getclass needs an input file")?;
-    let extra = &inputs[1..];
     let files = expand_inputs(&inputs)?;
     let parsed = parse_images(filter_images_by_dex(
         collect_images(&files)?,
@@ -413,7 +410,7 @@ fn cmd_getclass(args: &[String], t0: std::time::Instant) -> Result<()> {
 
     // Which images actually define the class? (The pool is first-wins —
     // a name present in several dexes would otherwise resolve silently.)
-    let mut defining: Vec<usize> = parsed
+    let defining: Vec<usize> = parsed
         .iter()
         .enumerate()
         .filter(|(_, (_, dex))| {
@@ -601,6 +598,7 @@ fn cmd_findrefs(args: &[String], t0: std::time::Instant) -> Result<()> {
     let files = expand_inputs(&[input])?;
     let t_wall = std::time::Instant::now();
     let images = filter_images_by_dex(collect_images(&files)?, &dex_filters)?;
+    #[allow(unused_variables)]
     let t_cd = t_wall.elapsed();
     // PIPELINED scan: a producer parses images in small waves and feeds a
     // channel; scanner threads consume and DROP each dex — the inflate of

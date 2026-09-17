@@ -95,7 +95,7 @@ const OPCODE_KINDS: [u8; 256] = {
 
 /// A raw DEX image view: header fields + validated table ranges, nothing
 /// decoded.
-struct RawDex<'a> {
+pub(crate) struct RawDex<'a> {
     d: &'a [u8],
     str_n: usize,
     str_off: usize,
