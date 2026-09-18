@@ -52,14 +52,20 @@ jobs:
             upx: false
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      # Strip the leading 'v': v1.2.3 → 1.2.3.
+      # Strip the leading 'v': v1.2.3 → 1.2.3. The tag's annotated
+      # message becomes the release description.
       - name: Tag → version
         shell: bash
         run: |
           echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
           echo "TAG=${GITHUB_REF_NAME}" >> "$GITHUB_ENV"
+          {
+            echo "TAG_BODY<<EOF"
+            git tag -l --format='%(contents)' "${GITHUB_REF_NAME}"
+            echo "EOF"
+          } >> "$GITHUB_ENV"
 
       # First `^version = "…"` in the root manifest is [workspace.package];
       # every crate inherits it, so CARGO_PKG_VERSION (binary --version and
@@ -78,7 +84,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@v2.9.2
         with:
           key: ${{ matrix.target }}
 
@@ -137,6 +143,8 @@ jobs:
           fi
           ls -la "ddc-${{ env.TAG }}-${{ matrix.target }}"*
 
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3.0.3
         with:
           files: ddc-${{ env.TAG }}-${{ matrix.target }}*
+          body: ${{ env.TAG_BODY }}
+          generate_release_notes: true
