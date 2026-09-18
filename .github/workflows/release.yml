@@ -21,7 +21,8 @@ env:
   CARGO_PROFILE_RELEASE_STRIP: symbols
 
 jobs:
-  release: ${{ matrix.target }}
+  release:
+    name: ddc ${{ matrix.target }}
     strategy:
       fail-fast: false
       matrix:
