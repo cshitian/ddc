@@ -1364,9 +1364,19 @@ fn run() -> Result<()> {
     let n_writers = workers.clamp(2, 4);
     let uses_writers = matches!(sink, Sink::Dir(_)) && !nowrite;
     let writer_handles: Vec<std::thread::JoinHandle<()>> = if uses_writers {
+        // Case-INSENSITIVE filesystems (macOS/Windows) collapse distinct
+        // internal names (`X/6Lq` vs `X/6lq`) onto one output path;
+        // two writer threads writing it concurrently interleave bytes
+        // (a dangling `.content.Context p1, …` tail after the class
+        // close). Shard locks by the case-folded path: every write to
+        // the same physical file serializes, different files rarely
+        // contend (16 shards).
+        let path_locks: std::sync::Arc<Vec<std::sync::Mutex<()>>> =
+            std::sync::Arc::new((0..16).map(|_| std::sync::Mutex::new(())).collect());
         (0..n_writers)
             .map(|_| {
                 let wq = wq.clone();
+                let path_locks = path_locks.clone();
                 std::thread::spawn(move || {
                     let mut dirs: std::collections::HashSet<std::path::PathBuf> =
                         std::collections::HashSet::new();
@@ -1376,6 +1386,20 @@ fn run() -> Result<()> {
                                 let _ = std::fs::create_dir_all(parent);
                             }
                         }
+                        let folded = path.to_string_lossy().to_ascii_lowercase();
+                        let mut h: u64 = 0;
+                        for b in folded.bytes() {
+                            h = h.wrapping_mul(31).wrapping_add(b as u64);
+                        }
+                        let _guard = path_locks[(h % 16) as usize].lock().unwrap();
+                        // Remove-then-write: on case-insensitive filesystems
+                        // a case-VARIANT class pair (X/CUA vs X/Cua) maps
+                        // two internal names onto one physical file; the
+                        // remove drops the earlier case so the on-disk
+                        // NAME ends up matching the LAST writer's declared
+                        // class (self-consistent file, no `public class
+                        // should be declared in` mismatch).
+                        let _ = std::fs::remove_file(&path);
                         let _ = std::fs::write(&path, text);
                     }
                 })
@@ -1783,11 +1807,95 @@ fn resolve_sink(inputs: &[PathBuf], out: Option<&str>, targets: &[String]) -> Re
 /// `com/foo/Bar$Inner` → `<out>/com/foo/Bar$Inner.java`.
 fn source_path(out: &Path, internal: &str) -> PathBuf {
     let mut p = out.to_path_buf();
-    for seg in internal.split('/') {
-        p.push(seg);
+    let segs: Vec<&str> = internal.split('/').collect();
+    for seg in segs {
+        // Every path segment must match its DECLARED form: obfuscators
+        // emit `X/0Xx`, keyword class names and even keyword PACKAGES
+        // (`do/b.java` → `_do/b.java`).
+        p.push(sanitize_file_seg(seg));
     }
     p.set_extension("java");
     p
+}
+
+/// Last-path-segment form of the declaration sanitizer (digit-start and
+/// keyword names gain a leading underscore; `-` maps to `_`).
+fn sanitize_file_seg(seg: &str) -> String {
+    let kw = matches!(
+        seg,
+        "abstract"
+            | "assert"
+            | "boolean"
+            | "break"
+            | "byte"
+            | "case"
+            | "catch"
+            | "char"
+            | "class"
+            | "const"
+            | "continue"
+            | "default"
+            | "do"
+            | "double"
+            | "else"
+            | "enum"
+            | "extends"
+            | "final"
+            | "finally"
+            | "float"
+            | "for"
+            | "goto"
+            | "if"
+            | "implements"
+            | "import"
+            | "instanceof"
+            | "int"
+            | "interface"
+            | "long"
+            | "native"
+            | "new"
+            | "package"
+            | "private"
+            | "protected"
+            | "public"
+            | "return"
+            | "short"
+            | "static"
+            | "strictfp"
+            | "super"
+            | "switch"
+            | "synchronized"
+            | "this"
+            | "throw"
+            | "throws"
+            | "transient"
+            | "try"
+            | "void"
+            | "volatile"
+            | "while"
+            | "true"
+            | "false"
+            | "null"
+    );
+    let digit_start = seg.chars().next().is_some_and(|c| c.is_ascii_digit());
+    if kw || digit_start {
+        format!("_{seg}")
+    } else if seg
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '$')
+    {
+        seg.to_string()
+    } else {
+        seg.chars()
+            .map(|c| {
+                if c.is_ascii_alphanumeric() || c == '_' || c == '$' {
+                    c
+                } else {
+                    '_'
+                }
+            })
+            .collect()
+    }
 }
 
 // ---------------------------------------------------------------------------

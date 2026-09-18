@@ -119,7 +119,10 @@ fn decompile_class_impl(
     let (pkg, _) = split_name(&class.name);
     if !pkg.is_empty() {
         out.push('\n');
-        out.push_str(&format!("package {};\n", pkg.replace('/', ".")));
+        out.push_str(&format!(
+            "package {};\n",
+            sanitize_fq(&pkg.replace('/', "."))
+        ));
     }
     out.push('\n');
     let mut body = String::new();
@@ -167,14 +170,22 @@ fn emit_class_body(
         head.push_str("@");
     }
     if is_enum {
-        head.push_str("/* enum */ final class ");
-        head.push_str(&simple);
+        // An enum with constant-specific bodies carries ACC_ABSTRACT —
+        // `abstract final` is an illegal modifier combination; abstract
+        // (already pushed above) suppresses the hardcoded final.
+        let abstract_ = a & ACC_ABSTRACT != 0;
+        head.push_str(if abstract_ {
+            "/* enum */ class "
+        } else {
+            "/* enum */ final class "
+        });
+        head.push_str(&java_ident(&simple));
     } else if is_iface {
         head.push_str("interface ");
-        head.push_str(&simple);
+        head.push_str(&java_ident(&simple));
     } else {
         head.push_str("class ");
-        head.push_str(&simple);
+        head.push_str(&java_ident(&simple));
     }
     if is_iface {
         if !class.interfaces.is_empty() {
@@ -345,7 +356,7 @@ fn emit_field(
     let ty = type_name(pool, &desc_type(&f.desc));
     line.push_str(&ty);
     line.push(' ');
-    line.push_str(&f.name);
+    line.push_str(&java_ident(&f.name));
     let mut rendered = None;
     if let Some(v) = init {
         rendered = render_static_value(v, &f_class);
@@ -399,10 +410,11 @@ fn render_static_value(v: &StaticValue, owner: &str) -> Option<String> {
         StaticValue::Boolean(b) => b.to_string(),
         StaticValue::Null => "null".into(),
         StaticValue::Field(cls, name) => {
+            let n = java_ident(name);
             if cls == owner {
-                name.clone()
+                n
             } else {
-                format!("{}.{}", dotted(cls), name)
+                format!("{}.{}", dotted(cls), n)
             }
         }
         StaticValue::Other => return None,
@@ -437,7 +449,10 @@ fn emit_method(
     if a & ACC_FINAL != 0 {
         sig.push_str("final ");
     }
-    if a & (ACC_SYNCHRONIZED | ACC_DECLARED_SYNCHRONIZED) != 0 {
+    // `abstract synchronized` is an illegal combination — obfuscated
+    // builds mark abstract bridges synchronized (WhatsApp
+    // SQLiteOpenHelper).
+    if a & (ACC_SYNCHRONIZED | ACC_DECLARED_SYNCHRONIZED) != 0 && a & ACC_ABSTRACT == 0 {
         sig.push_str("synchronized ");
     }
     if a & ACC_NATIVE != 0 {
@@ -623,11 +638,76 @@ fn java_nested(name: &str) -> String {
 /// any other non-identifier character) is not legal Java. Deterministic
 /// mapping, applied identically at declaration and call sites.
 pub(crate) fn java_ident(name: &str) -> String {
-    if name
+    let clean = name
         .chars()
-        .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '$')
-    {
+        .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '$');
+    // Kotlin names fields/methods `default` (Companion.default) — no Java
+    // program can declare or reference a keyword; the identical mapping
+    // lives in jdc-core's call-site sanitizer.
+    let keyword = matches!(
+        name,
+        "abstract"
+            | "assert"
+            | "boolean"
+            | "break"
+            | "byte"
+            | "case"
+            | "catch"
+            | "char"
+            | "class"
+            | "const"
+            | "continue"
+            | "default"
+            | "do"
+            | "double"
+            | "else"
+            | "enum"
+            | "extends"
+            | "final"
+            | "finally"
+            | "float"
+            | "for"
+            | "goto"
+            | "if"
+            | "implements"
+            | "import"
+            | "instanceof"
+            | "int"
+            | "interface"
+            | "long"
+            | "native"
+            | "new"
+            | "package"
+            | "private"
+            | "protected"
+            | "public"
+            | "return"
+            | "short"
+            | "static"
+            | "strictfp"
+            | "super"
+            | "switch"
+            | "synchronized"
+            | "this"
+            | "throw"
+            | "throws"
+            | "transient"
+            | "try"
+            | "void"
+            | "volatile"
+            | "while"
+            | "true"
+            | "false"
+            | "null"
+    );
+    // A simple name may not START with a digit either (WhatsApp nests
+    // `X/0Xx`): the declaration site and every reference (jdc-core's
+    // sanitize_source_name) prefix the same underscore.
+    let digit_start = name.chars().next().is_some_and(|c| c.is_ascii_digit());
+    if clean && !keyword && !digit_start {
         name.to_string()
+    } else if keyword || digit_start {
+        format!("_{name}")
     } else {
         name.chars()
             .map(|c| {
@@ -656,18 +736,27 @@ pub fn dotted(internal: &str) -> String {
     let mut i = 0;
     while let Some(p) = out[i..].find('$') {
         let at = i + p;
+        // A LEADING `$` (ProGuard keeps `$Gson$Types`) is part of the
+        // source name — dotting it produced a leading `.Gson.Types`.
+        let head_ok = at > 0
+            && out[..at]
+                .chars()
+                .next_back()
+                .is_some_and(|c| c.is_ascii_alphanumeric() || c == '_');
         let tail_ok = out[at + 1..]
             .chars()
             .next()
-            .is_some_and(|c| !c.is_ascii_digit());
-        if tail_ok {
+            .is_some_and(|c| c.is_ascii_alphabetic() || c == '_');
+        if tail_ok && head_ok {
             out.replace_range(at..at + 1, ".");
             i = at + 1;
         } else {
             i = at + 1;
         }
     }
-    out
+    // Every `.`-segment must start an identifier: WhatsApp's `X/0Hl`
+    // reached `extends` with the digit start unmapped.
+    sanitize_fq(&out)
 }
 
 fn join_dotted(names: &[String]) -> String {
@@ -699,23 +788,123 @@ pub fn print_class_name(pool: &DexPool, internal: &str) -> String {
             Some(i) => {
                 let cand = &rest[..i];
                 let known = pool.get(cand).is_some() || cand == internal;
-                // A digit-starting (anonymous `RequestId$1`) or empty
-                // (`$$`) tail cannot be dotted — `RequestId.1` is not a
-                // type any Java program can name.
+                // The `$` may only become a nesting dot when the tail
+                // segment STARTS a Java identifier: R8's desugared-
+                // library names carry `$` inside PACKAGE paths
+                // (`j$/util/...` dotted into `j..util`) and suffixes
+                // like `Collection$-EL` or anonymous `RequestId$1`
+                // cannot be dotted under any reading.
                 let tail_ok = rest[i + 1..]
                     .chars()
                     .next()
-                    .is_some_and(|c| !c.is_ascii_digit());
+                    .is_some_and(|c| c.is_ascii_alphabetic() || c == '_');
                 out.push_str(&cand.replace('/', "."));
                 out.push_str(if known && tail_ok { "." } else { "$" });
                 rest = &rest[i + 1..];
             }
             None => {
-                out.push_str(&rest.replace('/', "."));
-                return out;
+                let seg = rest.replace('/', ".");
+                out.push_str(&seg);
+                return sanitize_ref(&out);
             }
         }
     }
+    sanitize_ref(&out)
+}
+
+/// Class-file names may contain characters Java source identifiers
+/// cannot (`Collection$-EL`); the deterministic mapping matches the
+/// declaration sites (java_ident).
+/// Every `.`-segment of a fully-qualified name must start a Java
+/// identifier: obfuscators emit `package do;` and `..badge.new..` paths.
+pub(crate) fn sanitize_fq(dotted: &str) -> String {
+    dotted
+        .split('.')
+        .map(|seg| {
+            if is_java_keyword_name(seg) || seg.chars().next().is_some_and(|c| c.is_ascii_digit()) {
+                format!("_{seg}")
+            } else if seg
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '$')
+            {
+                seg.to_string()
+            } else {
+                seg.chars()
+                    .map(|c| {
+                        if c.is_ascii_alphanumeric() || c == '_' || c == '$' {
+                            c
+                        } else {
+                            '_'
+                        }
+                    })
+                    .collect()
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(".")
+}
+
+fn is_java_keyword_name(s: &str) -> bool {
+    matches!(
+        s,
+        "abstract"
+            | "assert"
+            | "boolean"
+            | "break"
+            | "byte"
+            | "case"
+            | "catch"
+            | "char"
+            | "class"
+            | "const"
+            | "continue"
+            | "default"
+            | "do"
+            | "double"
+            | "else"
+            | "enum"
+            | "extends"
+            | "final"
+            | "finally"
+            | "float"
+            | "for"
+            | "goto"
+            | "if"
+            | "implements"
+            | "import"
+            | "instanceof"
+            | "int"
+            | "interface"
+            | "long"
+            | "native"
+            | "new"
+            | "package"
+            | "private"
+            | "protected"
+            | "public"
+            | "return"
+            | "short"
+            | "static"
+            | "strictfp"
+            | "super"
+            | "switch"
+            | "synchronized"
+            | "this"
+            | "throw"
+            | "throws"
+            | "transient"
+            | "try"
+            | "void"
+            | "volatile"
+            | "while"
+            | "true"
+            | "false"
+            | "null"
+    )
+}
+
+fn sanitize_ref(name: &str) -> String {
+    sanitize_fq(name)
 }
 
 /// Dotted source form of an internal name.

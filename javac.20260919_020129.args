@@ -1,0 +1,8 @@
+-Xmaxerrs
+500000
+-d
+/tmp/val-c-weibo
+-nowarn
+-encoding
+UTF-8
+@/tmp/val-s-weibo.txt

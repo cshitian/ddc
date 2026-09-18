@@ -1,0 +1,8 @@
+-Xmaxerrs
+500000
+-d
+/tmp/wb-cl3
+-nowarn
+-encoding
+UTF-8
+@/tmp/wb-s3.txt
