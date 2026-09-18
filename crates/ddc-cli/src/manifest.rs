@@ -4,8 +4,6 @@
 //! XML for package / launcher / component facts.
 
 use anyhow::Result;
-
-use crate::lang::bi;
 use std::path::Path;
 
 use crate::{inflate, zip_entries, ZipMethod};

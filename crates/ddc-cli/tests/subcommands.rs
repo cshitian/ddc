@@ -402,7 +402,25 @@ fn disasm_whole_class_and_single_method() {
         "method:\n{}",
         out
     );
-    assert!(!out.contains("<init>"), "other methods leaked:\n{}", out);
+    // The header check uses the `sig:` form — an invoke's method operand
+    // legitimately references <init>.
+    assert!(
+        !out.contains("<init>(Ljava/lang/String;):"),
+        "other methods leaked:\n{}",
+        out
+    );
+    // Operands are rendered: registers, resolved string and method refs.
+    assert!(
+        out.contains("const-string v1, string@"),
+        "string operand:\n{}",
+        out
+    );
+    assert!(out.contains("\"hi \""), "string literal:\n{}", out);
+    assert!(
+        out.contains("method@8 java/lang/StringBuilder->append(Ljava/lang/String;)"),
+        "method operand:\n{}",
+        out
+    );
 }
 
 #[test]

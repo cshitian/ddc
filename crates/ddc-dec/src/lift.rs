@@ -238,7 +238,25 @@ impl<'a> Lifter<'a> {
                 self.local_expr(v)
             }
             Reg::Live(v) => self.local_expr(v),
-            Reg::Pending(e) => e,
+            Reg::Pending(e) => {
+                // A `new-array` view may be emitted inline exactly once:
+                // leaving it pending after an inline emission re-emits a
+                // FRESH allocation on every later read of the register
+                // (`sput v0, sparse; aput v2, v0, v1` printed three
+                // distinct `new byte[4]`). Materialize on first read and
+                // return the local. `New` (constructor-folded or raw) is
+                // exempt: pending inline is what produces
+                // `foo(new Bar(...))` nesting, and the result register
+                // usually dies at the call — the rare stored-then-reused
+                // `New` is a separate known issue.
+                let alloc = matches!(&e, Expr::NewArray { .. });
+                if alloc {
+                    let v = self.materialize(r);
+                    self.local_expr(v)
+                } else {
+                    e
+                }
+            }
             Reg::PendingCall(_) => {
                 let v = self.materialize(r);
                 self.local_expr(v)
@@ -293,7 +311,14 @@ impl<'a> Lifter<'a> {
     fn materialize_value(&mut self, r: u16, e: Expr) -> u32 {
         let e = value_of_cmp(&e);
         let ty = e.type_ref();
-        let v = self.fresh_var(r, ty);
+        let v = self.fresh_var(r, ty.clone());
+        // Re-materialization of the same (block, reg) with a new value
+        // legitimately changes the register's type (v0 as byte[], then
+        // int[], then byte[] across one clinit); refresh the table type
+        // so the LocalDef label matches the CURRENT init.
+        if let Some(info) = self.vt.vars.get_mut(v as usize) {
+            info.ty = ty;
+        }
         self.stmts.push(Stmt::LocalDef {
             var: v,
             init: Some(e),
@@ -331,7 +356,14 @@ impl<'a> Lifter<'a> {
         // cmp sentinels stored as values become library compare calls.
         let e = value_of_cmp(&e);
         let ty = e.type_ref();
-        let v = self.fresh_var(r, ty);
+        let v = self.fresh_var(r, ty.clone());
+        // Re-materialization of the same (block, reg) with a new value
+        // legitimately changes the register's type (v0 as byte[], then
+        // int[], then byte[] across one clinit); refresh the table type
+        // so the LocalDef label matches the CURRENT init.
+        if let Some(info) = self.vt.vars.get_mut(v as usize) {
+            info.ty = ty;
+        }
         self.stmts.push(Stmt::LocalDef {
             var: v,
             init: Some(e),

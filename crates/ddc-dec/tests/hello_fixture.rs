@@ -81,3 +81,46 @@ fn top_level_enumeration() {
     let names = top_level_classes(&pool);
     assert_eq!(names, vec!["Greeter".to_string(), "Hello".to_string()]);
 }
+
+#[test]
+fn array_multiconsume_materializes_once() {
+    // d8 pattern: `static byte[] s = new byte[4]; s[0]=9; s[3]=7` keeps
+    // ONE array in a register across the sput and the apuys. The old
+    // lifter left the new-array view pending after the sput and emitted
+    // a FRESH allocation per aput (`(new byte[4])[0] = 9` ×2 plus the
+    // sput's own) — three arrays where the bytecode has one, and the
+    // field ended up all-zero. One allocation, one local, element writes
+    // on that local; the local's label carries the array type.
+    let bytes = std::fs::read("tests/fixtures/arrinit.dex").unwrap();
+    let mut pool = DexPool::new();
+    pool.add_dex(DexFile::parse(bytes).unwrap());
+    let pool = std::sync::Arc::new(pool);
+    let cls = pool.get("ArrInit").expect("ArrInit class");
+    let out = ddc_dec::classdec::decompile_class(
+        &pool,
+        cls,
+        &ClassOptions::default(),
+        &std::sync::Mutex::new(Vec::new()),
+    )
+    .map_err(|e| anyhow::anyhow!("{:#}", e))
+    .unwrap();
+    assert!(
+        out.contains("new byte[] {1, 2, 3, 4"),
+        "fill-array-data literal:\n{}",
+        out
+    );
+    assert!(
+        out.contains("sparse = v0"),
+        "sput of the array local:\n{}",
+        out
+    );
+    assert!(
+        out.contains("v0[0] = 9;"),
+        "element write on the local:\n{}",
+        out
+    );
+    assert!(out.contains("v0[3] = 7;"), "second element write:\n{}", out);
+    // Exactly one new byte[4] allocation for the sparse array.
+    let count = out.matches("new byte[4]").count();
+    assert_eq!(count, 1, "allocation count for sparse:\n{}", out);
+}

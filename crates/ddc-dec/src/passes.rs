@@ -1820,8 +1820,17 @@ fn expr_evidence<F: FnMut(u32, JavaType)>(e: &Expr, f: &mut F) {
             let _ = ty;
         }
         Expr::ArrayIndex { array, .. } => {
-            if let Expr::Local { var, .. } = &**array {
-                f(*var, JavaType::Array(Box::new(JavaType::Int)));
+            if let Expr::Local { var, ty, .. } = &**array {
+                // Reinforce the local's KNOWN array type: the hardcoded
+                // int[] fallback contradicted a typed array local (a
+                // register reused for byte[], int[] then byte[] across
+                // one clinit labeled the byte[] defs `int[]`).
+                let t = ty.erased();
+                if matches!(t, JavaType::Array(_)) {
+                    f(*var, t);
+                } else {
+                    f(*var, JavaType::Array(Box::new(JavaType::Int)));
+                }
             }
         }
         Expr::Assign { target, value, .. } => {

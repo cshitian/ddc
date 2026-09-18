@@ -655,16 +655,210 @@ pub(crate) fn cmd_disasm(args: &[String]) -> Result<()> {
             ]) as usize;
             let start = code_off as usize + 16;
             let end = (start + 2 * insns).min(dex.d.len());
-            ddc_dex::insn::scan_instructions(&dex.d[start..end], &mut |op, pc, _b| {
+            let (insns, payloads) = ddc_dex::insn::decode_all(&dex.d[start..end]);
+            for i in &insns {
                 println!(
-                    "    {:04x}  {:02x}  {}",
-                    2 * pc,
-                    op,
-                    ddc_dex::insn::op_name(op)
+                    "    {:04x}: {} {}",
+                    2 * i.pc,
+                    ddc_dex::insn::op_name(i.op),
+                    fmt_operands(&dex, i, &payloads)
                 );
-            });
+            }
         }
     })
+}
+
+/// Render one instruction's operands with resolved indices: registers as
+/// vN, literals as 0x…, string/type/field/method indices resolved through
+/// the raw tables, branch targets as absolute pcs, payloads inline.
+fn fmt_operands(
+    dex: &RawDex,
+    i: &ddc_dex::insn::Insn,
+    payloads: &std::collections::HashMap<u32, ddc_dex::insn::Payload>,
+) -> String {
+    use ddc_dex::insn::InsnKind as K;
+    let regs = |r: u16| format!("v{r}");
+    let lit = |v: i64| format!("#0x{v:x}");
+    let ty = |idx: u32| -> String {
+        match dex.type_bytes(idx) {
+            Some(b) => format!("type@{idx} {}", crate::findrefs::decode_mutf8_lossy(b)),
+            None => format!("type@{idx}"),
+        }
+    };
+    let field = |idx: u32| -> String {
+        match dex.field_parts(idx) {
+            Some((c, n, t)) => format!(
+                "field@{idx} {}->{}:{}",
+                dex.class_name(c),
+                crate::findrefs::decode_mutf8_lossy(n),
+                crate::findrefs::decode_mutf8_lossy(t)
+            ),
+            None => format!("field@{idx}"),
+        }
+    };
+    let method = |idx: u32| -> String {
+        match dex.method_parts(idx) {
+            Some((c, p, n)) => format!(
+                "method@{idx} {}->{}{}",
+                dex.class_name(c),
+                crate::findrefs::decode_mutf8_lossy(n),
+                dex.proto_desc(p)
+            ),
+            None => format!("method@{idx}"),
+        }
+    };
+    let strlit = |idx: u32| -> String {
+        match dex.string_bytes(idx) {
+            Some(b) => format!("string@{idx} {:?}", crate::findrefs::decode_mutf8_lossy(b)),
+            None => format!("string@{idx}"),
+        }
+    };
+    let payload = |pc: u32| -> String {
+        let mut out = format!("payload@{:04x}", 2 * pc);
+        match payloads.get(&pc) {
+            Some(ddc_dex::insn::Payload::ArrayData {
+                elem_width,
+                size,
+                data,
+            }) => {
+                let n = (data.len().min(48)) / (*elem_width as usize).max(1);
+                let mut hex = String::new();
+                for b in data.iter().take(48) {
+                    hex.push_str(&format!("{b:02x} "));
+                }
+                if data.len() > 48 {
+                    hex.push_str("…");
+                }
+                out.push_str(&format!(" [elem_width={elem_width} size={size}: {hex}]"));
+                let _ = n;
+            }
+            Some(ddc_dex::insn::Payload::Packed { first_key, targets }) => {
+                out.push_str(&format!(
+                    " (packed first={first_key} targets={})",
+                    targets.len()
+                ));
+            }
+            Some(ddc_dex::insn::Payload::Sparse { pairs }) => {
+                out.push_str(&format!(" (sparse {} pairs)", pairs.len()));
+            }
+            None => {}
+        }
+        out
+    };
+    let target = |t: u32| format!("-> {:04x}", 2 * t);
+    let _ = lit;
+    match &i.kind {
+        K::Nop | K::ReturnVoid | K::Unknown => String::new(),
+        K::Move { dst, src } => format!("{}, {}", regs(*dst), regs(*src)),
+        K::MoveResult { dst } | K::MoveException { dst } => regs(*dst),
+        K::Return { src } => regs(*src),
+        K::Const { dst, val, .. } => format!("{}, #0x{val:x}", regs(*dst)),
+        K::ConstClass { dst, type_idx } => format!("{}, {}", regs(*dst), ty(*type_idx)),
+        K::ConstString { dst, str_idx } => format!("{}, {}", regs(*dst), strlit(*str_idx)),
+        K::ConstMethodHandle { dst, handle_idx } => {
+            format!("{}, method-handle@{handle_idx}", regs(*dst))
+        }
+        K::ConstMethodType { dst, proto_idx } => {
+            let proto = match dex.proto_desc(*proto_idx) {
+                p => p,
+            };
+            format!("{}, proto@{proto_idx} {}", regs(*dst), proto)
+        }
+        K::MonitorEnter { reg } | K::MonitorExit { reg } | K::Throw { reg } => regs(*reg),
+        K::CheckCast { reg, type_idx } => format!("{}, {}", regs(*reg), ty(*type_idx)),
+        K::InstanceOf { dst, src, type_idx } => {
+            format!("{}, {}, {}", regs(*dst), regs(*src), ty(*type_idx))
+        }
+        K::ArrayLength { dst, src } => format!("{}, {}", regs(*dst), regs(*src)),
+        K::NewInstance { dst, type_idx } => format!("{}, {}", regs(*dst), ty(*type_idx)),
+        K::NewArray {
+            dst,
+            size,
+            type_idx,
+        } => {
+            format!("{}, {}, {}", regs(*dst), regs(*size), ty(*type_idx))
+        }
+        K::FilledNewArray { regs: rs, type_idx } => {
+            let list = rs.iter().map(|r| regs(*r)).collect::<Vec<_>>().join(", ");
+            format!("{{ {list} }}, {}", ty(*type_idx))
+        }
+        K::FillArrayData { reg, payload_pc } => {
+            format!("{}, {}", regs(*reg), payload(*payload_pc))
+        }
+        K::Goto { target: t } => target(*t),
+        K::PackedSwitch { reg, payload_pc } | K::SparseSwitch { reg, payload_pc } => {
+            format!("{}, {}", regs(*reg), payload(*payload_pc))
+        }
+        K::Cmp { dst, a, b, .. } => format!("{}, {}, {}", regs(*dst), regs(*a), regs(*b)),
+        K::If {
+            a,
+            b,
+            target: tgt,
+            z,
+            ..
+        } => {
+            if *z {
+                format!("{}, {}", regs(*a), target(*tgt))
+            } else {
+                format!("{}, {}, {}", regs(*a), regs(*b), target(*tgt))
+            }
+        }
+        K::AGet {
+            dst, array, index, ..
+        } => {
+            format!("{}, {}, {}", regs(*dst), regs(*array), regs(*index))
+        }
+        K::APut {
+            value,
+            array,
+            index,
+            ..
+        } => {
+            format!("{}, {}, {}", regs(*value), regs(*array), regs(*index))
+        }
+        K::IGet {
+            dst,
+            obj,
+            field_idx,
+        } => {
+            format!("{}, {}, {}", regs(*dst), regs(*obj), field(*field_idx))
+        }
+        K::IPut {
+            value,
+            obj,
+            field_idx,
+        } => {
+            format!("{}, {}, {}", regs(*value), regs(*obj), field(*field_idx))
+        }
+        K::SGet { dst, field_idx } => format!("{}, {}", regs(*dst), field(*field_idx)),
+        K::SPut { value, field_idx } => format!("{}, {}", regs(*value), field(*field_idx)),
+        K::Invoke {
+            regs: rs,
+            method_idx,
+            ..
+        } => {
+            let list = rs.iter().map(|r| regs(*r)).collect::<Vec<_>>().join(", ");
+            format!("{{ {list} }}, {}", method(*method_idx))
+        }
+        K::InvokeCustom {
+            call_site_idx,
+            regs: rs,
+        } => {
+            let list = rs.iter().map(|r| regs(*r)).collect::<Vec<_>>().join(", ");
+            format!("{{ {list} }}, call-site@{call_site_idx}")
+        }
+        K::Un { dst, src, .. } => format!("{}, {}", regs(*dst), regs(*src)),
+        K::Bin { dst, a, b, .. } => format!("{}, {}, {}", regs(*dst), regs(*a), regs(*b)),
+        K::BinLit {
+            dst, a, lit, rsub, ..
+        } => {
+            if *rsub {
+                format!("{}, #{lit:x}, {}", regs(*dst), regs(*a))
+            } else {
+                format!("{}, {}, #{lit:x}", regs(*dst), regs(*a))
+            }
+        }
+    }
 }
 
 // ---- callers ---------------------------------------------------------------
