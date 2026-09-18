@@ -27,9 +27,31 @@
 
 ## 安装
 
-各平台预编译二进制见 [releases](https://github.com/ejfkdev/ddc/releases)
-（Linux x86_64/aarch64、macOS x86_64/Apple 芯片、Windows x86_64；UPX
-压缩的裸二进制，打 tag 自动构建）。或源码构建：
+**macOS**（Homebrew）：
+
+```bash
+brew install ejfkdev/tap/ddc
+```
+
+**Windows**（Scoop）：
+
+```bash
+scoop install ejfkdev/scoop-bucket/ddc
+```
+
+**cargo-binstall**（全平台——直接下载预编译 release 二进制，不用本地
+编译）：
+
+```bash
+cargo binstall ddc
+```
+
+**二进制**：每个 [release](https://github.com/ejfkdev/ddc/releases) 附带
+裸二进制（无压缩包），覆盖 `linux-amd64`、`linux-arm64`、
+`windows-amd64`、`windows-arm64`、`macos-amd64`、`macos-arm64`——非
+macOS 平台已 UPX 压缩。
+
+**源码构建**（Rust stable）：
 
 ```bash
 git clone https://github.com/ejfkdev/ddc && cd ddc

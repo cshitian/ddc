@@ -30,10 +30,31 @@ real-world app scale, and queryable like a database.
 
 ## Install
 
-Prebuilt binaries for Linux (x86_64/aarch64), macOS (x86_64/Apple
-silicon) and Windows (x86_64) ship with every
-[release](https://github.com/ejfkdev/ddc/releases) — raw UPX-compressed
-binaries, built automatically on tag. Or build from source:
+**macOS** (Homebrew):
+
+```bash
+brew install ejfkdev/tap/ddc
+```
+
+**Windows** (Scoop):
+
+```bash
+scoop install ejfkdev/scoop-bucket/ddc
+```
+
+**cargo-binstall** (any platform — fetches the prebuilt release binary
+instead of compiling):
+
+```bash
+cargo binstall ddc
+```
+
+**Binaries**: every [release](https://github.com/ejfkdev/ddc/releases)
+ships raw binaries (no archives) for `linux-amd64`, `linux-arm64`,
+`windows-amd64`, `windows-arm64`, `macos-amd64` and `macos-arm64` —
+non-macOS builds UPX-compressed.
+
+**From source** (Rust stable):
 
 ```bash
 git clone https://github.com/ejfkdev/ddc && cd ddc
