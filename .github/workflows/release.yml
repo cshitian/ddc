@@ -25,7 +25,7 @@ jobs:
             target: x86_64-unknown-linux-gnu
           - os: ubuntu-24.04-arm
             target: aarch64-unknown-linux-gnu
-          - os: macos-13
+          - os: macos-14
             target: x86_64-apple-darwin
           - os: macos-14
             target: aarch64-apple-darwin
@@ -64,6 +64,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       - name: Build
+        shell: bash
         run: cargo build --release --locked --target "$TARGET"
 
       # upx has no support for darwin/arm64 (and modern macOS signing makes
