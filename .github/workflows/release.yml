@@ -61,9 +61,16 @@ jobs:
         run: |
           echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
           echo "TAG=${GITHUB_REF_NAME}" >> "$GITHUB_ENV"
+          # %(contents:body) EXCLUDES the tag signature: committers with
+          # tag.gpgsign=true (SSH) would otherwise leak the signature
+          # block into the release description.
+          TAG_SUBJECT=$(git tag -l --format='%(contents:subject)' "${GITHUB_REF_NAME}")
+          TAG_BODY_ONLY=$(git tag -l --format='%(contents:body)' "${GITHUB_REF_NAME}")
           {
             echo "TAG_BODY<<EOF"
-            git tag -l --format='%(contents)' "${GITHUB_REF_NAME}"
+            echo "$TAG_SUBJECT"
+            echo ""
+            echo "$TAG_BODY_ONLY"
             echo "EOF"
           } >> "$GITHUB_ENV"
 
