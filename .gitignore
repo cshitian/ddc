@@ -19,3 +19,6 @@ bench/
 
 # scratch
 *.log
+
+# javac @argfile artifacts from local compile validation
+javac.*.args

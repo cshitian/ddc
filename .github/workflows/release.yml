@@ -85,7 +85,11 @@ jobs:
       # ${{ matrix.target }} expands in YAML, before any shell sees it —
       # no shell-variable semantics to get wrong across pwsh/bash.
       - name: Build
-        run: cargo build --release --locked --target ${{ matrix.target }}
+        # NOT --locked: the version-stamp step rewrites
+        # workspace.package.version above, which invalidates Cargo.lock's
+        # crate versions by design; the lock is still committed and used
+        # as the resolution baseline.
+        run: cargo build --release --target ${{ matrix.target }}
 
       - name: UPX-compress (linux/windows; best-effort)
         if: matrix.upx
