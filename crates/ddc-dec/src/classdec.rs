@@ -190,13 +190,13 @@ fn emit_class_body(
     if is_iface {
         if !class.interfaces.is_empty() {
             head.push_str(" extends ");
-            head.push_str(&join_dotted(&class.interfaces));
+            head.push_str(&join_dotted(pool, &class.interfaces));
         }
     } else {
         if let Some(sup) = &class.super_name {
             if sup != "java/lang/Object" && !is_enum {
                 head.push_str(" extends ");
-                head.push_str(&dotted(sup));
+                head.push_str(&print_class_name(pool, sup));
             }
         }
         if !class.interfaces.is_empty() {
@@ -205,7 +205,7 @@ fn emit_class_body(
             } else {
                 " implements "
             });
-            head.push_str(&join_dotted(&class.interfaces));
+            head.push_str(&join_dotted(pool, &class.interfaces));
         }
     }
 
@@ -359,7 +359,7 @@ fn emit_field(
     line.push_str(&java_ident(&f.name));
     let mut rendered = None;
     if let Some(v) = init {
-        rendered = render_static_value(v, &f_class);
+        rendered = render_static_value(pool, v, &f_class);
     }
     if rendered.is_none() && require_init {
         // Interface fields MUST have an initializer in Java; the dex may
@@ -400,7 +400,7 @@ fn emit_field(
 pub const ACC_VOLATILE_HINT: u32 = 0x40;
 pub const ACC_TRANSIENT_HINT: u32 = 0x80;
 
-fn render_static_value(v: &StaticValue, owner: &str) -> Option<String> {
+fn render_static_value(pool: &DexPool, v: &StaticValue, owner: &str) -> Option<String> {
     Some(match v {
         StaticValue::Int(i) => i.to_string(),
         StaticValue::Float(f) => format_float(*f as f64, true),
@@ -414,7 +414,7 @@ fn render_static_value(v: &StaticValue, owner: &str) -> Option<String> {
             if cls == owner {
                 n
             } else {
-                format!("{}.{}", dotted(cls), n)
+                format!("{}.{}", print_class_name(pool, cls), n)
             }
         }
         StaticValue::Other => return None,
@@ -492,8 +492,10 @@ fn emit_method(
         if is_init {
             // The ctor name must equal the DECLARED class name of its
             // file: flat `$` at depth 0 (own file), own segment when
-            // inlined in the parent at depth > 0.
-            let (_, simple) = split_name(&class.name);
+            // inlined in the parent at depth > 0. Case-renamed classes
+            // use their display name.
+            let dname = crate::apply_class_rename(&class.name);
+            let (_, simple) = split_name(&dname);
             // emit_method's depth is the METHOD indent = class depth + 1:
             // own-file classes (depth 0 header → method depth 1) need the
             // flat `$` ctor name; inline nested members use their segment.
@@ -759,10 +761,10 @@ pub fn dotted(internal: &str) -> String {
     sanitize_fq(&out)
 }
 
-fn join_dotted(names: &[String]) -> String {
+fn join_dotted(pool: &DexPool, names: &[String]) -> String {
     names
         .iter()
-        .map(|n| dotted(n))
+        .map(|n| print_class_name(pool, n))
         .collect::<Vec<_>>()
         .join(", ")
 }
@@ -781,6 +783,8 @@ pub fn type_name(pool: &DexPool, t: &JavaType) -> String {
 /// `com/foo/Outer$Inner` → `com.foo.Outer.Inner` — each `$` dots only when
 /// its left side names a known class (literal `$` top-level names survive).
 pub fn print_class_name(pool: &DexPool, internal: &str) -> String {
+    let cow = crate::apply_class_rename(internal);
+    let internal: &str = &cow;
     let mut out = String::new();
     let mut rest: &str = internal;
     loop {

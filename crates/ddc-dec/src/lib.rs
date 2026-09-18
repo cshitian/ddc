@@ -721,3 +721,49 @@ pub fn top_level_classes(pool: &DexPool) -> Vec<String> {
         .map(|n| n.to_string())
         .collect()
 }
+
+/// Deterministic case-collision renames over the FILE-emission set:
+/// classes whose internal names differ only in letter case cannot share
+/// one case-insensitive directory; the first (sorted) member of each
+/// group keeps its name, the others gain `_2`, `_3`, … on the simple
+/// segment. The map carries identity entries for unrenamed file-level
+/// classes (they anchor nested prefix walks in apply_class_rename).
+pub fn case_rename_map(pool: &DexPool) -> std::collections::HashMap<String, String> {
+    use std::collections::HashMap;
+    let mut groups: HashMap<String, Vec<String>> = HashMap::new();
+    for t in top_level_classes(pool) {
+        groups.entry(t.to_lowercase()).or_default().push(t);
+    }
+    let folds: std::collections::HashSet<String> = groups.keys().cloned().collect();
+    let mut map = HashMap::new();
+    for (_, mut members) in groups {
+        members.sort();
+        for (i, m) in members.iter().enumerate() {
+            if i == 0 {
+                map.insert(m.clone(), m.clone());
+                continue;
+            }
+            // Suffix the simple segment; keep incrementing if the fold
+            // of the suffixed name is already taken by a real class.
+            let cut = m.rfind('/').map(|x| x + 1).unwrap_or(0);
+            let mut n = i + 1;
+            loop {
+                let cand = format!("{}{}_{}", &m[..cut], &m[cut..], n);
+                let fold = cand.to_lowercase();
+                if !folds.contains(&fold) {
+                    map.insert(m.clone(), cand);
+                    break;
+                }
+                n += 1;
+            }
+        }
+    }
+    map
+}
+
+/// Compute and install the registry (call before worker threads spawn).
+pub fn install_case_renames(pool: &DexPool) {
+    jdc_core::rename::set_class_renames(case_rename_map(pool));
+}
+
+pub use jdc_core::rename::apply_class_rename;

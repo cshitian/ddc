@@ -1056,6 +1056,9 @@ pub(crate) fn cmd_pkg(args: &[String]) -> Result<()> {
         pool.set_dex_label(idx, label);
     }
     let pool = std::sync::Arc::new(pool);
+    // References follow case-collision renames (identity for ordinary
+    // corpora).
+    ddc_dec::install_case_renames(&pool);
     let selected: Vec<String> = names
         .iter()
         .filter(|n| pool.get(n).is_some())

@@ -708,6 +708,8 @@ pub(crate) fn getclass_text(
         pool.set_dex_label(idx, label);
     }
     let pool = std::sync::Arc::new(pool);
+    // References inside the emitted class follow case-collision renames.
+    ddc_dec::install_case_renames(&pool);
     let pc = pool.get(&internal).with_context(|| {
         bif!("class {0} not found (try `ddc listclasses <input> <pattern>`)", "找不到类 {0}（可用 `ddc listclasses <输入> <模式>`）"; fqcn)
     })?;
@@ -1263,6 +1265,12 @@ fn run() -> Result<()> {
         None => top_level_classes(&pool),
     };
 
+    // Case-collision renames: classes whose internal names differ only
+    // in case cannot share one case-insensitive directory — install the
+    // deterministic suffix map BEFORE any worker or writer spawns (the
+    // registry is read-only afterwards).
+    ddc_dec::install_case_renames(&pool);
+
     // ---- resolve the output sink ----
     let sink = resolve_sink(&inputs, out.as_deref(), &targets)?;
     if let Sink::Dir(d) = &sink {
@@ -1806,6 +1814,10 @@ fn resolve_sink(inputs: &[PathBuf], out: Option<&str>, targets: &[String]) -> Re
 
 /// `com/foo/Bar$Inner` → `<out>/com/foo/Bar$Inner.java`.
 fn source_path(out: &Path, internal: &str) -> PathBuf {
+    // Case-collision renames (identity when none installed): the FILE
+    // name must match the DECLARED class name.
+    let cow = ddc_dec::apply_class_rename(internal);
+    let internal: &str = &cow;
     let mut p = out.to_path_buf();
     let segs: Vec<&str> = internal.split('/').collect();
     for seg in segs {
