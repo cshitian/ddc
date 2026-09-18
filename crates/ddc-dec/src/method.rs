@@ -321,7 +321,7 @@ pub fn decompile_method(
         let htypes = &handler_types[bid];
         let block_ins = cfg.block_ins(&cfg.blocks[bid]);
         let lifter = Lifter::new(&env, &mut vt, ins, bid, &mut stable_vars, &mut mflags);
-        let rebuilt = match lifter.build_block(block_ins, &htypes) {
+        let rebuilt = match lifter.build_block(block_ins, htypes) {
             Ok((r, out)) => {
                 results[bid] = r;
                 let changed = match &out_states[bid] {
@@ -349,7 +349,7 @@ pub fn decompile_method(
             ver[bid] += 1;
             // Successors re-check their input signature.
             for &succ in &cfg.blocks[bid].succ {
-                if !queued[succ] && (succ as usize) < n {
+                if !queued[succ] && succ < n {
                     queue.push_back(succ);
                     queued[succ] = true;
                 }
@@ -359,7 +359,7 @@ pub fn decompile_method(
             // block belongs to.
             if is_handler {
                 let eb = handler_entry_block[&bid];
-                if !queued[eb] && (eb as usize) < n {
+                if !queued[eb] && eb < n {
                     queue.push_back(eb);
                     queued[eb] = true;
                 }
@@ -369,7 +369,7 @@ pub fn decompile_method(
             for &ri in &cfg.blocks[bid].handlers {
                 if let Some(r) = cfg.exc_ranges.get(ri) {
                     if let Some(hb) = cfg.block_at(r.handler) {
-                        if !queued[hb] && (hb as usize) < n {
+                        if !queued[hb] && hb < n {
                             queue.push_back(hb);
                             queued[hb] = true;
                         }
@@ -409,7 +409,7 @@ pub fn decompile_method(
     // the already-reassigned phi (stale capture).
     // Regroup: merge-keyed records → per-pred statement lists.
     let mut per_pred: HashMap<usize, Vec<(u32, u32, Expr)>> = HashMap::new();
-    for (_merge, recs) in &appends {
+    for recs in appends.values() {
         for (p, pc, v, e) in recs {
             per_pred.entry(*p).or_default().push((*pc, *v, e.clone()));
         }
@@ -997,7 +997,7 @@ fn merge_states(
 ) -> Vec<Reg> {
     let len = sides.iter().map(|s| s.len()).max().unwrap_or(0);
     let mut out = vec![Reg::Undef; len];
-    for r in 0..len {
+    for (r, slot) in out.iter_mut().enumerate() {
         let mut all_eq = true;
         let mut first: Option<&Reg> = None;
         for s in sides {
@@ -1009,7 +1009,7 @@ fn merge_states(
             }
         }
         if all_eq {
-            out[r] = first.cloned().unwrap_or(Reg::Undef);
+            *slot = first.cloned().unwrap_or(Reg::Undef);
             continue;
         }
         // Diverged: phi var.
@@ -1038,7 +1038,7 @@ fn merge_states(
                 id
             }
         };
-        out[r] = Reg::Live(phi);
+        *slot = Reg::Live(phi);
     }
     out
 }

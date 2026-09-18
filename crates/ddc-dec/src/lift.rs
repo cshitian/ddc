@@ -222,8 +222,7 @@ fn src_regs(kind: &InsnKind) -> Vec<u16> {
     out
 }
 
-/// Registers an instruction reads as operands.
-
+/// Registers an instruction READS as operands.
 /// Registers an instruction DEFINES (new value generations).
 fn dst_regs(kind: &InsnKind) -> Vec<u16> {
     let mut out: Vec<u16> = Vec::with_capacity(2);
@@ -270,35 +269,29 @@ fn compute_final_reads(ins: &[Insn]) -> std::collections::HashSet<(u32, u16)> {
         }
     }
     let mut out = std::collections::HashSet::new();
-    for (_r, evs) in events {
-        // dedupe (pc, kind) pairs — one insn reading a reg twice is one
-        // read event; an insn that both reads and writes (move r,r)
-        // counts as a read of the OLD value followed by a write.
+    for (reg, evs) in events {
         let mut dedup: Vec<(u32, bool)> = Vec::with_capacity(evs.len());
         for (pc, is_read) in evs {
             if dedup.last() != Some(&(pc, is_read)) {
                 dedup.push((pc, is_read));
             }
         }
-        // a (pc, read) followed by (pc, read) same pc dedup'd; (pc,read)
-        // then (pc,write) both kept (move semantics).
         for (i, &(pc, is_read)) in dedup.iter().enumerate() {
             if !is_read {
                 continue;
             }
+            // Final read of the current generation: no other read before
+            // the register's next write.
             let mut final_ = true;
-            for &(pc2, is_read2) in dedup.iter().skip(i + 1) {
+            for &(_, is_read2) in dedup.iter().skip(i + 1) {
                 if is_read2 {
                     final_ = false;
                     break;
                 }
-                if !is_read2 {
-                    // a write ends the generation: this read was the last
-                    break;
-                }
+                break;
             }
             if final_ {
-                out.insert((pc, _r));
+                out.insert((pc, reg));
             }
         }
     }
@@ -649,7 +642,23 @@ impl<'a> Lifter<'a> {
         handler_types: &[Option<String>],
     ) -> BResult<(BlockResult, OutState)> {
         let payloads = &self.env.code.payloads;
-        self.final_read = compute_final_reads(ins);
+        // The generation-aware read analysis only matters when a
+        // New/NewArray view can be read non-finally — blocks without any
+        // allocation-producing instruction (the overwhelming majority)
+        // skip the event analysis entirely.
+        let has_alloc = ins.iter().any(|i| {
+            matches!(
+                i.kind,
+                InsnKind::NewInstance { .. }
+                    | InsnKind::NewArray { .. }
+                    | InsnKind::FilledNewArray { .. }
+            )
+        });
+        self.final_read = if has_alloc {
+            compute_final_reads(ins)
+        } else {
+            std::collections::HashSet::new()
+        };
         for ins in ins {
             self.cur_pc = ins.pc;
             match &ins.kind {
@@ -1136,10 +1145,7 @@ impl<'a> Lifter<'a> {
             let r = arg_regs.get(i).copied().unwrap_or(0);
             args.push(self.read_nest(r));
         }
-        let recv_expr = match receiver_reg {
-            Some(r) => Some(self.read_nest(r)),
-            None => None,
-        };
+        let recv_expr = receiver_reg.map(|r| self.read_nest(r));
 
         // Constructor call: fold `new C` receivers; this/super otherwise.
         if name == "<init>" && matches!(kind, InvokeKind::Direct) {
@@ -1328,10 +1334,8 @@ impl<'a> Lifter<'a> {
                             }
                         }
                     }
-                    ddc_dex::annotations::EncodedValue::MethodType(p) => {
-                        if seen_handle {
-                            instantiated_proto = Some(*p);
-                        }
+                    ddc_dex::annotations::EncodedValue::MethodType(p) if seen_handle => {
+                        instantiated_proto = Some(*p);
                     }
                     _ => {}
                 }

@@ -714,13 +714,8 @@ pub(crate) fn getclass_text(
         bif!("class {0} not found (try `ddc listclasses <input> <pattern>`)", "找不到类 {0}（可用 `ddc listclasses <输入> <模式>`）"; fqcn)
     })?;
 
-    let pending: std::sync::Mutex<
-        Vec<(
-            std::sync::mpsc::Receiver<Result<String, String>>,
-            String,
-            std::time::Instant,
-        )>,
-    > = std::sync::Mutex::new(Vec::new());
+    let pending: std::sync::Mutex<Vec<ddc_dec::classdec::PendingMonitor>> =
+        std::sync::Mutex::new(Vec::new());
     let opts = ClassOptions::default();
     let result = ddc_dec::classdec::decompile_class(&pool, pc, &opts, &pending)
         .map_err(|e| anyhow::anyhow!("{:#}", e));
@@ -753,11 +748,14 @@ pub(crate) fn getclass_text(
 /// inflated); targets resolved → drain the rest and hand the resolution to
 /// the scanner (single pass: no second string matching); unresolved →
 /// drain and let the scanner resolve on the full image.
+/// The query's resolved targets: the kind bit and the string/type id set.
+type ResolvedTargets = (u8, std::collections::BTreeSet<u32>);
+
 fn prefix_or_full(
     data: &[u8],
     range: &std::ops::Range<usize>,
     query: &findrefs::FindQuery,
-) -> std::result::Result<(Vec<u8>, Option<(u8, std::collections::BTreeSet<u32>)>), String> {
+) -> std::result::Result<(Vec<u8>, Option<ResolvedTargets>), String> {
     use std::collections::BTreeSet;
     let mut resolved: Option<Option<(u8, BTreeSet<u32>)>> = None;
     let image = inputs::inflate_until(data, range.clone(), |out| {
@@ -1285,13 +1283,8 @@ fn run() -> Result<()> {
     // Detached monitored threads for pathological classes:
     // (receiver, class name, deadline Instant). Deadlines arm at SPAWN
     // time, so draining at the end costs at most one deadline total.
-    let pending: std::sync::Mutex<
-        Vec<(
-            std::sync::mpsc::Receiver<Result<String, String>>,
-            String,
-            std::time::Instant,
-        )>,
-    > = std::sync::Mutex::new(Vec::new());
+    let pending: std::sync::Mutex<Vec<ddc_dec::classdec::PendingMonitor>> =
+        std::sync::Mutex::new(Vec::new());
     let pending_ref = &pending;
 
     let failed = AtomicUsize::new(0);
@@ -1456,7 +1449,7 @@ fn run() -> Result<()> {
                             iter_start = std::time::Instant::now();
                             for name in chunk {
                                 let ct0 = std::time::Instant::now();
-                                let Some(pc) = pool_ref.get(&name) else {
+                                let Some(pc) = pool_ref.get(name) else {
                                     continue;
                                 };
                                 // A panic in one class must not take down the worker
@@ -1477,7 +1470,7 @@ fn run() -> Result<()> {
                                     Ok(Ok(_)) | Ok(Err(_)) | Err(_) => true,
                                 };
                                 if retire_mode {
-                                    if let Some(image) = pool_ref.report_class_done(&name) {
+                                    if let Some(image) = pool_ref.report_class_done(name) {
                                         // Last class of this image: release it right
                                         // here (mark_released is &self-safe; bytes drop
                                         // when the final snapshot drops).
@@ -1510,7 +1503,7 @@ fn run() -> Result<()> {
                                                     // Hand off to the writer pool; the bounded
                                                     // queue blocks only when writers fall
                                                     // behind (backpressure, not a stall).
-                                                    wq_ref.push((source_path(d, &name), text));
+                                                    wq_ref.push((source_path(d, name), text));
                                                 }
                                             }
                                         }
@@ -1546,7 +1539,7 @@ fn run() -> Result<()> {
                                         name
                                     );
                                 }
-                                if verbose && n % 500 == 0 {
+                                if verbose && n.is_multiple_of(500) {
                                     eprintln!("[i] {}/{} classes", n, total);
                                 }
                             }
@@ -1557,8 +1550,7 @@ fn run() -> Result<()> {
                         );
                         BUSY_MICROS.fetch_add(busy.as_micros() as u64, Ordering::Relaxed);
                         local_failed
-                    })
-                    .map(|h| h),
+                    }),
             );
         }
         for h in handles.into_iter().flatten() {

@@ -28,17 +28,20 @@ impl Default for ClassOptions {
 /// deadline: pathological CFGs can drive the shared structurer's walk into
 /// an exponential exploration that never returns. On timeout the class is
 /// reported failed and the thread is abandoned (reaped at process exit).
+/// One registered monitored decompile: the receiver the worker polls at
+/// the tail, the class name (for diagnostics), and the deadline counted
+/// from the spawn.
+pub type PendingMonitor = (
+    std::sync::mpsc::Receiver<Result<String, String>>,
+    String,
+    std::time::Instant,
+);
+
 pub fn decompile_class(
     pool: &std::sync::Arc<DexPool>,
     class: &PoolClass,
     opts: &ClassOptions,
-    pending: &std::sync::Mutex<
-        Vec<(
-            std::sync::mpsc::Receiver<Result<String, String>>,
-            String,
-            std::time::Instant,
-        )>,
-    >,
+    pending: &std::sync::Mutex<Vec<PendingMonitor>>,
 ) -> anyhow::Result<String> {
     if class_is_risky(pool, class) {
         // Detached monitored thread: the CALLER registers the receiver and
@@ -133,6 +136,9 @@ fn decompile_class_impl(
 
 /// Render the class header, fields, methods and nested member classes into
 /// `out` (used at top level and recursively for nested members).
+// `opts` is only consumed by the nested-member recursion below — that
+// is its purpose (propagating emission options into inline children).
+#[allow(clippy::only_used_in_recursion)]
 fn emit_class_body(
     pool: &DexPool,
     class: &PoolClass,
@@ -167,7 +173,7 @@ fn emit_class_body(
         head.push_str("abstract ");
     }
     if a & ACC_ANNOTATION != 0 {
-        head.push_str("@");
+        head.push('@');
     }
     if is_enum {
         // An enum with constant-specific bodies carries ACC_ABSTRACT —
@@ -298,12 +304,12 @@ fn nested_members<'a>(
 ) -> Vec<&'a PoolClass> {
     let mut out = Vec::new();
     for name in pool.children_of(&class.name) {
-        let Some(pc) = pool.get(&name) else { continue };
+        let Some(pc) = pool.get(name) else { continue };
         let rest = &name[class.name.len() + 1..];
         if rest.is_empty() || rest.starts_with('-') {
             continue;
         }
-        if ctx.find_outer(&name).as_deref() != Some(class.name.as_str()) {
+        if ctx.find_outer(name).as_deref() != Some(class.name.as_str()) {
             continue;
         }
         let tail = rest.rsplit('$').next().unwrap_or(rest);
@@ -318,6 +324,10 @@ fn nested_members<'a>(
     out
 }
 
+// Eight parameters are all load-bearing (pool, field, static value,
+// owner class, output, depth, staticness, interface-init requirement);
+// bundling them into a struct would obscure each call site.
+#[allow(clippy::too_many_arguments)]
 fn emit_field(
     pool: &DexPool,
     f: &crate::PoolField,
@@ -359,7 +369,7 @@ fn emit_field(
     line.push_str(&java_ident(&f.name));
     let mut rendered = None;
     if let Some(v) = init {
-        rendered = render_static_value(pool, v, &f_class);
+        rendered = render_static_value(pool, v, f_class);
     }
     if rendered.is_none() && require_init {
         // Interface fields MUST have an initializer in Java; the dex may
@@ -622,20 +632,6 @@ fn indent(depth: usize) -> String {
 /// `...$$inlined$collect$1`) and local-class tails are NOT member
 /// classes Java can name; the whole name stays flat with `$` (ddc emits
 /// them as their own top-level files).
-fn java_nested(name: &str) -> String {
-    let segs: Vec<&str> = name.split('$').collect();
-    let clean = segs.iter().all(|seg| {
-        !seg.is_empty()
-            && !seg.starts_with(|c: char| c.is_ascii_digit())
-            && seg.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
-    });
-    if clean {
-        segs.join(".")
-    } else {
-        name.replace('$', "$")
-    }
-}
-
 /// Kotlin emits method names like `invokeSuspend$lambda-0` — `-` (and
 /// any other non-identifier character) is not legal Java. Deterministic
 /// mapping, applied identically at declaration and call sites.
@@ -813,7 +809,6 @@ pub fn print_class_name(pool: &DexPool, internal: &str) -> String {
             }
         }
     }
-    sanitize_ref(&out)
 }
 
 /// Class-file names may contain characters Java source identifiers

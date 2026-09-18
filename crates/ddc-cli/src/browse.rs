@@ -558,7 +558,7 @@ pub(crate) fn cmd_largest(args: &[String]) -> Result<()> {
             }
         }
     })?;
-    rows.sort_by(|a, b| b.insns.cmp(&a.insns));
+    rows.sort_by_key(|a| std::cmp::Reverse(a.insns));
     println!(
         "{:>7}  {:<10}  {}",
         bi!("insns", "指令数"),
@@ -727,7 +727,7 @@ fn fmt_operands(
                     hex.push_str(&format!("{b:02x} "));
                 }
                 if data.len() > 48 {
-                    hex.push_str("…");
+                    hex.push('…');
                 }
                 out.push_str(&format!(" [elem_width={elem_width} size={size}: {hex}]"));
                 let _ = n;
@@ -759,9 +759,7 @@ fn fmt_operands(
             format!("{}, method-handle@{handle_idx}", regs(*dst))
         }
         K::ConstMethodType { dst, proto_idx } => {
-            let proto = match dex.proto_desc(*proto_idx) {
-                p => p,
-            };
+            let proto = dex.proto_desc(*proto_idx);
             format!("{}, proto@{proto_idx} {}", regs(*dst), proto)
         }
         K::MonitorEnter { reg } | K::MonitorExit { reg } | K::Throw { reg } => regs(*reg),
@@ -1071,13 +1069,8 @@ pub(crate) fn cmd_pkg(args: &[String]) -> Result<()> {
     let written = std::sync::atomic::AtomicUsize::new(0);
     let queue: Vec<Vec<String>> = selected.chunks(32).map(|c| c.to_vec()).collect();
     let cursor = crate::AtomicUsize::new(0);
-    let pending: std::sync::Mutex<
-        Vec<(
-            std::sync::mpsc::Receiver<Result<String, String>>,
-            String,
-            std::time::Instant,
-        )>,
-    > = std::sync::Mutex::new(Vec::new());
+    let pending: std::sync::Mutex<Vec<ddc_dec::classdec::PendingMonitor>> =
+        std::sync::Mutex::new(Vec::new());
     std::thread::scope(|scope| {
         let mut handles = Vec::new();
         let queue_ref = &queue;
@@ -1199,7 +1192,11 @@ pub(crate) fn cmd_getmethod(args: &[String]) -> Result<()> {
     };
     let mut last_err: Option<anyhow::Error> = None;
     for (class, method) in candidates {
-        match crate::getclass_text(&[common.input.clone()], &class, &common.dex_filters) {
+        match crate::getclass_text(
+            std::slice::from_ref(&common.input),
+            &class,
+            &common.dex_filters,
+        ) {
             Ok((text, _defining)) => {
                 let body = match &method {
                     Some(m) => match slice_methods(&text, m) {

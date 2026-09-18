@@ -112,7 +112,7 @@ impl<'a> Ctx for DexCtx<'a> {
                 NestedClass {
                     name: name.clone(),
                     simple,
-                    kind: kind.clone(),
+                    kind,
                     access,
                     sig_header: None,
                 },

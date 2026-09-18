@@ -295,7 +295,9 @@ fn sign4(v: u16) -> i64 {
 
 fn u16s(bytes: &[u8]) -> Vec<u16> {
     bytes
-        .chunks_exact(2)
+        .as_chunks::<2>()
+        .0
+        .iter()
         .map(|c| u16::from_le_bytes([c[0], c[1]]))
         .collect()
 }
@@ -316,7 +318,7 @@ fn payload_units(bytes: &[u8], off: usize) -> usize {
         0x0300 => {
             let width = unit(off + 1) as usize;
             let size = (unit(off + 2) as usize) | ((unit(off + 3) as usize) << 16);
-            4 + (size * width + 1) / 2
+            4 + (size * width).div_ceil(2)
         }
         _ => 0,
     }
@@ -370,8 +372,8 @@ fn parse_payload(bytes: &[u8], off: usize) -> Option<Payload> {
 /// Instruction width in code units for a format number.
 fn format_units(fmt: u8) -> u32 {
     match fmt {
-        10 | 12 | 11 => 1,
-        20 | 22 | 21 | 23 => 2,
+        10..=12 => 1,
+        20..=23 => 2,
         30 | 31 | 32 | 35 | 3 => 3,
         45 | 4 => 4,
         51 | 5 => 5,
@@ -388,7 +390,7 @@ fn decode_one(units: &[u16], pc: usize) -> (u32, InsnKind) {
     let i32of = |i: usize| -> i32 {
         let lo = u(i) as u32;
         let hi = u(i + 1) as u32;
-        ((lo | (hi << 16)) as u32) as i32
+        (lo | (hi << 16)) as i32
     };
 
     // 4-bit register fields of the first unit.
@@ -402,15 +404,12 @@ fn decode_one(units: &[u16], pc: usize) -> (u32, InsnKind) {
             // caller before dispatch.
             return (1, InsnKind::Nop);
         }
-        0x01 | 0x04 | 0x07 => InsnKind::Move {
-            dst: b4 as u16,
-            src: a4 as u16,
-        },
+        0x01 | 0x04 | 0x07 => InsnKind::Move { dst: b4, src: a4 },
         0x02 | 0x05 | 0x08 => {
             return (
                 2,
                 InsnKind::Move {
-                    dst: aa as u16,
+                    dst: aa,
                     src: u(pc + 1),
                 },
             );
@@ -424,14 +423,14 @@ fn decode_one(units: &[u16], pc: usize) -> (u32, InsnKind) {
                 },
             );
         }
-        0x0a..=0x0c => InsnKind::MoveResult { dst: aa as u16 },
-        0x0d => InsnKind::MoveException { dst: aa as u16 },
+        0x0a..=0x0c => InsnKind::MoveResult { dst: aa },
+        0x0d => InsnKind::MoveException { dst: aa },
         0x0e => InsnKind::ReturnVoid,
-        0x0f | 0x10 | 0x11 => InsnKind::Return { src: aa as u16 },
+        0x0f..=0x11 => InsnKind::Return { src: aa },
 
         // ---- consts ----
         0x12 => InsnKind::Const {
-            dst: b4 as u16,
+            dst: b4,
             val: sign4(a4),
             wide: false,
         },
@@ -439,7 +438,7 @@ fn decode_one(units: &[u16], pc: usize) -> (u32, InsnKind) {
             return (
                 2,
                 InsnKind::Const {
-                    dst: aa as u16,
+                    dst: aa,
                     val: (u(pc + 1) as i16) as i64,
                     wide: op == 0x16,
                 },
@@ -449,7 +448,7 @@ fn decode_one(units: &[u16], pc: usize) -> (u32, InsnKind) {
             return (
                 3,
                 InsnKind::Const {
-                    dst: aa as u16,
+                    dst: aa,
                     val: i32of(pc + 1) as i64,
                     wide: op == 0x17,
                 },
@@ -459,7 +458,7 @@ fn decode_one(units: &[u16], pc: usize) -> (u32, InsnKind) {
             return (
                 2,
                 InsnKind::Const {
-                    dst: aa as u16,
+                    dst: aa,
                     val: ((u(pc + 1) as u32) << 16) as i32 as i64,
                     wide: false,
                 },
@@ -471,7 +470,7 @@ fn decode_one(units: &[u16], pc: usize) -> (u32, InsnKind) {
             return (
                 5,
                 InsnKind::Const {
-                    dst: aa as u16,
+                    dst: aa,
                     val: (lo | (hi << 32)) as i64,
                     wide: true,
                 },
@@ -481,7 +480,7 @@ fn decode_one(units: &[u16], pc: usize) -> (u32, InsnKind) {
             return (
                 2,
                 InsnKind::Const {
-                    dst: aa as u16,
+                    dst: aa,
                     val: ((u(pc + 1) as u64) << 48) as i64,
                     wide: true,
                 },
@@ -496,7 +495,7 @@ fn decode_one(units: &[u16], pc: usize) -> (u32, InsnKind) {
             return (
                 if op == 0x1b { 3 } else { 2 },
                 InsnKind::ConstString {
-                    dst: aa as u16,
+                    dst: aa,
                     str_idx: idx,
                 },
             );
@@ -505,20 +504,20 @@ fn decode_one(units: &[u16], pc: usize) -> (u32, InsnKind) {
             return (
                 2,
                 InsnKind::ConstClass {
-                    dst: aa as u16,
+                    dst: aa,
                     type_idx: u(pc + 1) as u32,
                 },
             );
         }
 
         // ---- monitors / casts / arrays ----
-        0x1d => InsnKind::MonitorEnter { reg: aa as u16 },
-        0x1e => InsnKind::MonitorExit { reg: aa as u16 },
+        0x1d => InsnKind::MonitorEnter { reg: aa },
+        0x1e => InsnKind::MonitorExit { reg: aa },
         0x1f => {
             return (
                 2,
                 InsnKind::CheckCast {
-                    reg: aa as u16,
+                    reg: aa,
                     type_idx: u(pc + 1) as u32,
                 },
             );
@@ -527,21 +526,18 @@ fn decode_one(units: &[u16], pc: usize) -> (u32, InsnKind) {
             return (
                 2,
                 InsnKind::InstanceOf {
-                    dst: b4 as u16,
-                    src: a4 as u16,
+                    dst: b4,
+                    src: a4,
                     type_idx: u(pc + 1) as u32,
                 },
             );
         }
-        0x21 => InsnKind::ArrayLength {
-            dst: b4 as u16,
-            src: a4 as u16,
-        },
+        0x21 => InsnKind::ArrayLength { dst: b4, src: a4 },
         0x22 => {
             return (
                 2,
                 InsnKind::NewInstance {
-                    dst: aa as u16,
+                    dst: aa,
                     type_idx: u(pc + 1) as u32,
                 },
             );
@@ -550,8 +546,8 @@ fn decode_one(units: &[u16], pc: usize) -> (u32, InsnKind) {
             return (
                 2,
                 InsnKind::NewArray {
-                    dst: b4 as u16,
-                    size: a4 as u16,
+                    dst: b4,
+                    size: a4,
                     type_idx: u(pc + 1) as u32,
                 },
             );
@@ -566,7 +562,7 @@ fn decode_one(units: &[u16], pc: usize) -> (u32, InsnKind) {
                 for i in 0..cnt {
                     let shift = 4 * i;
                     let r = if i == 4 { g } else { (second >> shift) & 0xf };
-                    regs.push(r as u16);
+                    regs.push(r);
                 }
                 (regs, u(pc + 1) as u32)
             } else {
@@ -587,14 +583,14 @@ fn decode_one(units: &[u16], pc: usize) -> (u32, InsnKind) {
             return (
                 3,
                 InsnKind::FillArrayData {
-                    reg: aa as u16,
+                    reg: aa,
                     payload_pc: (pc as i64 + off as i64) as u32,
                 },
             );
         }
 
         // ---- control flow ----
-        0x27 => InsnKind::Throw { reg: aa as u16 },
+        0x27 => InsnKind::Throw { reg: aa },
         0x28 => {
             return (
                 1,
@@ -624,7 +620,7 @@ fn decode_one(units: &[u16], pc: usize) -> (u32, InsnKind) {
             return (
                 3,
                 InsnKind::PackedSwitch {
-                    reg: aa as u16,
+                    reg: aa,
                     payload_pc: (pc as i64 + off as i64) as u32,
                 },
             );
@@ -634,7 +630,7 @@ fn decode_one(units: &[u16], pc: usize) -> (u32, InsnKind) {
             return (
                 3,
                 InsnKind::SparseSwitch {
-                    reg: aa as u16,
+                    reg: aa,
                     payload_pc: (pc as i64 + off as i64) as u32,
                 },
             );
@@ -651,9 +647,9 @@ fn decode_one(units: &[u16], pc: usize) -> (u32, InsnKind) {
             return (
                 2,
                 InsnKind::Cmp {
-                    dst: aa as u16,
-                    a: (second & 0xff) as u16,
-                    b: (second >> 8) as u16,
+                    dst: aa,
+                    a: (second & 0xff),
+                    b: (second >> 8),
                     kind,
                 },
             );
@@ -672,8 +668,8 @@ fn decode_one(units: &[u16], pc: usize) -> (u32, InsnKind) {
                 2,
                 InsnKind::If {
                     op: opkind,
-                    a: b4 as u16,
-                    b: a4 as u16,
+                    a: b4,
+                    b: a4,
                     z: false,
                     target: off as u32,
                 },
@@ -693,7 +689,7 @@ fn decode_one(units: &[u16], pc: usize) -> (u32, InsnKind) {
                 2,
                 InsnKind::If {
                     op: opkind,
-                    a: aa as u16,
+                    a: aa,
                     b: 0,
                     z: true,
                     target: off as u32,
@@ -704,9 +700,9 @@ fn decode_one(units: &[u16], pc: usize) -> (u32, InsnKind) {
         // ---- array element access (0x44-0x51) ----
         0x44..=0x51 => {
             let second = u(pc + 1);
-            let r1 = aa as u16;
-            let r2 = (second & 0xff) as u16;
-            let r3 = (second >> 8) as u16;
+            let r1 = aa;
+            let r2 = second & 0xff;
+            let r3 = second >> 8;
             let is_load = op <= 0x4a;
             let ty = match op {
                 0x44 | 0x4b => 'I',
@@ -746,8 +742,8 @@ fn decode_one(units: &[u16], pc: usize) -> (u32, InsnKind) {
             return (
                 2,
                 InsnKind::IGet {
-                    dst: b4 as u16,
-                    obj: a4 as u16,
+                    dst: b4,
+                    obj: a4,
                     field_idx: u(pc + 1) as u32,
                 },
             );
@@ -756,8 +752,8 @@ fn decode_one(units: &[u16], pc: usize) -> (u32, InsnKind) {
             return (
                 2,
                 InsnKind::IPut {
-                    value: b4 as u16,
-                    obj: a4 as u16,
+                    value: b4,
+                    obj: a4,
                     field_idx: u(pc + 1) as u32,
                 },
             );
@@ -768,7 +764,7 @@ fn decode_one(units: &[u16], pc: usize) -> (u32, InsnKind) {
             return (
                 2,
                 InsnKind::SGet {
-                    dst: aa as u16,
+                    dst: aa,
                     field_idx: u(pc + 1) as u32,
                 },
             );
@@ -777,7 +773,7 @@ fn decode_one(units: &[u16], pc: usize) -> (u32, InsnKind) {
             return (
                 2,
                 InsnKind::SPut {
-                    value: aa as u16,
+                    value: aa,
                     field_idx: u(pc + 1) as u32,
                 },
             );
@@ -797,7 +793,7 @@ fn decode_one(units: &[u16], pc: usize) -> (u32, InsnKind) {
                 let mut regs: Vec<u16> = Vec::with_capacity(cnt as usize);
                 for i in 0..cnt {
                     let r = if i == 4 { g } else { (second >> (4 * i)) & 0xf };
-                    regs.push(r as u16);
+                    regs.push(r);
                 }
                 regs
             };
@@ -832,7 +828,7 @@ fn decode_one(units: &[u16], pc: usize) -> (u32, InsnKind) {
                 let mut regs: Vec<u16> = Vec::with_capacity(cnt as usize);
                 for i in 0..cnt {
                     let r = if i == 4 { g } else { (second >> (4 * i)) & 0xf };
-                    regs.push(r as u16);
+                    regs.push(r);
                 }
                 regs
             };
@@ -861,7 +857,7 @@ fn decode_one(units: &[u16], pc: usize) -> (u32, InsnKind) {
                 let mut regs: Vec<u16> = Vec::with_capacity(cnt as usize);
                 for i in 0..cnt {
                     let r = if i == 4 { g } else { (second >> (4 * i)) & 0xf };
-                    regs.push(r as u16);
+                    regs.push(r);
                 }
                 regs
             };
@@ -878,7 +874,7 @@ fn decode_one(units: &[u16], pc: usize) -> (u32, InsnKind) {
             return (
                 2,
                 InsnKind::ConstMethodHandle {
-                    dst: aa as u16,
+                    dst: aa,
                     handle_idx: u(pc + 1) as u32,
                 },
             );
@@ -887,7 +883,7 @@ fn decode_one(units: &[u16], pc: usize) -> (u32, InsnKind) {
             return (
                 2,
                 InsnKind::ConstMethodType {
-                    dst: aa as u16,
+                    dst: aa,
                     proto_idx: u(pc + 1) as u32,
                 },
             );
@@ -919,8 +915,8 @@ fn decode_one(units: &[u16], pc: usize) -> (u32, InsnKind) {
                 _ => (UnArith::Conv, 'I', 'S'),
             };
             InsnKind::Un {
-                dst: b4 as u16,
-                src: a4 as u16,
+                dst: b4,
+                src: a4,
                 op: opkind,
                 from,
                 to,
@@ -935,9 +931,9 @@ fn decode_one(units: &[u16], pc: usize) -> (u32, InsnKind) {
                 2,
                 InsnKind::Bin {
                     op: aop,
-                    dst: aa as u16,
-                    a: (second & 0xff) as u16,
-                    b: (second >> 8) as u16,
+                    dst: aa,
+                    a: (second & 0xff),
+                    b: (second >> 8),
                     ty,
                 },
             );
@@ -948,9 +944,9 @@ fn decode_one(units: &[u16], pc: usize) -> (u32, InsnKind) {
             let (aop, ty) = bin3(op - 0xb0);
             InsnKind::Bin {
                 op: aop,
-                dst: b4 as u16,
-                a: b4 as u16,
-                b: a4 as u16,
+                dst: b4,
+                a: b4,
+                b: a4,
                 ty,
             }
         }
@@ -962,8 +958,8 @@ fn decode_one(units: &[u16], pc: usize) -> (u32, InsnKind) {
                 2,
                 InsnKind::BinLit {
                     op: aop,
-                    dst: b4 as u16,
-                    a: a4 as u16,
+                    dst: b4,
+                    a: a4,
                     lit: u(pc + 1) as i16 as i32,
                     rsub,
                 },
@@ -977,8 +973,8 @@ fn decode_one(units: &[u16], pc: usize) -> (u32, InsnKind) {
                 2,
                 InsnKind::BinLit {
                     op: aop,
-                    dst: aa as u16,
-                    a: (second & 0xff) as u16,
+                    dst: aa,
+                    a: (second & 0xff),
                     lit: cc as i32,
                     rsub,
                 },
@@ -1079,7 +1075,7 @@ pub fn opcode_units(op: u8) -> u32 {
         0x1b => 3,
         0x1d | 0x1e | 0x21 | 0x27 | 0x28 => 1,
         0x1f | 0x20 | 0x22 | 0x23 => 2,
-        0x24 | 0x25 | 0x26 => 3,
+        0x24..=0x26 => 3,
         0x29 => 2,
         0x2a => 3,
         0x2b | 0x2c => 2,
@@ -1148,7 +1144,7 @@ fn payload_units_from_bytes(bytes: &[u8], pc: usize) -> usize {
         0x0300 => {
             let width = unit(pc + 1) as usize;
             let size = (unit(pc + 2) as usize) | ((unit(pc + 3) as usize) << 16);
-            4 + (size * width + 1) / 2
+            4 + (size * width).div_ceil(2)
         }
         _ => 0,
     }

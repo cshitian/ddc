@@ -446,11 +446,7 @@ impl Default for DexPool {
 }
 
 fn array_elem(desc: &str) -> Option<&str> {
-    if desc.starts_with('[') {
-        Some(&desc[1..])
-    } else {
-        None
-    }
+    desc.strip_prefix('[')
 }
 
 fn resolve_static_value(v: &EncodedValue, dex: &DexFile) -> StaticValue {
@@ -529,7 +525,16 @@ fn pool_class_of(dex: &DexFile, raw: &[u8], cd: &ClassDef, dex_idx: usize) -> Po
             .map(|t| dex.type_name(t))
             .collect();
         let ret = dex.type_name(proto.return_type_idx);
-        let desc = format!("({}){}", params.join(""), ret);
+        // Pre-sized single allocation (params.join + format! allocated
+        // two intermediates per method — ~8M methods on lark).
+        let mut desc =
+            String::with_capacity(2 + ret.len() + params.iter().map(|p| p.len()).sum::<usize>());
+        desc.push('(');
+        for p in &params {
+            desc.push_str(p);
+        }
+        desc.push(')');
+        desc.push_str(ret);
         let (code_off, debug_info_off) = match dex.debug_info_off_at(em.code_off) {
             Some(d) => (em.code_off, d),
             None => (0, 0),
@@ -702,7 +707,7 @@ pub fn top_level_classes(pool: &DexPool) -> Vec<String> {
         .filter(|name| match pool.outer_of(name) {
             None => true,
             Some(outer) => {
-                if pool.get(&outer).is_none() {
+                if pool.get(outer).is_none() {
                     return true;
                 }
                 // The outer can come from an ANNOTATION (EnclosingClass)
@@ -712,7 +717,7 @@ pub fn top_level_classes(pool: &DexPool) -> Vec<String> {
                 // real `outer$tail` prefix yields a member tail; anything
                 // else is a standalone unit.
                 let rest = name
-                    .strip_prefix(&outer[..])
+                    .strip_prefix(outer)
                     .and_then(|t| t.strip_prefix('$'))
                     .unwrap_or("");
                 !clean_member_tail(rest)

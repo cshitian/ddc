@@ -670,7 +670,7 @@ fn scan_class(
                     return;
                 }
                 if owner.is_none() {
-                    owner = Some(render_owner(&dex, method_idx));
+                    owner = Some(render_owner(dex, method_idx));
                 }
                 if first_insn.is_none() {
                     first_insn = Some(kind_name(op));
@@ -684,8 +684,8 @@ fn scan_class(
                         Some(b) => decode_mutf8_lossy(b),
                         None => return,
                     },
-                    K_METHOD => render_member(&dex, idx, true),
-                    _ => render_member(&dex, idx, false),
+                    K_METHOD => render_member(dex, idx, true),
+                    _ => render_member(dex, idx, false),
                 };
                 if !matched.contains(&target) {
                     matched.push(target);

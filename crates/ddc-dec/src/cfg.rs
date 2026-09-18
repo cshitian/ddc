@@ -64,8 +64,7 @@ impl DexCfg {
 
         // 1. Leaders.
         let mut leaders: Vec<u32> = vec![0];
-        for i in 0..insns.len() {
-            let ins = &insns[i];
+        for ins in insns.iter() {
             let next = ins.pc + ins.size;
             if ins.is_branch() && next <= code_units {
                 leaders.push(next);

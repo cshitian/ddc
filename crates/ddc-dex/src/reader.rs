@@ -165,7 +165,7 @@ impl<'a> Cursor<'a> {
                                 let lo = (((self.data[i + 3] & 0x0f) as u32) << 12)
                                     | (((self.data[i + 4] & 0x3f) as u32) << 6)
                                     | ((self.data[i + 5] & 0x3f) as u32);
-                                let cp = 0x10000 + (((c as u32) - 0xd800) << 10) + (lo - 0xdc00);
+                                let cp = 0x10000 + ((c - 0xd800) << 10) + (lo - 0xdc00);
                                 out.push(char::from_u32(cp).unwrap_or('\u{fffd}'));
                                 i += 6;
                                 units += 2;

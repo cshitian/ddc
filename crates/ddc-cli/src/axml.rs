@@ -100,10 +100,8 @@ pub fn axml_to_xml(data: &[u8]) -> Result<String, String> {
                 out.push_str(&name);
                 out.push_str(">\n");
             }
-            0x0104 => {
-                if chunk_end >= pos + 20 {
-                    pending_text.push_str(&pool_get(&pool, i32at(data, pos + 16))?);
-                }
+            0x0104 if chunk_end >= pos + 20 => {
+                pending_text.push_str(&pool_get(&pool, i32at(data, pos + 16))?);
             }
             _ => {} // resource map (0x0180) etc.
         }
@@ -206,7 +204,7 @@ fn read_u8_len(d: &[u8]) -> (usize, &[u8]) {
     }
     let b = d[0] as usize;
     if b & 0x80 != 0 && d.len() > 1 {
-        ((((b & 0x7f) as usize) << 8) | d[1] as usize, &d[2..])
+        (((b & 0x7f) << 8) | d[1] as usize, &d[2..])
     } else {
         (b, &d[1..])
     }

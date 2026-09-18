@@ -7,8 +7,16 @@
 //! the d8 monitor pattern, erased-type inference, boolean and null
 //! comparisons, and declaration hygiene.
 
+// The tree-walker match arms intentionally mirror the statement grammar
+// one level at a time; collapsing the nested `if let`s into outer match
+// arms would trade per-arm clarity for lint silence.
+#![allow(clippy::collapsible_match)]
+
 use std::collections::HashSet;
 
+// The tree-walker match arms intentionally mirror the statement grammar
+// one level at a time; collapsing the nested `if let`s into outer match
+// arms would trade per-arm clarity for lint silence.
 use jdc_core::ir::build::has_side_effects;
 use jdc_core::ir::expr::{AssignOp, BinOp, ConcatPart, ConstVal, Expr, TypeRef, UnOp};
 use jdc_core::ir::stmt::{CaseGroup, Catch, Stmt};
@@ -566,7 +574,7 @@ pub fn bind_catches(s: &mut Stmt, vt: &mut VarTable) {
                             .cloned()
                             .unwrap_or_else(|| "java/lang/Throwable".into());
                         let slot = vt.var(v).slot;
-                        let name = format!("e");
+                        let name = "e".to_string();
                         let new_var =
                             vt.add_catch_var(slot, name, TypeRef::J(JavaType::Object(exc)));
                         if let Stmt::Block(vs) = c.body.as_mut() {
@@ -858,7 +866,7 @@ pub fn fused_expr_rewrites(s: &mut Stmt, vt: &VarTable) {
                 if let Expr::Bin { op, l, r, .. } = x {
                     if matches!(op, BinOp::Eq | BinOp::Ne) {
                         let rewrite = |side: &mut Expr, other: &Expr| {
-                            if let Expr::Const(ConstVal::Int(0)) = &*other {
+                            if let Expr::Const(ConstVal::Int(0)) = other {
                                 if let Expr::Local { var, .. } = &*side {
                                     if obj_vars.get(*var as usize).copied().unwrap_or(false) {
                                         *side = Expr::Const(ConstVal::Null);
@@ -1197,13 +1205,11 @@ fn record_assignments(s: &Stmt, counts: &[usize], out: &mut Vec<Option<Expr>>) {
         }
         Stmt::LocalDef {
             var, init: Some(e), ..
-        } => {
-            if counts.get(*var as usize).copied().unwrap_or(0) == 1 {
-                if *var as usize >= out.len() {
-                    out.resize(*var as usize + 1, None);
-                }
-                out[*var as usize] = Some(e.clone());
+        } if counts.get(*var as usize).copied().unwrap_or(0) == 1 => {
+            if *var as usize >= out.len() {
+                out.resize(*var as usize + 1, None);
             }
+            out[*var as usize] = Some(e.clone());
         }
         _ => {}
     });
@@ -1219,7 +1225,7 @@ fn fold_concat_in_expr(e: &mut Expr, values: &[Option<Expr>], appended: &HashSet
             ..
         } = x
         {
-            if name == "toString" && args.is_empty() && is_string_builder(&cls) {
+            if name == "toString" && args.is_empty() && is_string_builder(cls) {
                 if let Some(o) = owner {
                     // Statement-form appends attached to any chain var mean
                     // the parts are incomplete — keep the call.
@@ -1312,7 +1318,7 @@ fn drop_unused_assigns(s: &mut Stmt, reads: &HashSet<u32>) -> usize {
                     _ => true,
                 },
                 Stmt::LocalDef { var, init, .. } => {
-                    reads.contains(var) || !init.as_ref().map(|e| is_sbish(e)).unwrap_or(false)
+                    reads.contains(var) || !init.as_ref().map(is_sbish).unwrap_or(false)
                 }
                 _ => true,
             });
@@ -1361,7 +1367,7 @@ fn fold_sync_walk(s: &mut Stmt) {
     });
 }
 
-fn try_sync_at(v: &Vec<Stmt>, i: usize) -> Option<Stmt> {
+fn try_sync_at(v: &[Stmt], i: usize) -> Option<Stmt> {
     let Stmt::MonitorEnter(lock) = &v[i] else {
         return None;
     };
@@ -1433,7 +1439,7 @@ pub fn forward_single_use(s: &mut Stmt, _vt: &VarTable) {
     // moving the read across the phi's reassignment would be a stale
     // capture (register rotations snapshot through temps for this reason).
     let mut single = vec![false; n_vars];
-    for v in 0..n_vars {
+    for (v, single_v) in single.iter_mut().enumerate() {
         if assigns.get(v).copied().unwrap_or(0) != 1 || reads.get(v).copied().unwrap_or(0) != 1 {
             continue;
         }
@@ -1444,7 +1450,7 @@ pub fn forward_single_use(s: &mut Stmt, _vt: &VarTable) {
                 continue;
             }
         }
-        single[v] = true;
+        *single_v = true;
     }
     if !single.iter().any(|&b| b) {
         return;
@@ -2075,7 +2081,7 @@ pub fn null_compares(vt: &VarTable, body: &mut Stmt) {
                     return;
                 }
                 let rewrite = |side: &mut Expr, other: &Expr| {
-                    if let Expr::Const(ConstVal::Int(0)) = &*other {
+                    if let Expr::Const(ConstVal::Int(0)) = other {
                         if let Expr::Local { var, .. } = &*side {
                             if obj_vars.contains(var) {
                                 *side = Expr::Const(ConstVal::Null);
