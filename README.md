@@ -46,7 +46,7 @@ scoop install ejfkdev/scoop-bucket/ddc
 instead of compiling):
 
 ```bash
-cargo binstall ddc
+cargo binstall ddc-cli
 ```
 
 **Binaries**: every [release](https://github.com/ejfkdev/ddc/releases)

@@ -10,6 +10,16 @@ description = "ddc command-line interface"
 name = "ddc"
 path = "src/main.rs"
 
+# cargo-binstall: fetch the prebuilt release binary instead of compiling.
+# binstall resolves this metadata from crates.io, then downloads the RAW
+# (pkg-fmt = "bin") release asset named ddc-v{version}-{target}[.exe] —
+# release.yml stages exactly that naming. {archive-suffix} is ".exe" on
+# Windows and "" elsewhere, matching how the workflow stages assets.
+[package.metadata.binstall]
+pkg-url = "{ repo }/releases/download/v{ version }/ddc-v{ version }-{ target }{ archive-suffix }"
+bin-dir = "{ bin }{ binary-ext }"
+pkg-fmt = "bin"
+
 [dependencies]
 ddc-dex = { workspace = true }
 ddc-dec = { workspace = true }

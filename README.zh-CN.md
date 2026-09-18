@@ -43,7 +43,7 @@ scoop install ejfkdev/scoop-bucket/ddc
 编译）：
 
 ```bash
-cargo binstall ddc
+cargo binstall ddc-cli
 ```
 
 **二进制**：每个 [release](https://github.com/ejfkdev/ddc/releases) 附带

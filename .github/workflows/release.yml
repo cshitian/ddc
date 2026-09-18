@@ -8,7 +8,6 @@
 # CARGO_PKG_VERSION) from the tag name before building. Release artifacts
 # ship stripped (CARGO_PROFILE_RELEASE_STRIP=symbols) even though the
 # workspace profile keeps debug=true for local profiling.
-name: release
 
 on:
   push:
@@ -22,40 +21,33 @@ env:
   CARGO_PROFILE_RELEASE_STRIP: symbols
 
 jobs:
-  release:
-    name: ddc ${{ matrix.target }}
+  release: ${{ matrix.target }}
     strategy:
       fail-fast: false
       matrix:
         include:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-            name: linux-amd64
             upx: true
           - os: ubuntu-24.04-arm
             target: aarch64-unknown-linux-gnu
-            name: linux-arm64
             upx: true
           # Windows x64 + arm64 (arm64 cross on the x64 runner; UPX
           # best-effort — ARM64 PE support depends on the UPX build)
           - os: windows-latest
             target: x86_64-pc-windows-msvc
-            name: windows-amd64
             upx: true
           - os: windows-latest
             target: aarch64-pc-windows-msvc
-            name: windows-arm64
             upx: true
           # macOS arm64 + amd64 (amd64 cross on the arm64 runner — the
           # last Intel runners queue for ages; UPX does not support
           # Mach-O, so both ship stripped, uncompressed)
           - os: macos-latest
             target: aarch64-apple-darwin
-            name: macos-arm64
             upx: false
           - os: macos-latest
             target: x86_64-apple-darwin
-            name: macos-amd64
             upx: false
     runs-on: ${{ matrix.os }}
     steps:
@@ -124,19 +116,22 @@ jobs:
           fi
 
       # Raw binaries as release assets — deliberately NOT zipped/tarballed.
+      # Named with the FULL target triple (not a platform name): cargo-
+      # binstall's {target} placeholder resolves its download URL from
+      # exactly this form, per [package.metadata.binstall] in ddc-cli.
       - name: Stage binary asset
         shell: bash
         run: |
           BIN="target/${{ matrix.target }}/release/ddc"
-          OUT="ddc-${{ env.TAG }}-${{ matrix.name }}"
+          OUT="ddc-${{ env.TAG }}-${{ matrix.target }}"
           if [ "${{ runner.os }}" = "Windows" ]; then
             cp "$BIN.exe" "$OUT.exe"
           else
             cp "$BIN" "$OUT"
             chmod +x "$OUT"
           fi
-          ls -la "ddc-${{ env.TAG }}-${{ matrix.name }}"*
+          ls -la "ddc-${{ env.TAG }}-${{ matrix.target }}"*
 
       - uses: softprops/action-gh-release@v2
         with:
-          files: ddc-${{ env.TAG }}-${{ matrix.name }}*
+          files: ddc-${{ env.TAG }}-${{ matrix.target }}*
