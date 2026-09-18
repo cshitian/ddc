@@ -16,13 +16,18 @@ RSS via `/usr/bin/time -l`:
 
 | APK | Size | Full decompile | Peak RSS |
 |---|---|---|---|
-| reqable | 34 MB | **0.27s** | 147 MB |
-| Telegram | 62 MB | **8.09s** | 1016 MB |
-| WhatsApp | 139 MB | **8.67s** | 1197 MB |
-| weibo | 226 MB | **6.13s** | 1238 MB |
-| weixin | 268 MB | **10.15s** | 1413 MB |
-| lark | 398 MB | **6.08s** | 1580 MB |
-| qq | 374 MB | **17.85s** | 2330 MB |
+| reqable | 34 MB | **0.28s** | 151 MB |
+| Telegram | 62 MB | **8.00s** | 1301 MB |
+| WhatsApp | 139 MB | **9.0s** (99,276 files — case-variant class pairs all preserved) | 1240 MB |
+| weibo | 226 MB | **5.98s** | 1234 MB |
+| weixin | 268 MB | **9.7s** | 1404 MB |
+| lark | 398 MB | **5.80s** | 1614 MB |
+| qq | 374 MB | **18.04s** | 2312 MB |
+
+**Compile validation**: every `.java` of all seven APKs (1,085,000
+files) is fed to `javac -Xmaxerrs 500000`; the parse gate reports
+**zero syntax errors** (remaining diagnostics are semantic — the
+missing Android classpath — and duplicate bridge methods).
 
 ## Every query subcommand, same seven APKs
 

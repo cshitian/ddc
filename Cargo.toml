@@ -15,14 +15,10 @@ categories = ["command-line-utilities", "development-tools::debugging"]
 [workspace.dependencies]
 ddc-dex = { path = "crates/ddc-dex", version = "0.1.0" }
 ddc-dec = { path = "crates/ddc-dec", version = "0.1.0" }
-jdc-core = "0.1.8"
+jdc-core = "0.1.9"
 anyhow = "1"
 
 [profile.release]
 debug = true
 lto = "fat"
 codegen-units = 1
-
-# LOCAL TESTING — release freeze: local jdc-core until the next version.
-[patch.crates-io]
-jdc-core = { path = "/Users/e/Documents/project/jdc-core" }

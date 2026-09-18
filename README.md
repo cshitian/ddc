@@ -6,14 +6,21 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 `ddc` decompiles Android DEX bytecode back into readable Java — at
-real-world app scale, and queryable like a database.
+real-world app scale, queryable like a database, and **javac-verified**:
+every one of the 1,085,000 files it emits across seven real-world APKs
+parses cleanly.
 
 ## Highlights
 
 - **Fast** — a 226 MB / 20-dex APK (weibo, 98k classes) fully
-  decompiles in **6.1s**, a 398 MB bundle (Lark) in **6.1s**;
+  decompiles in **6.0s**, a 398 MB bundle (Lark) in **5.8s**;
   pathological classes run on deadline-bounded monitored threads
   instead of hanging the run.
+- **Compiles** — the full output of all seven benchmark APKs
+  (reqable, Telegram, WhatsApp, weibo, weixin, qq, lark — 1.09M
+  files) passes `javac` with **zero syntax errors**; every class of
+  a case-variant name pair (`X/Cua` vs `X/cua`) is preserved as
+  its own file instead of the last one silently overwriting.
 - **Progressive decompilation** — 20+ query subcommands (strings,
   cross-references, hierarchies, manifest, resources, per-method
   decompiles) answer in milliseconds: query metadata first, decompile
@@ -86,13 +93,13 @@ Seven real-world APKs, release build, 3-run averages
 
 | APK | Size | Full decompile | Peak RSS |
 |---|---|---|---|
-| reqable | 34 MB | **0.27s** | 147 MB |
-| Telegram | 62 MB | **8.09s** | 1016 MB |
-| WhatsApp | 139 MB | **8.67s** | 1197 MB |
-| weibo | 226 MB | **6.13s** | 1238 MB |
-| weixin | 268 MB | **10.15s** | 1413 MB |
-| lark | 398 MB | **6.08s** | 1580 MB |
-| qq | 374 MB | **17.85s** | 2330 MB |
+| reqable | 34 MB | **0.28s** | 151 MB |
+| Telegram | 62 MB | **8.00s** | 1301 MB |
+| WhatsApp | 139 MB | **9.0s** (99,276 files — case-variant pairs all preserved) | 1240 MB |
+| weibo | 226 MB | **5.98s** | 1234 MB |
+| weixin | 268 MB | **9.7s** | 1404 MB |
+| lark | 398 MB | **5.80s** | 1614 MB |
+| qq | 374 MB | **18.04s** | 2312 MB |
 
 Query subcommands on the same APKs (cells: time / peak RSS;
 `strings -f <package> --with-locations`, `findrefs` on the package

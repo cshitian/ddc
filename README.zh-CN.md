@@ -5,14 +5,19 @@
 [![CI](https://github.com/ejfkdev/ddc/actions/workflows/ci.yml/badge.svg)](https://github.com/ejfkdev/ddc/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-`ddc` 把 Android DEX 字节码反编译回可读的 Java —— 真实 App 级别的速度，
-并且可以像数据库一样查询。
+`ddc` 把 Android DEX 字节码反编译回可读的 Java —— 真实 App 级别的速度、
+可以像数据库一样查询，并且**经过 javac 验证**：七个真实 APK 共
+1,085,000 个输出文件全部零语法错误。
 
 ## 特性
 
-- **快** —— 226MB/20 dex 的 weibo（9.8 万个类）全量反编译 **6.1s**，
-  398MB 的飞书 **6.1s**；病态类跑在带截止期的受控线程上，不会拖死
+- **快** —— 226MB/20 dex 的 weibo（9.8 万个类）全量反编译 **6.0s**，
+  398MB 的飞书 **5.8s**；病态类跑在带截止期的受控线程上，不会拖死
   整个运行。
+- **能编译** —— 七个基准 APK（reqable/Telegram/WhatsApp/weibo/weixin/
+  qq/lark，共 109 万文件）的输出全部通过 javac，**零语法错误**；
+  大小写仅差一位的类名对（`X/Cua` vs `X/cua`）两个类都各自成文件，
+  不再后者覆盖前者。
 - **渐进式反编译** —— 20+ 查询子命令（字符串、交叉引用、继承谱、
   manifest、资源、方法粒度反编译）毫秒级出答案：先查元数据、按需定点
   反编译，绝大多数分析不必付全量的代价。
@@ -81,13 +86,13 @@ ddc pkg app.apk --app -o own/        # 只反编译 App 自身代码
 
 | APK | 大小 | 全量反编译 | 峰值 RSS |
 |---|---|---|---|
-| reqable | 34 MB | **0.27s** | 147 MB |
-| Telegram | 62 MB | **8.09s** | 1016 MB |
-| WhatsApp | 139 MB | **8.67s** | 1197 MB |
-| weibo | 226 MB | **6.13s** | 1238 MB |
-| weixin | 268 MB | **10.15s** | 1413 MB |
-| lark | 398 MB | **6.08s** | 1580 MB |
-| qq | 374 MB | **17.85s** | 2330 MB |
+| reqable | 34 MB | **0.28s** | 151 MB |
+| Telegram | 62 MB | **8.00s** | 1301 MB |
+| WhatsApp | 139 MB | **9.0s**（99,276 文件——大小写变体类全部保留） | 1240 MB |
+| weibo | 226 MB | **5.98s** | 1234 MB |
+| weixin | 268 MB | **9.7s** | 1404 MB |
+| lark | 398 MB | **5.80s** | 1614 MB |
+| qq | 374 MB | **18.04s** | 2312 MB |
 
 同一批 APK 上的查询子命令（单元格：耗时 / 峰值 RSS；`strings -f <包名>
 --with-locations`，`findrefs` 查包名字符串与方法 `onCreate`，
