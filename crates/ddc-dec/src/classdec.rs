@@ -140,7 +140,15 @@ fn emit_class_body(
 ) -> anyhow::Result<()> {
     let ind = indent(depth);
     let (_, simple) = split_name(&class.name);
-    let simple = simple.replace('$', ".");
+    // A class emitted as its OWN top-level file (depth 0) must declare a
+    // flat `$` name — `class Outer.Inner` is not declarable at file
+    // scope. An INLINE nested member (depth > 0) declares its own
+    // segment inside the parent's body.
+    let simple = if depth == 0 {
+        simple.to_string()
+    } else {
+        simple.rsplit('$').next().unwrap_or(&simple).to_string()
+    };
     let is_iface = class.is_interface();
     let is_enum = class.is_enum();
 
@@ -207,6 +215,7 @@ fn emit_class_body(
             out,
             depth + 1,
             true,
+            class.is_interface(),
         );
     }
     if !class.instance_fields.is_empty() && !class.static_fields.is_empty() {
@@ -216,7 +225,7 @@ fn emit_class_body(
         if i > 0 {
             out.push('\n');
         }
-        emit_field(pool, f, None, &class.name, out, depth + 1, false);
+        emit_field(pool, f, None, &class.name, out, depth + 1, false, false);
     }
 
     // Methods.
@@ -234,8 +243,15 @@ fn emit_class_body(
             emitted_any = true;
         }
     }
-    // Static initializer.
-    if let Some(clinit) = class.all_methods().find(|m| m.name == "<clinit>") {
+    // Static initializer. INTERFACES cannot carry a `static { }` block in
+    // Java — their clinit only assigns constants, which static_values (or
+    // the `= null` default) already render as field initializers; skip
+    // the block entirely.
+    let skip_clinit = class.is_interface();
+    if let Some(clinit) = (!skip_clinit)
+        .then(|| class.all_methods().find(|m| m.name == "<clinit>"))
+        .flatten()
+    {
         if let Some(text) = emit_method(pool, class, ctx, clinit, depth + 1)? {
             if emitted_any {
                 out.push('\n');
@@ -299,6 +315,7 @@ fn emit_field(
     out: &mut String,
     depth: usize,
     is_static: bool,
+    require_init: bool,
 ) {
     let ind = indent(depth);
     let mut line = String::new();
@@ -329,11 +346,37 @@ fn emit_field(
     line.push_str(&ty);
     line.push(' ');
     line.push_str(&f.name);
+    let mut rendered = None;
     if let Some(v) = init {
-        if let Some(text) = render_static_value(v, &f_class) {
-            line.push_str(" = ");
-            line.push_str(&text);
-        }
+        rendered = render_static_value(v, &f_class);
+    }
+    if rendered.is_none() && require_init {
+        // Interface fields MUST have an initializer in Java; the dex may
+        // not carry a static_values entry for a compile-time-constant the
+        // compiler folded away. Keep it compilable.
+        let default = match desc_type(&f.desc) {
+            JavaType::Boolean => "false",
+            JavaType::Byte | JavaType::Short | JavaType::Char | JavaType::Int => "0",
+            JavaType::Long => "0L",
+            JavaType::Float => "0.0F",
+            JavaType::Double => "0.0",
+            _ => "null",
+        };
+        rendered = Some(default.to_string());
+    }
+    if let Some(text) = rendered {
+        // A long field holding an `Int(i64)` static value needs the `L`
+        // suffix: without it the literal is an int and overflows
+        // (`long d = -6343169151696340687` failed javac).
+        let text = if matches!(desc_type(&f.desc), JavaType::Long)
+            && text.chars().all(|c| c.is_ascii_digit() || c == '-')
+        {
+            format!("{text}L")
+        } else {
+            text
+        };
+        line.push_str(" = ");
+        line.push_str(&text);
     }
     line.push(';');
     out.push_str(&ind);
@@ -432,12 +475,23 @@ fn emit_method(
     } else {
         let Some(d) = &desc else { return Ok(None) };
         if is_init {
+            // The ctor name must equal the DECLARED class name of its
+            // file: flat `$` at depth 0 (own file), own segment when
+            // inlined in the parent at depth > 0.
             let (_, simple) = split_name(&class.name);
-            sig.push_str(&simple.replace('$', "."));
+            // emit_method's depth is the METHOD indent = class depth + 1:
+            // own-file classes (depth 0 header → method depth 1) need the
+            // flat `$` ctor name; inline nested members use their segment.
+            let name = if depth <= 1 {
+                simple.to_string()
+            } else {
+                simple.rsplit('$').next().unwrap_or(&simple).to_string()
+            };
+            sig.push_str(&java_ident(&name));
         } else {
             sig.push_str(&type_name(pool, &d.ret));
             sig.push(' ');
-            sig.push_str(&m.name);
+            sig.push_str(&java_ident(&m.name));
         }
         sig.push('(');
         let n = d.args.len();
@@ -545,6 +599,48 @@ fn indent(depth: usize) -> String {
     "    ".repeat(depth)
 }
 
+/// `$`-separated nesting rendered with dots — but ONLY when every
+/// segment is a clean Java identifier (a genuine member class chain).
+/// Anonymous (`Outer$1`), Kotlin synthetic (`Version$bigInteger$2`,
+/// `...$$inlined$collect$1`) and local-class tails are NOT member
+/// classes Java can name; the whole name stays flat with `$` (ddc emits
+/// them as their own top-level files).
+fn java_nested(name: &str) -> String {
+    let segs: Vec<&str> = name.split('$').collect();
+    let clean = segs.iter().all(|seg| {
+        !seg.is_empty()
+            && !seg.starts_with(|c: char| c.is_ascii_digit())
+            && seg.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+    });
+    if clean {
+        segs.join(".")
+    } else {
+        name.replace('$', "$")
+    }
+}
+
+/// Kotlin emits method names like `invokeSuspend$lambda-0` — `-` (and
+/// any other non-identifier character) is not legal Java. Deterministic
+/// mapping, applied identically at declaration and call sites.
+pub(crate) fn java_ident(name: &str) -> String {
+    if name
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '$')
+    {
+        name.to_string()
+    } else {
+        name.chars()
+            .map(|c| {
+                if c.is_ascii_alphanumeric() || c == '_' || c == '$' {
+                    c
+                } else {
+                    '_'
+                }
+            })
+            .collect()
+    }
+}
+
 fn split_name(internal: &str) -> (String, String) {
     match internal.rfind('/') {
         Some(i) => (internal[..i].to_string(), internal[i + 1..].to_string()),
@@ -554,7 +650,24 @@ fn split_name(internal: &str) -> (String, String) {
 
 /// Dotted source form of an internal name.
 pub fn dotted(internal: &str) -> String {
-    internal.replace('/', ".").replace('$', ".")
+    let mut out = internal.replace('/', ".");
+    // `$` → `.` only when the following segment can start a Java
+    // identifier (anonymous/synthetic tails stay `$`).
+    let mut i = 0;
+    while let Some(p) = out[i..].find('$') {
+        let at = i + p;
+        let tail_ok = out[at + 1..]
+            .chars()
+            .next()
+            .is_some_and(|c| !c.is_ascii_digit());
+        if tail_ok {
+            out.replace_range(at..at + 1, ".");
+            i = at + 1;
+        } else {
+            i = at + 1;
+        }
+    }
+    out
 }
 
 fn join_dotted(names: &[String]) -> String {
@@ -586,8 +699,15 @@ pub fn print_class_name(pool: &DexPool, internal: &str) -> String {
             Some(i) => {
                 let cand = &rest[..i];
                 let known = pool.get(cand).is_some() || cand == internal;
+                // A digit-starting (anonymous `RequestId$1`) or empty
+                // (`$$`) tail cannot be dotted — `RequestId.1` is not a
+                // type any Java program can name.
+                let tail_ok = rest[i + 1..]
+                    .chars()
+                    .next()
+                    .is_some_and(|c| !c.is_ascii_digit());
                 out.push_str(&cand.replace('/', "."));
-                out.push_str(if known { "." } else { "$" });
+                out.push_str(if known && tail_ok { "." } else { "$" });
                 rest = &rest[i + 1..];
             }
             None => {

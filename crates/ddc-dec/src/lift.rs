@@ -137,6 +137,174 @@ pub struct OutState {
     pub write_pc: Vec<u32>,
 }
 
+/// The registers an instruction READS as operands (receivers, arguments,
+/// move sources — destination registers excluded). Drives the block
+/// lookahead that decides when an allocation view must materialize.
+fn src_regs(kind: &InsnKind) -> Vec<u16> {
+    let mut out: Vec<u16> = Vec::with_capacity(4);
+    let mut push = |r: u16| out.push(r);
+    match kind {
+        InsnKind::Nop
+        | InsnKind::ReturnVoid
+        | InsnKind::Unknown
+        | InsnKind::NewInstance { .. }
+        | InsnKind::SGet { .. } => {}
+        InsnKind::Move { src, .. }
+        | InsnKind::Un { src, .. }
+        | InsnKind::Return { src }
+        | InsnKind::ArrayLength { src, .. } => push(*src),
+        InsnKind::MonitorEnter { reg }
+        | InsnKind::MonitorExit { reg }
+        | InsnKind::Throw { reg }
+        | InsnKind::CheckCast { reg, .. }
+        | InsnKind::FillArrayData { reg, .. }
+        | InsnKind::PackedSwitch { reg, .. }
+        | InsnKind::SparseSwitch { reg, .. } => push(*reg),
+        InsnKind::MoveResult { .. } | InsnKind::MoveException { .. } => {}
+        InsnKind::Const { .. }
+        | InsnKind::ConstClass { .. }
+        | InsnKind::ConstString { .. }
+        | InsnKind::ConstMethodHandle { .. }
+        | InsnKind::ConstMethodType { .. } => {}
+        InsnKind::InstanceOf { src, .. } => {
+            push(*src);
+        }
+        InsnKind::NewArray { size, .. } => {
+            push(*size);
+        }
+        InsnKind::FilledNewArray { regs, .. } | InsnKind::InvokeCustom { regs, .. } => {
+            for r in regs {
+                push(*r);
+            }
+        }
+        InsnKind::Goto { .. } => {}
+        InsnKind::Cmp { a, b, .. } | InsnKind::Bin { a, b, .. } => {
+            push(*a);
+            push(*b);
+        }
+        InsnKind::BinLit { a, .. } => push(*a),
+        InsnKind::If { a, b, z, .. } => {
+            push(*a);
+            if !*z {
+                push(*b);
+            }
+        }
+        InsnKind::AGet { array, index, .. } => {
+            push(*array);
+            push(*index);
+        }
+        InsnKind::APut {
+            value,
+            array,
+            index,
+            ..
+        } => {
+            push(*value);
+            push(*array);
+            push(*index);
+        }
+        InsnKind::IGet { obj, .. } => {
+            push(*obj);
+        }
+        InsnKind::IPut { value, obj, .. } => {
+            push(*value);
+            push(*obj);
+        }
+        InsnKind::SPut { value, .. } => {
+            push(*value);
+        }
+        InsnKind::Invoke { regs, .. } => {
+            for r in regs {
+                push(*r);
+            }
+        }
+    }
+    out
+}
+
+/// Registers an instruction reads as operands.
+
+/// Registers an instruction DEFINES (new value generations).
+fn dst_regs(kind: &InsnKind) -> Vec<u16> {
+    let mut out: Vec<u16> = Vec::with_capacity(2);
+    let mut push = |r: u16| out.push(r);
+    match kind {
+        InsnKind::Move { dst, .. }
+        | InsnKind::MoveResult { dst }
+        | InsnKind::MoveException { dst }
+        | InsnKind::Const { dst, .. }
+        | InsnKind::ConstClass { dst, .. }
+        | InsnKind::ConstString { dst, .. }
+        | InsnKind::ConstMethodHandle { dst, .. }
+        | InsnKind::ConstMethodType { dst, .. }
+        | InsnKind::NewInstance { dst, .. }
+        | InsnKind::NewArray { dst, .. }
+        | InsnKind::InstanceOf { dst, .. }
+        | InsnKind::ArrayLength { dst, .. }
+        | InsnKind::Cmp { dst, .. }
+        | InsnKind::AGet { dst, .. }
+        | InsnKind::IGet { dst, .. }
+        | InsnKind::SGet { dst, .. }
+        | InsnKind::Un { dst, .. }
+        | InsnKind::Bin { dst, .. }
+        | InsnKind::BinLit { dst, .. } => push(*dst),
+        _ => {}
+    }
+    out
+}
+
+/// The (pc, reg) reads that are the final read of the register's current
+/// generation: walking the register's events in pc order, a read is
+/// final when no other read of the same register precedes its next WRITE
+/// (a write starts a new generation — the old value is dead there).
+fn compute_final_reads(ins: &[Insn]) -> std::collections::HashSet<(u32, u16)> {
+    use std::collections::HashMap;
+    // reg → (pc, is_read) events, pc order (ins is already pc-sorted).
+    let mut events: HashMap<u16, Vec<(u32, bool)>> = HashMap::new();
+    for i in ins {
+        for r in src_regs(&i.kind) {
+            events.entry(r).or_default().push((i.pc, true));
+        }
+        for r in dst_regs(&i.kind) {
+            events.entry(r).or_default().push((i.pc, false));
+        }
+    }
+    let mut out = std::collections::HashSet::new();
+    for (_r, evs) in events {
+        // dedupe (pc, kind) pairs — one insn reading a reg twice is one
+        // read event; an insn that both reads and writes (move r,r)
+        // counts as a read of the OLD value followed by a write.
+        let mut dedup: Vec<(u32, bool)> = Vec::with_capacity(evs.len());
+        for (pc, is_read) in evs {
+            if dedup.last() != Some(&(pc, is_read)) {
+                dedup.push((pc, is_read));
+            }
+        }
+        // a (pc, read) followed by (pc, read) same pc dedup'd; (pc,read)
+        // then (pc,write) both kept (move semantics).
+        for (i, &(pc, is_read)) in dedup.iter().enumerate() {
+            if !is_read {
+                continue;
+            }
+            let mut final_ = true;
+            for &(pc2, is_read2) in dedup.iter().skip(i + 1) {
+                if is_read2 {
+                    final_ = false;
+                    break;
+                }
+                if !is_read2 {
+                    // a write ends the generation: this read was the last
+                    break;
+                }
+            }
+            if final_ {
+                out.insert((pc, _r));
+            }
+        }
+    }
+    out
+}
+
 pub struct Lifter<'a> {
     pub env: &'a MethodEnv<'a>,
     pub vt: &'a mut VarTable,
@@ -154,6 +322,16 @@ pub struct Lifter<'a> {
     stmts: Vec<Stmt>,
     pending_call: Option<Expr>,
     code_units: u32,
+    /// Current instruction's pc (drives the allocation materialization
+    /// lookahead below).
+    cur_pc: u32,
+    /// (pc, register) reads that are the FINAL read of the register's
+    /// current value generation: no other read before the register's
+    /// next write. An allocation view (post-fold `New` / `NewArray`)
+    /// may only be inlined at a final read; a register reused for a
+    /// call result and read again (greet → move-result v0 → println(v0))
+    /// is a new generation, not another use of the allocation.
+    final_read: std::collections::HashSet<(u32, u16)>,
     /// Method-level feature flags, merged in place as features are seen
     /// (build_block consumes the lifter, so the flags must escape via a
     /// shared reference rather than a field read afterwards).
@@ -183,6 +361,8 @@ impl<'a> Lifter<'a> {
             stable,
             pending_call: None,
             code_units: env.code_units,
+            cur_pc: 0,
+            final_read: std::collections::HashSet::new(),
             mflags,
         }
     }
@@ -239,17 +419,20 @@ impl<'a> Lifter<'a> {
             }
             Reg::Live(v) => self.local_expr(v),
             Reg::Pending(e) => {
-                // A `new-array` view may be emitted inline exactly once:
-                // leaving it pending after an inline emission re-emits a
-                // FRESH allocation on every later read of the register
-                // (`sput v0, sparse; aput v2, v0, v1` printed three
-                // distinct `new byte[4]`). Materialize on first read and
-                // return the local. `New` (constructor-folded or raw) is
-                // exempt: pending inline is what produces
-                // `foo(new Bar(...))` nesting, and the result register
-                // usually dies at the call — the rare stored-then-reused
-                // `New` is a separate known issue.
-                let alloc = matches!(&e, Expr::NewArray { .. });
+                // An allocation view (`NewArray`, or a post-fold `New`)
+                // may be emitted inline only when THIS read is the
+                // register's final one: any later read would re-emission
+                // a FRESH allocation (`sput v0, sparse; aput v2, v0, v1`
+                // printed three distinct `new byte[4]`; a discarded-
+                // result StringBuilder chain printed one `new
+                // StringBuilder()` per append). Materialize when a later
+                // read exists; inline the last use, keeping
+                // `foo(new Bar(...))` nesting. `New { raw: true }` is
+                // always exempt: the constructor fold consumes the raw
+                // view at the invoke-direct site.
+                let alloc = matches!(&e, Expr::NewArray { .. })
+                    || (matches!(&e, Expr::New { raw: false, .. })
+                        && !self.final_read.contains(&(self.cur_pc, r)));
                 if alloc {
                     let v = self.materialize(r);
                     self.local_expr(v)
@@ -351,7 +534,21 @@ impl<'a> Lifter<'a> {
         let e = match cur {
             Reg::Pending(e) | Reg::PendingCall(e) => e,
             Reg::Live(v) => return v,
-            _ => Expr::Const(ConstVal::Int(0)),
+            // Undef (a value flowing in from an unanalyzed path): a fresh
+            // local, NOT Const 0 — `0.new a()` was not even valid Java.
+            _ => {
+                let v = self.fresh_var(r, TypeRef::J(JavaType::Object("java/lang/Object".into())));
+                self.stmts.push(Stmt::LocalDef {
+                    var: v,
+                    init: None,
+                    is_final: false,
+                    force_type: false,
+                });
+                if (r as usize) < self.regs.len() {
+                    self.regs[r as usize] = Reg::Live(v);
+                }
+                return v;
+            }
         };
         // cmp sentinels stored as values become library compare calls.
         let e = value_of_cmp(&e);
@@ -452,7 +649,9 @@ impl<'a> Lifter<'a> {
         handler_types: &[Option<String>],
     ) -> BResult<(BlockResult, OutState)> {
         let payloads = &self.env.code.payloads;
+        self.final_read = compute_final_reads(ins);
         for ins in ins {
+            self.cur_pc = ins.pc;
             match &ins.kind {
                 InsnKind::Nop => {}
                 InsnKind::Unknown => {
