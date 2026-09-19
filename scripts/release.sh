@@ -67,14 +67,20 @@ print("stamped")
 PY
 cargo build --release --quiet
 git add -A
-git commit -q -m "$ver"
-git push -q origin main
-echo "==> committed and pushed"
+if git diff --cached --quiet; then
+  echo "==> nothing to commit (version already stamped)"
+else
+  git commit -q -m "$ver"
+  git push -q origin main
+  echo "==> committed and pushed"
+fi
 
 # ---- 3. crates.io (ordered, idempotent) --------------------------------------
 published() {  # crate version → 0/1
-  curl -fsS "https://index.crates.io/${1:0:2}/${1:0:3}/${1}" 2>/dev/null \
-    | grep -q "\"vers\":\"$2\""
+  # The version-scoped REST endpoint (404 until the version is live).
+  # NOT the sparse index: its paths 404 wholesale from some networks
+  # (serde included), which stalled the first v0.1.3 run.
+  curl -fsS -o /dev/null "https://crates.io/api/v1/crates/$1/$2" 2>/dev/null
 }
 pub() {  # crate version
   if published "$1" "$2"; then
