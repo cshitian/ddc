@@ -30,8 +30,9 @@ parses cleanly.
   real Java (`(a) -> …`, `Cls::name`, `a + b`).
 - **Readable output** — jadx-style local names (`str`, `getName() →
   name`, Kotlin `Intrinsics` parameter strings) instead of `v12`;
-  with `--symbols <sdk-platform-dir>`, IntDef literals render as their
-  constants (`setVisibility(8)` → `View.GONE`).
+  IntDef literals render as their constants out of the box
+  (`setVisibility(8)` → `View.GONE`; a built-in android-37 domain
+  table, `--symbols` overrides).
 - **Reproducible output** — no timestamps; two runs diff cleanly.
 - **Bilingual CLI** — messages localize automatically
   (`DDC_LANG=zh|en` forces; English fallback).
