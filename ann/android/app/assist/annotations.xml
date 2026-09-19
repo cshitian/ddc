@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+  <item name="android.app.assist.AssistStructure.ViewNode int getAutofillType()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.View.AUTOFILL_TYPE_NONE, android.view.View.AUTOFILL_TYPE_TEXT, android.view.View.AUTOFILL_TYPE_TOGGLE, android.view.View.AUTOFILL_TYPE_LIST, android.view.View.AUTOFILL_TYPE_DATE}" />
+    </annotation>
+  </item>
+  <item name="android.app.assist.AssistStructure.ViewNode int getImportantForAutofill()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.View.IMPORTANT_FOR_AUTOFILL_AUTO, android.view.View.IMPORTANT_FOR_AUTOFILL_YES, android.view.View.IMPORTANT_FOR_AUTOFILL_NO, android.view.View.IMPORTANT_FOR_AUTOFILL_YES_EXCLUDE_DESCENDANTS, android.view.View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS}" />
+    </annotation>
+  </item>
+</root>
+

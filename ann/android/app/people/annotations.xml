@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+  <item name="android.app.people.ConversationStatus int getActivity()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.people.ConversationStatus.ACTIVITY_OTHER, android.app.people.ConversationStatus.ACTIVITY_BIRTHDAY, android.app.people.ConversationStatus.ACTIVITY_ANNIVERSARY, android.app.people.ConversationStatus.ACTIVITY_NEW_STORY, android.app.people.ConversationStatus.ACTIVITY_AUDIO, android.app.people.ConversationStatus.ACTIVITY_VIDEO, android.app.people.ConversationStatus.ACTIVITY_GAME, android.app.people.ConversationStatus.ACTIVITY_LOCATION, android.app.people.ConversationStatus.ACTIVITY_UPCOMING_BIRTHDAY}" />
+    </annotation>
+  </item>
+  <item name="android.app.people.ConversationStatus int getAvailability()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.people.ConversationStatus.AVAILABILITY_UNKNOWN, android.app.people.ConversationStatus.AVAILABILITY_AVAILABLE, android.app.people.ConversationStatus.AVAILABILITY_BUSY, android.app.people.ConversationStatus.AVAILABILITY_OFFLINE}" />
+    </annotation>
+  </item>
+  <item name="android.app.people.ConversationStatus.Builder Builder(java.lang.String, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.people.ConversationStatus.ACTIVITY_OTHER, android.app.people.ConversationStatus.ACTIVITY_BIRTHDAY, android.app.people.ConversationStatus.ACTIVITY_ANNIVERSARY, android.app.people.ConversationStatus.ACTIVITY_NEW_STORY, android.app.people.ConversationStatus.ACTIVITY_AUDIO, android.app.people.ConversationStatus.ACTIVITY_VIDEO, android.app.people.ConversationStatus.ACTIVITY_GAME, android.app.people.ConversationStatus.ACTIVITY_LOCATION, android.app.people.ConversationStatus.ACTIVITY_UPCOMING_BIRTHDAY}" />
+    </annotation>
+  </item>
+  <item name="android.app.people.ConversationStatus.Builder android.app.people.ConversationStatus.Builder setAvailability(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.people.ConversationStatus.AVAILABILITY_UNKNOWN, android.app.people.ConversationStatus.AVAILABILITY_AVAILABLE, android.app.people.ConversationStatus.AVAILABILITY_BUSY, android.app.people.ConversationStatus.AVAILABILITY_OFFLINE}" />
+    </annotation>
+  </item>
+  <item name="android.app.people.PeopleManager">
+    <annotation name="androidx.annotation.RestrictedForEnvironment">
+      <val name="environments" val="&quot;SDK Runtime&quot;" />
+      <val name="from" val="34" />
+    </annotation>
+  </item>
+</root>
+

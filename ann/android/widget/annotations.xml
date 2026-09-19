@@ -1,0 +1,1276 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+  <item name="android.widget.AbsListView int getBottomEdgeEffectColor()">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.widget.AbsListView int getCacheColorHint()">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.widget.AbsListView int getTopEdgeEffectColor()">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.widget.AbsListView void setBottomEdgeEffectColor(int) 0">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.widget.AbsListView void setCacheColorHint(int) 0">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.widget.AbsListView void setEdgeEffectColor(int) 0">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.widget.AbsListView void setSelector(int) 0">
+    <annotation name="androidx.annotation.DrawableRes"/>
+  </item>
+  <item name="android.widget.AbsListView void setTopEdgeEffectColor(int) 0">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.widget.AbsSpinner int getAutofillType()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.View.AUTOFILL_TYPE_NONE, android.view.View.AUTOFILL_TYPE_TEXT, android.view.View.AUTOFILL_TYPE_TOGGLE, android.view.View.AUTOFILL_TYPE_LIST, android.view.View.AUTOFILL_TYPE_DATE}" />
+    </annotation>
+  </item>
+  <item name="android.widget.ActionMenuView void setPopupTheme(int) 0">
+    <annotation name="androidx.annotation.StyleRes"/>
+  </item>
+  <item name="android.widget.AdapterView void setFocusable(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.View.NOT_FOCUSABLE, android.view.View.FOCUSABLE, android.view.View.FOCUSABLE_AUTO}" />
+    </annotation>
+  </item>
+  <item name="android.widget.ArrayAdapter ArrayAdapter(android.content.Context, int) 1">
+    <annotation name="androidx.annotation.LayoutRes"/>
+  </item>
+  <item name="android.widget.ArrayAdapter ArrayAdapter(android.content.Context, int, T[]) 1">
+    <annotation name="androidx.annotation.LayoutRes"/>
+  </item>
+  <item name="android.widget.ArrayAdapter ArrayAdapter(android.content.Context, int, int) 1">
+    <annotation name="androidx.annotation.LayoutRes"/>
+  </item>
+  <item name="android.widget.ArrayAdapter ArrayAdapter(android.content.Context, int, int) 2">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.ArrayAdapter ArrayAdapter(android.content.Context, int, int, T[]) 1">
+    <annotation name="androidx.annotation.LayoutRes"/>
+  </item>
+  <item name="android.widget.ArrayAdapter ArrayAdapter(android.content.Context, int, int, T[]) 2">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.ArrayAdapter ArrayAdapter(android.content.Context, int, int, java.util.List&lt;T&gt;) 1">
+    <annotation name="androidx.annotation.LayoutRes"/>
+  </item>
+  <item name="android.widget.ArrayAdapter ArrayAdapter(android.content.Context, int, int, java.util.List&lt;T&gt;) 2">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.ArrayAdapter ArrayAdapter(android.content.Context, int, java.util.List&lt;T&gt;) 1">
+    <annotation name="androidx.annotation.LayoutRes"/>
+  </item>
+  <item name="android.widget.ArrayAdapter android.widget.ArrayAdapter&lt;java.lang.CharSequence&gt; createFromResource(android.content.Context, int, int) 1">
+    <annotation name="androidx.annotation.ArrayRes"/>
+  </item>
+  <item name="android.widget.ArrayAdapter android.widget.ArrayAdapter&lt;java.lang.CharSequence&gt; createFromResource(android.content.Context, int, int) 2">
+    <annotation name="androidx.annotation.LayoutRes"/>
+  </item>
+  <item name="android.widget.ArrayAdapter void setDropDownViewResource(int) 0">
+    <annotation name="androidx.annotation.LayoutRes"/>
+  </item>
+  <item name="android.widget.AutoCompleteTextView int getInputMethodMode()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.widget.ListPopupWindow.INPUT_METHOD_FROM_FOCUSABLE, android.widget.ListPopupWindow.INPUT_METHOD_NEEDED, android.widget.ListPopupWindow.INPUT_METHOD_NOT_NEEDED}" />
+    </annotation>
+  </item>
+  <item name="android.widget.AutoCompleteTextView void setDropDownBackgroundResource(int) 0">
+    <annotation name="androidx.annotation.DrawableRes"/>
+  </item>
+  <item name="android.widget.AutoCompleteTextView void setInputMethodMode(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.widget.ListPopupWindow.INPUT_METHOD_FROM_FOCUSABLE, android.widget.ListPopupWindow.INPUT_METHOD_NEEDED, android.widget.ListPopupWindow.INPUT_METHOD_NOT_NEEDED}" />
+    </annotation>
+  </item>
+  <item name="android.widget.CalendarView CalendarView(android.content.Context, android.util.AttributeSet, int) 2">
+    <annotation name="androidx.annotation.AttrRes"/>
+  </item>
+  <item name="android.widget.CalendarView CalendarView(android.content.Context, android.util.AttributeSet, int, int) 2">
+    <annotation name="androidx.annotation.AttrRes"/>
+  </item>
+  <item name="android.widget.CalendarView CalendarView(android.content.Context, android.util.AttributeSet, int, int) 3">
+    <annotation name="androidx.annotation.StyleRes"/>
+  </item>
+  <item name="android.widget.CalendarView int getDateTextAppearance()">
+    <annotation name="androidx.annotation.StyleRes"/>
+  </item>
+  <item name="android.widget.CalendarView int getFocusedMonthDateColor()">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.widget.CalendarView int getSelectedWeekBackgroundColor()">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.widget.CalendarView int getUnfocusedMonthDateColor()">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.widget.CalendarView int getWeekDayTextAppearance()">
+    <annotation name="androidx.annotation.StyleRes"/>
+  </item>
+  <item name="android.widget.CalendarView int getWeekNumberColor()">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.widget.CalendarView int getWeekSeparatorLineColor()">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.widget.CalendarView void setDateTextAppearance(int) 0">
+    <annotation name="androidx.annotation.StyleRes"/>
+  </item>
+  <item name="android.widget.CalendarView void setFocusedMonthDateColor(int) 0">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.widget.CalendarView void setSelectedDateVerticalBar(int) 0">
+    <annotation name="androidx.annotation.DrawableRes"/>
+  </item>
+  <item name="android.widget.CalendarView void setSelectedWeekBackgroundColor(int) 0">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.widget.CalendarView void setUnfocusedMonthDateColor(int) 0">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.widget.CalendarView void setWeekDayTextAppearance(int) 0">
+    <annotation name="androidx.annotation.StyleRes"/>
+  </item>
+  <item name="android.widget.CalendarView void setWeekNumberColor(int) 0">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.widget.CalendarView void setWeekSeparatorLineColor(int) 0">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.widget.CheckedTextView void setCheckMarkDrawable(int) 0">
+    <annotation name="androidx.annotation.DrawableRes"/>
+  </item>
+  <item name="android.widget.CompoundButton int getAutofillType()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.View.AUTOFILL_TYPE_NONE, android.view.View.AUTOFILL_TYPE_TEXT, android.view.View.AUTOFILL_TYPE_TOGGLE, android.view.View.AUTOFILL_TYPE_LIST, android.view.View.AUTOFILL_TYPE_DATE}" />
+    </annotation>
+  </item>
+  <item name="android.widget.CompoundButton void setButtonDrawable(int) 0">
+    <annotation name="androidx.annotation.DrawableRes"/>
+  </item>
+  <item name="android.widget.CursorAdapter android.database.Cursor runQueryOnBackgroundThread(java.lang.CharSequence)">
+    <annotation name="androidx.annotation.WorkerThread"/>
+  </item>
+  <item name="android.widget.DatePicker int getAutofillType()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.View.AUTOFILL_TYPE_NONE, android.view.View.AUTOFILL_TYPE_TEXT, android.view.View.AUTOFILL_TYPE_TOGGLE, android.view.View.AUTOFILL_TYPE_LIST, android.view.View.AUTOFILL_TYPE_DATE}" />
+    </annotation>
+  </item>
+  <item name="android.widget.EdgeEffect int getColor()">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.widget.EdgeEffect void setColor(int) 0">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.widget.FrameLayout FrameLayout(android.content.Context, android.util.AttributeSet, int) 2">
+    <annotation name="androidx.annotation.AttrRes"/>
+  </item>
+  <item name="android.widget.FrameLayout FrameLayout(android.content.Context, android.util.AttributeSet, int, int) 2">
+    <annotation name="androidx.annotation.AttrRes"/>
+  </item>
+  <item name="android.widget.FrameLayout FrameLayout(android.content.Context, android.util.AttributeSet, int, int) 3">
+    <annotation name="androidx.annotation.StyleRes"/>
+  </item>
+  <item name="android.widget.GridLayout int getAlignmentMode()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.widget.GridLayout.ALIGN_BOUNDS, android.widget.GridLayout.ALIGN_MARGINS}" />
+    </annotation>
+  </item>
+  <item name="android.widget.GridLayout int getOrientation()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.widget.GridLayout.HORIZONTAL, android.widget.GridLayout.VERTICAL}" />
+    </annotation>
+  </item>
+  <item name="android.widget.GridLayout void setAlignmentMode(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.widget.GridLayout.ALIGN_BOUNDS, android.widget.GridLayout.ALIGN_MARGINS}" />
+    </annotation>
+  </item>
+  <item name="android.widget.GridLayout void setOrientation(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.widget.GridLayout.HORIZONTAL, android.widget.GridLayout.VERTICAL}" />
+    </annotation>
+  </item>
+  <item name="android.widget.GridView int getStretchMode()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.widget.GridView.NO_STRETCH, android.widget.GridView.STRETCH_SPACING, android.widget.GridView.STRETCH_COLUMN_WIDTH, android.widget.GridView.STRETCH_SPACING_UNIFORM}" />
+    </annotation>
+  </item>
+  <item name="android.widget.GridView void setStretchMode(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.widget.GridView.NO_STRETCH, android.widget.GridView.STRETCH_SPACING, android.widget.GridView.STRETCH_COLUMN_WIDTH, android.widget.GridView.STRETCH_SPACING_UNIFORM}" />
+    </annotation>
+  </item>
+  <item name="android.widget.HorizontalScrollView int getLeftEdgeEffectColor()">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.widget.HorizontalScrollView int getRightEdgeEffectColor()">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.widget.HorizontalScrollView void setEdgeEffectColor(int) 0">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.widget.HorizontalScrollView void setLeftEdgeEffectColor(int) 0">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.widget.HorizontalScrollView void setRightEdgeEffectColor(int) 0">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.widget.ImageSwitcher void setImageResource(int) 0">
+    <annotation name="androidx.annotation.DrawableRes"/>
+  </item>
+  <item name="android.widget.ImageView void setImageResource(int) 0">
+    <annotation name="androidx.annotation.DrawableRes"/>
+  </item>
+  <item name="android.widget.LinearLayout int getOrientation()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.widget.LinearLayout.HORIZONTAL, android.widget.LinearLayout.VERTICAL}" />
+    </annotation>
+  </item>
+  <item name="android.widget.LinearLayout int getShowDividers()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.widget.LinearLayout.SHOW_DIVIDER_NONE, android.widget.LinearLayout.SHOW_DIVIDER_BEGINNING, android.widget.LinearLayout.SHOW_DIVIDER_MIDDLE, android.widget.LinearLayout.SHOW_DIVIDER_END}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.widget.LinearLayout void onRtlPropertiesChanged(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.View.LAYOUT_DIRECTION_LTR, android.view.View.LAYOUT_DIRECTION_RTL}" />
+    </annotation>
+  </item>
+  <item name="android.widget.LinearLayout void setOrientation(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.widget.LinearLayout.HORIZONTAL, android.widget.LinearLayout.VERTICAL}" />
+    </annotation>
+  </item>
+  <item name="android.widget.LinearLayout void setShowDividers(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.widget.LinearLayout.SHOW_DIVIDER_NONE, android.widget.LinearLayout.SHOW_DIVIDER_BEGINNING, android.widget.LinearLayout.SHOW_DIVIDER_MIDDLE, android.widget.LinearLayout.SHOW_DIVIDER_END}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.widget.ListPopupWindow ListPopupWindow(android.content.Context, android.util.AttributeSet, int) 2">
+    <annotation name="androidx.annotation.AttrRes"/>
+  </item>
+  <item name="android.widget.ListPopupWindow ListPopupWindow(android.content.Context, android.util.AttributeSet, int, int) 2">
+    <annotation name="androidx.annotation.AttrRes"/>
+  </item>
+  <item name="android.widget.ListPopupWindow ListPopupWindow(android.content.Context, android.util.AttributeSet, int, int) 3">
+    <annotation name="androidx.annotation.StyleRes"/>
+  </item>
+  <item name="android.widget.ListPopupWindow int getAnimationStyle()">
+    <annotation name="androidx.annotation.StyleRes"/>
+  </item>
+  <item name="android.widget.ListPopupWindow void setAnimationStyle(int) 0">
+    <annotation name="androidx.annotation.StyleRes"/>
+  </item>
+  <item name="android.widget.Magnifier">
+    <annotation name="androidx.annotation.UiThread"/>
+  </item>
+  <item name="android.widget.Magnifier float getCornerRadius()">
+    <annotation name="androidx.annotation.Px"/>
+  </item>
+  <item name="android.widget.Magnifier float getElevation()">
+    <annotation name="androidx.annotation.Px"/>
+  </item>
+  <item name="android.widget.Magnifier int getDefaultHorizontalSourceToMagnifierOffset()">
+    <annotation name="androidx.annotation.Px"/>
+  </item>
+  <item name="android.widget.Magnifier int getDefaultVerticalSourceToMagnifierOffset()">
+    <annotation name="androidx.annotation.Px"/>
+  </item>
+  <item name="android.widget.Magnifier int getHeight()">
+    <annotation name="androidx.annotation.Px"/>
+  </item>
+  <item name="android.widget.Magnifier int getSourceHeight()">
+    <annotation name="androidx.annotation.Px"/>
+  </item>
+  <item name="android.widget.Magnifier int getSourceWidth()">
+    <annotation name="androidx.annotation.Px"/>
+  </item>
+  <item name="android.widget.Magnifier int getWidth()">
+    <annotation name="androidx.annotation.Px"/>
+  </item>
+  <item name="android.widget.Magnifier void setZoom(float) 0">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+    </annotation>
+  </item>
+  <item name="android.widget.Magnifier void show(float, float) 0">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+    </annotation>
+  </item>
+  <item name="android.widget.Magnifier void show(float, float) 1">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+    </annotation>
+  </item>
+  <item name="android.widget.Magnifier void show(float, float, float, float) 0">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+    </annotation>
+  </item>
+  <item name="android.widget.Magnifier void show(float, float, float, float) 1">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+    </annotation>
+  </item>
+  <item name="android.widget.Magnifier.Builder android.widget.Magnifier.Builder setCornerRadius(float) 0">
+    <annotation name="androidx.annotation.Px"/>
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+    </annotation>
+  </item>
+  <item name="android.widget.Magnifier.Builder android.widget.Magnifier.Builder setDefaultSourceToMagnifierOffset(int, int) 0">
+    <annotation name="androidx.annotation.Px"/>
+  </item>
+  <item name="android.widget.Magnifier.Builder android.widget.Magnifier.Builder setDefaultSourceToMagnifierOffset(int, int) 1">
+    <annotation name="androidx.annotation.Px"/>
+  </item>
+  <item name="android.widget.Magnifier.Builder android.widget.Magnifier.Builder setElevation(float) 0">
+    <annotation name="androidx.annotation.Px"/>
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+    </annotation>
+  </item>
+  <item name="android.widget.Magnifier.Builder android.widget.Magnifier.Builder setInitialZoom(float) 0">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+    </annotation>
+  </item>
+  <item name="android.widget.Magnifier.Builder android.widget.Magnifier.Builder setSize(int, int) 0">
+    <annotation name="androidx.annotation.Px"/>
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.widget.Magnifier.Builder android.widget.Magnifier.Builder setSize(int, int) 1">
+    <annotation name="androidx.annotation.Px"/>
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.widget.Magnifier.Builder android.widget.Magnifier.Builder setSourceBounds(int, int, int, int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.widget.Magnifier.SOURCE_BOUND_MAX_IN_SURFACE, android.widget.Magnifier.SOURCE_BOUND_MAX_VISIBLE}" />
+    </annotation>
+  </item>
+  <item name="android.widget.Magnifier.Builder android.widget.Magnifier.Builder setSourceBounds(int, int, int, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.widget.Magnifier.SOURCE_BOUND_MAX_IN_SURFACE, android.widget.Magnifier.SOURCE_BOUND_MAX_VISIBLE}" />
+    </annotation>
+  </item>
+  <item name="android.widget.Magnifier.Builder android.widget.Magnifier.Builder setSourceBounds(int, int, int, int) 2">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.widget.Magnifier.SOURCE_BOUND_MAX_IN_SURFACE, android.widget.Magnifier.SOURCE_BOUND_MAX_VISIBLE}" />
+    </annotation>
+  </item>
+  <item name="android.widget.Magnifier.Builder android.widget.Magnifier.Builder setSourceBounds(int, int, int, int) 3">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.widget.Magnifier.SOURCE_BOUND_MAX_IN_SURFACE, android.widget.Magnifier.SOURCE_BOUND_MAX_VISIBLE}" />
+    </annotation>
+  </item>
+  <item name="android.widget.NumberPicker float getTextSize()">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+      <val name="fromInclusive" val="false" />
+    </annotation>
+  </item>
+  <item name="android.widget.NumberPicker int getSelectionDividerHeight()">
+    <annotation name="androidx.annotation.Px"/>
+  </item>
+  <item name="android.widget.NumberPicker int getTextColor()">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.widget.NumberPicker void drawableStateChanged()">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.widget.NumberPicker void jumpDrawablesToCurrentState()">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.widget.NumberPicker void setSelectionDividerHeight(int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+    <annotation name="androidx.annotation.Px"/>
+  </item>
+  <item name="android.widget.NumberPicker void setTextColor(int) 0">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.widget.NumberPicker void setTextSize(float) 0">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+      <val name="fromInclusive" val="false" />
+    </annotation>
+  </item>
+  <item name="android.widget.NumberPicker.OnScrollListener void onScrollStateChange(android.widget.NumberPicker, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.widget.NumberPicker.OnScrollListener.SCROLL_STATE_IDLE, android.widget.NumberPicker.OnScrollListener.SCROLL_STATE_TOUCH_SCROLL, android.widget.NumberPicker.OnScrollListener.SCROLL_STATE_FLING}" />
+    </annotation>
+  </item>
+  <item name="android.widget.PopupMenu void inflate(int) 0">
+    <annotation name="androidx.annotation.MenuRes"/>
+  </item>
+  <item name="android.widget.PopupWindow int getSoftInputMode()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_UNSPECIFIED, android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_UNCHANGED, android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN, android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN, android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE, android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE, android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_UNSPECIFIED, android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE, android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_PAN, android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING, android.view.WindowManager.LayoutParams.SOFT_INPUT_IS_FORWARD_NAVIGATION}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.widget.PopupWindow void setSoftInputMode(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_UNSPECIFIED, android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_UNCHANGED, android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN, android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN, android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE, android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE, android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_UNSPECIFIED, android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE, android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_PAN, android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING, android.view.WindowManager.LayoutParams.SOFT_INPUT_IS_FORWARD_NAVIGATION}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.widget.ProgressBar int getMaxHeight()">
+    <annotation name="androidx.annotation.Px"/>
+  </item>
+  <item name="android.widget.ProgressBar int getMaxWidth()">
+    <annotation name="androidx.annotation.Px"/>
+  </item>
+  <item name="android.widget.ProgressBar int getMinHeight()">
+    <annotation name="androidx.annotation.Px"/>
+  </item>
+  <item name="android.widget.ProgressBar int getMinWidth()">
+    <annotation name="androidx.annotation.Px"/>
+  </item>
+  <item name="android.widget.ProgressBar void setInterpolator(android.content.Context, int) 1">
+    <annotation name="androidx.annotation.InterpolatorRes"/>
+  </item>
+  <item name="android.widget.ProgressBar void setMaxHeight(int) 0">
+    <annotation name="androidx.annotation.Px"/>
+  </item>
+  <item name="android.widget.ProgressBar void setMaxWidth(int) 0">
+    <annotation name="androidx.annotation.Px"/>
+  </item>
+  <item name="android.widget.ProgressBar void setMinHeight(int) 0">
+    <annotation name="androidx.annotation.Px"/>
+  </item>
+  <item name="android.widget.ProgressBar void setMinWidth(int) 0">
+    <annotation name="androidx.annotation.Px"/>
+  </item>
+  <item name="android.widget.RadioGroup int getAutofillType()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.View.AUTOFILL_TYPE_NONE, android.view.View.AUTOFILL_TYPE_TEXT, android.view.View.AUTOFILL_TYPE_TOGGLE, android.view.View.AUTOFILL_TYPE_LIST, android.view.View.AUTOFILL_TYPE_DATE}" />
+    </annotation>
+  </item>
+  <item name="android.widget.RadioGroup int getCheckedRadioButtonId()">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RadioGroup void check(int) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RadioGroup.OnCheckedChangeListener void onCheckedChanged(android.widget.RadioGroup, int) 1">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews RemoteViews(java.lang.String, int, int) 1">
+    <annotation name="androidx.annotation.LayoutRes"/>
+  </item>
+  <item name="android.widget.RemoteViews RemoteViews(java.lang.String, int, int) 2">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews int getViewId()">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void addStableView(int, android.widget.RemoteViews, int) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void addView(int, android.widget.RemoteViews) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void removeAllViews(int) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setAccessibilityTraversalAfter(int, int) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setAccessibilityTraversalAfter(int, int) 1">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setAccessibilityTraversalBefore(int, int) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setAccessibilityTraversalBefore(int, int) 1">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setAppWidgetEventTag(int, int) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setBitmap(int, java.lang.String, android.graphics.Bitmap) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setBlendMode(int, java.lang.String, android.graphics.BlendMode) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setBoolean(int, java.lang.String, boolean) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setBundle(int, java.lang.String, android.os.Bundle) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setByte(int, java.lang.String, byte) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setChar(int, java.lang.String, char) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setCharSequence(int, java.lang.String, int) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setCharSequence(int, java.lang.String, int) 2">
+    <annotation name="androidx.annotation.StringRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setCharSequence(int, java.lang.String, java.lang.CharSequence) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setCharSequenceAttr(int, java.lang.String, int) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setCharSequenceAttr(int, java.lang.String, int) 2">
+    <annotation name="androidx.annotation.AttrRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setChronometer(int, long, java.lang.String, boolean) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setChronometerCountDown(int, boolean) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setColor(int, java.lang.String, int) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setColor(int, java.lang.String, int) 2">
+    <annotation name="androidx.annotation.ColorRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setColorAttr(int, java.lang.String, int) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setColorAttr(int, java.lang.String, int) 2">
+    <annotation name="androidx.annotation.AttrRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setColorInt(int, java.lang.String, int, int) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setColorInt(int, java.lang.String, int, int) 2">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.widget.RemoteViews void setColorInt(int, java.lang.String, int, int) 3">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.widget.RemoteViews void setColorStateList(int, java.lang.String, android.content.res.ColorStateList) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setColorStateList(int, java.lang.String, android.content.res.ColorStateList, android.content.res.ColorStateList) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setColorStateList(int, java.lang.String, int) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setColorStateList(int, java.lang.String, int) 2">
+    <annotation name="androidx.annotation.ColorRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setColorStateListAttr(int, java.lang.String, int) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setColorStateListAttr(int, java.lang.String, int) 2">
+    <annotation name="androidx.annotation.AttrRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setCompoundButtonChecked(int, boolean) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setContentDescription(int, java.lang.CharSequence) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setDisplayedChild(int, int) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setDouble(int, java.lang.String, double) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setEmptyView(int, int) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setEmptyView(int, int) 1">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setFloat(int, java.lang.String, float) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setFloatDimen(int, java.lang.String, float, int) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setFloatDimen(int, java.lang.String, float, int) 3">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.util.TypedValue.COMPLEX_UNIT_PX, android.util.TypedValue.COMPLEX_UNIT_DIP, android.util.TypedValue.COMPLEX_UNIT_SP, android.util.TypedValue.COMPLEX_UNIT_PT, android.util.TypedValue.COMPLEX_UNIT_IN, android.util.TypedValue.COMPLEX_UNIT_MM}" />
+    </annotation>
+  </item>
+  <item name="android.widget.RemoteViews void setFloatDimen(int, java.lang.String, int) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setFloatDimen(int, java.lang.String, int) 2">
+    <annotation name="androidx.annotation.DimenRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setFloatDimenAttr(int, java.lang.String, int) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setFloatDimenAttr(int, java.lang.String, int) 2">
+    <annotation name="androidx.annotation.AttrRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setIcon(int, java.lang.String, android.graphics.drawable.Icon) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setIcon(int, java.lang.String, android.graphics.drawable.Icon, android.graphics.drawable.Icon) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setImageViewBitmap(int, android.graphics.Bitmap) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setImageViewIcon(int, android.graphics.drawable.Icon) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setImageViewResource(int, int) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setImageViewResource(int, int) 1">
+    <annotation name="androidx.annotation.DrawableRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setImageViewUri(int, android.net.Uri) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setInt(int, java.lang.String, int) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setIntDimen(int, java.lang.String, float, int) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setIntDimen(int, java.lang.String, float, int) 3">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.util.TypedValue.COMPLEX_UNIT_PX, android.util.TypedValue.COMPLEX_UNIT_DIP, android.util.TypedValue.COMPLEX_UNIT_SP, android.util.TypedValue.COMPLEX_UNIT_PT, android.util.TypedValue.COMPLEX_UNIT_IN, android.util.TypedValue.COMPLEX_UNIT_MM}" />
+    </annotation>
+  </item>
+  <item name="android.widget.RemoteViews void setIntDimen(int, java.lang.String, int) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setIntDimen(int, java.lang.String, int) 2">
+    <annotation name="androidx.annotation.DimenRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setIntDimenAttr(int, java.lang.String, int) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setIntDimenAttr(int, java.lang.String, int) 2">
+    <annotation name="androidx.annotation.AttrRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setIntent(int, java.lang.String, android.content.Intent) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setLabelFor(int, int) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setLabelFor(int, int) 1">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setLightBackgroundLayoutId(int) 0">
+    <annotation name="androidx.annotation.LayoutRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setLong(int, java.lang.String, long) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setOnCheckedChangeResponse(int, android.widget.RemoteViews.RemoteResponse) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setOnClickFillInIntent(int, android.content.Intent) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setOnClickPendingIntent(int, android.app.PendingIntent) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setOnClickResponse(int, android.widget.RemoteViews.RemoteResponse) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setOnStylusHandwritingPendingIntent(int, android.app.PendingIntent) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setPendingIntentTemplate(int, android.app.PendingIntent) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setProgressBar(int, int, int, boolean) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setRadioGroupChecked(int, int) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setRadioGroupChecked(int, int) 1">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setRelativeScrollPosition(int, int) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setRemoteAdapter(int, android.content.Intent) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setRemoteAdapter(int, android.widget.RemoteViews.RemoteCollectionItems) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setRemoteAdapter(int, int, android.content.Intent) 1">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setScrollPosition(int, int) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setShort(int, java.lang.String, short) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setString(int, java.lang.String, java.lang.String) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setTextColor(int, int) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setTextColor(int, int) 1">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.widget.RemoteViews void setTextViewCompoundDrawables(int, int, int, int, int) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setTextViewCompoundDrawables(int, int, int, int, int) 1">
+    <annotation name="androidx.annotation.DrawableRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setTextViewCompoundDrawables(int, int, int, int, int) 2">
+    <annotation name="androidx.annotation.DrawableRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setTextViewCompoundDrawables(int, int, int, int, int) 3">
+    <annotation name="androidx.annotation.DrawableRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setTextViewCompoundDrawables(int, int, int, int, int) 4">
+    <annotation name="androidx.annotation.DrawableRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setTextViewCompoundDrawablesRelative(int, int, int, int, int) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setTextViewCompoundDrawablesRelative(int, int, int, int, int) 1">
+    <annotation name="androidx.annotation.DrawableRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setTextViewCompoundDrawablesRelative(int, int, int, int, int) 2">
+    <annotation name="androidx.annotation.DrawableRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setTextViewCompoundDrawablesRelative(int, int, int, int, int) 3">
+    <annotation name="androidx.annotation.DrawableRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setTextViewCompoundDrawablesRelative(int, int, int, int, int) 4">
+    <annotation name="androidx.annotation.DrawableRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setTextViewText(int, java.lang.CharSequence) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setTextViewTextSize(int, int, float) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setUri(int, java.lang.String, android.net.Uri) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setViewLayoutHeight(int, float, int) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setViewLayoutHeight(int, float, int) 2">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.util.TypedValue.COMPLEX_UNIT_PX, android.util.TypedValue.COMPLEX_UNIT_DIP, android.util.TypedValue.COMPLEX_UNIT_SP, android.util.TypedValue.COMPLEX_UNIT_PT, android.util.TypedValue.COMPLEX_UNIT_IN, android.util.TypedValue.COMPLEX_UNIT_MM}" />
+    </annotation>
+  </item>
+  <item name="android.widget.RemoteViews void setViewLayoutHeightAttr(int, int) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setViewLayoutHeightAttr(int, int) 1">
+    <annotation name="androidx.annotation.AttrRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setViewLayoutHeightDimen(int, int) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setViewLayoutHeightDimen(int, int) 1">
+    <annotation name="androidx.annotation.DimenRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setViewLayoutMargin(int, int, float, int) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setViewLayoutMargin(int, int, float, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.widget.RemoteViews.MARGIN_LEFT, android.widget.RemoteViews.MARGIN_TOP, android.widget.RemoteViews.MARGIN_RIGHT, android.widget.RemoteViews.MARGIN_BOTTOM, android.widget.RemoteViews.MARGIN_START, android.widget.RemoteViews.MARGIN_END}" />
+    </annotation>
+  </item>
+  <item name="android.widget.RemoteViews void setViewLayoutMargin(int, int, float, int) 3">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.util.TypedValue.COMPLEX_UNIT_PX, android.util.TypedValue.COMPLEX_UNIT_DIP, android.util.TypedValue.COMPLEX_UNIT_SP, android.util.TypedValue.COMPLEX_UNIT_PT, android.util.TypedValue.COMPLEX_UNIT_IN, android.util.TypedValue.COMPLEX_UNIT_MM}" />
+    </annotation>
+  </item>
+  <item name="android.widget.RemoteViews void setViewLayoutMarginAttr(int, int, int) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setViewLayoutMarginAttr(int, int, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.widget.RemoteViews.MARGIN_LEFT, android.widget.RemoteViews.MARGIN_TOP, android.widget.RemoteViews.MARGIN_RIGHT, android.widget.RemoteViews.MARGIN_BOTTOM, android.widget.RemoteViews.MARGIN_START, android.widget.RemoteViews.MARGIN_END}" />
+    </annotation>
+  </item>
+  <item name="android.widget.RemoteViews void setViewLayoutMarginAttr(int, int, int) 2">
+    <annotation name="androidx.annotation.AttrRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setViewLayoutMarginDimen(int, int, int) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setViewLayoutMarginDimen(int, int, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.widget.RemoteViews.MARGIN_LEFT, android.widget.RemoteViews.MARGIN_TOP, android.widget.RemoteViews.MARGIN_RIGHT, android.widget.RemoteViews.MARGIN_BOTTOM, android.widget.RemoteViews.MARGIN_START, android.widget.RemoteViews.MARGIN_END}" />
+    </annotation>
+  </item>
+  <item name="android.widget.RemoteViews void setViewLayoutMarginDimen(int, int, int) 2">
+    <annotation name="androidx.annotation.DimenRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setViewLayoutWidth(int, float, int) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setViewLayoutWidth(int, float, int) 2">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.util.TypedValue.COMPLEX_UNIT_PX, android.util.TypedValue.COMPLEX_UNIT_DIP, android.util.TypedValue.COMPLEX_UNIT_SP, android.util.TypedValue.COMPLEX_UNIT_PT, android.util.TypedValue.COMPLEX_UNIT_IN, android.util.TypedValue.COMPLEX_UNIT_MM}" />
+    </annotation>
+  </item>
+  <item name="android.widget.RemoteViews void setViewLayoutWidthAttr(int, int) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setViewLayoutWidthAttr(int, int) 1">
+    <annotation name="androidx.annotation.AttrRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setViewLayoutWidthDimen(int, int) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setViewLayoutWidthDimen(int, int) 1">
+    <annotation name="androidx.annotation.DimenRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setViewOutlinePreferredRadius(int, float, int) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setViewOutlinePreferredRadius(int, float, int) 2">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.util.TypedValue.COMPLEX_UNIT_PX, android.util.TypedValue.COMPLEX_UNIT_DIP, android.util.TypedValue.COMPLEX_UNIT_SP, android.util.TypedValue.COMPLEX_UNIT_PT, android.util.TypedValue.COMPLEX_UNIT_IN, android.util.TypedValue.COMPLEX_UNIT_MM}" />
+    </annotation>
+  </item>
+  <item name="android.widget.RemoteViews void setViewOutlinePreferredRadiusAttr(int, int) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setViewOutlinePreferredRadiusAttr(int, int) 1">
+    <annotation name="androidx.annotation.AttrRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setViewOutlinePreferredRadiusDimen(int, int) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setViewOutlinePreferredRadiusDimen(int, int) 1">
+    <annotation name="androidx.annotation.DimenRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setViewPadding(int, float, float, float, float, int) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setViewPadding(int, float, float, float, float, int) 5">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.util.TypedValue.COMPLEX_UNIT_PX, android.util.TypedValue.COMPLEX_UNIT_DIP, android.util.TypedValue.COMPLEX_UNIT_SP, android.util.TypedValue.COMPLEX_UNIT_PT, android.util.TypedValue.COMPLEX_UNIT_IN, android.util.TypedValue.COMPLEX_UNIT_MM}" />
+    </annotation>
+  </item>
+  <item name="android.widget.RemoteViews void setViewPadding(int, int, int, int, int) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setViewPadding(int, int, int, int, int) 1">
+    <annotation name="androidx.annotation.Px"/>
+  </item>
+  <item name="android.widget.RemoteViews void setViewPadding(int, int, int, int, int) 2">
+    <annotation name="androidx.annotation.Px"/>
+  </item>
+  <item name="android.widget.RemoteViews void setViewPadding(int, int, int, int, int) 3">
+    <annotation name="androidx.annotation.Px"/>
+  </item>
+  <item name="android.widget.RemoteViews void setViewPadding(int, int, int, int, int) 4">
+    <annotation name="androidx.annotation.Px"/>
+  </item>
+  <item name="android.widget.RemoteViews void setViewVisibility(int, int) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void setViewVisibility(int, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.View.VISIBLE, android.view.View.INVISIBLE, android.view.View.GONE}" />
+    </annotation>
+  </item>
+  <item name="android.widget.RemoteViews void showNext(int) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews void showPrevious(int) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.RemoteViews.RemoteResponse android.widget.RemoteViews.RemoteResponse addSharedElement(int, java.lang.String) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.ScrollView int getBottomEdgeEffectColor()">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.widget.ScrollView int getTopEdgeEffectColor()">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.widget.ScrollView void setBottomEdgeEffectColor(int) 0">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.widget.ScrollView void setEdgeEffectColor(int) 0">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.widget.ScrollView void setTopEdgeEffectColor(int) 0">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.widget.SimpleAdapter SimpleAdapter(android.content.Context, java.util.List&lt;? extends java.util.Map&lt;java.lang.String,?&gt;&gt;, int, java.lang.String[], int[]) 2">
+    <annotation name="androidx.annotation.LayoutRes"/>
+  </item>
+  <item name="android.widget.SimpleAdapter SimpleAdapter(android.content.Context, java.util.List&lt;? extends java.util.Map&lt;java.lang.String,?&gt;&gt;, int, java.lang.String[], int[]) 4">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.widget.Spinner void setPopupBackgroundResource(int) 0">
+    <annotation name="androidx.annotation.DrawableRes"/>
+  </item>
+  <item name="android.widget.Switch void setSwitchTextAppearance(android.content.Context, int) 1">
+    <annotation name="androidx.annotation.StyleRes"/>
+  </item>
+  <item name="android.widget.Switch void setThumbResource(int) 0">
+    <annotation name="androidx.annotation.DrawableRes"/>
+  </item>
+  <item name="android.widget.Switch void setTrackResource(int) 0">
+    <annotation name="androidx.annotation.DrawableRes"/>
+  </item>
+  <item name="android.widget.TabWidget void setDividerDrawable(int) 0">
+    <annotation name="androidx.annotation.DrawableRes"/>
+  </item>
+  <item name="android.widget.TabWidget void setLeftStripDrawable(int) 0">
+    <annotation name="androidx.annotation.DrawableRes"/>
+  </item>
+  <item name="android.widget.TabWidget void setRightStripDrawable(int) 0">
+    <annotation name="androidx.annotation.DrawableRes"/>
+  </item>
+  <item name="android.widget.TextView android.os.LocaleList getTextLocales()">
+    <annotation name="androidx.annotation.Size">
+      <val name="min" val="1L" />
+    </annotation>
+  </item>
+  <item name="android.widget.TextView boolean bringPointIntoView(int, boolean) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.widget.TextView int getAutoSizeTextType()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.widget.TextView.AUTO_SIZE_TEXT_TYPE_NONE, android.widget.TextView.AUTO_SIZE_TEXT_TYPE_UNIFORM}" />
+    </annotation>
+  </item>
+  <item name="android.widget.TextView int getAutofillType()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.View.AUTOFILL_TYPE_NONE, android.view.View.AUTOFILL_TYPE_TEXT, android.view.View.AUTOFILL_TYPE_TOGGLE, android.view.View.AUTOFILL_TYPE_LIST, android.view.View.AUTOFILL_TYPE_DATE}" />
+    </annotation>
+  </item>
+  <item name="android.widget.TextView int getBreakStrategy()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.graphics.text.LineBreaker.BREAK_STRATEGY_SIMPLE, android.graphics.text.LineBreaker.BREAK_STRATEGY_HIGH_QUALITY, android.graphics.text.LineBreaker.BREAK_STRATEGY_BALANCED}" />
+    </annotation>
+  </item>
+  <item name="android.widget.TextView int getCurrentHintTextColor()">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.widget.TextView int getCurrentTextColor()">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.widget.TextView int getFocusedSearchResultHighlightColor()">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.widget.TextView int getHighlightColor()">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.widget.TextView int getHyphenationFrequency()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.text.Layout.HYPHENATION_FREQUENCY_NORMAL, android.text.Layout.HYPHENATION_FREQUENCY_NORMAL_FAST, android.text.Layout.HYPHENATION_FREQUENCY_FULL, android.text.Layout.HYPHENATION_FREQUENCY_FULL_FAST, android.text.Layout.HYPHENATION_FREQUENCY_NONE}" />
+    </annotation>
+  </item>
+  <item name="android.widget.TextView int getJustificationMode()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.graphics.text.LineBreaker.JUSTIFICATION_MODE_NONE, android.graphics.text.LineBreaker.JUSTIFICATION_MODE_INTER_WORD, android.graphics.text.LineBreaker.JUSTIFICATION_MODE_INTER_CHARACTER}" />
+    </annotation>
+  </item>
+  <item name="android.widget.TextView int getLineBreakStyle()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.graphics.text.LineBreakConfig.LINE_BREAK_STYLE_NONE, android.graphics.text.LineBreakConfig.LINE_BREAK_STYLE_LOOSE, android.graphics.text.LineBreakConfig.LINE_BREAK_STYLE_NORMAL, android.graphics.text.LineBreakConfig.LINE_BREAK_STYLE_STRICT, android.graphics.text.LineBreakConfig.LINE_BREAK_STYLE_UNSPECIFIED, android.graphics.text.LineBreakConfig.LINE_BREAK_STYLE_NO_BREAK, android.graphics.text.LineBreakConfig.LINE_BREAK_STYLE_AUTO}" />
+    </annotation>
+  </item>
+  <item name="android.widget.TextView int getLineBreakWordStyle()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.graphics.text.LineBreakConfig.LINE_BREAK_WORD_STYLE_NONE, android.graphics.text.LineBreakConfig.LINE_BREAK_WORD_STYLE_PHRASE, android.graphics.text.LineBreakConfig.LINE_BREAK_WORD_STYLE_UNSPECIFIED, android.graphics.text.LineBreakConfig.LINE_BREAK_WORD_STYLE_AUTO}" />
+    </annotation>
+  </item>
+  <item name="android.widget.TextView int getSearchResultHighlightColor()">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.widget.TextView int getShadowColor()">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.widget.TextView void onSelectionChanged(int, int)">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.widget.TextView void setAutoSizeTextTypeWithDefaults(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.widget.TextView.AUTO_SIZE_TEXT_TYPE_NONE, android.widget.TextView.AUTO_SIZE_TEXT_TYPE_UNIFORM}" />
+    </annotation>
+  </item>
+  <item name="android.widget.TextView void setBreakStrategy(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.graphics.text.LineBreaker.BREAK_STRATEGY_SIMPLE, android.graphics.text.LineBreaker.BREAK_STRATEGY_HIGH_QUALITY, android.graphics.text.LineBreaker.BREAK_STRATEGY_BALANCED}" />
+    </annotation>
+  </item>
+  <item name="android.widget.TextView void setCompoundDrawablesRelativeWithIntrinsicBounds(int, int, int, int) 0">
+    <annotation name="androidx.annotation.DrawableRes"/>
+  </item>
+  <item name="android.widget.TextView void setCompoundDrawablesRelativeWithIntrinsicBounds(int, int, int, int) 1">
+    <annotation name="androidx.annotation.DrawableRes"/>
+  </item>
+  <item name="android.widget.TextView void setCompoundDrawablesRelativeWithIntrinsicBounds(int, int, int, int) 2">
+    <annotation name="androidx.annotation.DrawableRes"/>
+  </item>
+  <item name="android.widget.TextView void setCompoundDrawablesRelativeWithIntrinsicBounds(int, int, int, int) 3">
+    <annotation name="androidx.annotation.DrawableRes"/>
+  </item>
+  <item name="android.widget.TextView void setCompoundDrawablesWithIntrinsicBounds(int, int, int, int) 0">
+    <annotation name="androidx.annotation.DrawableRes"/>
+  </item>
+  <item name="android.widget.TextView void setCompoundDrawablesWithIntrinsicBounds(int, int, int, int) 1">
+    <annotation name="androidx.annotation.DrawableRes"/>
+  </item>
+  <item name="android.widget.TextView void setCompoundDrawablesWithIntrinsicBounds(int, int, int, int) 2">
+    <annotation name="androidx.annotation.DrawableRes"/>
+  </item>
+  <item name="android.widget.TextView void setCompoundDrawablesWithIntrinsicBounds(int, int, int, int) 3">
+    <annotation name="androidx.annotation.DrawableRes"/>
+  </item>
+  <item name="android.widget.TextView void setFirstBaselineToTopHeight(int) 0">
+    <annotation name="androidx.annotation.Px"/>
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.widget.TextView void setFocusedSearchResultHighlightColor(int) 0">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.widget.TextView void setHighlightColor(int) 0">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.widget.TextView void setHint(int) 0">
+    <annotation name="androidx.annotation.StringRes"/>
+  </item>
+  <item name="android.widget.TextView void setHintTextColor(int) 0">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.widget.TextView void setHyphenationFrequency(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.text.Layout.HYPHENATION_FREQUENCY_NORMAL, android.text.Layout.HYPHENATION_FREQUENCY_NORMAL_FAST, android.text.Layout.HYPHENATION_FREQUENCY_FULL, android.text.Layout.HYPHENATION_FREQUENCY_FULL_FAST, android.text.Layout.HYPHENATION_FREQUENCY_NONE}" />
+    </annotation>
+  </item>
+  <item name="android.widget.TextView void setInputExtras(int) 0">
+    <annotation name="androidx.annotation.XmlRes"/>
+  </item>
+  <item name="android.widget.TextView void setJustificationMode(int)">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.graphics.text.LineBreaker.JUSTIFICATION_MODE_NONE, android.graphics.text.LineBreaker.JUSTIFICATION_MODE_INTER_WORD, android.graphics.text.LineBreaker.JUSTIFICATION_MODE_INTER_CHARACTER}" />
+    </annotation>
+  </item>
+  <item name="android.widget.TextView void setJustificationMode(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.graphics.text.LineBreaker.JUSTIFICATION_MODE_NONE, android.graphics.text.LineBreaker.JUSTIFICATION_MODE_INTER_WORD, android.graphics.text.LineBreaker.JUSTIFICATION_MODE_INTER_CHARACTER}" />
+    </annotation>
+  </item>
+  <item name="android.widget.TextView void setLastBaselineToBottomHeight(int) 0">
+    <annotation name="androidx.annotation.Px"/>
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.widget.TextView void setLineBreakStyle(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.graphics.text.LineBreakConfig.LINE_BREAK_STYLE_NONE, android.graphics.text.LineBreakConfig.LINE_BREAK_STYLE_LOOSE, android.graphics.text.LineBreakConfig.LINE_BREAK_STYLE_NORMAL, android.graphics.text.LineBreakConfig.LINE_BREAK_STYLE_STRICT, android.graphics.text.LineBreakConfig.LINE_BREAK_STYLE_UNSPECIFIED, android.graphics.text.LineBreakConfig.LINE_BREAK_STYLE_NO_BREAK, android.graphics.text.LineBreakConfig.LINE_BREAK_STYLE_AUTO}" />
+    </annotation>
+  </item>
+  <item name="android.widget.TextView void setLineBreakWordStyle(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.graphics.text.LineBreakConfig.LINE_BREAK_WORD_STYLE_NONE, android.graphics.text.LineBreakConfig.LINE_BREAK_WORD_STYLE_PHRASE, android.graphics.text.LineBreakConfig.LINE_BREAK_WORD_STYLE_UNSPECIFIED, android.graphics.text.LineBreakConfig.LINE_BREAK_WORD_STYLE_AUTO}" />
+    </annotation>
+  </item>
+  <item name="android.widget.TextView void setLineHeight(int) 0">
+    <annotation name="androidx.annotation.Px"/>
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.widget.TextView void setLineHeight(int, float) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.util.TypedValue.COMPLEX_UNIT_PX, android.util.TypedValue.COMPLEX_UNIT_DIP, android.util.TypedValue.COMPLEX_UNIT_SP, android.util.TypedValue.COMPLEX_UNIT_PT, android.util.TypedValue.COMPLEX_UNIT_IN, android.util.TypedValue.COMPLEX_UNIT_MM}" />
+    </annotation>
+  </item>
+  <item name="android.widget.TextView void setLineHeight(int, float) 1">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+    </annotation>
+  </item>
+  <item name="android.widget.TextView void setLinkTextColor(int) 0">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.widget.TextView void setSearchResultHighlightColor(int) 0">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.widget.TextView void setText(int) 0">
+    <annotation name="androidx.annotation.StringRes"/>
+  </item>
+  <item name="android.widget.TextView void setText(int, android.widget.TextView.BufferType) 0">
+    <annotation name="androidx.annotation.StringRes"/>
+  </item>
+  <item name="android.widget.TextView void setTextAppearance(android.content.Context, int) 1">
+    <annotation name="androidx.annotation.StyleRes"/>
+  </item>
+  <item name="android.widget.TextView void setTextAppearance(int) 0">
+    <annotation name="androidx.annotation.StyleRes"/>
+  </item>
+  <item name="android.widget.TextView void setTextColor(int) 0">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.widget.TextView void setTextCursorDrawable(int) 0">
+    <annotation name="androidx.annotation.DrawableRes"/>
+  </item>
+  <item name="android.widget.TextView void setTextLocales(android.os.LocaleList) 0">
+    <annotation name="androidx.annotation.Size">
+      <val name="min" val="1L" />
+    </annotation>
+  </item>
+  <item name="android.widget.TextView void setTextSelectHandle(int) 0">
+    <annotation name="androidx.annotation.DrawableRes"/>
+  </item>
+  <item name="android.widget.TextView void setTextSelectHandleLeft(int) 0">
+    <annotation name="androidx.annotation.DrawableRes"/>
+  </item>
+  <item name="android.widget.TextView void setTextSelectHandleRight(int) 0">
+    <annotation name="androidx.annotation.DrawableRes"/>
+  </item>
+  <item name="android.widget.TextView void setTypeface(android.graphics.Typeface, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.graphics.Typeface.NORMAL, android.graphics.Typeface.BOLD, android.graphics.Typeface.ITALIC, android.graphics.Typeface.BOLD_ITALIC}" />
+    </annotation>
+  </item>
+  <item name="android.widget.TimePicker int getAutofillType()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.View.AUTOFILL_TYPE_NONE, android.view.View.AUTOFILL_TYPE_TEXT, android.view.View.AUTOFILL_TYPE_TOGGLE, android.view.View.AUTOFILL_TYPE_LIST, android.view.View.AUTOFILL_TYPE_DATE}" />
+    </annotation>
+  </item>
+  <item name="android.widget.TimePicker void setHour(int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+      <val name="to" val="23L" />
+    </annotation>
+  </item>
+  <item name="android.widget.TimePicker void setMinute(int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+      <val name="to" val="59L" />
+    </annotation>
+  </item>
+  <item name="android.widget.Toast android.widget.Toast makeText(android.content.Context, int, int) 1">
+    <annotation name="androidx.annotation.StringRes"/>
+  </item>
+  <item name="android.widget.Toast android.widget.Toast makeText(android.content.Context, int, int) 2">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.widget.Toast.LENGTH_SHORT, android.widget.Toast.LENGTH_LONG}" />
+    </annotation>
+  </item>
+  <item name="android.widget.Toast android.widget.Toast makeText(android.content.Context, java.lang.CharSequence, int) 2">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.widget.Toast.LENGTH_SHORT, android.widget.Toast.LENGTH_LONG}" />
+    </annotation>
+  </item>
+  <item name="android.widget.Toast int getDuration()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.widget.Toast.LENGTH_SHORT, android.widget.Toast.LENGTH_LONG}" />
+    </annotation>
+  </item>
+  <item name="android.widget.Toast void setDuration(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.widget.Toast.LENGTH_SHORT, android.widget.Toast.LENGTH_LONG}" />
+    </annotation>
+  </item>
+  <item name="android.widget.Toast void setText(int) 0">
+    <annotation name="androidx.annotation.StringRes"/>
+  </item>
+  <item name="android.widget.ToggleButton float getDisabledAlpha()">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+      <val name="to" val="1.0" />
+    </annotation>
+  </item>
+  <item name="android.widget.Toolbar void inflateMenu(int) 0">
+    <annotation name="androidx.annotation.MenuRes"/>
+  </item>
+  <item name="android.widget.Toolbar void onRtlPropertiesChanged(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.View.LAYOUT_DIRECTION_LTR, android.view.View.LAYOUT_DIRECTION_RTL}" />
+    </annotation>
+  </item>
+  <item name="android.widget.Toolbar void setCollapseContentDescription(int) 0">
+    <annotation name="androidx.annotation.StringRes"/>
+  </item>
+  <item name="android.widget.Toolbar void setCollapseIcon(int) 0">
+    <annotation name="androidx.annotation.DrawableRes"/>
+  </item>
+  <item name="android.widget.Toolbar void setLogo(int) 0">
+    <annotation name="androidx.annotation.DrawableRes"/>
+  </item>
+  <item name="android.widget.Toolbar void setLogoDescription(int) 0">
+    <annotation name="androidx.annotation.StringRes"/>
+  </item>
+  <item name="android.widget.Toolbar void setNavigationContentDescription(int) 0">
+    <annotation name="androidx.annotation.StringRes"/>
+  </item>
+  <item name="android.widget.Toolbar void setNavigationIcon(int) 0">
+    <annotation name="androidx.annotation.DrawableRes"/>
+  </item>
+  <item name="android.widget.Toolbar void setPopupTheme(int) 0">
+    <annotation name="androidx.annotation.StyleRes"/>
+  </item>
+  <item name="android.widget.Toolbar void setSubtitle(int) 0">
+    <annotation name="androidx.annotation.StringRes"/>
+  </item>
+  <item name="android.widget.Toolbar void setSubtitleTextAppearance(android.content.Context, int) 1">
+    <annotation name="androidx.annotation.StyleRes"/>
+  </item>
+  <item name="android.widget.Toolbar void setSubtitleTextColor(int) 0">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.widget.Toolbar void setTitle(int) 0">
+    <annotation name="androidx.annotation.StringRes"/>
+  </item>
+  <item name="android.widget.Toolbar void setTitleTextAppearance(android.content.Context, int) 1">
+    <annotation name="androidx.annotation.StyleRes"/>
+  </item>
+  <item name="android.widget.Toolbar void setTitleTextColor(int) 0">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.widget.ViewAnimator void setInAnimation(android.content.Context, int) 1">
+    <annotation name="androidx.annotation.AnimRes"/>
+  </item>
+  <item name="android.widget.ViewAnimator void setOutAnimation(android.content.Context, int) 1">
+    <annotation name="androidx.annotation.AnimRes"/>
+  </item>
+  <item name="android.widget.ViewFlipper int getFlipInterval()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.widget.ViewFlipper void setFlipInterval(int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+</root>
+

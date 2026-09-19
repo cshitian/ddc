@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+  <item name="android.net.wifi.p2p.nsd.WifiP2pUsdBasedServiceConfig int getServiceProtocolType()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+      <val name="to" val="255L" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.p2p.nsd.WifiP2pUsdBasedServiceConfig.Builder Builder(java.lang.String) 0">
+    <annotation name="androidx.annotation.Size">
+      <val name="min" val="1L" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.p2p.nsd.WifiP2pUsdBasedServiceConfig.Builder android.net.wifi.p2p.nsd.WifiP2pUsdBasedServiceConfig.Builder setServiceProtocolType(int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+      <val name="to" val="255L" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.p2p.nsd.WifiP2pUsdBasedServiceConfig.Builder android.net.wifi.p2p.nsd.WifiP2pUsdBasedServiceConfig.Builder setServiceSpecificInfo(byte[]) 0">
+    <annotation name="androidx.annotation.Size">
+      <val name="min" val="1L" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.p2p.nsd.WifiP2pUsdBasedServiceResponse int getServiceProtocolType()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+      <val name="to" val="255L" />
+    </annotation>
+  </item>
+</root>
+

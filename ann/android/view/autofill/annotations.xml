@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+  <item name="android.view.autofill.AutofillManager.AutofillCallback void onAutofillEvent(android.view.View, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.autofill.AutofillManager.AutofillCallback.EVENT_INPUT_SHOWN, android.view.autofill.AutofillManager.AutofillCallback.EVENT_INPUT_HIDDEN, android.view.autofill.AutofillManager.AutofillCallback.EVENT_INPUT_UNAVAILABLE}" />
+    </annotation>
+  </item>
+  <item name="android.view.autofill.AutofillManager.AutofillCallback void onAutofillEvent(android.view.View, int, int) 2">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.autofill.AutofillManager.AutofillCallback.EVENT_INPUT_SHOWN, android.view.autofill.AutofillManager.AutofillCallback.EVENT_INPUT_HIDDEN, android.view.autofill.AutofillManager.AutofillCallback.EVENT_INPUT_UNAVAILABLE}" />
+    </annotation>
+  </item>
+</root>
+

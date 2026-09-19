@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+  <item name="android.health.connect.changelog.ChangeLogsRequest int getPageSize()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="1L" />
+      <val name="to" val="5000L" />
+    </annotation>
+  </item>
+  <item name="android.health.connect.changelog.ChangeLogsRequest.Builder android.health.connect.changelog.ChangeLogsRequest.Builder setPageSize(int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="1L" />
+      <val name="to" val="5000L" />
+    </annotation>
+  </item>
+</root>
+

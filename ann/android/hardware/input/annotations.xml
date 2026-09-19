@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+  <item name="android.hardware.input.InputManager float getMaximumObscuringOpacityForTouch()">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+      <val name="to" val="1.0" />
+    </annotation>
+  </item>
+</root>
+

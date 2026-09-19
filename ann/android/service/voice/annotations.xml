@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+  <item name="android.service.voice.VoiceInteractionSession.AssistState int getCount()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.service.voice.VoiceInteractionSession.AssistState int getIndex()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="-1L" />
+    </annotation>
+  </item>
+</root>
+

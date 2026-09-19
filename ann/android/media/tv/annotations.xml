@@ -1,0 +1,393 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+  <item name="android.media.tv.AdBuffer AdBuffer(int, java.lang.String, android.os.SharedMemory, int, int, long, int) 6">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.MediaCodec.BUFFER_FLAG_SYNC_FRAME, android.media.MediaCodec.BUFFER_FLAG_KEY_FRAME, android.media.MediaCodec.BUFFER_FLAG_CODEC_CONFIG, android.media.MediaCodec.BUFFER_FLAG_END_OF_STREAM, android.media.MediaCodec.BUFFER_FLAG_PARTIAL_FRAME, android.media.MediaCodec.BUFFER_FLAG_DECODE_ONLY}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.AdBuffer int getFlags()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.MediaCodec.BUFFER_FLAG_SYNC_FRAME, android.media.MediaCodec.BUFFER_FLAG_KEY_FRAME, android.media.MediaCodec.BUFFER_FLAG_CODEC_CONFIG, android.media.MediaCodec.BUFFER_FLAG_END_OF_STREAM, android.media.MediaCodec.BUFFER_FLAG_PARTIAL_FRAME, android.media.MediaCodec.BUFFER_FLAG_DECODE_ONLY}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.AdRequest AdRequest(int, int, android.net.Uri, long, long, long, android.os.Bundle) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.AdRequest.REQUEST_TYPE_START, android.media.tv.AdRequest.REQUEST_TYPE_STOP}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.AdRequest AdRequest(int, int, android.os.ParcelFileDescriptor, long, long, long, java.lang.String, android.os.Bundle) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.AdRequest.REQUEST_TYPE_START, android.media.tv.AdRequest.REQUEST_TYPE_STOP}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.AdRequest int getRequestType()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.AdRequest.REQUEST_TYPE_START, android.media.tv.AdRequest.REQUEST_TYPE_STOP}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.AdResponse AdResponse(int, int, long) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.AdResponse.RESPONSE_TYPE_PLAYING, android.media.tv.AdResponse.RESPONSE_TYPE_FINISHED, android.media.tv.AdResponse.RESPONSE_TYPE_STOPPED, android.media.tv.AdResponse.RESPONSE_TYPE_ERROR, android.media.tv.AdResponse.RESPONSE_TYPE_BUFFERING}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.AdResponse int getResponseType()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.AdResponse.RESPONSE_TYPE_PLAYING, android.media.tv.AdResponse.RESPONSE_TYPE_FINISHED, android.media.tv.AdResponse.RESPONSE_TYPE_STOPPED, android.media.tv.AdResponse.RESPONSE_TYPE_ERROR, android.media.tv.AdResponse.RESPONSE_TYPE_BUFFERING}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.AitInfo AitInfo(int, int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.interactive.TvInteractiveAppServiceInfo.INTERACTIVE_APP_TYPE_HBBTV, android.media.tv.interactive.TvInteractiveAppServiceInfo.INTERACTIVE_APP_TYPE_ATSC, android.media.tv.interactive.TvInteractiveAppServiceInfo.INTERACTIVE_APP_TYPE_GINGA, android.media.tv.interactive.TvInteractiveAppServiceInfo.INTERACTIVE_APP_TYPE_TARGETED_AD, android.media.tv.interactive.TvInteractiveAppServiceInfo.INTERACTIVE_APP_TYPE_OTHER}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.AitInfo int getType()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.interactive.TvInteractiveAppServiceInfo.INTERACTIVE_APP_TYPE_HBBTV, android.media.tv.interactive.TvInteractiveAppServiceInfo.INTERACTIVE_APP_TYPE_ATSC, android.media.tv.interactive.TvInteractiveAppServiceInfo.INTERACTIVE_APP_TYPE_GINGA, android.media.tv.interactive.TvInteractiveAppServiceInfo.INTERACTIVE_APP_TYPE_TARGETED_AD, android.media.tv.interactive.TvInteractiveAppServiceInfo.INTERACTIVE_APP_TYPE_OTHER}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.BroadcastInfoRequest int getOption()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.BroadcastInfoRequest.REQUEST_OPTION_REPEAT, android.media.tv.BroadcastInfoRequest.REQUEST_OPTION_AUTO_UPDATE, android.media.tv.BroadcastInfoRequest.REQUEST_OPTION_ONEWAY, android.media.tv.BroadcastInfoRequest.REQUEST_OPTION_ONESHOT}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.BroadcastInfoRequest int getType()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.TvInputManager.BROADCAST_INFO_TYPE_TS, android.media.tv.TvInputManager.BROADCAST_INFO_TYPE_TABLE, android.media.tv.TvInputManager.BROADCAST_INFO_TYPE_SECTION, android.media.tv.TvInputManager.BROADCAST_INFO_TYPE_PES, android.media.tv.TvInputManager.BROADCAST_INFO_STREAM_EVENT, android.media.tv.TvInputManager.BROADCAST_INFO_TYPE_DSMCC, android.media.tv.TvInputManager.BROADCAST_INFO_TYPE_COMMAND, android.media.tv.TvInputManager.BROADCAST_INFO_TYPE_TIMELINE}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.BroadcastInfoResponse int getResponseResult()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.BroadcastInfoResponse.RESPONSE_RESULT_ERROR, android.media.tv.BroadcastInfoResponse.RESPONSE_RESULT_OK, android.media.tv.BroadcastInfoResponse.RESPONSE_RESULT_CANCEL}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.BroadcastInfoResponse int getType()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.TvInputManager.BROADCAST_INFO_TYPE_TS, android.media.tv.TvInputManager.BROADCAST_INFO_TYPE_TABLE, android.media.tv.TvInputManager.BROADCAST_INFO_TYPE_SECTION, android.media.tv.TvInputManager.BROADCAST_INFO_TYPE_PES, android.media.tv.TvInputManager.BROADCAST_INFO_STREAM_EVENT, android.media.tv.TvInputManager.BROADCAST_INFO_TYPE_DSMCC, android.media.tv.TvInputManager.BROADCAST_INFO_TYPE_COMMAND, android.media.tv.TvInputManager.BROADCAST_INFO_TYPE_TIMELINE}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.CommandRequest CommandRequest(int, int, java.lang.String, java.lang.String, java.lang.String, java.lang.String) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.BroadcastInfoRequest.REQUEST_OPTION_REPEAT, android.media.tv.BroadcastInfoRequest.REQUEST_OPTION_AUTO_UPDATE, android.media.tv.BroadcastInfoRequest.REQUEST_OPTION_ONEWAY, android.media.tv.BroadcastInfoRequest.REQUEST_OPTION_ONESHOT}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.CommandResponse CommandResponse(int, int, int, java.lang.String, java.lang.String) 2">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.BroadcastInfoResponse.RESPONSE_RESULT_ERROR, android.media.tv.BroadcastInfoResponse.RESPONSE_RESULT_OK, android.media.tv.BroadcastInfoResponse.RESPONSE_RESULT_CANCEL}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.DsmccRequest DsmccRequest(int, int, android.net.Uri) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.BroadcastInfoRequest.REQUEST_OPTION_REPEAT, android.media.tv.BroadcastInfoRequest.REQUEST_OPTION_AUTO_UPDATE, android.media.tv.BroadcastInfoRequest.REQUEST_OPTION_ONEWAY, android.media.tv.BroadcastInfoRequest.REQUEST_OPTION_ONESHOT}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.DsmccResponse DsmccResponse(int, int, int, android.os.ParcelFileDescriptor) 2">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.BroadcastInfoResponse.RESPONSE_RESULT_ERROR, android.media.tv.BroadcastInfoResponse.RESPONSE_RESULT_OK, android.media.tv.BroadcastInfoResponse.RESPONSE_RESULT_CANCEL}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.DsmccResponse DsmccResponse(int, int, int, boolean, java.util.List&lt;java.lang.String&gt;) 2">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.BroadcastInfoResponse.RESPONSE_RESULT_ERROR, android.media.tv.BroadcastInfoResponse.RESPONSE_RESULT_OK, android.media.tv.BroadcastInfoResponse.RESPONSE_RESULT_CANCEL}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.DsmccResponse DsmccResponse(int, int, int, int[], java.lang.String[]) 2">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.BroadcastInfoResponse.RESPONSE_RESULT_ERROR, android.media.tv.BroadcastInfoResponse.RESPONSE_RESULT_OK, android.media.tv.BroadcastInfoResponse.RESPONSE_RESULT_CANCEL}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.DsmccResponse java.lang.String getBiopMessageType()">
+    <annotation name="androidx.annotation.StringDef">
+      <val name="value" val="{android.media.tv.DsmccResponse.BIOP_MESSAGE_TYPE_DIRECTORY, android.media.tv.DsmccResponse.BIOP_MESSAGE_TYPE_FILE, android.media.tv.DsmccResponse.BIOP_MESSAGE_TYPE_STREAM, android.media.tv.DsmccResponse.BIOP_MESSAGE_TYPE_SERVICE_GATEWAY}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.PesRequest PesRequest(int, int, int, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.BroadcastInfoRequest.REQUEST_OPTION_REPEAT, android.media.tv.BroadcastInfoRequest.REQUEST_OPTION_AUTO_UPDATE, android.media.tv.BroadcastInfoRequest.REQUEST_OPTION_ONEWAY, android.media.tv.BroadcastInfoRequest.REQUEST_OPTION_ONESHOT}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.PesResponse PesResponse(int, int, int, java.lang.String) 2">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.BroadcastInfoResponse.RESPONSE_RESULT_ERROR, android.media.tv.BroadcastInfoResponse.RESPONSE_RESULT_OK, android.media.tv.BroadcastInfoResponse.RESPONSE_RESULT_CANCEL}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.SectionRequest SectionRequest(int, int, int, int, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.BroadcastInfoRequest.REQUEST_OPTION_REPEAT, android.media.tv.BroadcastInfoRequest.REQUEST_OPTION_AUTO_UPDATE, android.media.tv.BroadcastInfoRequest.REQUEST_OPTION_ONEWAY, android.media.tv.BroadcastInfoRequest.REQUEST_OPTION_ONESHOT}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.SectionResponse SectionResponse(int, int, int, int, int, android.os.Bundle) 2">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.BroadcastInfoResponse.RESPONSE_RESULT_ERROR, android.media.tv.BroadcastInfoResponse.RESPONSE_RESULT_OK, android.media.tv.BroadcastInfoResponse.RESPONSE_RESULT_CANCEL}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.SignalingDataInfo java.lang.String getEncoding()">
+    <annotation name="androidx.annotation.StringDef">
+      <val name="value" val="{android.media.tv.SignalingDataInfo.CONTENT_ENCODING_UTF_8, android.media.tv.SignalingDataInfo.CONTENT_ENCODING_BASE64}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.SignalingDataInfo java.lang.String getSignalingDataType()">
+    <annotation name="androidx.annotation.StringDef">
+      <val name="value" val="{android.media.tv.SignalingDataRequest.SIGNALING_METADATA_APD, android.media.tv.SignalingDataRequest.SIGNALING_METADATA_USBD, android.media.tv.SignalingDataRequest.SIGNALING_METADATA_STSID, android.media.tv.SignalingDataRequest.SIGNALING_METADATA_MPD, android.media.tv.SignalingDataRequest.SIGNALING_METADATA_USD, android.media.tv.SignalingDataRequest.SIGNALING_METADATA_PAT, android.media.tv.SignalingDataRequest.SIGNALING_METADATA_MPT, android.media.tv.SignalingDataRequest.SIGNALING_METADATA_MPIT, android.media.tv.SignalingDataRequest.SIGNALING_METADATA_CRIT, android.media.tv.SignalingDataRequest.SIGNALING_METADATA_DCIT, android.media.tv.SignalingDataRequest.SIGNALING_METADATA_HELD, android.media.tv.SignalingDataRequest.SIGNALING_METADATA_DWD, android.media.tv.SignalingDataRequest.SIGNALING_METADATA_AEI, android.media.tv.SignalingDataRequest.SIGNALING_METADATA_VSPD, android.media.tv.SignalingDataRequest.SIGNALING_METADATA_ASD, android.media.tv.SignalingDataRequest.SIGNALING_METADATA_IED, android.media.tv.SignalingDataRequest.SIGNALING_METADATA_CAD, android.media.tv.SignalingDataRequest.SIGNALING_METADATA_ASPD, android.media.tv.SignalingDataRequest.SIGNALING_METADATA_SSD, android.media.tv.SignalingDataRequest.SIGNALING_METADATA_EMSG, android.media.tv.SignalingDataRequest.SIGNALING_METADATA_EVTI, android.media.tv.SignalingDataRequest.SIGNALING_METADATA_RSAT, android.media.tv.SignalingDataRequest.SIGNALING_METADATA_RDT, android.media.tv.SignalingDataRequest.SIGNALING_METADATA_SLT, android.media.tv.SignalingDataRequest.SIGNALING_METADATA_RRT, android.media.tv.SignalingDataRequest.SIGNALING_METADATA_STT, android.media.tv.SignalingDataRequest.SIGNALING_METADATA_AEAT, android.media.tv.SignalingDataRequest.SIGNALING_METADATA_OSN, android.media.tv.SignalingDataRequest.SIGNALING_METADATA_SMT, android.media.tv.SignalingDataRequest.SIGNALING_METADATA_CDT}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.SignalingDataRequest SignalingDataRequest(int, int, int, java.util.List&lt;java.lang.String&gt;) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.BroadcastInfoRequest.REQUEST_OPTION_REPEAT, android.media.tv.BroadcastInfoRequest.REQUEST_OPTION_AUTO_UPDATE, android.media.tv.BroadcastInfoRequest.REQUEST_OPTION_ONEWAY, android.media.tv.BroadcastInfoRequest.REQUEST_OPTION_ONESHOT}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.SignalingDataResponse SignalingDataResponse(int, int, int, java.util.List&lt;java.lang.String&gt;, java.util.List&lt;android.media.tv.SignalingDataInfo&gt;) 2">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.BroadcastInfoResponse.RESPONSE_RESULT_ERROR, android.media.tv.BroadcastInfoResponse.RESPONSE_RESULT_OK, android.media.tv.BroadcastInfoResponse.RESPONSE_RESULT_CANCEL}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.StreamEventRequest StreamEventRequest(int, int, android.net.Uri, java.lang.String) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.BroadcastInfoRequest.REQUEST_OPTION_REPEAT, android.media.tv.BroadcastInfoRequest.REQUEST_OPTION_AUTO_UPDATE, android.media.tv.BroadcastInfoRequest.REQUEST_OPTION_ONEWAY, android.media.tv.BroadcastInfoRequest.REQUEST_OPTION_ONESHOT}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.StreamEventResponse StreamEventResponse(int, int, int, int, long, byte[]) 2">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.BroadcastInfoResponse.RESPONSE_RESULT_ERROR, android.media.tv.BroadcastInfoResponse.RESPONSE_RESULT_OK, android.media.tv.BroadcastInfoResponse.RESPONSE_RESULT_CANCEL}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.TableRequest TableRequest(int, int, int, int, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.BroadcastInfoRequest.REQUEST_OPTION_REPEAT, android.media.tv.BroadcastInfoRequest.REQUEST_OPTION_AUTO_UPDATE, android.media.tv.BroadcastInfoRequest.REQUEST_OPTION_ONEWAY, android.media.tv.BroadcastInfoRequest.REQUEST_OPTION_ONESHOT}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.TableRequest TableRequest(int, int, int, int, int) 3">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.TableRequest.TABLE_NAME_PAT, android.media.tv.TableRequest.TABLE_NAME_PMT, android.media.tv.TableRequest.TABLE_NAME_CAT, android.media.tv.TableRequest.TABLE_NAME_NIT, android.media.tv.TableRequest.TABLE_NAME_BAT, android.media.tv.TableRequest.TABLE_NAME_SDT, android.media.tv.TableRequest.TABLE_NAME_EIT, android.media.tv.TableRequest.TABLE_NAME_TDT, android.media.tv.TableRequest.TABLE_NAME_TOT, android.media.tv.TableRequest.TABLE_NAME_SIT}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.TableRequest int getTableName()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.TableRequest.TABLE_NAME_PAT, android.media.tv.TableRequest.TABLE_NAME_PMT, android.media.tv.TableRequest.TABLE_NAME_CAT, android.media.tv.TableRequest.TABLE_NAME_NIT, android.media.tv.TableRequest.TABLE_NAME_BAT, android.media.tv.TableRequest.TABLE_NAME_SDT, android.media.tv.TableRequest.TABLE_NAME_EIT, android.media.tv.TableRequest.TABLE_NAME_TDT, android.media.tv.TableRequest.TABLE_NAME_TOT, android.media.tv.TableRequest.TABLE_NAME_SIT}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.TableResponse TableResponse(int, int, int, android.net.Uri, int, int) 2">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.BroadcastInfoResponse.RESPONSE_RESULT_ERROR, android.media.tv.BroadcastInfoResponse.RESPONSE_RESULT_OK, android.media.tv.BroadcastInfoResponse.RESPONSE_RESULT_CANCEL}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.TableResponse.Builder Builder(int, int, int, int, int) 2">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.BroadcastInfoResponse.RESPONSE_RESULT_ERROR, android.media.tv.BroadcastInfoResponse.RESPONSE_RESULT_OK, android.media.tv.BroadcastInfoResponse.RESPONSE_RESULT_CANCEL}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.TimelineRequest TimelineRequest(int, int, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.BroadcastInfoRequest.REQUEST_OPTION_REPEAT, android.media.tv.BroadcastInfoRequest.REQUEST_OPTION_AUTO_UPDATE, android.media.tv.BroadcastInfoRequest.REQUEST_OPTION_ONEWAY, android.media.tv.BroadcastInfoRequest.REQUEST_OPTION_ONESHOT}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.TimelineRequest TimelineRequest(int, int, int, java.lang.String) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.BroadcastInfoRequest.REQUEST_OPTION_REPEAT, android.media.tv.BroadcastInfoRequest.REQUEST_OPTION_AUTO_UPDATE, android.media.tv.BroadcastInfoRequest.REQUEST_OPTION_ONEWAY, android.media.tv.BroadcastInfoRequest.REQUEST_OPTION_ONESHOT}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.TimelineResponse TimelineResponse(int, int, int, java.lang.String, int, int, long, long) 2">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.BroadcastInfoResponse.RESPONSE_RESULT_ERROR, android.media.tv.BroadcastInfoResponse.RESPONSE_RESULT_OK, android.media.tv.BroadcastInfoResponse.RESPONSE_RESULT_CANCEL}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.TsRequest TsRequest(int, int, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.BroadcastInfoRequest.REQUEST_OPTION_REPEAT, android.media.tv.BroadcastInfoRequest.REQUEST_OPTION_AUTO_UPDATE, android.media.tv.BroadcastInfoRequest.REQUEST_OPTION_ONEWAY, android.media.tv.BroadcastInfoRequest.REQUEST_OPTION_ONESHOT}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.TsResponse TsResponse(int, int, int, java.lang.String) 2">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.BroadcastInfoResponse.RESPONSE_RESULT_ERROR, android.media.tv.BroadcastInfoResponse.RESPONSE_RESULT_OK, android.media.tv.BroadcastInfoResponse.RESPONSE_RESULT_CANCEL}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.TvContract.Channels java.lang.String getVideoResolution(java.lang.String) 0">
+    <annotation name="androidx.annotation.StringDef">
+      <val name="value" val="{android.media.tv.TvContract.Channels.VIDEO_FORMAT_240P, android.media.tv.TvContract.Channels.VIDEO_FORMAT_360P, android.media.tv.TvContract.Channels.VIDEO_FORMAT_480I, android.media.tv.TvContract.Channels.VIDEO_FORMAT_576I, android.media.tv.TvContract.Channels.VIDEO_FORMAT_576P, android.media.tv.TvContract.Channels.VIDEO_FORMAT_720P, android.media.tv.TvContract.Channels.VIDEO_FORMAT_1080I, android.media.tv.TvContract.Channels.VIDEO_FORMAT_1080P, android.media.tv.TvContract.Channels.VIDEO_FORMAT_2160P, android.media.tv.TvContract.Channels.VIDEO_FORMAT_4320P}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.TvContract.Programs.Genres java.lang.String encode(java.lang.String...) 0">
+    <annotation name="androidx.annotation.StringDef">
+      <val name="value" val="{android.media.tv.TvContract.Programs.Genres.FAMILY_KIDS, android.media.tv.TvContract.Programs.Genres.SPORTS, android.media.tv.TvContract.Programs.Genres.SHOPPING, android.media.tv.TvContract.Programs.Genres.MOVIES, android.media.tv.TvContract.Programs.Genres.COMEDY, android.media.tv.TvContract.Programs.Genres.TRAVEL, android.media.tv.TvContract.Programs.Genres.DRAMA, android.media.tv.TvContract.Programs.Genres.EDUCATION, android.media.tv.TvContract.Programs.Genres.ANIMAL_WILDLIFE, android.media.tv.TvContract.Programs.Genres.NEWS, android.media.tv.TvContract.Programs.Genres.GAMING, android.media.tv.TvContract.Programs.Genres.ARTS, android.media.tv.TvContract.Programs.Genres.ENTERTAINMENT, android.media.tv.TvContract.Programs.Genres.LIFE_STYLE, android.media.tv.TvContract.Programs.Genres.MUSIC, android.media.tv.TvContract.Programs.Genres.PREMIER, android.media.tv.TvContract.Programs.Genres.TECH_SCIENCE}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.TvContract.Programs.Genres java.lang.String[] decode(java.lang.String)">
+    <annotation name="androidx.annotation.StringDef">
+      <val name="value" val="{android.media.tv.TvContract.Programs.Genres.FAMILY_KIDS, android.media.tv.TvContract.Programs.Genres.SPORTS, android.media.tv.TvContract.Programs.Genres.SHOPPING, android.media.tv.TvContract.Programs.Genres.MOVIES, android.media.tv.TvContract.Programs.Genres.COMEDY, android.media.tv.TvContract.Programs.Genres.TRAVEL, android.media.tv.TvContract.Programs.Genres.DRAMA, android.media.tv.TvContract.Programs.Genres.EDUCATION, android.media.tv.TvContract.Programs.Genres.ANIMAL_WILDLIFE, android.media.tv.TvContract.Programs.Genres.NEWS, android.media.tv.TvContract.Programs.Genres.GAMING, android.media.tv.TvContract.Programs.Genres.ARTS, android.media.tv.TvContract.Programs.Genres.ENTERTAINMENT, android.media.tv.TvContract.Programs.Genres.LIFE_STYLE, android.media.tv.TvContract.Programs.Genres.MUSIC, android.media.tv.TvContract.Programs.Genres.PREMIER, android.media.tv.TvContract.Programs.Genres.TECH_SCIENCE}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.TvInputInfo int getType()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.TvInputInfo.TYPE_TUNER, android.media.tv.TvInputInfo.TYPE_OTHER, android.media.tv.TvInputInfo.TYPE_COMPOSITE, android.media.tv.TvInputInfo.TYPE_SVIDEO, android.media.tv.TvInputInfo.TYPE_SCART, android.media.tv.TvInputInfo.TYPE_COMPONENT, android.media.tv.TvInputInfo.TYPE_VGA, android.media.tv.TvInputInfo.TYPE_DVI, android.media.tv.TvInputInfo.TYPE_HDMI, android.media.tv.TvInputInfo.TYPE_DISPLAY_PORT}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.TvInputManager int getInputState(java.lang.String)">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.TvInputManager.INPUT_STATE_CONNECTED, android.media.tv.TvInputManager.INPUT_STATE_CONNECTED_STANDBY, android.media.tv.TvInputManager.INPUT_STATE_DISCONNECTED}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.TvInputManager.TvInputCallback void onInputStateChanged(java.lang.String, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.TvInputManager.INPUT_STATE_CONNECTED, android.media.tv.TvInputManager.INPUT_STATE_CONNECTED_STANDBY, android.media.tv.TvInputManager.INPUT_STATE_DISCONNECTED}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.TvInputService.RecordingSession void notifyError(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.TvInputManager.RECORDING_ERROR_UNKNOWN, android.media.tv.TvInputManager.RECORDING_ERROR_INSUFFICIENT_SPACE, android.media.tv.TvInputManager.RECORDING_ERROR_RESOURCE_BUSY}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.TvInputService.Session void notifySignalStrength(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.TvInputManager.SIGNAL_STRENGTH_LOST, android.media.tv.TvInputManager.SIGNAL_STRENGTH_WEAK, android.media.tv.TvInputManager.SIGNAL_STRENGTH_STRONG}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.TvInputService.Session void notifyTimeShiftMode(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.TvInputManager.TIME_SHIFT_MODE_OFF, android.media.tv.TvInputManager.TIME_SHIFT_MODE_LOCAL, android.media.tv.TvInputManager.TIME_SHIFT_MODE_NETWORK, android.media.tv.TvInputManager.TIME_SHIFT_MODE_AUTO}" />
+      <val name="flag" val="false" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.TvInputService.Session void notifyTimeShiftStatusChanged(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.TvInputManager.TIME_SHIFT_STATUS_UNKNOWN, android.media.tv.TvInputManager.TIME_SHIFT_STATUS_UNSUPPORTED, android.media.tv.TvInputManager.TIME_SHIFT_STATUS_UNAVAILABLE, android.media.tv.TvInputManager.TIME_SHIFT_STATUS_AVAILABLE}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.TvInputService.Session void notifyTvMessage(int, android.os.Bundle) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.TvInputManager.TV_MESSAGE_TYPE_WATERMARK, android.media.tv.TvInputManager.TV_MESSAGE_TYPE_CLOSED_CAPTION, android.media.tv.TvInputManager.TV_MESSAGE_TYPE_OTHER}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.TvInputService.Session void notifyVideoUnavailable(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.TvInputManager.VIDEO_UNAVAILABLE_REASON_UNKNOWN, android.media.tv.TvInputManager.VIDEO_UNAVAILABLE_REASON_TUNING, android.media.tv.TvInputManager.VIDEO_UNAVAILABLE_REASON_WEAK_SIGNAL, android.media.tv.TvInputManager.VIDEO_UNAVAILABLE_REASON_BUFFERING, android.media.tv.TvInputManager.VIDEO_UNAVAILABLE_REASON_AUDIO_ONLY, android.media.tv.TvInputManager.VIDEO_UNAVAILABLE_REASON_NOT_CONNECTED, android.media.tv.TvInputManager.VIDEO_UNAVAILABLE_REASON_INSUFFICIENT_RESOURCE, android.media.tv.TvInputManager.VIDEO_UNAVAILABLE_REASON_CAS_INSUFFICIENT_OUTPUT_PROTECTION, android.media.tv.TvInputManager.VIDEO_UNAVAILABLE_REASON_CAS_PVR_RECORDING_NOT_ALLOWED, android.media.tv.TvInputManager.VIDEO_UNAVAILABLE_REASON_CAS_LICENSE_EXPIRED, android.media.tv.TvInputManager.VIDEO_UNAVAILABLE_REASON_CAS_NEED_ACTIVATION, android.media.tv.TvInputManager.VIDEO_UNAVAILABLE_REASON_CAS_NEED_PAIRING, android.media.tv.TvInputManager.VIDEO_UNAVAILABLE_REASON_CAS_NO_CARD, android.media.tv.TvInputManager.VIDEO_UNAVAILABLE_REASON_CAS_CARD_MUTE, android.media.tv.TvInputManager.VIDEO_UNAVAILABLE_REASON_CAS_CARD_INVALID, android.media.tv.TvInputManager.VIDEO_UNAVAILABLE_REASON_CAS_BLACKOUT, android.media.tv.TvInputManager.VIDEO_UNAVAILABLE_REASON_CAS_REBOOTING, android.media.tv.TvInputManager.VIDEO_UNAVAILABLE_REASON_CAS_UNKNOWN, android.media.tv.TvInputManager.VIDEO_UNAVAILABLE_REASON_STOPPED}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.TvInputService.Session void onSetStreamVolume(float) 0">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+      <val name="to" val="1.0" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.TvInputService.Session void onSetTvMessageEnabled(int, boolean) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.TvInputManager.TV_MESSAGE_TYPE_WATERMARK, android.media.tv.TvInputManager.TV_MESSAGE_TYPE_CLOSED_CAPTION, android.media.tv.TvInputManager.TV_MESSAGE_TYPE_OTHER}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.TvInputService.Session void onStopPlayback(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.interactive.TvInteractiveAppService.COMMAND_PARAMETER_VALUE_STOP_MODE_BLANK, android.media.tv.interactive.TvInteractiveAppService.COMMAND_PARAMETER_VALUE_STOP_MODE_FREEZE}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.TvInputService.Session void onTimeShiftSetMode(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.TvInputManager.TIME_SHIFT_MODE_OFF, android.media.tv.TvInputManager.TIME_SHIFT_MODE_LOCAL, android.media.tv.TvInputManager.TIME_SHIFT_MODE_NETWORK, android.media.tv.TvInputManager.TIME_SHIFT_MODE_AUTO}" />
+      <val name="flag" val="false" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.TvInputService.Session void onTvAdSessionData(java.lang.String, android.os.Bundle) 0">
+    <annotation name="androidx.annotation.StringDef">
+      <val name="value" val="{android.media.tv.ad.TvAdManager.SESSION_DATA_TYPE_AD_REQUEST, android.media.tv.ad.TvAdManager.SESSION_DATA_TYPE_AD_BUFFER_READY, android.media.tv.ad.TvAdManager.SESSION_DATA_TYPE_BROADCAST_INFO_REQUEST, android.media.tv.ad.TvAdManager.SESSION_DATA_TYPE_REMOVE_BROADCAST_INFO_REQUEST}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.TvInputService.Session void onTvMessage(int, android.os.Bundle) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.TvInputManager.TV_MESSAGE_TYPE_WATERMARK, android.media.tv.TvInputManager.TV_MESSAGE_TYPE_CLOSED_CAPTION, android.media.tv.TvInputManager.TV_MESSAGE_TYPE_OTHER}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.TvInputService.Session void sendTvInputSessionData(java.lang.String, android.os.Bundle) 0">
+    <annotation name="androidx.annotation.StringDef">
+      <val name="value" val="{android.media.tv.TvInputManager.SESSION_DATA_TYPE_TUNED, android.media.tv.TvInputManager.SESSION_DATA_TYPE_TRACK_SELECTED, android.media.tv.TvInputManager.SESSION_DATA_TYPE_TRACKS_CHANGED, android.media.tv.TvInputManager.SESSION_DATA_TYPE_VIDEO_AVAILABLE, android.media.tv.TvInputManager.SESSION_DATA_TYPE_VIDEO_UNAVAILABLE, android.media.tv.TvInputManager.SESSION_DATA_TYPE_BROADCAST_INFO_RESPONSE, android.media.tv.TvInputManager.SESSION_DATA_TYPE_AD_RESPONSE, android.media.tv.TvInputManager.SESSION_DATA_TYPE_AD_BUFFER_CONSUMED, android.media.tv.TvInputManager.SESSION_DATA_TYPE_TV_MESSAGE}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.TvRecordingClient.RecordingCallback void onError(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.TvInputManager.RECORDING_ERROR_UNKNOWN, android.media.tv.TvInputManager.RECORDING_ERROR_INSUFFICIENT_SPACE, android.media.tv.TvInputManager.RECORDING_ERROR_RESOURCE_BUSY}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.TvRecordingInfo int getRepeatDays()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.TvRecordingInfo.SUNDAY, android.media.tv.TvRecordingInfo.MONDAY, android.media.tv.TvRecordingInfo.TUESDAY, android.media.tv.TvRecordingInfo.WEDNESDAY, android.media.tv.TvRecordingInfo.THURSDAY, android.media.tv.TvRecordingInfo.FRIDAY, android.media.tv.TvRecordingInfo.SATURDAY}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.TvRecordingInfo long getRecordingDurationMillis()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="-1L" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.TvRecordingInfo long getRecordingStartTimeMillis()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="-1L" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.TvRecordingInfo long getScheduledDurationMillis()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.TvRecordingInfo long getScheduledStartTimeMillis()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.TvTrackInfo int getType()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.TvTrackInfo.TYPE_AUDIO, android.media.tv.TvTrackInfo.TYPE_VIDEO, android.media.tv.TvTrackInfo.TYPE_SUBTITLE}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.TvTrackInfo.Builder Builder(int, java.lang.String) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.TvTrackInfo.TYPE_AUDIO, android.media.tv.TvTrackInfo.TYPE_VIDEO, android.media.tv.TvTrackInfo.TYPE_SUBTITLE}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.TvView void setStreamVolume(float) 0">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+      <val name="to" val="1.0" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.TvView void setTvMessageEnabled(int, boolean) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.TvInputManager.TV_MESSAGE_TYPE_WATERMARK, android.media.tv.TvInputManager.TV_MESSAGE_TYPE_CLOSED_CAPTION, android.media.tv.TvInputManager.TV_MESSAGE_TYPE_OTHER}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.TvView void stopPlayback(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.interactive.TvInteractiveAppService.COMMAND_PARAMETER_VALUE_STOP_MODE_BLANK, android.media.tv.interactive.TvInteractiveAppService.COMMAND_PARAMETER_VALUE_STOP_MODE_FREEZE}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.TvView void timeShiftSetMode(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.TvInputManager.TIME_SHIFT_MODE_OFF, android.media.tv.TvInputManager.TIME_SHIFT_MODE_LOCAL, android.media.tv.TvInputManager.TIME_SHIFT_MODE_NETWORK, android.media.tv.TvInputManager.TIME_SHIFT_MODE_AUTO}" />
+      <val name="flag" val="false" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.TvView.TvInputCallback void onSignalStrengthUpdated(java.lang.String, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.TvInputManager.SIGNAL_STRENGTH_LOST, android.media.tv.TvInputManager.SIGNAL_STRENGTH_WEAK, android.media.tv.TvInputManager.SIGNAL_STRENGTH_STRONG}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.TvView.TvInputCallback void onTimeShiftMode(java.lang.String, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.TvInputManager.TIME_SHIFT_MODE_OFF, android.media.tv.TvInputManager.TIME_SHIFT_MODE_LOCAL, android.media.tv.TvInputManager.TIME_SHIFT_MODE_NETWORK, android.media.tv.TvInputManager.TIME_SHIFT_MODE_AUTO}" />
+      <val name="flag" val="false" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.TvView.TvInputCallback void onTimeShiftStatusChanged(java.lang.String, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.TvInputManager.TIME_SHIFT_STATUS_UNKNOWN, android.media.tv.TvInputManager.TIME_SHIFT_STATUS_UNSUPPORTED, android.media.tv.TvInputManager.TIME_SHIFT_STATUS_UNAVAILABLE, android.media.tv.TvInputManager.TIME_SHIFT_STATUS_AVAILABLE}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.TvView.TvInputCallback void onTvMessage(java.lang.String, int, android.os.Bundle) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.TvInputManager.TV_MESSAGE_TYPE_WATERMARK, android.media.tv.TvInputManager.TV_MESSAGE_TYPE_CLOSED_CAPTION, android.media.tv.TvInputManager.TV_MESSAGE_TYPE_OTHER}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.TvView.TvInputCallback void onVideoUnavailable(java.lang.String, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.TvInputManager.VIDEO_UNAVAILABLE_REASON_UNKNOWN, android.media.tv.TvInputManager.VIDEO_UNAVAILABLE_REASON_TUNING, android.media.tv.TvInputManager.VIDEO_UNAVAILABLE_REASON_WEAK_SIGNAL, android.media.tv.TvInputManager.VIDEO_UNAVAILABLE_REASON_BUFFERING, android.media.tv.TvInputManager.VIDEO_UNAVAILABLE_REASON_AUDIO_ONLY, android.media.tv.TvInputManager.VIDEO_UNAVAILABLE_REASON_NOT_CONNECTED, android.media.tv.TvInputManager.VIDEO_UNAVAILABLE_REASON_INSUFFICIENT_RESOURCE, android.media.tv.TvInputManager.VIDEO_UNAVAILABLE_REASON_CAS_INSUFFICIENT_OUTPUT_PROTECTION, android.media.tv.TvInputManager.VIDEO_UNAVAILABLE_REASON_CAS_PVR_RECORDING_NOT_ALLOWED, android.media.tv.TvInputManager.VIDEO_UNAVAILABLE_REASON_CAS_LICENSE_EXPIRED, android.media.tv.TvInputManager.VIDEO_UNAVAILABLE_REASON_CAS_NEED_ACTIVATION, android.media.tv.TvInputManager.VIDEO_UNAVAILABLE_REASON_CAS_NEED_PAIRING, android.media.tv.TvInputManager.VIDEO_UNAVAILABLE_REASON_CAS_NO_CARD, android.media.tv.TvInputManager.VIDEO_UNAVAILABLE_REASON_CAS_CARD_MUTE, android.media.tv.TvInputManager.VIDEO_UNAVAILABLE_REASON_CAS_CARD_INVALID, android.media.tv.TvInputManager.VIDEO_UNAVAILABLE_REASON_CAS_BLACKOUT, android.media.tv.TvInputManager.VIDEO_UNAVAILABLE_REASON_CAS_REBOOTING, android.media.tv.TvInputManager.VIDEO_UNAVAILABLE_REASON_CAS_UNKNOWN, android.media.tv.TvInputManager.VIDEO_UNAVAILABLE_REASON_STOPPED}" />
+    </annotation>
+  </item>
+</root>
+

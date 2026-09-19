@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+  <item name="android.media.projection.MediaProjection android.hardware.display.VirtualDisplay createVirtualDisplay(java.lang.String, int, int, int, int, android.view.Surface, android.hardware.display.VirtualDisplay.Callback, android.os.Handler) 4">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.hardware.display.DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC, android.hardware.display.DisplayManager.VIRTUAL_DISPLAY_FLAG_PRESENTATION, android.hardware.display.DisplayManager.VIRTUAL_DISPLAY_FLAG_SECURE, android.hardware.display.DisplayManager.VIRTUAL_DISPLAY_FLAG_OWN_CONTENT_ONLY, android.hardware.display.DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.media.projection.MediaProjectionConfig boolean isSourceEnabled(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.projection.MediaProjectionConfig.PROJECTION_SOURCE_DISPLAY, android.media.projection.MediaProjectionConfig.PROJECTION_SOURCE_APP, android.media.projection.MediaProjectionConfig.PROJECTION_SOURCE_APP_CONTENT}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.media.projection.MediaProjectionConfig int getInitiallySelectedSource()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.projection.MediaProjectionConfig.PROJECTION_SOURCE_DISPLAY, android.media.projection.MediaProjectionConfig.PROJECTION_SOURCE_APP, android.media.projection.MediaProjectionConfig.PROJECTION_SOURCE_APP_CONTENT}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.media.projection.MediaProjectionConfig int getProjectionSources()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.projection.MediaProjectionConfig.PROJECTION_SOURCE_DISPLAY, android.media.projection.MediaProjectionConfig.PROJECTION_SOURCE_APP, android.media.projection.MediaProjectionConfig.PROJECTION_SOURCE_APP_CONTENT}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.media.projection.MediaProjectionConfig.Builder android.media.projection.MediaProjectionConfig.Builder setInitiallySelectedSource(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.projection.MediaProjectionConfig.PROJECTION_SOURCE_DISPLAY, android.media.projection.MediaProjectionConfig.PROJECTION_SOURCE_APP, android.media.projection.MediaProjectionConfig.PROJECTION_SOURCE_APP_CONTENT}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.media.projection.MediaProjectionConfig.Builder android.media.projection.MediaProjectionConfig.Builder setSourceEnabled(int, boolean) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.projection.MediaProjectionConfig.PROJECTION_SOURCE_DISPLAY, android.media.projection.MediaProjectionConfig.PROJECTION_SOURCE_APP, android.media.projection.MediaProjectionConfig.PROJECTION_SOURCE_APP_CONTENT}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+</root>
+

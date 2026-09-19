@@ -1,0 +1,240 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+  <item name="android.hardware.display.DeviceProductInfo DeviceProductInfo(java.lang.String, java.lang.String, java.lang.String, int, int) 3">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="1990L" />
+    </annotation>
+  </item>
+  <item name="android.hardware.display.DeviceProductInfo DeviceProductInfo(java.lang.String, java.lang.String, java.lang.String, int, int) 4">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.hardware.display.DeviceProductInfo.CONNECTION_TO_SINK_UNKNOWN, android.hardware.display.DeviceProductInfo.CONNECTION_TO_SINK_BUILT_IN, android.hardware.display.DeviceProductInfo.CONNECTION_TO_SINK_DIRECT, android.hardware.display.DeviceProductInfo.CONNECTION_TO_SINK_TRANSITIVE}" />
+    </annotation>
+  </item>
+  <item name="android.hardware.display.DeviceProductInfo int getConnectionToSinkType()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.hardware.display.DeviceProductInfo.CONNECTION_TO_SINK_UNKNOWN, android.hardware.display.DeviceProductInfo.CONNECTION_TO_SINK_BUILT_IN, android.hardware.display.DeviceProductInfo.CONNECTION_TO_SINK_DIRECT, android.hardware.display.DeviceProductInfo.CONNECTION_TO_SINK_TRANSITIVE}" />
+    </annotation>
+  </item>
+  <item name="android.hardware.display.DeviceProductInfo int getManufactureWeek()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="-1L" />
+      <val name="to" val="53L" />
+    </annotation>
+  </item>
+  <item name="android.hardware.display.DeviceProductInfo int getManufactureYear()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="-1L" />
+    </annotation>
+  </item>
+  <item name="android.hardware.display.DeviceProductInfo int getModelYear()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="-1L" />
+    </annotation>
+  </item>
+  <item name="android.hardware.display.DeviceProductInfo int getVideoInputType()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.hardware.display.DeviceProductInfo.VIDEO_INPUT_TYPE_UNKNOWN, android.hardware.display.DeviceProductInfo.VIDEO_INPUT_TYPE_ANALOG, android.hardware.display.DeviceProductInfo.VIDEO_INPUT_TYPE_DIGITAL}" />
+    </annotation>
+  </item>
+  <item name="android.hardware.display.DeviceProductInfo.Builder android.hardware.display.DeviceProductInfo.Builder setConnectionToSinkType(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.hardware.display.DeviceProductInfo.CONNECTION_TO_SINK_UNKNOWN, android.hardware.display.DeviceProductInfo.CONNECTION_TO_SINK_BUILT_IN, android.hardware.display.DeviceProductInfo.CONNECTION_TO_SINK_DIRECT, android.hardware.display.DeviceProductInfo.CONNECTION_TO_SINK_TRANSITIVE}" />
+    </annotation>
+  </item>
+  <item name="android.hardware.display.DeviceProductInfo.Builder android.hardware.display.DeviceProductInfo.Builder setEdidStructureMetadata(int, int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.hardware.display.DeviceProductInfo.Builder android.hardware.display.DeviceProductInfo.Builder setEdidStructureMetadata(int, int) 1">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.hardware.display.DeviceProductInfo.Builder android.hardware.display.DeviceProductInfo.Builder setManufactureDate(int, int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="-1L" />
+      <val name="to" val="53L" />
+    </annotation>
+  </item>
+  <item name="android.hardware.display.DeviceProductInfo.Builder android.hardware.display.DeviceProductInfo.Builder setManufactureDate(int, int) 1">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="-1L" />
+    </annotation>
+  </item>
+  <item name="android.hardware.display.DeviceProductInfo.Builder android.hardware.display.DeviceProductInfo.Builder setModelYear(int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="-1L" />
+    </annotation>
+  </item>
+  <item name="android.hardware.display.DeviceProductInfo.Builder android.hardware.display.DeviceProductInfo.Builder setVideoInputType(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.hardware.display.DeviceProductInfo.VIDEO_INPUT_TYPE_UNKNOWN, android.hardware.display.DeviceProductInfo.VIDEO_INPUT_TYPE_ANALOG, android.hardware.display.DeviceProductInfo.VIDEO_INPUT_TYPE_DIGITAL}" />
+    </annotation>
+  </item>
+  <item name="android.hardware.display.DeviceProductInfo.EdidStructureMetadata int getRevision()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.hardware.display.DeviceProductInfo.EdidStructureMetadata int getVersion()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.hardware.display.DisplayManager android.hardware.display.VirtualDisplay createVirtualDisplay(java.lang.String, int, int, int, android.view.Surface, int) 1">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="1L" />
+    </annotation>
+  </item>
+  <item name="android.hardware.display.DisplayManager android.hardware.display.VirtualDisplay createVirtualDisplay(java.lang.String, int, int, int, android.view.Surface, int) 2">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="1L" />
+    </annotation>
+  </item>
+  <item name="android.hardware.display.DisplayManager android.hardware.display.VirtualDisplay createVirtualDisplay(java.lang.String, int, int, int, android.view.Surface, int) 3">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="1L" />
+    </annotation>
+  </item>
+  <item name="android.hardware.display.DisplayManager android.hardware.display.VirtualDisplay createVirtualDisplay(java.lang.String, int, int, int, android.view.Surface, int) 5">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.hardware.display.DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC, android.hardware.display.DisplayManager.VIRTUAL_DISPLAY_FLAG_PRESENTATION, android.hardware.display.DisplayManager.VIRTUAL_DISPLAY_FLAG_SECURE, android.hardware.display.DisplayManager.VIRTUAL_DISPLAY_FLAG_OWN_CONTENT_ONLY, android.hardware.display.DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.hardware.display.DisplayManager android.hardware.display.VirtualDisplay createVirtualDisplay(java.lang.String, int, int, int, android.view.Surface, int, android.hardware.display.VirtualDisplay.Callback, android.os.Handler) 1">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="1L" />
+    </annotation>
+  </item>
+  <item name="android.hardware.display.DisplayManager android.hardware.display.VirtualDisplay createVirtualDisplay(java.lang.String, int, int, int, android.view.Surface, int, android.hardware.display.VirtualDisplay.Callback, android.os.Handler) 2">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="1L" />
+    </annotation>
+  </item>
+  <item name="android.hardware.display.DisplayManager android.hardware.display.VirtualDisplay createVirtualDisplay(java.lang.String, int, int, int, android.view.Surface, int, android.hardware.display.VirtualDisplay.Callback, android.os.Handler) 3">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="1L" />
+    </annotation>
+  </item>
+  <item name="android.hardware.display.DisplayManager android.hardware.display.VirtualDisplay createVirtualDisplay(java.lang.String, int, int, int, android.view.Surface, int, android.hardware.display.VirtualDisplay.Callback, android.os.Handler) 5">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.hardware.display.DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC, android.hardware.display.DisplayManager.VIRTUAL_DISPLAY_FLAG_PRESENTATION, android.hardware.display.DisplayManager.VIRTUAL_DISPLAY_FLAG_SECURE, android.hardware.display.DisplayManager.VIRTUAL_DISPLAY_FLAG_OWN_CONTENT_ONLY, android.hardware.display.DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.hardware.display.DisplayManager float getBrightness(int, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="android.hardware.display.DisplayManager.BRIGHTNESS_UNIT_PERCENTAGE" />
+    </annotation>
+  </item>
+  <item name="android.hardware.display.DisplayManager int getMatchContentFrameRateUserPreference()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.hardware.display.DisplayManager.MATCH_CONTENT_FRAMERATE_UNKNOWN, android.hardware.display.DisplayManager.MATCH_CONTENT_FRAMERATE_NEVER, android.hardware.display.DisplayManager.MATCH_CONTENT_FRAMERATE_SEAMLESSS_ONLY, android.hardware.display.DisplayManager.MATCH_CONTENT_FRAMERATE_ALWAYS}" />
+    </annotation>
+  </item>
+  <item name="android.hardware.display.DisplayManager void registerDisplayListener(java.util.concurrent.Executor, long, android.hardware.display.DisplayManager.DisplayListener) 1">
+    <annotation name="androidx.annotation.LongDef">
+      <val name="value" val="{android.hardware.display.DisplayManager.EVENT_TYPE_DISPLAY_ADDED, android.hardware.display.DisplayManager.EVENT_TYPE_DISPLAY_CHANGED, android.hardware.display.DisplayManager.EVENT_TYPE_DISPLAY_REMOVED, android.hardware.display.DisplayManager.EVENT_TYPE_DISPLAY_REFRESH_RATE, android.hardware.display.DisplayManager.EVENT_TYPE_DISPLAY_STATE, android.hardware.display.DisplayManager.EVENT_TYPE_DISPLAY_BRIGHTNESS}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.hardware.display.DisplayManager void setBrightness(int, float, int)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.WRITE_SETTINGS&quot;" />
+    </annotation>
+  </item>
+  <item name="android.hardware.display.DisplayManager void setBrightness(int, float, int) 2">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="android.hardware.display.DisplayManager.BRIGHTNESS_UNIT_PERCENTAGE" />
+    </annotation>
+  </item>
+  <item name="android.hardware.display.HdrConversionMode HdrConversionMode(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.hardware.display.HdrConversionMode.HDR_CONVERSION_PASSTHROUGH, android.hardware.display.HdrConversionMode.HDR_CONVERSION_SYSTEM, android.hardware.display.HdrConversionMode.HDR_CONVERSION_FORCE}" />
+    </annotation>
+  </item>
+  <item name="android.hardware.display.HdrConversionMode HdrConversionMode(int, int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.hardware.display.HdrConversionMode.HDR_CONVERSION_PASSTHROUGH, android.hardware.display.HdrConversionMode.HDR_CONVERSION_SYSTEM, android.hardware.display.HdrConversionMode.HDR_CONVERSION_FORCE}" />
+    </annotation>
+  </item>
+  <item name="android.hardware.display.HdrConversionMode HdrConversionMode(int, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.Display.HdrCapabilities.HDR_TYPE_INVALID, android.view.Display.HdrCapabilities.HDR_TYPE_DOLBY_VISION, android.view.Display.HdrCapabilities.HDR_TYPE_HDR10, android.view.Display.HdrCapabilities.HDR_TYPE_HLG, android.view.Display.HdrCapabilities.HDR_TYPE_HDR10_PLUS, android.view.Display.HdrCapabilities.HDR_TYPE_HLG_PLUS}" />
+    </annotation>
+  </item>
+  <item name="android.hardware.display.HdrConversionMode int getConversionMode()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.hardware.display.HdrConversionMode.HDR_CONVERSION_PASSTHROUGH, android.hardware.display.HdrConversionMode.HDR_CONVERSION_SYSTEM, android.hardware.display.HdrConversionMode.HDR_CONVERSION_FORCE}" />
+    </annotation>
+  </item>
+  <item name="android.hardware.display.HdrConversionMode int getPreferredHdrOutputType()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.Display.HdrCapabilities.HDR_TYPE_INVALID, android.view.Display.HdrCapabilities.HDR_TYPE_DOLBY_VISION, android.view.Display.HdrCapabilities.HDR_TYPE_HDR10, android.view.Display.HdrCapabilities.HDR_TYPE_HLG, android.view.Display.HdrCapabilities.HDR_TYPE_HDR10_PLUS, android.view.Display.HdrCapabilities.HDR_TYPE_HLG_PLUS}" />
+    </annotation>
+  </item>
+  <item name="android.hardware.display.VirtualDisplay void setRotation(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.Surface.ROTATION_0, android.view.Surface.ROTATION_90, android.view.Surface.ROTATION_180, android.view.Surface.ROTATION_270}" />
+    </annotation>
+  </item>
+  <item name="android.hardware.display.VirtualDisplayConfig float getDefaultBrightness()">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+      <val name="to" val="1.0" />
+    </annotation>
+  </item>
+  <item name="android.hardware.display.VirtualDisplayConfig float getDimBrightness()">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+      <val name="to" val="1.0" />
+    </annotation>
+  </item>
+  <item name="android.hardware.display.VirtualDisplayConfig.BrightnessListener void onBrightnessChanged(float) 0">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+      <val name="to" val="1.0" />
+    </annotation>
+  </item>
+  <item name="android.hardware.display.VirtualDisplayConfig.Builder Builder(java.lang.String, int, int, int) 1">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="1L" />
+    </annotation>
+  </item>
+  <item name="android.hardware.display.VirtualDisplayConfig.Builder Builder(java.lang.String, int, int, int) 2">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="1L" />
+    </annotation>
+  </item>
+  <item name="android.hardware.display.VirtualDisplayConfig.Builder Builder(java.lang.String, int, int, int) 3">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="1L" />
+    </annotation>
+  </item>
+  <item name="android.hardware.display.VirtualDisplayConfig.Builder android.hardware.display.VirtualDisplayConfig.Builder setDefaultBrightness(float) 0">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+      <val name="to" val="1.0" />
+    </annotation>
+  </item>
+  <item name="android.hardware.display.VirtualDisplayConfig.Builder android.hardware.display.VirtualDisplayConfig.Builder setDimBrightness(float) 0">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+      <val name="to" val="1.0" />
+    </annotation>
+  </item>
+  <item name="android.hardware.display.VirtualDisplayConfig.Builder android.hardware.display.VirtualDisplayConfig.Builder setFlags(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.hardware.display.DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC, android.hardware.display.DisplayManager.VIRTUAL_DISPLAY_FLAG_PRESENTATION, android.hardware.display.DisplayManager.VIRTUAL_DISPLAY_FLAG_SECURE, android.hardware.display.DisplayManager.VIRTUAL_DISPLAY_FLAG_OWN_CONTENT_ONLY, android.hardware.display.DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.hardware.display.VirtualDisplayConfig.Builder android.hardware.display.VirtualDisplayConfig.Builder setRequestedRefreshRate(float) 0">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+    </annotation>
+  </item>
+</root>
+

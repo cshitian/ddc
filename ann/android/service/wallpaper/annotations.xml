@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+  <item name="android.service.wallpaper.WallpaperService android.service.wallpaper.WallpaperService.Engine onCreateEngine()">
+    <annotation name="androidx.annotation.MainThread"/>
+  </item>
+  <item name="android.service.wallpaper.WallpaperService android.service.wallpaper.WallpaperService.Engine onCreateEngine(android.app.wallpaper.WallpaperDescription)">
+    <annotation name="androidx.annotation.MainThread"/>
+  </item>
+  <item name="android.service.wallpaper.WallpaperService.Engine android.app.WallpaperColors onComputeColors()">
+    <annotation name="androidx.annotation.MainThread"/>
+  </item>
+  <item name="android.service.wallpaper.WallpaperService.Engine android.app.wallpaper.WallpaperDescription onApplyWallpaper(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.WallpaperManager.FLAG_SYSTEM, android.app.WallpaperManager.FLAG_LOCK}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.service.wallpaper.WallpaperService.Engine android.os.Bundle onCommand(java.lang.String, int, int, int, android.os.Bundle, boolean)">
+    <annotation name="androidx.annotation.MainThread"/>
+  </item>
+  <item name="android.service.wallpaper.WallpaperService.Engine int getWallpaperFlags()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.WallpaperManager.FLAG_SYSTEM, android.app.WallpaperManager.FLAG_LOCK}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.service.wallpaper.WallpaperService.Engine void onApplyWindowInsets(android.view.WindowInsets)">
+    <annotation name="androidx.annotation.MainThread"/>
+  </item>
+  <item name="android.service.wallpaper.WallpaperService.Engine void onCreate(android.view.SurfaceHolder)">
+    <annotation name="androidx.annotation.MainThread"/>
+  </item>
+  <item name="android.service.wallpaper.WallpaperService.Engine void onDesiredSizeChanged(int, int)">
+    <annotation name="androidx.annotation.MainThread"/>
+  </item>
+  <item name="android.service.wallpaper.WallpaperService.Engine void onDestroy()">
+    <annotation name="androidx.annotation.MainThread"/>
+  </item>
+  <item name="android.service.wallpaper.WallpaperService.Engine void onOffsetsChanged(float, float, float, float, int, int)">
+    <annotation name="androidx.annotation.MainThread"/>
+  </item>
+  <item name="android.service.wallpaper.WallpaperService.Engine void onSurfaceChanged(android.view.SurfaceHolder, int, int, int)">
+    <annotation name="androidx.annotation.MainThread"/>
+  </item>
+  <item name="android.service.wallpaper.WallpaperService.Engine void onSurfaceCreated(android.view.SurfaceHolder)">
+    <annotation name="androidx.annotation.MainThread"/>
+  </item>
+  <item name="android.service.wallpaper.WallpaperService.Engine void onSurfaceDestroyed(android.view.SurfaceHolder)">
+    <annotation name="androidx.annotation.MainThread"/>
+  </item>
+  <item name="android.service.wallpaper.WallpaperService.Engine void onSurfaceRedrawNeeded(android.view.SurfaceHolder)">
+    <annotation name="androidx.annotation.MainThread"/>
+  </item>
+  <item name="android.service.wallpaper.WallpaperService.Engine void onTouchEvent(android.view.MotionEvent)">
+    <annotation name="androidx.annotation.MainThread"/>
+  </item>
+  <item name="android.service.wallpaper.WallpaperService.Engine void onVisibilityChanged(boolean)">
+    <annotation name="androidx.annotation.MainThread"/>
+  </item>
+  <item name="android.service.wallpaper.WallpaperService.Engine void onWallpaperFlagsChanged(int)">
+    <annotation name="androidx.annotation.MainThread"/>
+  </item>
+  <item name="android.service.wallpaper.WallpaperService.Engine void onWallpaperFlagsChanged(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.WallpaperManager.FLAG_SYSTEM, android.app.WallpaperManager.FLAG_LOCK}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.service.wallpaper.WallpaperService.Engine void onZoomChanged(float)">
+    <annotation name="androidx.annotation.MainThread"/>
+  </item>
+  <item name="android.service.wallpaper.WallpaperService.Engine void onZoomChanged(float) 0">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+      <val name="to" val="1.0" />
+    </annotation>
+  </item>
+</root>
+

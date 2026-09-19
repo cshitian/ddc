@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+  <item name="android.service.textservice.SpellCheckerService.Session int getSupportedAttributes()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.textservice.SuggestionsInfo.RESULT_ATTR_IN_THE_DICTIONARY, android.view.textservice.SuggestionsInfo.RESULT_ATTR_LOOKS_LIKE_TYPO, android.view.textservice.SuggestionsInfo.RESULT_ATTR_HAS_RECOMMENDED_SUGGESTIONS, android.view.textservice.SuggestionsInfo.RESULT_ATTR_LOOKS_LIKE_GRAMMAR_ERROR, android.view.textservice.SuggestionsInfo.RESULT_ATTR_DONT_SHOW_UI_FOR_SUGGESTIONS}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+</root>
+

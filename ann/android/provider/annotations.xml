@@ -1,0 +1,223 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<root>
+  <item name="android.provider.BlockedNumberContract boolean isBlocked(android.content.Context, java.lang.String)">
+    <annotation name="androidx.annotation.WorkerThread" />
+  </item>
+  <item name="android.provider.BlockedNumberContract int unblock(android.content.Context, java.lang.String)">
+    <annotation name="androidx.annotation.WorkerThread" />
+  </item>
+  <item name="android.provider.CloudMediaProvider.CloudMediaSurfaceStateChangedCallback void setPlaybackState(int, int, android.os.Bundle) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.provider.CloudMediaProvider.CloudMediaSurfaceStateChangedCallback.PLAYBACK_STATE_BUFFERING, android.provider.CloudMediaProvider.CloudMediaSurfaceStateChangedCallback.PLAYBACK_STATE_READY, android.provider.CloudMediaProvider.CloudMediaSurfaceStateChangedCallback.PLAYBACK_STATE_STARTED, android.provider.CloudMediaProvider.CloudMediaSurfaceStateChangedCallback.PLAYBACK_STATE_PAUSED, android.provider.CloudMediaProvider.CloudMediaSurfaceStateChangedCallback.PLAYBACK_STATE_COMPLETED, android.provider.CloudMediaProvider.CloudMediaSurfaceStateChangedCallback.PLAYBACK_STATE_ERROR_RETRIABLE_FAILURE, android.provider.CloudMediaProvider.CloudMediaSurfaceStateChangedCallback.PLAYBACK_STATE_ERROR_PERMANENT_FAILURE, android.provider.CloudMediaProvider.CloudMediaSurfaceStateChangedCallback.PLAYBACK_STATE_MEDIA_SIZE_CHANGED}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.provider.ContactsContract.RawContacts.DefaultAccount.DefaultAccountAndState int getState()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.provider.ContactsContract.RawContacts.DefaultAccount.DefaultAccountAndState.DEFAULT_ACCOUNT_STATE_NOT_SET, android.provider.ContactsContract.RawContacts.DefaultAccount.DefaultAccountAndState.DEFAULT_ACCOUNT_STATE_LOCAL, android.provider.ContactsContract.RawContacts.DefaultAccount.DefaultAccountAndState.DEFAULT_ACCOUNT_STATE_CLOUD, android.provider.ContactsContract.RawContacts.DefaultAccount.DefaultAccountAndState.DEFAULT_ACCOUNT_STATE_SIM}" />
+    </annotation>
+  </item>
+  <item name="android.provider.ContactsContract.Settings long getAccountAttributes(android.content.ContentResolver, android.accounts.Account, java.lang.String)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.READ_CONTACTS&quot;" />
+    </annotation>
+    <annotation name="androidx.annotation.LongDef">
+      <val name="value" val="{android.provider.ContactsContract.Settings.AccountAttributes.ATTRIBUTE_DATA_ORIGIN_LOCAL, android.provider.ContactsContract.Settings.AccountAttributes.ATTRIBUTE_DATA_ORIGIN_SIM, android.provider.ContactsContract.Settings.AccountAttributes.ATTRIBUTE_DATA_ORIGIN_CLOUD, android.provider.ContactsContract.Settings.AccountAttributes.ATTRIBUTE_SYNC_MODE_UP_SYNC, android.provider.ContactsContract.Settings.AccountAttributes.ATTRIBUTE_SYNC_MODE_DOWN_SYNC, android.provider.ContactsContract.Settings.AccountAttributes.ATTRIBUTE_DATA_TYPE_CUSTOM_DECLARED}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.provider.ContactsContract.Settings void resetAccountAttributes(android.content.ContentResolver, android.accounts.Account, java.lang.String)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.WRITE_CONTACTS&quot;" />
+    </annotation>
+  </item>
+  <item name="android.provider.ContactsContract.Settings void setAccountAttributes(android.content.ContentResolver, android.accounts.Account, java.lang.String, long)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.WRITE_CONTACTS&quot;" />
+    </annotation>
+  </item>
+  <item name="android.provider.ContactsContract.Settings void setAccountAttributes(android.content.ContentResolver, android.accounts.Account, java.lang.String, long) 3">
+    <annotation name="androidx.annotation.LongDef">
+      <val name="value" val="{android.provider.ContactsContract.Settings.AccountAttributes.ATTRIBUTE_DATA_ORIGIN_LOCAL, android.provider.ContactsContract.Settings.AccountAttributes.ATTRIBUTE_DATA_ORIGIN_SIM, android.provider.ContactsContract.Settings.AccountAttributes.ATTRIBUTE_DATA_ORIGIN_CLOUD, android.provider.ContactsContract.Settings.AccountAttributes.ATTRIBUTE_SYNC_MODE_UP_SYNC, android.provider.ContactsContract.Settings.AccountAttributes.ATTRIBUTE_SYNC_MODE_DOWN_SYNC, android.provider.ContactsContract.Settings.AccountAttributes.ATTRIBUTE_DATA_TYPE_CUSTOM_DECLARED}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.provider.DocumentsProvider android.net.Uri canonicalize(android.net.Uri)">
+    <annotation name="androidx.annotation.CallSuper" />
+  </item>
+  <item name="android.provider.DocumentsProvider android.os.Bundle call(java.lang.String, java.lang.String, android.os.Bundle)">
+    <annotation name="androidx.annotation.CallSuper" />
+  </item>
+  <item name="android.provider.E2eeContactKeysManager android.provider.E2eeContactKeysManager.E2eeContactKey getE2eeContactKey(java.lang.String, java.lang.String, java.lang.String)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.READ_CONTACTS&quot;" />
+    </annotation>
+  </item>
+  <item name="android.provider.E2eeContactKeysManager android.provider.E2eeContactKeysManager.E2eeSelfKey getE2eeSelfKey(java.lang.String, java.lang.String)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.READ_CONTACTS&quot;" />
+    </annotation>
+  </item>
+  <item name="android.provider.E2eeContactKeysManager boolean removeE2eeContactKey(java.lang.String, java.lang.String, java.lang.String)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.WRITE_CONTACTS&quot;" />
+    </annotation>
+  </item>
+  <item name="android.provider.E2eeContactKeysManager boolean removeE2eeSelfKey(java.lang.String, java.lang.String)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.WRITE_CONTACTS&quot;" />
+    </annotation>
+  </item>
+  <item name="android.provider.E2eeContactKeysManager boolean updateE2eeContactKeyLocalVerificationState(java.lang.String, java.lang.String, java.lang.String, int)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.WRITE_CONTACTS&quot;" />
+    </annotation>
+  </item>
+  <item name="android.provider.E2eeContactKeysManager boolean updateE2eeContactKeyLocalVerificationState(java.lang.String, java.lang.String, java.lang.String, int) 3">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.provider.E2eeContactKeysManager.VERIFICATION_STATE_UNVERIFIED, android.provider.E2eeContactKeysManager.VERIFICATION_STATE_VERIFICATION_FAILED, android.provider.E2eeContactKeysManager.VERIFICATION_STATE_VERIFIED}" />
+    </annotation>
+  </item>
+  <item name="android.provider.E2eeContactKeysManager boolean updateE2eeContactKeyRemoteVerificationState(java.lang.String, java.lang.String, java.lang.String, int)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.WRITE_CONTACTS&quot;" />
+    </annotation>
+  </item>
+  <item name="android.provider.E2eeContactKeysManager boolean updateE2eeContactKeyRemoteVerificationState(java.lang.String, java.lang.String, java.lang.String, int) 3">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.provider.E2eeContactKeysManager.VERIFICATION_STATE_UNVERIFIED, android.provider.E2eeContactKeysManager.VERIFICATION_STATE_VERIFICATION_FAILED, android.provider.E2eeContactKeysManager.VERIFICATION_STATE_VERIFIED}" />
+    </annotation>
+  </item>
+  <item name="android.provider.E2eeContactKeysManager boolean updateE2eeSelfKeyRemoteVerificationState(java.lang.String, java.lang.String, int)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.WRITE_CONTACTS&quot;" />
+    </annotation>
+  </item>
+  <item name="android.provider.E2eeContactKeysManager boolean updateE2eeSelfKeyRemoteVerificationState(java.lang.String, java.lang.String, int) 2">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.provider.E2eeContactKeysManager.VERIFICATION_STATE_UNVERIFIED, android.provider.E2eeContactKeysManager.VERIFICATION_STATE_VERIFICATION_FAILED, android.provider.E2eeContactKeysManager.VERIFICATION_STATE_VERIFIED}" />
+    </annotation>
+  </item>
+  <item name="android.provider.E2eeContactKeysManager boolean updateOrInsertE2eeSelfKey(java.lang.String, java.lang.String, byte[])">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.WRITE_CONTACTS&quot;" />
+    </annotation>
+  </item>
+  <item name="android.provider.E2eeContactKeysManager java.util.List&lt;android.provider.E2eeContactKeysManager.E2eeContactKey&gt; getAllE2eeContactKeys(java.lang.String)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.READ_CONTACTS&quot;" />
+    </annotation>
+  </item>
+  <item name="android.provider.E2eeContactKeysManager java.util.List&lt;android.provider.E2eeContactKeysManager.E2eeContactKey&gt; getOwnerE2eeContactKeys(java.lang.String)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.READ_CONTACTS&quot;" />
+    </annotation>
+  </item>
+  <item name="android.provider.E2eeContactKeysManager java.util.List&lt;android.provider.E2eeContactKeysManager.E2eeSelfKey&gt; getAllE2eeSelfKeys()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.READ_CONTACTS&quot;" />
+    </annotation>
+  </item>
+  <item name="android.provider.E2eeContactKeysManager java.util.List&lt;android.provider.E2eeContactKeysManager.E2eeSelfKey&gt; getOwnerE2eeSelfKeys()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.READ_CONTACTS&quot;" />
+    </annotation>
+  </item>
+  <item name="android.provider.E2eeContactKeysManager void updateOrInsertE2eeContactKey(java.lang.String, java.lang.String, java.lang.String, byte[])">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.WRITE_CONTACTS&quot;" />
+    </annotation>
+  </item>
+  <item name="android.provider.E2eeContactKeysManager.E2eeContactKey int getLocalVerificationState()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.provider.E2eeContactKeysManager.VERIFICATION_STATE_UNVERIFIED, android.provider.E2eeContactKeysManager.VERIFICATION_STATE_VERIFICATION_FAILED, android.provider.E2eeContactKeysManager.VERIFICATION_STATE_VERIFIED}" />
+    </annotation>
+  </item>
+  <item name="android.provider.E2eeContactKeysManager.E2eeContactKey int getRemoteVerificationState()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.provider.E2eeContactKeysManager.VERIFICATION_STATE_UNVERIFIED, android.provider.E2eeContactKeysManager.VERIFICATION_STATE_VERIFICATION_FAILED, android.provider.E2eeContactKeysManager.VERIFICATION_STATE_VERIFIED}" />
+    </annotation>
+  </item>
+  <item name="android.provider.E2eeContactKeysManager.E2eeSelfKey int getRemoteVerificationState()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.provider.E2eeContactKeysManager.VERIFICATION_STATE_UNVERIFIED, android.provider.E2eeContactKeysManager.VERIFICATION_STATE_VERIFICATION_FAILED, android.provider.E2eeContactKeysManager.VERIFICATION_STATE_VERIFIED}" />
+    </annotation>
+  </item>
+  <item name="android.provider.FontsContract.FontFamilyResult int getStatusCode()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.provider.FontsContract.FontFamilyResult.STATUS_OK, android.provider.FontsContract.FontFamilyResult.STATUS_WRONG_CERTIFICATES, android.provider.FontsContract.FontFamilyResult.STATUS_UNEXPECTED_DATA_PROVIDED}" />
+    </annotation>
+  </item>
+  <item name="android.provider.FontsContract.FontInfo int getTtcIndex()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.provider.FontsContract.FontInfo int getWeight()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="1L" />
+      <val name="to" val="1000L" />
+    </annotation>
+  </item>
+  <item name="android.provider.FontsContract.FontRequestCallback void onTypefaceRequestFailed(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.provider.FontsContract.FontRequestCallback.FAIL_REASON_PROVIDER_NOT_FOUND, android.provider.FontsContract.FontRequestCallback.FAIL_REASON_FONT_LOAD_ERROR, android.provider.FontsContract.FontRequestCallback.FAIL_REASON_FONT_NOT_FOUND, android.provider.FontsContract.FontRequestCallback.FAIL_REASON_FONT_UNAVAILABLE, android.provider.FontsContract.FontRequestCallback.FAIL_REASON_MALFORMED_QUERY}" />
+    </annotation>
+  </item>
+  <item name="android.provider.MediaStore QUERY_ARG_MATCH_FAVORITE">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.provider.MediaStore.MATCH_DEFAULT, android.provider.MediaStore.MATCH_INCLUDE, android.provider.MediaStore.MATCH_EXCLUDE, android.provider.MediaStore.MATCH_ONLY}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.provider.MediaStore QUERY_ARG_MATCH_PENDING">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.provider.MediaStore.MATCH_DEFAULT, android.provider.MediaStore.MATCH_INCLUDE, android.provider.MediaStore.MATCH_EXCLUDE, android.provider.MediaStore.MATCH_ONLY}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.provider.MediaStore QUERY_ARG_MATCH_TRASHED">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.provider.MediaStore.MATCH_DEFAULT, android.provider.MediaStore.MATCH_INCLUDE, android.provider.MediaStore.MATCH_EXCLUDE, android.provider.MediaStore.MATCH_ONLY}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.provider.MediaStore java.lang.String restoreFileFromTrash(android.content.ContentResolver, java.lang.String, java.lang.String)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.MANAGE_EXTERNAL_STORAGE&quot;" />
+      <val name="conditional" val="true" />
+    </annotation>
+  </item>
+  <item name="android.provider.MediaStore java.lang.String trashFile(android.content.ContentResolver, java.lang.String)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.MANAGE_EXTERNAL_STORAGE&quot;" />
+      <val name="conditional" val="true" />
+    </annotation>
+  </item>
+<item name="android.provider.SimPhonebookContract.ElementaryFiles android.net.Uri getItemUri(int, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.provider.SimPhonebookContract.ElementaryFiles.EF_UNKNOWN, android.provider.SimPhonebookContract.ElementaryFiles.EF_ADN, android.provider.SimPhonebookContract.ElementaryFiles.EF_FDN, android.provider.SimPhonebookContract.ElementaryFiles.EF_SDN}" />
+    </annotation>
+  </item>
+  <item name="android.provider.SimPhonebookContract.SimRecords android.net.Uri getContentUri(int, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.provider.SimPhonebookContract.ElementaryFiles.EF_UNKNOWN, android.provider.SimPhonebookContract.ElementaryFiles.EF_ADN, android.provider.SimPhonebookContract.ElementaryFiles.EF_FDN, android.provider.SimPhonebookContract.ElementaryFiles.EF_SDN}" />
+    </annotation>
+  </item>
+  <item name="android.provider.SimPhonebookContract.SimRecords android.net.Uri getItemUri(int, int, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.provider.SimPhonebookContract.ElementaryFiles.EF_UNKNOWN, android.provider.SimPhonebookContract.ElementaryFiles.EF_ADN, android.provider.SimPhonebookContract.ElementaryFiles.EF_FDN, android.provider.SimPhonebookContract.ElementaryFiles.EF_SDN}" />
+    </annotation>
+  </item>
+  <item name="android.provider.SimPhonebookContract.SimRecords android.net.Uri getItemUri(int, int, int) 2">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="1L" />
+    </annotation>
+  </item>
+  <item name="android.provider.SimPhonebookContract.SimRecords int getEncodedNameLength(android.content.ContentResolver, java.lang.String)">
+    <annotation name="androidx.annotation.WorkerThread" />
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+</root>

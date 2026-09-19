@@ -1,0 +1,201 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+  <item name="android.net.wifi.rtt.PasnConfig int getBaseAkms()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.wifi.rtt.PasnConfig.AKM_NONE, android.net.wifi.rtt.PasnConfig.AKM_PASN, android.net.wifi.rtt.PasnConfig.AKM_SAE, android.net.wifi.rtt.PasnConfig.AKM_FT_EAP_SHA256, android.net.wifi.rtt.PasnConfig.AKM_FT_PSK_SHA256, android.net.wifi.rtt.PasnConfig.AKM_FT_EAP_SHA384, android.net.wifi.rtt.PasnConfig.AKM_FT_PSK_SHA384, android.net.wifi.rtt.PasnConfig.AKM_FILS_EAP_SHA256, android.net.wifi.rtt.PasnConfig.AKM_FILS_EAP_SHA384}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.rtt.PasnConfig int getCiphers()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.wifi.rtt.PasnConfig.CIPHER_NONE, android.net.wifi.rtt.PasnConfig.CIPHER_CCMP_128, android.net.wifi.rtt.PasnConfig.CIPHER_CCMP_256, android.net.wifi.rtt.PasnConfig.CIPHER_GCMP_128, android.net.wifi.rtt.PasnConfig.CIPHER_GCMP_256}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.rtt.PasnConfig.Builder Builder(int, int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.wifi.rtt.PasnConfig.AKM_NONE, android.net.wifi.rtt.PasnConfig.AKM_PASN, android.net.wifi.rtt.PasnConfig.AKM_SAE, android.net.wifi.rtt.PasnConfig.AKM_FT_EAP_SHA256, android.net.wifi.rtt.PasnConfig.AKM_FT_PSK_SHA256, android.net.wifi.rtt.PasnConfig.AKM_FT_EAP_SHA384, android.net.wifi.rtt.PasnConfig.AKM_FT_PSK_SHA384, android.net.wifi.rtt.PasnConfig.AKM_FILS_EAP_SHA256, android.net.wifi.rtt.PasnConfig.AKM_FILS_EAP_SHA384}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.rtt.PasnConfig.Builder Builder(int, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.wifi.rtt.PasnConfig.CIPHER_NONE, android.net.wifi.rtt.PasnConfig.CIPHER_CCMP_128, android.net.wifi.rtt.PasnConfig.CIPHER_CCMP_256, android.net.wifi.rtt.PasnConfig.CIPHER_GCMP_128, android.net.wifi.rtt.PasnConfig.CIPHER_GCMP_256}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.rtt.PasnConfig.Builder android.net.wifi.rtt.PasnConfig.Builder setPmk(byte[]) 0">
+    <annotation name="androidx.annotation.Size">
+      <val name="value" val="32L" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.rtt.PasnConfig.Builder android.net.wifi.rtt.PasnConfig.Builder setProximityDetectionSeekerDeviceIdentityKey(byte[]) 0">
+    <annotation name="androidx.annotation.Size">
+      <val name="value" val="16L" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.rtt.RangingRequest int getSecurityMode()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.wifi.rtt.RangingRequest.SECURITY_MODE_OPEN, android.net.wifi.rtt.RangingRequest.SECURITY_MODE_OPPORTUNISTIC, android.net.wifi.rtt.RangingRequest.SECURITY_MODE_SECURE_AUTH}" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.rtt.RangingRequest.Builder android.net.wifi.rtt.RangingRequest.Builder setSecurityMode(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.wifi.rtt.RangingRequest.SECURITY_MODE_OPEN, android.net.wifi.rtt.RangingRequest.SECURITY_MODE_OPPORTUNISTIC, android.net.wifi.rtt.RangingRequest.SECURITY_MODE_SECURE_AUTH}" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.rtt.RangingResult int getMeasurementBandwidth()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.wifi.ScanResult.CHANNEL_WIDTH_20MHZ, android.net.wifi.ScanResult.CHANNEL_WIDTH_40MHZ, android.net.wifi.ScanResult.CHANNEL_WIDTH_80MHZ, android.net.wifi.ScanResult.CHANNEL_WIDTH_160MHZ, android.net.wifi.ScanResult.CHANNEL_WIDTH_80MHZ_PLUS_MHZ, android.net.wifi.ScanResult.CHANNEL_WIDTH_320MHZ}" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.rtt.RangingResult int getRetryAfterDurationMillis()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.rtt.RangingResult int getSecureHeLtfProtocolVersion()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+      <val name="to" val="7L" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.rtt.RangingResult int getStatus()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.wifi.rtt.RangingResult.STATUS_SUCCESS, android.net.wifi.rtt.RangingResult.STATUS_FAIL, android.net.wifi.rtt.RangingResult.STATUS_RESPONDER_DOES_NOT_SUPPORT_IEEE80211MC, android.net.wifi.rtt.RangingResult.STATUS_BUSY_TRY_LATER}" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.rtt.RangingResult.Builder android.net.wifi.rtt.RangingResult.Builder setAvailabilityWindowDurationMillis(long) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.rtt.RangingResult.Builder android.net.wifi.rtt.RangingResult.Builder setMeasurementBandwidth(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.wifi.ScanResult.CHANNEL_WIDTH_20MHZ, android.net.wifi.ScanResult.CHANNEL_WIDTH_40MHZ, android.net.wifi.ScanResult.CHANNEL_WIDTH_80MHZ, android.net.wifi.ScanResult.CHANNEL_WIDTH_160MHZ, android.net.wifi.ScanResult.CHANNEL_WIDTH_80MHZ_PLUS_MHZ, android.net.wifi.ScanResult.CHANNEL_WIDTH_320MHZ}" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.rtt.RangingResult.Builder android.net.wifi.rtt.RangingResult.Builder setNominalTimeMillis(long) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.rtt.RangingResult.Builder android.net.wifi.rtt.RangingResult.Builder setNumNtbRepetitionsPerMeasurement(int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.rtt.RangingResult.Builder android.net.wifi.rtt.RangingResult.Builder setRetryAfterDurationMillis(int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.rtt.RangingResult.Builder android.net.wifi.rtt.RangingResult.Builder setSecureHeLtfProtocolVersion(int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+      <val name="to" val="7L" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.rtt.RangingResult.Builder android.net.wifi.rtt.RangingResult.Builder setStatus(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.wifi.rtt.RangingResult.STATUS_SUCCESS, android.net.wifi.rtt.RangingResult.STATUS_FAIL, android.net.wifi.rtt.RangingResult.STATUS_RESPONDER_DOES_NOT_SUPPORT_IEEE80211MC, android.net.wifi.rtt.RangingResult.STATUS_BUSY_TRY_LATER}" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.rtt.RangingResultCallback void onRangingFailure(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.wifi.rtt.RangingResultCallback.STATUS_CODE_FAIL, android.net.wifi.rtt.RangingResultCallback.STATUS_CODE_FAIL_RTT_NOT_AVAILABLE}" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.rtt.ResponderConfig int getCenterFreq0Mhz()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.rtt.ResponderConfig int getCenterFreq1Mhz()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.rtt.ResponderConfig int getChannelWidth()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.wifi.ScanResult.CHANNEL_WIDTH_20MHZ, android.net.wifi.ScanResult.CHANNEL_WIDTH_40MHZ, android.net.wifi.ScanResult.CHANNEL_WIDTH_80MHZ, android.net.wifi.ScanResult.CHANNEL_WIDTH_160MHZ, android.net.wifi.ScanResult.CHANNEL_WIDTH_80MHZ_PLUS_MHZ, android.net.wifi.ScanResult.CHANNEL_WIDTH_320MHZ}" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.rtt.ResponderConfig int getFrequencyMhz()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.rtt.ResponderConfig int getPreamble()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.wifi.ScanResult.PREAMBLE_LEGACY, android.net.wifi.ScanResult.PREAMBLE_HT, android.net.wifi.ScanResult.PREAMBLE_VHT, android.net.wifi.ScanResult.PREAMBLE_HE, android.net.wifi.ScanResult.PREAMBLE_EHT}" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.rtt.ResponderConfig int getResponderType()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.wifi.rtt.ResponderConfig.RESPONDER_AP, android.net.wifi.rtt.ResponderConfig.RESPONDER_STA}" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.rtt.ResponderConfig.Builder android.net.wifi.rtt.ResponderConfig.Builder setCenterFreq0Mhz(int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.rtt.ResponderConfig.Builder android.net.wifi.rtt.ResponderConfig.Builder setCenterFreq1Mhz(int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.rtt.ResponderConfig.Builder android.net.wifi.rtt.ResponderConfig.Builder setChannelWidth(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.wifi.ScanResult.CHANNEL_WIDTH_20MHZ, android.net.wifi.ScanResult.CHANNEL_WIDTH_40MHZ, android.net.wifi.ScanResult.CHANNEL_WIDTH_80MHZ, android.net.wifi.ScanResult.CHANNEL_WIDTH_160MHZ, android.net.wifi.ScanResult.CHANNEL_WIDTH_80MHZ_PLUS_MHZ, android.net.wifi.ScanResult.CHANNEL_WIDTH_320MHZ}" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.rtt.ResponderConfig.Builder android.net.wifi.rtt.ResponderConfig.Builder setFrequencyMhz(int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.rtt.ResponderConfig.Builder android.net.wifi.rtt.ResponderConfig.Builder setPreamble(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.wifi.ScanResult.PREAMBLE_LEGACY, android.net.wifi.ScanResult.PREAMBLE_HT, android.net.wifi.ScanResult.PREAMBLE_VHT, android.net.wifi.ScanResult.PREAMBLE_HE, android.net.wifi.ScanResult.PREAMBLE_EHT}" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.rtt.ResponderConfig.Builder android.net.wifi.rtt.ResponderConfig.Builder setResponderType(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.wifi.rtt.ResponderConfig.RESPONDER_AP, android.net.wifi.rtt.ResponderConfig.RESPONDER_STA}" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.rtt.ResponderLocation int getAltitudeType()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.wifi.rtt.ResponderLocation.ALTITUDE_UNDEFINED, android.net.wifi.rtt.ResponderLocation.ALTITUDE_METERS, android.net.wifi.rtt.ResponderLocation.ALTITUDE_FLOORS}" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.rtt.ResponderLocation int getDatum()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.wifi.rtt.ResponderLocation.DATUM_UNDEFINED, android.net.wifi.rtt.ResponderLocation.DATUM_WGS84, android.net.wifi.rtt.ResponderLocation.DATUM_NAD83_NAV88, android.net.wifi.rtt.ResponderLocation.DATUM_NAD83_MLLW}" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.rtt.ResponderLocation int getExpectedToMove()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.wifi.rtt.ResponderLocation.LOCATION_FIXED, android.net.wifi.rtt.ResponderLocation.LOCATION_VARIABLE, android.net.wifi.rtt.ResponderLocation.LOCATION_MOVEMENT_UNKNOWN, android.net.wifi.rtt.ResponderLocation.LOCATION_RESERVED}" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.rtt.WifiRttManager">
+    <annotation name="androidx.annotation.RestrictedForEnvironment">
+      <val name="environments" val="&quot;SDK Runtime&quot;" />
+      <val name="from" val="34" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.rtt.WifiRttManager android.os.Bundle getRttCharacteristics()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.ACCESS_WIFI_STATE&quot;" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.rtt.WifiRttManager void startRanging(android.net.wifi.rtt.RangingRequest, java.util.concurrent.Executor, android.net.wifi.rtt.RangingResultCallback)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="allOf" val="{&quot;android.permission.ACCESS_FINE_LOCATION&quot;, &quot;android.permission.CHANGE_WIFI_STATE&quot;, &quot;android.permission.ACCESS_WIFI_STATE&quot;, &quot;android.permission.NEARBY_WIFI_DEVICES&quot;}" />
+    </annotation>
+  </item>
+</root>
+

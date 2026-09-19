@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+  <item name="android.speech.ModelDownloadListener void onError(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.speech.SpeechRecognizer.ERROR_NETWORK_TIMEOUT, android.speech.SpeechRecognizer.ERROR_NETWORK, android.speech.SpeechRecognizer.ERROR_AUDIO, android.speech.SpeechRecognizer.ERROR_SERVER, android.speech.SpeechRecognizer.ERROR_CLIENT, android.speech.SpeechRecognizer.ERROR_SPEECH_TIMEOUT, android.speech.SpeechRecognizer.ERROR_NO_MATCH, android.speech.SpeechRecognizer.ERROR_RECOGNIZER_BUSY, android.speech.SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS, android.speech.SpeechRecognizer.ERROR_TOO_MANY_REQUESTS, android.speech.SpeechRecognizer.ERROR_SERVER_DISCONNECTED, android.speech.SpeechRecognizer.ERROR_LANGUAGE_NOT_SUPPORTED, android.speech.SpeechRecognizer.ERROR_LANGUAGE_UNAVAILABLE, android.speech.SpeechRecognizer.ERROR_CANNOT_CHECK_SUPPORT, android.speech.SpeechRecognizer.ERROR_CANNOT_LISTEN_TO_DOWNLOAD_EVENTS}" />
+    </annotation>
+  </item>
+  <item name="android.speech.RecognitionListener void onError(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.speech.SpeechRecognizer.ERROR_NETWORK_TIMEOUT, android.speech.SpeechRecognizer.ERROR_NETWORK, android.speech.SpeechRecognizer.ERROR_AUDIO, android.speech.SpeechRecognizer.ERROR_SERVER, android.speech.SpeechRecognizer.ERROR_CLIENT, android.speech.SpeechRecognizer.ERROR_SPEECH_TIMEOUT, android.speech.SpeechRecognizer.ERROR_NO_MATCH, android.speech.SpeechRecognizer.ERROR_RECOGNIZER_BUSY, android.speech.SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS, android.speech.SpeechRecognizer.ERROR_TOO_MANY_REQUESTS, android.speech.SpeechRecognizer.ERROR_SERVER_DISCONNECTED, android.speech.SpeechRecognizer.ERROR_LANGUAGE_NOT_SUPPORTED, android.speech.SpeechRecognizer.ERROR_LANGUAGE_UNAVAILABLE, android.speech.SpeechRecognizer.ERROR_CANNOT_CHECK_SUPPORT, android.speech.SpeechRecognizer.ERROR_CANNOT_LISTEN_TO_DOWNLOAD_EVENTS}" />
+    </annotation>
+  </item>
+  <item name="android.speech.RecognitionPart int getConfidenceLevel()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.speech.RecognitionPart.CONFIDENCE_LEVEL_UNKNOWN, android.speech.RecognitionPart.CONFIDENCE_LEVEL_LOW, android.speech.RecognitionPart.CONFIDENCE_LEVEL_MEDIUM_LOW, android.speech.RecognitionPart.CONFIDENCE_LEVEL_MEDIUM, android.speech.RecognitionPart.CONFIDENCE_LEVEL_MEDIUM_HIGH, android.speech.RecognitionPart.CONFIDENCE_LEVEL_HIGH}" />
+    </annotation>
+  </item>
+  <item name="android.speech.RecognitionPart.Builder android.speech.RecognitionPart.Builder setConfidenceLevel(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.speech.RecognitionPart.CONFIDENCE_LEVEL_UNKNOWN, android.speech.RecognitionPart.CONFIDENCE_LEVEL_LOW, android.speech.RecognitionPart.CONFIDENCE_LEVEL_MEDIUM_LOW, android.speech.RecognitionPart.CONFIDENCE_LEVEL_MEDIUM, android.speech.RecognitionPart.CONFIDENCE_LEVEL_MEDIUM_HIGH, android.speech.RecognitionPart.CONFIDENCE_LEVEL_HIGH}" />
+    </annotation>
+  </item>
+  <item name="android.speech.RecognitionService.Callback void error(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.speech.SpeechRecognizer.ERROR_NETWORK_TIMEOUT, android.speech.SpeechRecognizer.ERROR_NETWORK, android.speech.SpeechRecognizer.ERROR_AUDIO, android.speech.SpeechRecognizer.ERROR_SERVER, android.speech.SpeechRecognizer.ERROR_CLIENT, android.speech.SpeechRecognizer.ERROR_SPEECH_TIMEOUT, android.speech.SpeechRecognizer.ERROR_NO_MATCH, android.speech.SpeechRecognizer.ERROR_RECOGNIZER_BUSY, android.speech.SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS, android.speech.SpeechRecognizer.ERROR_TOO_MANY_REQUESTS, android.speech.SpeechRecognizer.ERROR_SERVER_DISCONNECTED, android.speech.SpeechRecognizer.ERROR_LANGUAGE_NOT_SUPPORTED, android.speech.SpeechRecognizer.ERROR_LANGUAGE_UNAVAILABLE, android.speech.SpeechRecognizer.ERROR_CANNOT_CHECK_SUPPORT, android.speech.SpeechRecognizer.ERROR_CANNOT_LISTEN_TO_DOWNLOAD_EVENTS}" />
+    </annotation>
+  </item>
+  <item name="android.speech.RecognitionService.SupportCallback void onError(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.speech.SpeechRecognizer.ERROR_NETWORK_TIMEOUT, android.speech.SpeechRecognizer.ERROR_NETWORK, android.speech.SpeechRecognizer.ERROR_AUDIO, android.speech.SpeechRecognizer.ERROR_SERVER, android.speech.SpeechRecognizer.ERROR_CLIENT, android.speech.SpeechRecognizer.ERROR_SPEECH_TIMEOUT, android.speech.SpeechRecognizer.ERROR_NO_MATCH, android.speech.SpeechRecognizer.ERROR_RECOGNIZER_BUSY, android.speech.SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS, android.speech.SpeechRecognizer.ERROR_TOO_MANY_REQUESTS, android.speech.SpeechRecognizer.ERROR_SERVER_DISCONNECTED, android.speech.SpeechRecognizer.ERROR_LANGUAGE_NOT_SUPPORTED, android.speech.SpeechRecognizer.ERROR_LANGUAGE_UNAVAILABLE, android.speech.SpeechRecognizer.ERROR_CANNOT_CHECK_SUPPORT, android.speech.SpeechRecognizer.ERROR_CANNOT_LISTEN_TO_DOWNLOAD_EVENTS}" />
+    </annotation>
+  </item>
+  <item name="android.speech.RecognitionSupportCallback void onError(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.speech.SpeechRecognizer.ERROR_NETWORK_TIMEOUT, android.speech.SpeechRecognizer.ERROR_NETWORK, android.speech.SpeechRecognizer.ERROR_AUDIO, android.speech.SpeechRecognizer.ERROR_SERVER, android.speech.SpeechRecognizer.ERROR_CLIENT, android.speech.SpeechRecognizer.ERROR_SPEECH_TIMEOUT, android.speech.SpeechRecognizer.ERROR_NO_MATCH, android.speech.SpeechRecognizer.ERROR_RECOGNIZER_BUSY, android.speech.SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS, android.speech.SpeechRecognizer.ERROR_TOO_MANY_REQUESTS, android.speech.SpeechRecognizer.ERROR_SERVER_DISCONNECTED, android.speech.SpeechRecognizer.ERROR_LANGUAGE_NOT_SUPPORTED, android.speech.SpeechRecognizer.ERROR_LANGUAGE_UNAVAILABLE, android.speech.SpeechRecognizer.ERROR_CANNOT_CHECK_SUPPORT, android.speech.SpeechRecognizer.ERROR_CANNOT_LISTEN_TO_DOWNLOAD_EVENTS}" />
+    </annotation>
+  </item>
+  <item name="android.speech.SpeechRecognizer android.speech.SpeechRecognizer createOnDeviceSpeechRecognizer(android.content.Context)">
+    <annotation name="androidx.annotation.MainThread"/>
+  </item>
+  <item name="android.speech.SpeechRecognizer android.speech.SpeechRecognizer createSpeechRecognizer(android.content.Context)">
+    <annotation name="androidx.annotation.MainThread"/>
+  </item>
+  <item name="android.speech.SpeechRecognizer android.speech.SpeechRecognizer createSpeechRecognizer(android.content.Context, android.content.ComponentName)">
+    <annotation name="androidx.annotation.MainThread"/>
+  </item>
+  <item name="android.speech.SpeechRecognizer void cancel()">
+    <annotation name="androidx.annotation.MainThread"/>
+  </item>
+  <item name="android.speech.SpeechRecognizer void setRecognitionListener(android.speech.RecognitionListener)">
+    <annotation name="androidx.annotation.MainThread"/>
+  </item>
+  <item name="android.speech.SpeechRecognizer void startListening(android.content.Intent)">
+    <annotation name="androidx.annotation.MainThread"/>
+  </item>
+  <item name="android.speech.SpeechRecognizer void stopListening()">
+    <annotation name="androidx.annotation.MainThread"/>
+  </item>
+</root>
+

@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+  <item name="android.adservices.adselection.AdSelectionManager void getAdSelectionData(android.adservices.adselection.GetAdSelectionDataRequest, java.util.concurrent.Executor, android.os.OutcomeReceiver&lt;android.adservices.adselection.GetAdSelectionDataOutcome,java.lang.Exception&gt;)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="anyOf" val="{&quot;android.permission.ACCESS_ADSERVICES_CUSTOM_AUDIENCE&quot;, &quot;android.permission.ACCESS_ADSERVICES_PROTECTED_SIGNALS&quot;, &quot;android.permission.ACCESS_ADSERVICES_AD_SELECTION&quot;}" />
+    </annotation>
+  </item>
+  <item name="android.adservices.adselection.AdSelectionManager void persistAdSelectionResult(android.adservices.adselection.PersistAdSelectionResultRequest, java.util.concurrent.Executor, android.os.OutcomeReceiver&lt;android.adservices.adselection.AdSelectionOutcome,java.lang.Exception&gt;)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="anyOf" val="{&quot;android.permission.ACCESS_ADSERVICES_CUSTOM_AUDIENCE&quot;, &quot;android.permission.ACCESS_ADSERVICES_PROTECTED_SIGNALS&quot;, &quot;android.permission.ACCESS_ADSERVICES_AD_SELECTION&quot;}" />
+    </annotation>
+  </item>
+  <item name="android.adservices.adselection.AdSelectionManager void reportEvent(android.adservices.adselection.ReportEventRequest, java.util.concurrent.Executor, android.os.OutcomeReceiver&lt;java.lang.Object,java.lang.Exception&gt;)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="anyOf" val="{&quot;android.permission.ACCESS_ADSERVICES_CUSTOM_AUDIENCE&quot;, &quot;android.permission.ACCESS_ADSERVICES_PROTECTED_SIGNALS&quot;, &quot;android.permission.ACCESS_ADSERVICES_AD_SELECTION&quot;}" />
+    </annotation>
+  </item>
+  <item name="android.adservices.adselection.AdSelectionManager void reportImpression(android.adservices.adselection.ReportImpressionRequest, java.util.concurrent.Executor, android.os.OutcomeReceiver&lt;java.lang.Object,java.lang.Exception&gt;)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="anyOf" val="{&quot;android.permission.ACCESS_ADSERVICES_CUSTOM_AUDIENCE&quot;, &quot;android.permission.ACCESS_ADSERVICES_PROTECTED_SIGNALS&quot;, &quot;android.permission.ACCESS_ADSERVICES_AD_SELECTION&quot;}" />
+    </annotation>
+  </item>
+  <item name="android.adservices.adselection.AdSelectionManager void selectAds(android.adservices.adselection.AdSelectionConfig, java.util.concurrent.Executor, android.os.OutcomeReceiver&lt;android.adservices.adselection.AdSelectionOutcome,java.lang.Exception&gt;)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="anyOf" val="{&quot;android.permission.ACCESS_ADSERVICES_CUSTOM_AUDIENCE&quot;, &quot;android.permission.ACCESS_ADSERVICES_PROTECTED_SIGNALS&quot;, &quot;android.permission.ACCESS_ADSERVICES_AD_SELECTION&quot;}" />
+    </annotation>
+  </item>
+  <item name="android.adservices.adselection.AdSelectionManager void selectAds(android.adservices.adselection.AdSelectionFromOutcomesConfig, java.util.concurrent.Executor, android.os.OutcomeReceiver&lt;android.adservices.adselection.AdSelectionOutcome,java.lang.Exception&gt;)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="anyOf" val="{&quot;android.permission.ACCESS_ADSERVICES_CUSTOM_AUDIENCE&quot;, &quot;android.permission.ACCESS_ADSERVICES_PROTECTED_SIGNALS&quot;, &quot;android.permission.ACCESS_ADSERVICES_AD_SELECTION&quot;}" />
+    </annotation>
+  </item>
+  <item name="android.adservices.adselection.AdSelectionManager void setAppInstallAdvertisers(android.adservices.adselection.SetAppInstallAdvertisersRequest, java.util.concurrent.Executor, android.os.OutcomeReceiver&lt;java.lang.Object,java.lang.Exception&gt;)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="anyOf" val="{&quot;android.permission.ACCESS_ADSERVICES_CUSTOM_AUDIENCE&quot;, &quot;android.permission.ACCESS_ADSERVICES_PROTECTED_SIGNALS&quot;, &quot;android.permission.ACCESS_ADSERVICES_AD_SELECTION&quot;}" />
+    </annotation>
+  </item>
+  <item name="android.adservices.adselection.AdSelectionManager void updateAdCounterHistogram(android.adservices.adselection.UpdateAdCounterHistogramRequest, java.util.concurrent.Executor, android.os.OutcomeReceiver&lt;java.lang.Object,java.lang.Exception&gt;)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="anyOf" val="{&quot;android.permission.ACCESS_ADSERVICES_CUSTOM_AUDIENCE&quot;, &quot;android.permission.ACCESS_ADSERVICES_PROTECTED_SIGNALS&quot;, &quot;android.permission.ACCESS_ADSERVICES_AD_SELECTION&quot;}" />
+    </annotation>
+  </item>
+  <item name="android.adservices.adselection.PerBuyerConfiguration int getTargetInputSizeBytes()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+      <val name="to" val="2147483647L" />
+    </annotation>
+  </item>
+  <item name="android.adservices.adselection.PerBuyerConfiguration.Builder android.adservices.adselection.PerBuyerConfiguration.Builder setTargetInputSizeBytes(int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+      <val name="to" val="2147483647L" />
+    </annotation>
+  </item>
+  <item name="android.adservices.adselection.ReportEventRequest int getReportingDestinations()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.adservices.adselection.ReportEventRequest.FLAG_REPORTING_DESTINATION_SELLER, android.adservices.adselection.ReportEventRequest.FLAG_REPORTING_DESTINATION_BUYER, android.adservices.adselection.ReportEventRequest.FLAG_REPORTING_DESTINATION_COMPONENT_SELLER}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.adservices.adselection.ReportEventRequest.Builder Builder(long, java.lang.String, java.lang.String, int) 3">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.adservices.adselection.ReportEventRequest.FLAG_REPORTING_DESTINATION_SELLER, android.adservices.adselection.ReportEventRequest.FLAG_REPORTING_DESTINATION_BUYER, android.adservices.adselection.ReportEventRequest.FLAG_REPORTING_DESTINATION_COMPONENT_SELLER}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.adservices.adselection.ReportEventRequest.Builder android.adservices.adselection.ReportEventRequest.Builder setReportingDestinations(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.adservices.adselection.ReportEventRequest.FLAG_REPORTING_DESTINATION_SELLER, android.adservices.adselection.ReportEventRequest.FLAG_REPORTING_DESTINATION_BUYER, android.adservices.adselection.ReportEventRequest.FLAG_REPORTING_DESTINATION_COMPONENT_SELLER}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.adservices.adselection.SellerConfiguration int getMaximumPayloadSizeBytes()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="1L" />
+      <val name="to" val="2147483647L" />
+    </annotation>
+  </item>
+  <item name="android.adservices.adselection.SellerConfiguration.Builder android.adservices.adselection.SellerConfiguration.Builder setMaximumPayloadSizeBytes(int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="1L" />
+      <val name="to" val="2147483647L" />
+    </annotation>
+  </item>
+  <item name="android.adservices.adselection.TestAdSelectionManager void overrideAdSelectionConfigRemoteInfo(android.adservices.adselection.AddAdSelectionOverrideRequest, java.util.concurrent.Executor, android.os.OutcomeReceiver&lt;java.lang.Object,java.lang.Exception&gt;)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="anyOf" val="{&quot;android.permission.ACCESS_ADSERVICES_CUSTOM_AUDIENCE&quot;, &quot;android.permission.ACCESS_ADSERVICES_PROTECTED_SIGNALS&quot;, &quot;android.permission.ACCESS_ADSERVICES_AD_SELECTION&quot;}" />
+    </annotation>
+  </item>
+  <item name="android.adservices.adselection.TestAdSelectionManager void overrideAdSelectionFromOutcomesConfigRemoteInfo(android.adservices.adselection.AddAdSelectionFromOutcomesOverrideRequest, java.util.concurrent.Executor, android.os.OutcomeReceiver&lt;java.lang.Object,java.lang.Exception&gt;)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="anyOf" val="{&quot;android.permission.ACCESS_ADSERVICES_CUSTOM_AUDIENCE&quot;, &quot;android.permission.ACCESS_ADSERVICES_PROTECTED_SIGNALS&quot;, &quot;android.permission.ACCESS_ADSERVICES_AD_SELECTION&quot;}" />
+    </annotation>
+  </item>
+  <item name="android.adservices.adselection.TestAdSelectionManager void removeAdSelectionConfigRemoteInfoOverride(android.adservices.adselection.RemoveAdSelectionOverrideRequest, java.util.concurrent.Executor, android.os.OutcomeReceiver&lt;java.lang.Object,java.lang.Exception&gt;)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="anyOf" val="{&quot;android.permission.ACCESS_ADSERVICES_CUSTOM_AUDIENCE&quot;, &quot;android.permission.ACCESS_ADSERVICES_PROTECTED_SIGNALS&quot;, &quot;android.permission.ACCESS_ADSERVICES_AD_SELECTION&quot;}" />
+    </annotation>
+  </item>
+  <item name="android.adservices.adselection.TestAdSelectionManager void removeAdSelectionFromOutcomesConfigRemoteInfoOverride(android.adservices.adselection.RemoveAdSelectionFromOutcomesOverrideRequest, java.util.concurrent.Executor, android.os.OutcomeReceiver&lt;java.lang.Object,java.lang.Exception&gt;)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="anyOf" val="{&quot;android.permission.ACCESS_ADSERVICES_CUSTOM_AUDIENCE&quot;, &quot;android.permission.ACCESS_ADSERVICES_PROTECTED_SIGNALS&quot;, &quot;android.permission.ACCESS_ADSERVICES_AD_SELECTION&quot;}" />
+    </annotation>
+  </item>
+  <item name="android.adservices.adselection.TestAdSelectionManager void resetAllAdSelectionConfigRemoteOverrides(java.util.concurrent.Executor, android.os.OutcomeReceiver&lt;java.lang.Object,java.lang.Exception&gt;)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="anyOf" val="{&quot;android.permission.ACCESS_ADSERVICES_CUSTOM_AUDIENCE&quot;, &quot;android.permission.ACCESS_ADSERVICES_PROTECTED_SIGNALS&quot;, &quot;android.permission.ACCESS_ADSERVICES_AD_SELECTION&quot;}" />
+    </annotation>
+  </item>
+  <item name="android.adservices.adselection.TestAdSelectionManager void resetAllAdSelectionFromOutcomesConfigRemoteOverrides(java.util.concurrent.Executor, android.os.OutcomeReceiver&lt;java.lang.Object,java.lang.Exception&gt;)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="anyOf" val="{&quot;android.permission.ACCESS_ADSERVICES_CUSTOM_AUDIENCE&quot;, &quot;android.permission.ACCESS_ADSERVICES_PROTECTED_SIGNALS&quot;, &quot;android.permission.ACCESS_ADSERVICES_AD_SELECTION&quot;}" />
+    </annotation>
+  </item>
+  <item name="android.adservices.adselection.UpdateAdCounterHistogramRequest int getAdEventType()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.adservices.common.FrequencyCapFilters.AD_EVENT_TYPE_WIN, android.adservices.common.FrequencyCapFilters.AD_EVENT_TYPE_IMPRESSION, android.adservices.common.FrequencyCapFilters.AD_EVENT_TYPE_VIEW, android.adservices.common.FrequencyCapFilters.AD_EVENT_TYPE_CLICK}" />
+    </annotation>
+  </item>
+  <item name="android.adservices.adselection.UpdateAdCounterHistogramRequest.Builder android.adservices.adselection.UpdateAdCounterHistogramRequest.Builder setAdEventType(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.adservices.common.FrequencyCapFilters.AD_EVENT_TYPE_WIN, android.adservices.common.FrequencyCapFilters.AD_EVENT_TYPE_IMPRESSION, android.adservices.common.FrequencyCapFilters.AD_EVENT_TYPE_VIEW, android.adservices.common.FrequencyCapFilters.AD_EVENT_TYPE_CLICK}" />
+    </annotation>
+  </item>
+</root>
+

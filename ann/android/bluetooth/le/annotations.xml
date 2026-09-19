@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+  <item name="android.bluetooth.le.AdvertisingSet void enableAdvertising(boolean, int, int)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_ADVERTISE&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.le.AdvertisingSet void setAdvertisingData(android.bluetooth.le.AdvertiseData)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_ADVERTISE&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.le.AdvertisingSet void setAdvertisingParameters(android.bluetooth.le.AdvertisingSetParameters)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="allOf" val="{&quot;android.permission.BLUETOOTH_ADVERTISE&quot;, &quot;android.permission.BLUETOOTH_PRIVILEGED&quot;}" />
+      <val name="conditional" val="true" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.le.AdvertisingSet void setPeriodicAdvertisingData(android.bluetooth.le.AdvertiseData)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_ADVERTISE&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.le.AdvertisingSet void setPeriodicAdvertisingEnabled(boolean)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_ADVERTISE&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.le.AdvertisingSet void setPeriodicAdvertisingParameters(android.bluetooth.le.PeriodicAdvertisingParameters)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_ADVERTISE&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.le.AdvertisingSet void setScanResponseData(android.bluetooth.le.AdvertiseData)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_ADVERTISE&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.le.BluetoothLeAdvertiser void startAdvertising(android.bluetooth.le.AdvertiseSettings, android.bluetooth.le.AdvertiseData, android.bluetooth.le.AdvertiseCallback)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="allOf" val="{&quot;android.permission.BLUETOOTH_ADVERTISE&quot;, &quot;android.permission.BLUETOOTH_PRIVILEGED&quot;}" />
+      <val name="conditional" val="true" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.le.BluetoothLeAdvertiser void startAdvertising(android.bluetooth.le.AdvertiseSettings, android.bluetooth.le.AdvertiseData, android.bluetooth.le.AdvertiseData, android.bluetooth.le.AdvertiseCallback)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="allOf" val="{&quot;android.permission.BLUETOOTH_ADVERTISE&quot;, &quot;android.permission.BLUETOOTH_PRIVILEGED&quot;}" />
+      <val name="conditional" val="true" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.le.BluetoothLeAdvertiser void startAdvertisingSet(android.bluetooth.le.AdvertisingSetParameters, android.bluetooth.le.AdvertiseData, android.bluetooth.le.AdvertiseData, android.bluetooth.le.PeriodicAdvertisingParameters, android.bluetooth.le.AdvertiseData, android.bluetooth.le.AdvertisingSetCallback)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="allOf" val="{&quot;android.permission.BLUETOOTH_ADVERTISE&quot;, &quot;android.permission.BLUETOOTH_PRIVILEGED&quot;}" />
+      <val name="conditional" val="true" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.le.BluetoothLeAdvertiser void startAdvertisingSet(android.bluetooth.le.AdvertisingSetParameters, android.bluetooth.le.AdvertiseData, android.bluetooth.le.AdvertiseData, android.bluetooth.le.PeriodicAdvertisingParameters, android.bluetooth.le.AdvertiseData, android.bluetooth.le.AdvertisingSetCallback, android.os.Handler)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="allOf" val="{&quot;android.permission.BLUETOOTH_ADVERTISE&quot;, &quot;android.permission.BLUETOOTH_PRIVILEGED&quot;}" />
+      <val name="conditional" val="true" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.le.BluetoothLeAdvertiser void startAdvertisingSet(android.bluetooth.le.AdvertisingSetParameters, android.bluetooth.le.AdvertiseData, android.bluetooth.le.AdvertiseData, android.bluetooth.le.PeriodicAdvertisingParameters, android.bluetooth.le.AdvertiseData, int, int, android.bluetooth.le.AdvertisingSetCallback)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="allOf" val="{&quot;android.permission.BLUETOOTH_ADVERTISE&quot;, &quot;android.permission.BLUETOOTH_PRIVILEGED&quot;}" />
+      <val name="conditional" val="true" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.le.BluetoothLeAdvertiser void startAdvertisingSet(android.bluetooth.le.AdvertisingSetParameters, android.bluetooth.le.AdvertiseData, android.bluetooth.le.AdvertiseData, android.bluetooth.le.PeriodicAdvertisingParameters, android.bluetooth.le.AdvertiseData, int, int, android.bluetooth.le.AdvertisingSetCallback, android.os.Handler)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="allOf" val="{&quot;android.permission.BLUETOOTH_ADVERTISE&quot;, &quot;android.permission.BLUETOOTH_PRIVILEGED&quot;}" />
+      <val name="conditional" val="true" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.le.BluetoothLeAdvertiser void stopAdvertising(android.bluetooth.le.AdvertiseCallback)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_ADVERTISE&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.le.BluetoothLeAdvertiser void stopAdvertisingSet(android.bluetooth.le.AdvertisingSetCallback)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_ADVERTISE&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.le.BluetoothLeScanner int startScan(java.util.List&lt;android.bluetooth.le.ScanFilter&gt;, android.bluetooth.le.ScanSettings, android.app.PendingIntent)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="allOf" val="{&quot;android.permission.BLUETOOTH_PRIVILEGED&quot;, &quot;android.permission.BLUETOOTH_SCAN&quot;}" />
+      <val name="conditional" val="true" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.le.BluetoothLeScanner void flushPendingScanResults(android.bluetooth.le.ScanCallback)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_SCAN&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.le.BluetoothLeScanner void startScan(android.bluetooth.le.ScanCallback)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="allOf" val="{&quot;android.permission.BLUETOOTH_PRIVILEGED&quot;, &quot;android.permission.BLUETOOTH_SCAN&quot;}" />
+      <val name="conditional" val="true" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.le.BluetoothLeScanner void startScan(java.util.List&lt;android.bluetooth.le.ScanFilter&gt;, android.bluetooth.le.ScanSettings, android.bluetooth.le.ScanCallback)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="allOf" val="{&quot;android.permission.BLUETOOTH_PRIVILEGED&quot;, &quot;android.permission.BLUETOOTH_SCAN&quot;}" />
+      <val name="conditional" val="true" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.le.BluetoothLeScanner void stopScan(android.app.PendingIntent)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_SCAN&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.le.BluetoothLeScanner void stopScan(android.bluetooth.le.ScanCallback)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_SCAN&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.le.ScanCallback void onScanFailed(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.le.ScanCallback.SCAN_FAILED_ALREADY_STARTED, android.bluetooth.le.ScanCallback.SCAN_FAILED_APPLICATION_REGISTRATION_FAILED, android.bluetooth.le.ScanCallback.SCAN_FAILED_INTERNAL_ERROR, android.bluetooth.le.ScanCallback.SCAN_FAILED_FEATURE_UNSUPPORTED, android.bluetooth.le.ScanCallback.SCAN_FAILED_OUT_OF_HARDWARE_RESOURCES, android.bluetooth.le.ScanCallback.SCAN_FAILED_SCANNING_TOO_FREQUENTLY}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.le.ScanFilter int getAdvertisingDataType()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.le.ScanRecord.DATA_TYPE_NONE, android.bluetooth.le.ScanRecord.DATA_TYPE_FLAGS, android.bluetooth.le.ScanRecord.DATA_TYPE_SERVICE_UUIDS_16_BIT_PARTIAL, android.bluetooth.le.ScanRecord.DATA_TYPE_SERVICE_UUIDS_16_BIT_COMPLETE, android.bluetooth.le.ScanRecord.DATA_TYPE_SERVICE_UUIDS_32_BIT_PARTIAL, android.bluetooth.le.ScanRecord.DATA_TYPE_SERVICE_UUIDS_32_BIT_COMPLETE, android.bluetooth.le.ScanRecord.DATA_TYPE_SERVICE_UUIDS_128_BIT_PARTIAL, android.bluetooth.le.ScanRecord.DATA_TYPE_SERVICE_UUIDS_128_BIT_COMPLETE, android.bluetooth.le.ScanRecord.DATA_TYPE_LOCAL_NAME_SHORT, android.bluetooth.le.ScanRecord.DATA_TYPE_LOCAL_NAME_COMPLETE, android.bluetooth.le.ScanRecord.DATA_TYPE_TX_POWER_LEVEL, android.bluetooth.le.ScanRecord.DATA_TYPE_CLASS_OF_DEVICE, android.bluetooth.le.ScanRecord.DATA_TYPE_SIMPLE_PAIRING_HASH_C, android.bluetooth.le.ScanRecord.DATA_TYPE_SIMPLE_PAIRING_RANDOMIZER_R, android.bluetooth.le.ScanRecord.DATA_TYPE_DEVICE_ID, android.bluetooth.le.ScanRecord.DATA_TYPE_SECURITY_MANAGER_OUT_OF_BAND_FLAGS, android.bluetooth.le.ScanRecord.DATA_TYPE_SLAVE_CONNECTION_INTERVAL_RANGE, android.bluetooth.le.ScanRecord.DATA_TYPE_SERVICE_SOLICITATION_UUIDS_16_BIT, android.bluetooth.le.ScanRecord.DATA_TYPE_SERVICE_SOLICITATION_UUIDS_128_BIT, android.bluetooth.le.ScanRecord.DATA_TYPE_SERVICE_DATA_16_BIT, android.bluetooth.le.ScanRecord.DATA_TYPE_PUBLIC_TARGET_ADDRESS, android.bluetooth.le.ScanRecord.DATA_TYPE_RANDOM_TARGET_ADDRESS, android.bluetooth.le.ScanRecord.DATA_TYPE_APPEARANCE, android.bluetooth.le.ScanRecord.DATA_TYPE_ADVERTISING_INTERVAL, android.bluetooth.le.ScanRecord.DATA_TYPE_LE_BLUETOOTH_DEVICE_ADDRESS, android.bluetooth.le.ScanRecord.DATA_TYPE_LE_ROLE, android.bluetooth.le.ScanRecord.DATA_TYPE_SIMPLE_PAIRING_HASH_C_256, android.bluetooth.le.ScanRecord.DATA_TYPE_SIMPLE_PAIRING_RANDOMIZER_R_256, android.bluetooth.le.ScanRecord.DATA_TYPE_SERVICE_SOLICITATION_UUIDS_32_BIT, android.bluetooth.le.ScanRecord.DATA_TYPE_SERVICE_DATA_32_BIT, android.bluetooth.le.ScanRecord.DATA_TYPE_SERVICE_DATA_128_BIT, android.bluetooth.le.ScanRecord.DATA_TYPE_LE_SECURE_CONNECTIONS_CONFIRMATION_VALUE, android.bluetooth.le.ScanRecord.DATA_TYPE_LE_SECURE_CONNECTIONS_RANDOM_VALUE, android.bluetooth.le.ScanRecord.DATA_TYPE_URI, android.bluetooth.le.ScanRecord.DATA_TYPE_INDOOR_POSITIONING, android.bluetooth.le.ScanRecord.DATA_TYPE_TRANSPORT_DISCOVERY_DATA, android.bluetooth.le.ScanRecord.DATA_TYPE_LE_SUPPORTED_FEATURES, android.bluetooth.le.ScanRecord.DATA_TYPE_CHANNEL_MAP_UPDATE_INDICATION, android.bluetooth.le.ScanRecord.DATA_TYPE_PB_ADV, android.bluetooth.le.ScanRecord.DATA_TYPE_MESH_MESSAGE, android.bluetooth.le.ScanRecord.DATA_TYPE_MESH_BEACON, android.bluetooth.le.ScanRecord.DATA_TYPE_BIG_INFO, android.bluetooth.le.ScanRecord.DATA_TYPE_BROADCAST_CODE, android.bluetooth.le.ScanRecord.DATA_TYPE_RESOLVABLE_SET_IDENTIFIER, android.bluetooth.le.ScanRecord.DATA_TYPE_ADVERTISING_INTERVAL_LONG, android.bluetooth.le.ScanRecord.DATA_TYPE_3D_INFORMATION_DATA, android.bluetooth.le.ScanRecord.DATA_TYPE_MANUFACTURER_SPECIFIC_DATA}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.le.ScanFilter.Builder android.bluetooth.le.ScanFilter.Builder setAdvertisingDataType(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.le.ScanRecord.DATA_TYPE_NONE, android.bluetooth.le.ScanRecord.DATA_TYPE_FLAGS, android.bluetooth.le.ScanRecord.DATA_TYPE_SERVICE_UUIDS_16_BIT_PARTIAL, android.bluetooth.le.ScanRecord.DATA_TYPE_SERVICE_UUIDS_16_BIT_COMPLETE, android.bluetooth.le.ScanRecord.DATA_TYPE_SERVICE_UUIDS_32_BIT_PARTIAL, android.bluetooth.le.ScanRecord.DATA_TYPE_SERVICE_UUIDS_32_BIT_COMPLETE, android.bluetooth.le.ScanRecord.DATA_TYPE_SERVICE_UUIDS_128_BIT_PARTIAL, android.bluetooth.le.ScanRecord.DATA_TYPE_SERVICE_UUIDS_128_BIT_COMPLETE, android.bluetooth.le.ScanRecord.DATA_TYPE_LOCAL_NAME_SHORT, android.bluetooth.le.ScanRecord.DATA_TYPE_LOCAL_NAME_COMPLETE, android.bluetooth.le.ScanRecord.DATA_TYPE_TX_POWER_LEVEL, android.bluetooth.le.ScanRecord.DATA_TYPE_CLASS_OF_DEVICE, android.bluetooth.le.ScanRecord.DATA_TYPE_SIMPLE_PAIRING_HASH_C, android.bluetooth.le.ScanRecord.DATA_TYPE_SIMPLE_PAIRING_RANDOMIZER_R, android.bluetooth.le.ScanRecord.DATA_TYPE_DEVICE_ID, android.bluetooth.le.ScanRecord.DATA_TYPE_SECURITY_MANAGER_OUT_OF_BAND_FLAGS, android.bluetooth.le.ScanRecord.DATA_TYPE_SLAVE_CONNECTION_INTERVAL_RANGE, android.bluetooth.le.ScanRecord.DATA_TYPE_SERVICE_SOLICITATION_UUIDS_16_BIT, android.bluetooth.le.ScanRecord.DATA_TYPE_SERVICE_SOLICITATION_UUIDS_128_BIT, android.bluetooth.le.ScanRecord.DATA_TYPE_SERVICE_DATA_16_BIT, android.bluetooth.le.ScanRecord.DATA_TYPE_PUBLIC_TARGET_ADDRESS, android.bluetooth.le.ScanRecord.DATA_TYPE_RANDOM_TARGET_ADDRESS, android.bluetooth.le.ScanRecord.DATA_TYPE_APPEARANCE, android.bluetooth.le.ScanRecord.DATA_TYPE_ADVERTISING_INTERVAL, android.bluetooth.le.ScanRecord.DATA_TYPE_LE_BLUETOOTH_DEVICE_ADDRESS, android.bluetooth.le.ScanRecord.DATA_TYPE_LE_ROLE, android.bluetooth.le.ScanRecord.DATA_TYPE_SIMPLE_PAIRING_HASH_C_256, android.bluetooth.le.ScanRecord.DATA_TYPE_SIMPLE_PAIRING_RANDOMIZER_R_256, android.bluetooth.le.ScanRecord.DATA_TYPE_SERVICE_SOLICITATION_UUIDS_32_BIT, android.bluetooth.le.ScanRecord.DATA_TYPE_SERVICE_DATA_32_BIT, android.bluetooth.le.ScanRecord.DATA_TYPE_SERVICE_DATA_128_BIT, android.bluetooth.le.ScanRecord.DATA_TYPE_LE_SECURE_CONNECTIONS_CONFIRMATION_VALUE, android.bluetooth.le.ScanRecord.DATA_TYPE_LE_SECURE_CONNECTIONS_RANDOM_VALUE, android.bluetooth.le.ScanRecord.DATA_TYPE_URI, android.bluetooth.le.ScanRecord.DATA_TYPE_INDOOR_POSITIONING, android.bluetooth.le.ScanRecord.DATA_TYPE_TRANSPORT_DISCOVERY_DATA, android.bluetooth.le.ScanRecord.DATA_TYPE_LE_SUPPORTED_FEATURES, android.bluetooth.le.ScanRecord.DATA_TYPE_CHANNEL_MAP_UPDATE_INDICATION, android.bluetooth.le.ScanRecord.DATA_TYPE_PB_ADV, android.bluetooth.le.ScanRecord.DATA_TYPE_MESH_MESSAGE, android.bluetooth.le.ScanRecord.DATA_TYPE_MESH_BEACON, android.bluetooth.le.ScanRecord.DATA_TYPE_BIG_INFO, android.bluetooth.le.ScanRecord.DATA_TYPE_BROADCAST_CODE, android.bluetooth.le.ScanRecord.DATA_TYPE_RESOLVABLE_SET_IDENTIFIER, android.bluetooth.le.ScanRecord.DATA_TYPE_ADVERTISING_INTERVAL_LONG, android.bluetooth.le.ScanRecord.DATA_TYPE_3D_INFORMATION_DATA, android.bluetooth.le.ScanRecord.DATA_TYPE_MANUFACTURER_SPECIFIC_DATA}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.le.ScanFilter.Builder android.bluetooth.le.ScanFilter.Builder setAdvertisingDataTypeWithData(int, byte[], byte[]) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.le.ScanRecord.DATA_TYPE_NONE, android.bluetooth.le.ScanRecord.DATA_TYPE_FLAGS, android.bluetooth.le.ScanRecord.DATA_TYPE_SERVICE_UUIDS_16_BIT_PARTIAL, android.bluetooth.le.ScanRecord.DATA_TYPE_SERVICE_UUIDS_16_BIT_COMPLETE, android.bluetooth.le.ScanRecord.DATA_TYPE_SERVICE_UUIDS_32_BIT_PARTIAL, android.bluetooth.le.ScanRecord.DATA_TYPE_SERVICE_UUIDS_32_BIT_COMPLETE, android.bluetooth.le.ScanRecord.DATA_TYPE_SERVICE_UUIDS_128_BIT_PARTIAL, android.bluetooth.le.ScanRecord.DATA_TYPE_SERVICE_UUIDS_128_BIT_COMPLETE, android.bluetooth.le.ScanRecord.DATA_TYPE_LOCAL_NAME_SHORT, android.bluetooth.le.ScanRecord.DATA_TYPE_LOCAL_NAME_COMPLETE, android.bluetooth.le.ScanRecord.DATA_TYPE_TX_POWER_LEVEL, android.bluetooth.le.ScanRecord.DATA_TYPE_CLASS_OF_DEVICE, android.bluetooth.le.ScanRecord.DATA_TYPE_SIMPLE_PAIRING_HASH_C, android.bluetooth.le.ScanRecord.DATA_TYPE_SIMPLE_PAIRING_RANDOMIZER_R, android.bluetooth.le.ScanRecord.DATA_TYPE_DEVICE_ID, android.bluetooth.le.ScanRecord.DATA_TYPE_SECURITY_MANAGER_OUT_OF_BAND_FLAGS, android.bluetooth.le.ScanRecord.DATA_TYPE_SLAVE_CONNECTION_INTERVAL_RANGE, android.bluetooth.le.ScanRecord.DATA_TYPE_SERVICE_SOLICITATION_UUIDS_16_BIT, android.bluetooth.le.ScanRecord.DATA_TYPE_SERVICE_SOLICITATION_UUIDS_128_BIT, android.bluetooth.le.ScanRecord.DATA_TYPE_SERVICE_DATA_16_BIT, android.bluetooth.le.ScanRecord.DATA_TYPE_PUBLIC_TARGET_ADDRESS, android.bluetooth.le.ScanRecord.DATA_TYPE_RANDOM_TARGET_ADDRESS, android.bluetooth.le.ScanRecord.DATA_TYPE_APPEARANCE, android.bluetooth.le.ScanRecord.DATA_TYPE_ADVERTISING_INTERVAL, android.bluetooth.le.ScanRecord.DATA_TYPE_LE_BLUETOOTH_DEVICE_ADDRESS, android.bluetooth.le.ScanRecord.DATA_TYPE_LE_ROLE, android.bluetooth.le.ScanRecord.DATA_TYPE_SIMPLE_PAIRING_HASH_C_256, android.bluetooth.le.ScanRecord.DATA_TYPE_SIMPLE_PAIRING_RANDOMIZER_R_256, android.bluetooth.le.ScanRecord.DATA_TYPE_SERVICE_SOLICITATION_UUIDS_32_BIT, android.bluetooth.le.ScanRecord.DATA_TYPE_SERVICE_DATA_32_BIT, android.bluetooth.le.ScanRecord.DATA_TYPE_SERVICE_DATA_128_BIT, android.bluetooth.le.ScanRecord.DATA_TYPE_LE_SECURE_CONNECTIONS_CONFIRMATION_VALUE, android.bluetooth.le.ScanRecord.DATA_TYPE_LE_SECURE_CONNECTIONS_RANDOM_VALUE, android.bluetooth.le.ScanRecord.DATA_TYPE_URI, android.bluetooth.le.ScanRecord.DATA_TYPE_INDOOR_POSITIONING, android.bluetooth.le.ScanRecord.DATA_TYPE_TRANSPORT_DISCOVERY_DATA, android.bluetooth.le.ScanRecord.DATA_TYPE_LE_SUPPORTED_FEATURES, android.bluetooth.le.ScanRecord.DATA_TYPE_CHANNEL_MAP_UPDATE_INDICATION, android.bluetooth.le.ScanRecord.DATA_TYPE_PB_ADV, android.bluetooth.le.ScanRecord.DATA_TYPE_MESH_MESSAGE, android.bluetooth.le.ScanRecord.DATA_TYPE_MESH_BEACON, android.bluetooth.le.ScanRecord.DATA_TYPE_BIG_INFO, android.bluetooth.le.ScanRecord.DATA_TYPE_BROADCAST_CODE, android.bluetooth.le.ScanRecord.DATA_TYPE_RESOLVABLE_SET_IDENTIFIER, android.bluetooth.le.ScanRecord.DATA_TYPE_ADVERTISING_INTERVAL_LONG, android.bluetooth.le.ScanRecord.DATA_TYPE_3D_INFORMATION_DATA, android.bluetooth.le.ScanRecord.DATA_TYPE_MANUFACTURER_SPECIFIC_DATA}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.le.ScanSettings int getScanType()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.le.ScanSettings.SCAN_TYPE_UNKNOWN, android.bluetooth.le.ScanSettings.SCAN_TYPE_PASSIVE, android.bluetooth.le.ScanSettings.SCAN_TYPE_ACTIVE}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.le.ScanSettings.Builder android.bluetooth.le.ScanSettings.Builder setScanType(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.le.ScanSettings.SCAN_TYPE_UNKNOWN, android.bluetooth.le.ScanSettings.SCAN_TYPE_PASSIVE, android.bluetooth.le.ScanSettings.SCAN_TYPE_ACTIVE}" />
+    </annotation>
+  </item>
+</root>
+

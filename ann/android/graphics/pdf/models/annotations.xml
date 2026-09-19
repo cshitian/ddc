@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+  <item name="android.graphics.pdf.models.FormEditRecord int getPageNumber()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.pdf.models.FormEditRecord int getType()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.graphics.pdf.models.FormEditRecord.EDIT_TYPE_CLICK, android.graphics.pdf.models.FormEditRecord.EDIT_TYPE_SET_INDICES, android.graphics.pdf.models.FormEditRecord.EDIT_TYPE_SET_TEXT}" />
+    </annotation>
+  </item>
+  <item name="android.graphics.pdf.models.FormEditRecord int getWidgetIndex()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.pdf.models.FormEditRecord.Builder Builder(int, int, int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.graphics.pdf.models.FormEditRecord.EDIT_TYPE_CLICK, android.graphics.pdf.models.FormEditRecord.EDIT_TYPE_SET_INDICES, android.graphics.pdf.models.FormEditRecord.EDIT_TYPE_SET_TEXT}" />
+    </annotation>
+  </item>
+  <item name="android.graphics.pdf.models.FormEditRecord.Builder Builder(int, int, int) 1">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.pdf.models.FormEditRecord.Builder Builder(int, int, int) 2">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.pdf.models.FormWidgetInfo float getFontSize()">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+    </annotation>
+  </item>
+  <item name="android.graphics.pdf.models.FormWidgetInfo int getMaxLength()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="-1L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.pdf.models.FormWidgetInfo int getWidgetIndex()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.pdf.models.FormWidgetInfo int getWidgetType()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.graphics.pdf.models.FormWidgetInfo.WIDGET_TYPE_UNKNOWN, android.graphics.pdf.models.FormWidgetInfo.WIDGET_TYPE_PUSHBUTTON, android.graphics.pdf.models.FormWidgetInfo.WIDGET_TYPE_CHECKBOX, android.graphics.pdf.models.FormWidgetInfo.WIDGET_TYPE_RADIOBUTTON, android.graphics.pdf.models.FormWidgetInfo.WIDGET_TYPE_COMBOBOX, android.graphics.pdf.models.FormWidgetInfo.WIDGET_TYPE_LISTBOX, android.graphics.pdf.models.FormWidgetInfo.WIDGET_TYPE_TEXTFIELD, android.graphics.pdf.models.FormWidgetInfo.WIDGET_TYPE_SIGNATURE}" />
+    </annotation>
+  </item>
+  <item name="android.graphics.pdf.models.FormWidgetInfo.Builder Builder(int, int, android.graphics.Rect, java.lang.String, java.lang.String) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.graphics.pdf.models.FormWidgetInfo.WIDGET_TYPE_UNKNOWN, android.graphics.pdf.models.FormWidgetInfo.WIDGET_TYPE_PUSHBUTTON, android.graphics.pdf.models.FormWidgetInfo.WIDGET_TYPE_CHECKBOX, android.graphics.pdf.models.FormWidgetInfo.WIDGET_TYPE_RADIOBUTTON, android.graphics.pdf.models.FormWidgetInfo.WIDGET_TYPE_COMBOBOX, android.graphics.pdf.models.FormWidgetInfo.WIDGET_TYPE_LISTBOX, android.graphics.pdf.models.FormWidgetInfo.WIDGET_TYPE_TEXTFIELD, android.graphics.pdf.models.FormWidgetInfo.WIDGET_TYPE_SIGNATURE}" />
+    </annotation>
+  </item>
+  <item name="android.graphics.pdf.models.FormWidgetInfo.Builder Builder(int, int, android.graphics.Rect, java.lang.String, java.lang.String) 1">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.pdf.models.FormWidgetInfo.Builder android.graphics.pdf.models.FormWidgetInfo.Builder setFontSize(float) 0">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+    </annotation>
+  </item>
+  <item name="android.graphics.pdf.models.FormWidgetInfo.Builder android.graphics.pdf.models.FormWidgetInfo.Builder setMaxLength(int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+</root>
+

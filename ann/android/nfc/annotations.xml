@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+  <item name="android.nfc.NfcAdapter ACTION_PREFERRED_PAYMENT_CHANGED">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.NFC_PREFERRED_PAYMENT_INFO&quot;" />
+    </annotation>
+  </item>
+  <item name="android.nfc.NfcAdapter ACTION_TRANSACTION_DETECTED">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.NFC_TRANSACTION_EVENT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.nfc.NfcAdapter boolean disable()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.WRITE_SECURE_SETTINGS&quot;" />
+    </annotation>
+  </item>
+  <item name="android.nfc.NfcAdapter boolean enable()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.WRITE_SECURE_SETTINGS&quot;" />
+    </annotation>
+  </item>
+  <item name="android.nfc.NfcAdapter java.lang.String getGestureExchangeAid()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.PERFORM_GESTURE_EXCHANGE&quot;" />
+    </annotation>
+  </item>
+  <item name="android.nfc.NfcAdapter void setDiscoveryTechnology(android.app.Activity, int, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.nfc.NfcAdapter.FLAG_READER_KEEP, android.nfc.NfcAdapter.FLAG_READER_DISABLE, android.nfc.NfcAdapter.FLAG_READER_NFC_A, android.nfc.NfcAdapter.FLAG_READER_NFC_B, android.nfc.NfcAdapter.FLAG_READER_NFC_F, android.nfc.NfcAdapter.FLAG_READER_NFC_V, android.nfc.NfcAdapter.FLAG_READER_NFC_BARCODE}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.nfc.NfcAdapter void setDiscoveryTechnology(android.app.Activity, int, int) 2">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.nfc.NfcAdapter.FLAG_LISTEN_KEEP, android.nfc.NfcAdapter.FLAG_LISTEN_DISABLE, android.nfc.NfcAdapter.FLAG_LISTEN_NFC_PASSIVE_A, android.nfc.NfcAdapter.FLAG_LISTEN_NFC_PASSIVE_B, android.nfc.NfcAdapter.FLAG_LISTEN_NFC_PASSIVE_F}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.nfc.NfcAdapter void setPowerSavingMode(boolean)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.NFC_SET_CONTROLLER_ALWAYS_ON&quot;" />
+    </annotation>
+  </item>
+</root>
+

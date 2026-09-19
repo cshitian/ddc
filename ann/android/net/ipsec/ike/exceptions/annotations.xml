@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+  <item name="android.net.ipsec.ike.exceptions.IkeProtocolException int getErrorType()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.ipsec.ike.exceptions.IkeProtocolException.ERROR_TYPE_UNSUPPORTED_CRITICAL_PAYLOAD, android.net.ipsec.ike.exceptions.IkeProtocolException.ERROR_TYPE_INVALID_IKE_SPI, android.net.ipsec.ike.exceptions.IkeProtocolException.ERROR_TYPE_INVALID_MAJOR_VERSION, android.net.ipsec.ike.exceptions.IkeProtocolException.ERROR_TYPE_INVALID_SYNTAX, android.net.ipsec.ike.exceptions.IkeProtocolException.ERROR_TYPE_INVALID_MESSAGE_ID, android.net.ipsec.ike.exceptions.IkeProtocolException.ERROR_TYPE_NO_PROPOSAL_CHOSEN, android.net.ipsec.ike.exceptions.IkeProtocolException.ERROR_TYPE_INVALID_KE_PAYLOAD, android.net.ipsec.ike.exceptions.IkeProtocolException.ERROR_TYPE_AUTHENTICATION_FAILED, android.net.ipsec.ike.exceptions.IkeProtocolException.ERROR_TYPE_SINGLE_PAIR_REQUIRED, android.net.ipsec.ike.exceptions.IkeProtocolException.ERROR_TYPE_NO_ADDITIONAL_SAS, android.net.ipsec.ike.exceptions.IkeProtocolException.ERROR_TYPE_INTERNAL_ADDRESS_FAILURE, android.net.ipsec.ike.exceptions.IkeProtocolException.ERROR_TYPE_FAILED_CP_REQUIRED, android.net.ipsec.ike.exceptions.IkeProtocolException.ERROR_TYPE_TS_UNACCEPTABLE, android.net.ipsec.ike.exceptions.IkeProtocolException.ERROR_TYPE_INVALID_SELECTORS, android.net.ipsec.ike.exceptions.IkeProtocolException.ERROR_TYPE_TEMPORARY_FAILURE, android.net.ipsec.ike.exceptions.IkeProtocolException.ERROR_TYPE_CHILD_SA_NOT_FOUND}" />
+    </annotation>
+  </item>
+</root>
+

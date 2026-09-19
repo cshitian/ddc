@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+  <item name="android.telephony.ims.feature.MmTelFeature.MmTelCapabilities boolean isCapable(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.telephony.ims.feature.MmTelFeature.MmTelCapabilities.CAPABILITY_TYPE_VOICE, android.telephony.ims.feature.MmTelFeature.MmTelCapabilities.CAPABILITY_TYPE_VIDEO, android.telephony.ims.feature.MmTelFeature.MmTelCapabilities.CAPABILITY_TYPE_UT, android.telephony.ims.feature.MmTelFeature.MmTelCapabilities.CAPABILITY_TYPE_SMS, android.telephony.ims.feature.MmTelFeature.MmTelCapabilities.CAPABILITY_TYPE_CALL_COMPOSER, android.telephony.ims.feature.MmTelFeature.MmTelCapabilities.CAPABILITY_TYPE_CALL_COMPOSER_BUSINESS_ONLY}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+</root>
+

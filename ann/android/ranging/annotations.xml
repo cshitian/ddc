@@ -1,0 +1,300 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+  <item name="android.ranging.DataNotificationConfig int getNotificationConfigType()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.ranging.DataNotificationConfig.NOTIFICATION_CONFIG_DISABLE, android.ranging.DataNotificationConfig.NOTIFICATION_CONFIG_ENABLE, android.ranging.DataNotificationConfig.NOTIFICATION_CONFIG_PROXIMITY_LEVEL, android.ranging.DataNotificationConfig.NOTIFICATION_CONFIG_PROXIMITY_EDGE}" />
+    </annotation>
+  </item>
+  <item name="android.ranging.DataNotificationConfig int getProximityFarCm()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+      <val name="to" val="20000L" />
+    </annotation>
+  </item>
+  <item name="android.ranging.DataNotificationConfig int getProximityNearCm()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+      <val name="to" val="20000L" />
+    </annotation>
+  </item>
+  <item name="android.ranging.DataNotificationConfig.Builder android.ranging.DataNotificationConfig.Builder setNotificationConfigType(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.ranging.DataNotificationConfig.NOTIFICATION_CONFIG_DISABLE, android.ranging.DataNotificationConfig.NOTIFICATION_CONFIG_ENABLE, android.ranging.DataNotificationConfig.NOTIFICATION_CONFIG_PROXIMITY_LEVEL, android.ranging.DataNotificationConfig.NOTIFICATION_CONFIG_PROXIMITY_EDGE}" />
+    </annotation>
+  </item>
+  <item name="android.ranging.DataNotificationConfig.Builder android.ranging.DataNotificationConfig.Builder setProximityFarCm(int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+      <val name="to" val="20000L" />
+    </annotation>
+  </item>
+  <item name="android.ranging.DataNotificationConfig.Builder android.ranging.DataNotificationConfig.Builder setProximityNearCm(int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+      <val name="to" val="20000L" />
+    </annotation>
+  </item>
+  <item name="android.ranging.DlTdoaMeasurement float getAnchorCfo()">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="-32.0" />
+      <val name="fromInclusive" val="false" />
+      <val name="to" val="32.0" />
+      <val name="toInclusive" val="false" />
+    </annotation>
+  </item>
+  <item name="android.ranging.DlTdoaMeasurement float getAoaAzimuth()">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="-180.0" />
+      <val name="to" val="180.0" />
+    </annotation>
+  </item>
+  <item name="android.ranging.DlTdoaMeasurement float getAoaElevation()">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="-90.0" />
+      <val name="to" val="90.0" />
+    </annotation>
+  </item>
+  <item name="android.ranging.DlTdoaMeasurement float getCfo()">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="-32.0" />
+      <val name="fromInclusive" val="false" />
+      <val name="to" val="32.0" />
+      <val name="toInclusive" val="false" />
+    </annotation>
+  </item>
+  <item name="android.ranging.DlTdoaMeasurement int getAoaAzimuthFom()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+      <val name="to" val="100L" />
+    </annotation>
+  </item>
+  <item name="android.ranging.DlTdoaMeasurement int getAoaElevationFom()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+      <val name="to" val="100L" />
+    </annotation>
+  </item>
+  <item name="android.ranging.DlTdoaMeasurement int getBlockIndex()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+      <val name="to" val="65535L" />
+    </annotation>
+  </item>
+  <item name="android.ranging.DlTdoaMeasurement int getInitiatorResponderTof()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+      <val name="to" val="65535L" />
+    </annotation>
+  </item>
+  <item name="android.ranging.DlTdoaMeasurement int getMeasurementVersion()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.ranging.uwb.DlTdoaRangingParams.MEASUREMENT_VERSION_1, android.ranging.uwb.DlTdoaRangingParams.MEASUREMENT_VERSION_2, android.ranging.uwb.DlTdoaRangingParams.MEASUREMENT_VERSION_UNKNOWN}" />
+    </annotation>
+  </item>
+  <item name="android.ranging.DlTdoaMeasurement int getMessageControl()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+      <val name="to" val="2047L" />
+    </annotation>
+  </item>
+  <item name="android.ranging.DlTdoaMeasurement int getMessageType()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.ranging.DlTdoaMeasurement.MESSAGE_TYPE_POLL_DTM, android.ranging.DlTdoaMeasurement.MESSAGE_TYPE_RESPONSE_DTM, android.ranging.DlTdoaMeasurement.MESSAGE_TYPE_FINAL_DTM}" />
+    </annotation>
+  </item>
+  <item name="android.ranging.DlTdoaMeasurement int getNlos()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.ranging.uwb.UwbSpecificData.LOS, android.ranging.uwb.UwbSpecificData.NLOS, android.ranging.uwb.UwbSpecificData.LOS_UNDETERMINED}" />
+    </annotation>
+  </item>
+  <item name="android.ranging.DlTdoaMeasurement int getRoundIndex()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+      <val name="to" val="255L" />
+    </annotation>
+  </item>
+  <item name="android.ranging.DlTdoaMeasurement int getRssi()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="-127L" />
+      <val name="to" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.ranging.DlTdoaMeasurement int getSuperclusterId()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+      <val name="to" val="255L" />
+    </annotation>
+  </item>
+  <item name="android.ranging.DlTdoaMeasurement long getInitiatorReplyTime()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+      <val name="to" val="4294967295L" />
+    </annotation>
+  </item>
+  <item name="android.ranging.DlTdoaMeasurement long getResponderReplyTime()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+      <val name="to" val="4294967295L" />
+    </annotation>
+  </item>
+  <item name="android.ranging.DlTdoaMeasurement.AnchorLocation int getCoordinateType()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.ranging.DlTdoaMeasurement.AnchorLocation.COORDINATE_WGS84, android.ranging.DlTdoaMeasurement.AnchorLocation.COORDINATE_RELATIVE, android.ranging.DlTdoaMeasurement.AnchorLocation.COORDINATE_WGS84_PLUS_Z_ELEMENT, android.ranging.DlTdoaMeasurement.AnchorLocation.COORDINATE_RELATIVE_PLUS_Z_ELEMENT, android.ranging.DlTdoaMeasurement.AnchorLocation.COORDINATE_RELATIVE_WITH_Z_GRAVITY_ALIGNED, android.ranging.DlTdoaMeasurement.AnchorLocation.COORDINATE_RELATIVE_WITH_Z_GRAVITY_ALIGNED_PLUS_Z_ELEMENT, android.ranging.DlTdoaMeasurement.AnchorLocation.COORDINATE_UNKNOWN}" />
+    </annotation>
+  </item>
+  <item name="android.ranging.DlTdoaMeasurement.RelativeLocation int getX()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="-134217727L" />
+      <val name="to" val="134217727L" />
+    </annotation>
+  </item>
+  <item name="android.ranging.DlTdoaMeasurement.RelativeLocation int getY()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="-134217727L" />
+      <val name="to" val="134217727L" />
+    </annotation>
+  </item>
+  <item name="android.ranging.DlTdoaMeasurement.RelativeLocation int getZ()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="-8388607L" />
+      <val name="to" val="8388607L" />
+    </annotation>
+  </item>
+  <item name="android.ranging.DlTdoaMeasurement.Wgs84Location double getAltitude()">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="-256.0" />
+      <val name="fromInclusive" val="false" />
+      <val name="to" val="256.0" />
+      <val name="toInclusive" val="false" />
+    </annotation>
+  </item>
+  <item name="android.ranging.DlTdoaMeasurement.Wgs84Location double getLatitude()">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="-90.0" />
+      <val name="to" val="90.0" />
+    </annotation>
+  </item>
+  <item name="android.ranging.DlTdoaMeasurement.Wgs84Location double getLongitude()">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="-180.0" />
+      <val name="to" val="180.0" />
+    </annotation>
+  </item>
+  <item name="android.ranging.DlTdoaMeasurement.ZElementExtension double getAnchorFloorNumber()">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="-512.0" />
+      <val name="fromInclusive" val="false" />
+      <val name="to" val="512.0" />
+      <val name="toInclusive" val="false" />
+    </annotation>
+  </item>
+  <item name="android.ranging.DlTdoaMeasurement.ZElementExtension double getAnchorHeightAboveFloor()">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="-2048.0" />
+      <val name="fromInclusive" val="false" />
+      <val name="to" val="2048.0" />
+      <val name="toInclusive" val="false" />
+    </annotation>
+  </item>
+  <item name="android.ranging.DlTdoaMeasurement.ZElementExtension int getAnchorHeightAboveFloorUncertainty()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+      <val name="to" val="24L" />
+    </annotation>
+  </item>
+  <item name="android.ranging.DlTdoaMeasurement.ZElementExtension int getExpectedToMove()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.ranging.DlTdoaMeasurement.ZElementExtension.MOVEMENT_EXPECTATION_STATIONARY, android.ranging.DlTdoaMeasurement.ZElementExtension.MOVEMENT_EXPECTATION_MOVABLE, android.ranging.DlTdoaMeasurement.ZElementExtension.MOVEMENT_EXPECTATION_UNKNOWN}" />
+    </annotation>
+  </item>
+  <item name="android.ranging.MotionState MotionState(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.ranging.MotionState.MOTION_NOT_DETECTED, android.ranging.MotionState.MOTION_SLIGHT, android.ranging.MotionState.MOTION_MODERATE, android.ranging.MotionState.MOTION_LARGE}" />
+    </annotation>
+  </item>
+  <item name="android.ranging.MotionState int getMotionState()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.ranging.MotionState.MOTION_NOT_DETECTED, android.ranging.MotionState.MOTION_SLIGHT, android.ranging.MotionState.MOTION_MODERATE, android.ranging.MotionState.MOTION_LARGE}" />
+    </annotation>
+  </item>
+  <item name="android.ranging.RangingManager">
+    <annotation name="androidx.annotation.RestrictedForEnvironment">
+      <val name="environments" val="&quot;SDK Runtime&quot;" />
+      <val name="from" val="36" />
+    </annotation>
+  </item>
+  <item name="android.ranging.RangingMeasurement int getConfidence()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.ranging.RangingMeasurement.CONFIDENCE_LOW, android.ranging.RangingMeasurement.CONFIDENCE_MEDIUM, android.ranging.RangingMeasurement.CONFIDENCE_HIGH}" />
+    </annotation>
+  </item>
+  <item name="android.ranging.RangingPreference int getDeviceRole()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.ranging.RangingPreference.DEVICE_ROLE_RESPONDER, android.ranging.RangingPreference.DEVICE_ROLE_INITIATOR, android.ranging.RangingPreference.DEVICE_ROLE_DT_TAG}" />
+    </annotation>
+  </item>
+  <item name="android.ranging.RangingPreference.Builder Builder(int, android.ranging.RangingConfig) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.ranging.RangingPreference.DEVICE_ROLE_RESPONDER, android.ranging.RangingPreference.DEVICE_ROLE_INITIATOR, android.ranging.RangingPreference.DEVICE_ROLE_DT_TAG}" />
+    </annotation>
+  </item>
+  <item name="android.ranging.RangingSession android.os.CancellationSignal start(android.ranging.RangingPreference)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.RANGING&quot;" />
+    </annotation>
+  </item>
+  <item name="android.ranging.RangingSession void addDeviceToRangingSession(android.ranging.RangingConfig)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.RANGING&quot;" />
+    </annotation>
+  </item>
+  <item name="android.ranging.RangingSession void close()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.RANGING&quot;" />
+    </annotation>
+  </item>
+  <item name="android.ranging.RangingSession void reconfigureRangingInterval(int)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.RANGING&quot;" />
+    </annotation>
+  </item>
+  <item name="android.ranging.RangingSession void reconfigureRangingInterval(int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+      <val name="to" val="255L" />
+    </annotation>
+  </item>
+  <item name="android.ranging.RangingSession void removeDeviceFromRangingSession(android.ranging.RangingDevice)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.RANGING&quot;" />
+    </annotation>
+  </item>
+  <item name="android.ranging.RangingSession void stop()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.RANGING&quot;" />
+    </annotation>
+  </item>
+  <item name="android.ranging.SessionConfig int getAntennaMode()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.ranging.SessionConfig.ANTENNA_MODE_OMNI, android.ranging.SessionConfig.ANTENNA_MODE_DIRECTIONAL}" />
+    </annotation>
+  </item>
+  <item name="android.ranging.SessionConfig int getRangingMeasurementsLimit()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+      <val name="to" val="65535L" />
+    </annotation>
+  </item>
+  <item name="android.ranging.SessionConfig.Builder android.ranging.SessionConfig.Builder setAntennaMode(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.ranging.SessionConfig.ANTENNA_MODE_OMNI, android.ranging.SessionConfig.ANTENNA_MODE_DIRECTIONAL}" />
+    </annotation>
+  </item>
+  <item name="android.ranging.SessionConfig.Builder android.ranging.SessionConfig.Builder setRangingMeasurementsLimit(int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+      <val name="to" val="65535L" />
+    </annotation>
+  </item>
+</root>
+

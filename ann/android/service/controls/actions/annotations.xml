@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+  <item name="android.service.controls.actions.ControlAction RESPONSE_CHALLENGE_ACK">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.service.controls.actions.ControlAction.RESPONSE_UNKNOWN, android.service.controls.actions.ControlAction.RESPONSE_OK, android.service.controls.actions.ControlAction.RESPONSE_FAIL, android.service.controls.actions.ControlAction.RESPONSE_CHALLENGE_ACK, android.service.controls.actions.ControlAction.RESPONSE_CHALLENGE_PIN, android.service.controls.actions.ControlAction.RESPONSE_CHALLENGE_PASSPHRASE}" />
+    </annotation>
+  </item>
+  <item name="android.service.controls.actions.ControlAction RESPONSE_CHALLENGE_PASSPHRASE">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.service.controls.actions.ControlAction.RESPONSE_UNKNOWN, android.service.controls.actions.ControlAction.RESPONSE_OK, android.service.controls.actions.ControlAction.RESPONSE_FAIL, android.service.controls.actions.ControlAction.RESPONSE_CHALLENGE_ACK, android.service.controls.actions.ControlAction.RESPONSE_CHALLENGE_PIN, android.service.controls.actions.ControlAction.RESPONSE_CHALLENGE_PASSPHRASE}" />
+    </annotation>
+  </item>
+  <item name="android.service.controls.actions.ControlAction RESPONSE_CHALLENGE_PIN">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.service.controls.actions.ControlAction.RESPONSE_UNKNOWN, android.service.controls.actions.ControlAction.RESPONSE_OK, android.service.controls.actions.ControlAction.RESPONSE_FAIL, android.service.controls.actions.ControlAction.RESPONSE_CHALLENGE_ACK, android.service.controls.actions.ControlAction.RESPONSE_CHALLENGE_PIN, android.service.controls.actions.ControlAction.RESPONSE_CHALLENGE_PASSPHRASE}" />
+    </annotation>
+  </item>
+  <item name="android.service.controls.actions.ControlAction RESPONSE_FAIL">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.service.controls.actions.ControlAction.RESPONSE_UNKNOWN, android.service.controls.actions.ControlAction.RESPONSE_OK, android.service.controls.actions.ControlAction.RESPONSE_FAIL, android.service.controls.actions.ControlAction.RESPONSE_CHALLENGE_ACK, android.service.controls.actions.ControlAction.RESPONSE_CHALLENGE_PIN, android.service.controls.actions.ControlAction.RESPONSE_CHALLENGE_PASSPHRASE}" />
+    </annotation>
+  </item>
+  <item name="android.service.controls.actions.ControlAction RESPONSE_OK">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.service.controls.actions.ControlAction.RESPONSE_UNKNOWN, android.service.controls.actions.ControlAction.RESPONSE_OK, android.service.controls.actions.ControlAction.RESPONSE_FAIL, android.service.controls.actions.ControlAction.RESPONSE_CHALLENGE_ACK, android.service.controls.actions.ControlAction.RESPONSE_CHALLENGE_PIN, android.service.controls.actions.ControlAction.RESPONSE_CHALLENGE_PASSPHRASE}" />
+    </annotation>
+  </item>
+  <item name="android.service.controls.actions.ControlAction RESPONSE_UNKNOWN">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.service.controls.actions.ControlAction.RESPONSE_UNKNOWN, android.service.controls.actions.ControlAction.RESPONSE_OK, android.service.controls.actions.ControlAction.RESPONSE_FAIL, android.service.controls.actions.ControlAction.RESPONSE_CHALLENGE_ACK, android.service.controls.actions.ControlAction.RESPONSE_CHALLENGE_PIN, android.service.controls.actions.ControlAction.RESPONSE_CHALLENGE_PASSPHRASE}" />
+    </annotation>
+  </item>
+  <item name="android.service.controls.actions.ControlAction TYPE_BOOLEAN">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.service.controls.actions.ControlAction.TYPE_ERROR, android.service.controls.actions.ControlAction.TYPE_BOOLEAN, android.service.controls.actions.ControlAction.TYPE_FLOAT, android.service.controls.actions.ControlAction.TYPE_MODE, android.service.controls.actions.ControlAction.TYPE_COMMAND}" />
+    </annotation>
+  </item>
+  <item name="android.service.controls.actions.ControlAction TYPE_COMMAND">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.service.controls.actions.ControlAction.TYPE_ERROR, android.service.controls.actions.ControlAction.TYPE_BOOLEAN, android.service.controls.actions.ControlAction.TYPE_FLOAT, android.service.controls.actions.ControlAction.TYPE_MODE, android.service.controls.actions.ControlAction.TYPE_COMMAND}" />
+    </annotation>
+  </item>
+  <item name="android.service.controls.actions.ControlAction TYPE_ERROR">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.service.controls.actions.ControlAction.TYPE_ERROR, android.service.controls.actions.ControlAction.TYPE_BOOLEAN, android.service.controls.actions.ControlAction.TYPE_FLOAT, android.service.controls.actions.ControlAction.TYPE_MODE, android.service.controls.actions.ControlAction.TYPE_COMMAND}" />
+    </annotation>
+  </item>
+  <item name="android.service.controls.actions.ControlAction TYPE_FLOAT">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.service.controls.actions.ControlAction.TYPE_ERROR, android.service.controls.actions.ControlAction.TYPE_BOOLEAN, android.service.controls.actions.ControlAction.TYPE_FLOAT, android.service.controls.actions.ControlAction.TYPE_MODE, android.service.controls.actions.ControlAction.TYPE_COMMAND}" />
+    </annotation>
+  </item>
+  <item name="android.service.controls.actions.ControlAction TYPE_MODE">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.service.controls.actions.ControlAction.TYPE_ERROR, android.service.controls.actions.ControlAction.TYPE_BOOLEAN, android.service.controls.actions.ControlAction.TYPE_FLOAT, android.service.controls.actions.ControlAction.TYPE_MODE, android.service.controls.actions.ControlAction.TYPE_COMMAND}" />
+    </annotation>
+  </item>
+  <item name="android.service.controls.actions.ControlAction boolean isValidResponse(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.service.controls.actions.ControlAction.RESPONSE_UNKNOWN, android.service.controls.actions.ControlAction.RESPONSE_OK, android.service.controls.actions.ControlAction.RESPONSE_FAIL, android.service.controls.actions.ControlAction.RESPONSE_CHALLENGE_ACK, android.service.controls.actions.ControlAction.RESPONSE_CHALLENGE_PIN, android.service.controls.actions.ControlAction.RESPONSE_CHALLENGE_PASSPHRASE}" />
+    </annotation>
+  </item>
+  <item name="android.service.controls.actions.ControlAction int getActionType()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.service.controls.actions.ControlAction.TYPE_ERROR, android.service.controls.actions.ControlAction.TYPE_BOOLEAN, android.service.controls.actions.ControlAction.TYPE_FLOAT, android.service.controls.actions.ControlAction.TYPE_MODE, android.service.controls.actions.ControlAction.TYPE_COMMAND}" />
+    </annotation>
+  </item>
+</root>
+

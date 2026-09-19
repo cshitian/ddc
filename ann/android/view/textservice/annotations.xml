@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+  <item name="android.view.textservice.SpellCheckerSession.SpellCheckerSessionParams int getSupportedAttributes()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.textservice.SuggestionsInfo.RESULT_ATTR_IN_THE_DICTIONARY, android.view.textservice.SuggestionsInfo.RESULT_ATTR_LOOKS_LIKE_TYPO, android.view.textservice.SuggestionsInfo.RESULT_ATTR_HAS_RECOMMENDED_SUGGESTIONS, android.view.textservice.SuggestionsInfo.RESULT_ATTR_LOOKS_LIKE_GRAMMAR_ERROR, android.view.textservice.SuggestionsInfo.RESULT_ATTR_DONT_SHOW_UI_FOR_SUGGESTIONS}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.view.textservice.SpellCheckerSession.SpellCheckerSessionParams.Builder android.view.textservice.SpellCheckerSession.SpellCheckerSessionParams.Builder setSupportedAttributes(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.textservice.SuggestionsInfo.RESULT_ATTR_IN_THE_DICTIONARY, android.view.textservice.SuggestionsInfo.RESULT_ATTR_LOOKS_LIKE_TYPO, android.view.textservice.SuggestionsInfo.RESULT_ATTR_HAS_RECOMMENDED_SUGGESTIONS, android.view.textservice.SuggestionsInfo.RESULT_ATTR_LOOKS_LIKE_GRAMMAR_ERROR, android.view.textservice.SuggestionsInfo.RESULT_ATTR_DONT_SHOW_UI_FOR_SUGGESTIONS}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.view.textservice.SuggestionsInfo SuggestionsInfo(int, java.lang.String[], int, int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.textservice.SuggestionsInfo.RESULT_ATTR_IN_THE_DICTIONARY, android.view.textservice.SuggestionsInfo.RESULT_ATTR_LOOKS_LIKE_TYPO, android.view.textservice.SuggestionsInfo.RESULT_ATTR_HAS_RECOMMENDED_SUGGESTIONS, android.view.textservice.SuggestionsInfo.RESULT_ATTR_LOOKS_LIKE_GRAMMAR_ERROR, android.view.textservice.SuggestionsInfo.RESULT_ATTR_DONT_SHOW_UI_FOR_SUGGESTIONS}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.view.textservice.SuggestionsInfo int getSuggestionsAttributes()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.textservice.SuggestionsInfo.RESULT_ATTR_IN_THE_DICTIONARY, android.view.textservice.SuggestionsInfo.RESULT_ATTR_LOOKS_LIKE_TYPO, android.view.textservice.SuggestionsInfo.RESULT_ATTR_HAS_RECOMMENDED_SUGGESTIONS, android.view.textservice.SuggestionsInfo.RESULT_ATTR_LOOKS_LIKE_GRAMMAR_ERROR, android.view.textservice.SuggestionsInfo.RESULT_ATTR_DONT_SHOW_UI_FOR_SUGGESTIONS}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+</root>
+

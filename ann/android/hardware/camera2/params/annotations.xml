@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+  <item name="android.hardware.camera2.params.ColorSpaceProfiles java.util.Set&lt;android.graphics.ColorSpace.Named&gt; getSupportedColorSpacesForDynamicRange(int, long) 1">
+    <annotation name="androidx.annotation.LongDef">
+      <val name="value" val="{android.hardware.camera2.params.DynamicRangeProfiles.STANDARD, android.hardware.camera2.params.DynamicRangeProfiles.HLG10, android.hardware.camera2.params.DynamicRangeProfiles.HDR10, android.hardware.camera2.params.DynamicRangeProfiles.HDR10_PLUS, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_10B_HDR_REF, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_10B_HDR_REF_PO, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_10B_HDR_OEM, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_10B_HDR_OEM_PO, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_8B_HDR_REF, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_8B_HDR_REF_PO, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_8B_HDR_OEM, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_8B_HDR_OEM_PO, android.hardware.camera2.params.DynamicRangeProfiles.STANDARD_SMPTE_2094_50, android.hardware.camera2.params.DynamicRangeProfiles.HLG10_SMPTE_2094_50, android.hardware.camera2.params.DynamicRangeProfiles.HDR10_SMPTE_2094_50, android.hardware.camera2.params.DynamicRangeProfiles.HDR10_PLUS_SMPTE_2094_50, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_10B_HDR_REF_SMPTE_2094_50, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_10B_HDR_REF_PO_SMPTE_2094_50, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_10B_HDR_OEM_SMPTE_2094_50, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_10B_HDR_OEM_PO_SMPTE_2094_50, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_8B_HDR_REF_SMPTE_2094_50, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_8B_HDR_REF_PO_SMPTE_2094_50, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_8B_HDR_OEM_SMPTE_2094_50, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_8B_HDR_OEM_PO_SMPTE_2094_50}" />
+    </annotation>
+  </item>
+  <item name="android.hardware.camera2.params.DeviceStateSensorOrientationMap int getSensorOrientation(long) 0">
+    <annotation name="androidx.annotation.LongDef">
+      <val name="value" val="{android.hardware.camera2.params.DeviceStateSensorOrientationMap.NORMAL, android.hardware.camera2.params.DeviceStateSensorOrientationMap.FOLDED}" />
+    </annotation>
+  </item>
+  <item name="android.hardware.camera2.params.DeviceStateSensorOrientationMap.Builder android.hardware.camera2.params.DeviceStateSensorOrientationMap.Builder addOrientationForState(long, long) 0">
+    <annotation name="androidx.annotation.LongDef">
+      <val name="value" val="{android.hardware.camera2.params.DeviceStateSensorOrientationMap.NORMAL, android.hardware.camera2.params.DeviceStateSensorOrientationMap.FOLDED}" />
+    </annotation>
+  </item>
+  <item name="android.hardware.camera2.params.DynamicRangeProfiles boolean isExtraLatencyPresent(long) 0">
+    <annotation name="androidx.annotation.LongDef">
+      <val name="value" val="{android.hardware.camera2.params.DynamicRangeProfiles.STANDARD, android.hardware.camera2.params.DynamicRangeProfiles.HLG10, android.hardware.camera2.params.DynamicRangeProfiles.HDR10, android.hardware.camera2.params.DynamicRangeProfiles.HDR10_PLUS, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_10B_HDR_REF, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_10B_HDR_REF_PO, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_10B_HDR_OEM, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_10B_HDR_OEM_PO, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_8B_HDR_REF, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_8B_HDR_REF_PO, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_8B_HDR_OEM, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_8B_HDR_OEM_PO, android.hardware.camera2.params.DynamicRangeProfiles.STANDARD_SMPTE_2094_50, android.hardware.camera2.params.DynamicRangeProfiles.HLG10_SMPTE_2094_50, android.hardware.camera2.params.DynamicRangeProfiles.HDR10_SMPTE_2094_50, android.hardware.camera2.params.DynamicRangeProfiles.HDR10_PLUS_SMPTE_2094_50, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_10B_HDR_REF_SMPTE_2094_50, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_10B_HDR_REF_PO_SMPTE_2094_50, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_10B_HDR_OEM_SMPTE_2094_50, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_10B_HDR_OEM_PO_SMPTE_2094_50, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_8B_HDR_REF_SMPTE_2094_50, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_8B_HDR_REF_PO_SMPTE_2094_50, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_8B_HDR_OEM_SMPTE_2094_50, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_8B_HDR_OEM_PO_SMPTE_2094_50}" />
+    </annotation>
+  </item>
+  <item name="android.hardware.camera2.params.DynamicRangeProfiles java.util.Set&lt;java.lang.Long&gt; getProfileCaptureRequestConstraints(long) 0">
+    <annotation name="androidx.annotation.LongDef">
+      <val name="value" val="{android.hardware.camera2.params.DynamicRangeProfiles.STANDARD, android.hardware.camera2.params.DynamicRangeProfiles.HLG10, android.hardware.camera2.params.DynamicRangeProfiles.HDR10, android.hardware.camera2.params.DynamicRangeProfiles.HDR10_PLUS, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_10B_HDR_REF, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_10B_HDR_REF_PO, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_10B_HDR_OEM, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_10B_HDR_OEM_PO, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_8B_HDR_REF, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_8B_HDR_REF_PO, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_8B_HDR_OEM, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_8B_HDR_OEM_PO, android.hardware.camera2.params.DynamicRangeProfiles.STANDARD_SMPTE_2094_50, android.hardware.camera2.params.DynamicRangeProfiles.HLG10_SMPTE_2094_50, android.hardware.camera2.params.DynamicRangeProfiles.HDR10_SMPTE_2094_50, android.hardware.camera2.params.DynamicRangeProfiles.HDR10_PLUS_SMPTE_2094_50, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_10B_HDR_REF_SMPTE_2094_50, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_10B_HDR_REF_PO_SMPTE_2094_50, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_10B_HDR_OEM_SMPTE_2094_50, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_10B_HDR_OEM_PO_SMPTE_2094_50, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_8B_HDR_REF_SMPTE_2094_50, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_8B_HDR_REF_PO_SMPTE_2094_50, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_8B_HDR_OEM_SMPTE_2094_50, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_8B_HDR_OEM_PO_SMPTE_2094_50}" />
+    </annotation>
+  </item>
+  <item name="android.hardware.camera2.params.ExtensionSessionConfiguration ExtensionSessionConfiguration(int, java.util.List&lt;android.hardware.camera2.params.OutputConfiguration&gt;, java.util.concurrent.Executor, android.hardware.camera2.CameraExtensionSession.StateCallback) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.hardware.camera2.CameraExtensionCharacteristics.EXTENSION_AUTOMATIC, android.hardware.camera2.CameraExtensionCharacteristics.EXTENSION_FACE_RETOUCH, android.hardware.camera2.CameraExtensionCharacteristics.EXTENSION_BOKEH, android.hardware.camera2.CameraExtensionCharacteristics.EXTENSION_HDR, android.hardware.camera2.CameraExtensionCharacteristics.EXTENSION_NIGHT}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.hardware.camera2.params.ExtensionSessionConfiguration int getExtension()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.hardware.camera2.CameraExtensionCharacteristics.EXTENSION_AUTOMATIC, android.hardware.camera2.CameraExtensionCharacteristics.EXTENSION_FACE_RETOUCH, android.hardware.camera2.CameraExtensionCharacteristics.EXTENSION_BOKEH, android.hardware.camera2.CameraExtensionCharacteristics.EXTENSION_HDR, android.hardware.camera2.CameraExtensionCharacteristics.EXTENSION_NIGHT}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.hardware.camera2.params.Face int getScore()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="1L" />
+      <val name="to" val="100L" />
+    </annotation>
+  </item>
+  <item name="android.hardware.camera2.params.Face.Builder android.hardware.camera2.params.Face.Builder setScore(int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="1L" />
+      <val name="to" val="100L" />
+    </annotation>
+  </item>
+  <item name="android.hardware.camera2.params.MandatoryStreamCombination.MandatoryStreamInformation long getStreamUseCase()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.hardware.camera2.CameraMetadata.SCALER_AVAILABLE_STREAM_USE_CASES_DEFAULT, android.hardware.camera2.CameraMetadata.SCALER_AVAILABLE_STREAM_USE_CASES_PREVIEW, android.hardware.camera2.CameraMetadata.SCALER_AVAILABLE_STREAM_USE_CASES_STILL_CAPTURE, android.hardware.camera2.CameraMetadata.SCALER_AVAILABLE_STREAM_USE_CASES_VIDEO_RECORD, android.hardware.camera2.CameraMetadata.SCALER_AVAILABLE_STREAM_USE_CASES_PREVIEW_VIDEO_STILL, android.hardware.camera2.CameraMetadata.SCALER_AVAILABLE_STREAM_USE_CASES_VIDEO_CALL, android.hardware.camera2.CameraMetadata.SCALER_AVAILABLE_STREAM_USE_CASES_CROPPED_RAW}" />
+    </annotation>
+  </item>
+  <item name="android.hardware.camera2.params.MultiResolutionStreamInfo MultiResolutionStreamInfo(int, int, java.lang.String) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="1L" />
+    </annotation>
+  </item>
+  <item name="android.hardware.camera2.params.MultiResolutionStreamInfo MultiResolutionStreamInfo(int, int, java.lang.String) 1">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="1L" />
+    </annotation>
+  </item>
+  <item name="android.hardware.camera2.params.MultiResolutionStreamInfo int getHeight()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="1L" />
+    </annotation>
+  </item>
+  <item name="android.hardware.camera2.params.MultiResolutionStreamInfo int getWidth()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="1L" />
+    </annotation>
+  </item>
+  <item name="android.hardware.camera2.params.OutputConfiguration OutputConfiguration(int, android.util.Size, long) 2">
+    <annotation name="androidx.annotation.LongDef">
+      <val name="value" val="{android.hardware.HardwareBuffer.USAGE_CPU_READ_RARELY, android.hardware.HardwareBuffer.USAGE_CPU_READ_OFTEN, android.hardware.HardwareBuffer.USAGE_CPU_WRITE_RARELY, android.hardware.HardwareBuffer.USAGE_CPU_WRITE_OFTEN, android.hardware.HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE, android.hardware.HardwareBuffer.USAGE_GPU_COLOR_OUTPUT, android.hardware.HardwareBuffer.USAGE_COMPOSER_OVERLAY, android.hardware.HardwareBuffer.USAGE_PROTECTED_CONTENT, android.hardware.HardwareBuffer.USAGE_VIDEO_ENCODE, android.hardware.HardwareBuffer.USAGE_GPU_DATA_BUFFER, android.hardware.HardwareBuffer.USAGE_SENSOR_DIRECT_DATA, android.hardware.HardwareBuffer.USAGE_GPU_CUBE_MAP, android.hardware.HardwareBuffer.USAGE_GPU_MIPMAP_COMPLETE, android.hardware.HardwareBuffer.USAGE_FRONT_BUFFER}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.hardware.camera2.params.OutputConfiguration OutputConfiguration(int, int, android.util.Size, long) 3">
+    <annotation name="androidx.annotation.LongDef">
+      <val name="value" val="{android.hardware.HardwareBuffer.USAGE_CPU_READ_RARELY, android.hardware.HardwareBuffer.USAGE_CPU_READ_OFTEN, android.hardware.HardwareBuffer.USAGE_CPU_WRITE_RARELY, android.hardware.HardwareBuffer.USAGE_CPU_WRITE_OFTEN, android.hardware.HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE, android.hardware.HardwareBuffer.USAGE_GPU_COLOR_OUTPUT, android.hardware.HardwareBuffer.USAGE_COMPOSER_OVERLAY, android.hardware.HardwareBuffer.USAGE_PROTECTED_CONTENT, android.hardware.HardwareBuffer.USAGE_VIDEO_ENCODE, android.hardware.HardwareBuffer.USAGE_GPU_DATA_BUFFER, android.hardware.HardwareBuffer.USAGE_SENSOR_DIRECT_DATA, android.hardware.HardwareBuffer.USAGE_GPU_CUBE_MAP, android.hardware.HardwareBuffer.USAGE_GPU_MIPMAP_COMPLETE, android.hardware.HardwareBuffer.USAGE_FRONT_BUFFER}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.hardware.camera2.params.OutputConfiguration int getMirrorMode()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.hardware.camera2.params.OutputConfiguration.MIRROR_MODE_AUTO, android.hardware.camera2.params.OutputConfiguration.MIRROR_MODE_NONE, android.hardware.camera2.params.OutputConfiguration.MIRROR_MODE_H, android.hardware.camera2.params.OutputConfiguration.MIRROR_MODE_V}" />
+    </annotation>
+  </item>
+  <item name="android.hardware.camera2.params.OutputConfiguration int getMirrorMode(android.view.Surface)">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.hardware.camera2.params.OutputConfiguration.MIRROR_MODE_AUTO, android.hardware.camera2.params.OutputConfiguration.MIRROR_MODE_NONE, android.hardware.camera2.params.OutputConfiguration.MIRROR_MODE_H, android.hardware.camera2.params.OutputConfiguration.MIRROR_MODE_V}" />
+    </annotation>
+  </item>
+  <item name="android.hardware.camera2.params.OutputConfiguration int getTimestampBase()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.hardware.camera2.params.OutputConfiguration.TIMESTAMP_BASE_DEFAULT, android.hardware.camera2.params.OutputConfiguration.TIMESTAMP_BASE_SENSOR, android.hardware.camera2.params.OutputConfiguration.TIMESTAMP_BASE_MONOTONIC, android.hardware.camera2.params.OutputConfiguration.TIMESTAMP_BASE_REALTIME, android.hardware.camera2.params.OutputConfiguration.TIMESTAMP_BASE_CHOREOGRAPHER_SYNCED}" />
+    </annotation>
+  </item>
+  <item name="android.hardware.camera2.params.OutputConfiguration long getDynamicRangeProfile()">
+    <annotation name="androidx.annotation.LongDef">
+      <val name="value" val="{android.hardware.camera2.params.DynamicRangeProfiles.STANDARD, android.hardware.camera2.params.DynamicRangeProfiles.HLG10, android.hardware.camera2.params.DynamicRangeProfiles.HDR10, android.hardware.camera2.params.DynamicRangeProfiles.HDR10_PLUS, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_10B_HDR_REF, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_10B_HDR_REF_PO, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_10B_HDR_OEM, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_10B_HDR_OEM_PO, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_8B_HDR_REF, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_8B_HDR_REF_PO, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_8B_HDR_OEM, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_8B_HDR_OEM_PO, android.hardware.camera2.params.DynamicRangeProfiles.STANDARD_SMPTE_2094_50, android.hardware.camera2.params.DynamicRangeProfiles.HLG10_SMPTE_2094_50, android.hardware.camera2.params.DynamicRangeProfiles.HDR10_SMPTE_2094_50, android.hardware.camera2.params.DynamicRangeProfiles.HDR10_PLUS_SMPTE_2094_50, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_10B_HDR_REF_SMPTE_2094_50, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_10B_HDR_REF_PO_SMPTE_2094_50, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_10B_HDR_OEM_SMPTE_2094_50, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_10B_HDR_OEM_PO_SMPTE_2094_50, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_8B_HDR_REF_SMPTE_2094_50, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_8B_HDR_REF_PO_SMPTE_2094_50, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_8B_HDR_OEM_SMPTE_2094_50, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_8B_HDR_OEM_PO_SMPTE_2094_50}" />
+    </annotation>
+  </item>
+  <item name="android.hardware.camera2.params.OutputConfiguration long getUsage()">
+    <annotation name="androidx.annotation.LongDef">
+      <val name="value" val="{android.hardware.HardwareBuffer.USAGE_CPU_READ_RARELY, android.hardware.HardwareBuffer.USAGE_CPU_READ_OFTEN, android.hardware.HardwareBuffer.USAGE_CPU_WRITE_RARELY, android.hardware.HardwareBuffer.USAGE_CPU_WRITE_OFTEN, android.hardware.HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE, android.hardware.HardwareBuffer.USAGE_GPU_COLOR_OUTPUT, android.hardware.HardwareBuffer.USAGE_COMPOSER_OVERLAY, android.hardware.HardwareBuffer.USAGE_PROTECTED_CONTENT, android.hardware.HardwareBuffer.USAGE_VIDEO_ENCODE, android.hardware.HardwareBuffer.USAGE_GPU_DATA_BUFFER, android.hardware.HardwareBuffer.USAGE_SENSOR_DIRECT_DATA, android.hardware.HardwareBuffer.USAGE_GPU_CUBE_MAP, android.hardware.HardwareBuffer.USAGE_GPU_MIPMAP_COMPLETE, android.hardware.HardwareBuffer.USAGE_FRONT_BUFFER}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.hardware.camera2.params.OutputConfiguration void addSensorPixelModeUsed(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.hardware.camera2.CameraMetadata.SENSOR_PIXEL_MODE_DEFAULT, android.hardware.camera2.CameraMetadata.SENSOR_PIXEL_MODE_MAXIMUM_RESOLUTION}" />
+    </annotation>
+  </item>
+  <item name="android.hardware.camera2.params.OutputConfiguration void removeSensorPixelModeUsed(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.hardware.camera2.CameraMetadata.SENSOR_PIXEL_MODE_DEFAULT, android.hardware.camera2.CameraMetadata.SENSOR_PIXEL_MODE_MAXIMUM_RESOLUTION}" />
+    </annotation>
+  </item>
+  <item name="android.hardware.camera2.params.OutputConfiguration void setDynamicRangeProfile(long) 0">
+    <annotation name="androidx.annotation.LongDef">
+      <val name="value" val="{android.hardware.camera2.params.DynamicRangeProfiles.STANDARD, android.hardware.camera2.params.DynamicRangeProfiles.HLG10, android.hardware.camera2.params.DynamicRangeProfiles.HDR10, android.hardware.camera2.params.DynamicRangeProfiles.HDR10_PLUS, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_10B_HDR_REF, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_10B_HDR_REF_PO, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_10B_HDR_OEM, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_10B_HDR_OEM_PO, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_8B_HDR_REF, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_8B_HDR_REF_PO, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_8B_HDR_OEM, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_8B_HDR_OEM_PO, android.hardware.camera2.params.DynamicRangeProfiles.STANDARD_SMPTE_2094_50, android.hardware.camera2.params.DynamicRangeProfiles.HLG10_SMPTE_2094_50, android.hardware.camera2.params.DynamicRangeProfiles.HDR10_SMPTE_2094_50, android.hardware.camera2.params.DynamicRangeProfiles.HDR10_PLUS_SMPTE_2094_50, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_10B_HDR_REF_SMPTE_2094_50, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_10B_HDR_REF_PO_SMPTE_2094_50, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_10B_HDR_OEM_SMPTE_2094_50, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_10B_HDR_OEM_PO_SMPTE_2094_50, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_8B_HDR_REF_SMPTE_2094_50, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_8B_HDR_REF_PO_SMPTE_2094_50, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_8B_HDR_OEM_SMPTE_2094_50, android.hardware.camera2.params.DynamicRangeProfiles.DOLBY_VISION_8B_HDR_OEM_PO_SMPTE_2094_50}" />
+    </annotation>
+  </item>
+  <item name="android.hardware.camera2.params.OutputConfiguration void setMirrorMode(android.view.Surface, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.hardware.camera2.params.OutputConfiguration.MIRROR_MODE_AUTO, android.hardware.camera2.params.OutputConfiguration.MIRROR_MODE_NONE, android.hardware.camera2.params.OutputConfiguration.MIRROR_MODE_H, android.hardware.camera2.params.OutputConfiguration.MIRROR_MODE_V}" />
+    </annotation>
+  </item>
+  <item name="android.hardware.camera2.params.OutputConfiguration void setMirrorMode(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.hardware.camera2.params.OutputConfiguration.MIRROR_MODE_AUTO, android.hardware.camera2.params.OutputConfiguration.MIRROR_MODE_NONE, android.hardware.camera2.params.OutputConfiguration.MIRROR_MODE_H, android.hardware.camera2.params.OutputConfiguration.MIRROR_MODE_V}" />
+    </annotation>
+  </item>
+  <item name="android.hardware.camera2.params.OutputConfiguration void setStreamUseCase(long) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.hardware.camera2.CameraMetadata.SCALER_AVAILABLE_STREAM_USE_CASES_DEFAULT, android.hardware.camera2.CameraMetadata.SCALER_AVAILABLE_STREAM_USE_CASES_PREVIEW, android.hardware.camera2.CameraMetadata.SCALER_AVAILABLE_STREAM_USE_CASES_STILL_CAPTURE, android.hardware.camera2.CameraMetadata.SCALER_AVAILABLE_STREAM_USE_CASES_VIDEO_RECORD, android.hardware.camera2.CameraMetadata.SCALER_AVAILABLE_STREAM_USE_CASES_PREVIEW_VIDEO_STILL, android.hardware.camera2.CameraMetadata.SCALER_AVAILABLE_STREAM_USE_CASES_VIDEO_CALL, android.hardware.camera2.CameraMetadata.SCALER_AVAILABLE_STREAM_USE_CASES_CROPPED_RAW}" />
+    </annotation>
+  </item>
+  <item name="android.hardware.camera2.params.OutputConfiguration void setTimestampBase(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.hardware.camera2.params.OutputConfiguration.TIMESTAMP_BASE_DEFAULT, android.hardware.camera2.params.OutputConfiguration.TIMESTAMP_BASE_SENSOR, android.hardware.camera2.params.OutputConfiguration.TIMESTAMP_BASE_MONOTONIC, android.hardware.camera2.params.OutputConfiguration.TIMESTAMP_BASE_REALTIME, android.hardware.camera2.params.OutputConfiguration.TIMESTAMP_BASE_CHOREOGRAPHER_SYNCED}" />
+    </annotation>
+  </item>
+  <item name="android.hardware.camera2.params.RecommendedStreamConfigurationMap int getRecommendedUseCase()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.hardware.camera2.params.RecommendedStreamConfigurationMap.USECASE_PREVIEW, android.hardware.camera2.params.RecommendedStreamConfigurationMap.USECASE_RECORD, android.hardware.camera2.params.RecommendedStreamConfigurationMap.USECASE_VIDEO_SNAPSHOT, android.hardware.camera2.params.RecommendedStreamConfigurationMap.USECASE_SNAPSHOT, android.hardware.camera2.params.RecommendedStreamConfigurationMap.USECASE_ZSL, android.hardware.camera2.params.RecommendedStreamConfigurationMap.USECASE_RAW, android.hardware.camera2.params.RecommendedStreamConfigurationMap.USECASE_LOW_LATENCY_SNAPSHOT, android.hardware.camera2.params.RecommendedStreamConfigurationMap.USECASE_10BIT_OUTPUT}" />
+    </annotation>
+  </item>
+  <item name="android.hardware.camera2.params.RecommendedStreamConfigurationMap long getOutputMinFrameDuration(int, android.util.Size)">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.hardware.camera2.params.RecommendedStreamConfigurationMap long getOutputMinFrameDuration(java.lang.Class&lt;T&gt;, android.util.Size)">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.hardware.camera2.params.RecommendedStreamConfigurationMap long getOutputStallDuration(int, android.util.Size)">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.hardware.camera2.params.RecommendedStreamConfigurationMap long getOutputStallDuration(java.lang.Class&lt;T&gt;, android.util.Size)">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.hardware.camera2.params.SessionConfiguration SessionConfiguration(int, java.util.List&lt;android.hardware.camera2.params.OutputConfiguration&gt;) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.hardware.camera2.params.SessionConfiguration.SESSION_REGULAR, android.hardware.camera2.params.SessionConfiguration.SESSION_HIGH_SPEED}" />
+    </annotation>
+  </item>
+  <item name="android.hardware.camera2.params.SessionConfiguration SessionConfiguration(int, java.util.List&lt;android.hardware.camera2.params.OutputConfiguration&gt;, java.util.concurrent.Executor, android.hardware.camera2.CameraCaptureSession.StateCallback) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.hardware.camera2.params.SessionConfiguration.SESSION_REGULAR, android.hardware.camera2.params.SessionConfiguration.SESSION_HIGH_SPEED}" />
+    </annotation>
+  </item>
+  <item name="android.hardware.camera2.params.SessionConfiguration int getSessionType()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.hardware.camera2.params.SessionConfiguration.SESSION_REGULAR, android.hardware.camera2.params.SessionConfiguration.SESSION_HIGH_SPEED}" />
+    </annotation>
+  </item>
+</root>
+

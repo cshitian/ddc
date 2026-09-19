@@ -1,0 +1,1493 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+  <item name="android.view.ActionMode void setSubtitle(int) 0">
+    <annotation name="androidx.annotation.StringRes"/>
+  </item>
+  <item name="android.view.ActionMode void setTitle(int) 0">
+    <annotation name="androidx.annotation.StringRes"/>
+  </item>
+  <item name="android.view.AttachedSurfaceControl">
+    <annotation name="androidx.annotation.UiThread"/>
+  </item>
+  <item name="android.view.AttachedSurfaceControl int getBufferTransformHint()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.SurfaceControl.BUFFER_TRANSFORM_IDENTITY, android.view.SurfaceControl.BUFFER_TRANSFORM_MIRROR_HORIZONTAL, android.view.SurfaceControl.BUFFER_TRANSFORM_MIRROR_VERTICAL, android.view.SurfaceControl.BUFFER_TRANSFORM_ROTATE_90, android.view.SurfaceControl.BUFFER_TRANSFORM_ROTATE_180, android.view.SurfaceControl.BUFFER_TRANSFORM_ROTATE_270, android.view.SurfaceControl.BUFFER_TRANSFORM_MIRROR_HORIZONTAL_ROTATE_90, android.view.SurfaceControl.BUFFER_TRANSFORM_MIRROR_VERTICAL_ROTATE_90}" />
+    </annotation>
+  </item>
+  <item name="android.view.AttachedSurfaceControl.OnBufferTransformHintChangedListener">
+    <annotation name="androidx.annotation.UiThread"/>
+  </item>
+  <item name="android.view.AttachedSurfaceControl.OnBufferTransformHintChangedListener void onBufferTransformHintChanged(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.SurfaceControl.BUFFER_TRANSFORM_IDENTITY, android.view.SurfaceControl.BUFFER_TRANSFORM_MIRROR_HORIZONTAL, android.view.SurfaceControl.BUFFER_TRANSFORM_MIRROR_VERTICAL, android.view.SurfaceControl.BUFFER_TRANSFORM_ROTATE_90, android.view.SurfaceControl.BUFFER_TRANSFORM_ROTATE_180, android.view.SurfaceControl.BUFFER_TRANSFORM_ROTATE_270, android.view.SurfaceControl.BUFFER_TRANSFORM_MIRROR_HORIZONTAL_ROTATE_90, android.view.SurfaceControl.BUFFER_TRANSFORM_MIRROR_VERTICAL_ROTATE_90}" />
+    </annotation>
+  </item>
+  <item name="android.view.BlurRegion void setAlpha(float) 0">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+      <val name="to" val="1.0" />
+    </annotation>
+  </item>
+  <item name="android.view.ContentInfo int getFlags()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="android.view.ContentInfo.FLAG_CONVERT_TO_PLAIN_TEXT" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.view.ContentInfo int getSource()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.ContentInfo.SOURCE_APP, android.view.ContentInfo.SOURCE_CLIPBOARD, android.view.ContentInfo.SOURCE_INPUT_METHOD, android.view.ContentInfo.SOURCE_DRAG_AND_DROP, android.view.ContentInfo.SOURCE_AUTOFILL, android.view.ContentInfo.SOURCE_PROCESS_TEXT}" />
+    </annotation>
+  </item>
+  <item name="android.view.ContentInfo.Builder Builder(android.content.ClipData, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.ContentInfo.SOURCE_APP, android.view.ContentInfo.SOURCE_CLIPBOARD, android.view.ContentInfo.SOURCE_INPUT_METHOD, android.view.ContentInfo.SOURCE_DRAG_AND_DROP, android.view.ContentInfo.SOURCE_AUTOFILL, android.view.ContentInfo.SOURCE_PROCESS_TEXT}" />
+    </annotation>
+  </item>
+  <item name="android.view.ContentInfo.Builder android.view.ContentInfo.Builder setFlags(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="android.view.ContentInfo.FLAG_CONVERT_TO_PLAIN_TEXT" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.view.ContentInfo.Builder android.view.ContentInfo.Builder setSource(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.ContentInfo.SOURCE_APP, android.view.ContentInfo.SOURCE_CLIPBOARD, android.view.ContentInfo.SOURCE_INPUT_METHOD, android.view.ContentInfo.SOURCE_DRAG_AND_DROP, android.view.ContentInfo.SOURCE_AUTOFILL, android.view.ContentInfo.SOURCE_PROCESS_TEXT}" />
+    </annotation>
+  </item>
+  <item name="android.view.ContextMenu android.view.ContextMenu setHeaderIcon(int) 0">
+    <annotation name="androidx.annotation.DrawableRes"/>
+  </item>
+  <item name="android.view.ContextMenu android.view.ContextMenu setHeaderTitle(int) 0">
+    <annotation name="androidx.annotation.StringRes"/>
+  </item>
+  <item name="android.view.ContextThemeWrapper ContextThemeWrapper(android.content.Context, int) 1">
+    <annotation name="androidx.annotation.StyleRes"/>
+  </item>
+  <item name="android.view.Display android.view.RoundedCorner getRoundedCorner(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.RoundedCorner.POSITION_TOP_LEFT, android.view.RoundedCorner.POSITION_TOP_RIGHT, android.view.RoundedCorner.POSITION_BOTTOM_RIGHT, android.view.RoundedCorner.POSITION_BOTTOM_LEFT}" />
+    </annotation>
+  </item>
+  <item name="android.view.Display float getSuggestedFrameRate(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.Display.FRAME_RATE_CATEGORY_NORMAL, android.view.Display.FRAME_RATE_CATEGORY_HIGH}" />
+    </annotation>
+  </item>
+  <item name="android.view.Display int getOrientation()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.Surface.ROTATION_0, android.view.Surface.ROTATION_90, android.view.Surface.ROTATION_180, android.view.Surface.ROTATION_270}" />
+    </annotation>
+  </item>
+  <item name="android.view.Display int getRotation()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.Surface.ROTATION_0, android.view.Surface.ROTATION_90, android.view.Surface.ROTATION_180, android.view.Surface.ROTATION_270}" />
+    </annotation>
+  </item>
+  <item name="android.view.Display int getState()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.Display.STATE_UNKNOWN, android.view.Display.STATE_OFF, android.view.Display.STATE_ON, android.view.Display.STATE_DOZE, android.view.Display.STATE_DOZE_SUSPEND, android.view.Display.STATE_VR, android.view.Display.STATE_ON_SUSPEND}" />
+    </annotation>
+  </item>
+  <item name="android.view.Display.HdrCapabilities int[] getSupportedHdrTypes()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.Display.HdrCapabilities.HDR_TYPE_INVALID, android.view.Display.HdrCapabilities.HDR_TYPE_DOLBY_VISION, android.view.Display.HdrCapabilities.HDR_TYPE_HDR10, android.view.Display.HdrCapabilities.HDR_TYPE_HLG, android.view.Display.HdrCapabilities.HDR_TYPE_HDR10_PLUS, android.view.Display.HdrCapabilities.HDR_TYPE_HLG_PLUS}" />
+    </annotation>
+  </item>
+  <item name="android.view.Display.Mode int[] getSupportedHdrTypes()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.Display.HdrCapabilities.HDR_TYPE_INVALID, android.view.Display.HdrCapabilities.HDR_TYPE_DOLBY_VISION, android.view.Display.HdrCapabilities.HDR_TYPE_HDR10, android.view.Display.HdrCapabilities.HDR_TYPE_HLG, android.view.Display.HdrCapabilities.HDR_TYPE_HDR10_PLUS, android.view.Display.HdrCapabilities.HDR_TYPE_HLG_PLUS}" />
+    </annotation>
+  </item>
+  <item name="android.view.FocusFinder android.view.View findNextKeyboardNavigationCluster(android.view.View, android.view.View, int) 2">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.View.FOCUS_BACKWARD, android.view.View.FOCUS_FORWARD, android.view.View.FOCUS_LEFT, android.view.View.FOCUS_UP, android.view.View.FOCUS_RIGHT, android.view.View.FOCUS_DOWN}" />
+    </annotation>
+  </item>
+  <item name="android.view.FrameMetrics long getMetric(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.FrameMetrics.UNKNOWN_DELAY_DURATION, android.view.FrameMetrics.INPUT_HANDLING_DURATION, android.view.FrameMetrics.ANIMATION_DURATION, android.view.FrameMetrics.LAYOUT_MEASURE_DURATION, android.view.FrameMetrics.DRAW_DURATION, android.view.FrameMetrics.SYNC_DURATION, android.view.FrameMetrics.COMMAND_ISSUE_DURATION, android.view.FrameMetrics.SWAP_BUFFERS_DURATION, android.view.FrameMetrics.TOTAL_DURATION, android.view.FrameMetrics.FIRST_DRAW_FRAME, android.view.FrameMetrics.INTENDED_VSYNC_TIMESTAMP, android.view.FrameMetrics.VSYNC_TIMESTAMP, android.view.FrameMetrics.GPU_DURATION, android.view.FrameMetrics.DEADLINE}" />
+    </annotation>
+  </item>
+  <item name="android.view.GestureDetector GestureDetector(android.content.Context, android.view.GestureDetector.OnGestureListener) 0">
+    <annotation name="androidx.annotation.UiContext"/>
+  </item>
+  <item name="android.view.GestureDetector GestureDetector(android.content.Context, android.view.GestureDetector.OnGestureListener, android.os.Handler) 0">
+    <annotation name="androidx.annotation.UiContext"/>
+  </item>
+  <item name="android.view.GestureDetector GestureDetector(android.content.Context, android.view.GestureDetector.OnGestureListener, android.os.Handler, boolean) 0">
+    <annotation name="androidx.annotation.UiContext"/>
+  </item>
+  <item name="android.view.LayoutInflater android.view.LayoutInflater from(android.content.Context) 0">
+    <annotation name="androidx.annotation.UiContext"/>
+  </item>
+  <item name="android.view.LayoutInflater android.view.View inflate(int, android.view.ViewGroup) 0">
+    <annotation name="androidx.annotation.LayoutRes"/>
+  </item>
+  <item name="android.view.LayoutInflater android.view.View inflate(int, android.view.ViewGroup, boolean) 0">
+    <annotation name="androidx.annotation.LayoutRes"/>
+  </item>
+  <item name="android.view.Menu android.view.MenuItem add(int) 0">
+    <annotation name="androidx.annotation.StringRes"/>
+  </item>
+  <item name="android.view.Menu android.view.MenuItem add(int, int, int, int) 3">
+    <annotation name="androidx.annotation.StringRes"/>
+  </item>
+  <item name="android.view.Menu android.view.SubMenu addSubMenu(int) 0">
+    <annotation name="androidx.annotation.StringRes"/>
+  </item>
+  <item name="android.view.Menu android.view.SubMenu addSubMenu(int, int, int, int) 3">
+    <annotation name="androidx.annotation.StringRes"/>
+  </item>
+  <item name="android.view.MenuInflater void inflate(int, android.view.Menu) 0">
+    <annotation name="androidx.annotation.MenuRes"/>
+  </item>
+  <item name="android.view.MenuItem android.view.MenuItem setActionView(int) 0">
+    <annotation name="androidx.annotation.LayoutRes"/>
+  </item>
+  <item name="android.view.MenuItem android.view.MenuItem setIcon(int) 0">
+    <annotation name="androidx.annotation.DrawableRes"/>
+  </item>
+  <item name="android.view.MenuItem android.view.MenuItem setTitle(int) 0">
+    <annotation name="androidx.annotation.StringRes"/>
+  </item>
+  <item name="android.view.MotionEvent android.view.MotionEvent obtain(long, long, int, int, android.view.MotionEvent.PointerProperties[], android.view.MotionEvent.PointerCoords[], int, int, float, float, int, int, int, int, int, int) 15">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.MotionEvent.CLASSIFICATION_NONE, android.view.MotionEvent.CLASSIFICATION_AMBIGUOUS_GESTURE, android.view.MotionEvent.CLASSIFICATION_DEEP_PRESS, android.view.MotionEvent.CLASSIFICATION_TWO_FINGER_SWIPE, android.view.MotionEvent.CLASSIFICATION_PINCH}" />
+    </annotation>
+  </item>
+  <item name="android.view.MotionEvent int getClassification()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.MotionEvent.CLASSIFICATION_NONE, android.view.MotionEvent.CLASSIFICATION_AMBIGUOUS_GESTURE, android.view.MotionEvent.CLASSIFICATION_DEEP_PRESS, android.view.MotionEvent.CLASSIFICATION_TWO_FINGER_SWIPE, android.view.MotionEvent.CLASSIFICATION_PINCH}" />
+    </annotation>
+  </item>
+  <item name="android.view.MotionEvent int getToolType(int)">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.MotionEvent.TOOL_TYPE_UNKNOWN, android.view.MotionEvent.TOOL_TYPE_FINGER, android.view.MotionEvent.TOOL_TYPE_STYLUS, android.view.MotionEvent.TOOL_TYPE_MOUSE, android.view.MotionEvent.TOOL_TYPE_ERASER}" />
+    </annotation>
+  </item>
+  <item name="android.view.MotionEvent.PointerProperties toolType">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.MotionEvent.TOOL_TYPE_UNKNOWN, android.view.MotionEvent.TOOL_TYPE_FINGER, android.view.MotionEvent.TOOL_TYPE_STYLUS, android.view.MotionEvent.TOOL_TYPE_MOUSE, android.view.MotionEvent.TOOL_TYPE_ERASER}" />
+    </annotation>
+  </item>
+  <item name="android.view.PixelCopy.OnPixelCopyFinishedListener void onPixelCopyFinished(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.PixelCopy.SUCCESS, android.view.PixelCopy.ERROR_UNKNOWN, android.view.PixelCopy.ERROR_TIMEOUT, android.view.PixelCopy.ERROR_SOURCE_NO_DATA, android.view.PixelCopy.ERROR_SOURCE_INVALID, android.view.PixelCopy.ERROR_DESTINATION_INVALID}" />
+    </annotation>
+  </item>
+  <item name="android.view.PixelCopy.Result int getStatus()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.PixelCopy.SUCCESS, android.view.PixelCopy.ERROR_UNKNOWN, android.view.PixelCopy.ERROR_TIMEOUT, android.view.PixelCopy.ERROR_SOURCE_NO_DATA, android.view.PixelCopy.ERROR_SOURCE_INVALID, android.view.PixelCopy.ERROR_DESTINATION_INVALID}" />
+    </annotation>
+  </item>
+  <item name="android.view.PointerIcon android.view.PointerIcon load(android.content.res.Resources, int) 1">
+    <annotation name="androidx.annotation.XmlRes"/>
+  </item>
+  <item name="android.view.RoundedCorner RoundedCorner(int, int, int, int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.RoundedCorner.POSITION_TOP_LEFT, android.view.RoundedCorner.POSITION_TOP_RIGHT, android.view.RoundedCorner.POSITION_BOTTOM_RIGHT, android.view.RoundedCorner.POSITION_BOTTOM_LEFT}" />
+    </annotation>
+  </item>
+  <item name="android.view.RoundedCorner int getPosition()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.RoundedCorner.POSITION_TOP_LEFT, android.view.RoundedCorner.POSITION_TOP_RIGHT, android.view.RoundedCorner.POSITION_BOTTOM_RIGHT, android.view.RoundedCorner.POSITION_BOTTOM_LEFT}" />
+    </annotation>
+  </item>
+  <item name="android.view.RoundedRectBlurRegion RoundedRectBlurRegion(android.graphics.RectF, float[], float, float) 2">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+      <val name="to" val="1.0" />
+    </annotation>
+  </item>
+  <item name="android.view.ScrollCaptureCallback">
+    <annotation name="androidx.annotation.UiThread"/>
+  </item>
+  <item name="android.view.ScrollCaptureTarget int getHint()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.View.SCROLL_CAPTURE_HINT_AUTO, android.view.View.SCROLL_CAPTURE_HINT_EXCLUDE, android.view.View.SCROLL_CAPTURE_HINT_INCLUDE, android.view.View.SCROLL_CAPTURE_HINT_EXCLUDE_DESCENDANTS}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.view.ScrollCaptureTarget void updatePositionInWindow()">
+    <annotation name="androidx.annotation.UiThread"/>
+  </item>
+  <item name="android.view.SoundEffectConstants int getConstantForFocusDirection(int, boolean)">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.SoundEffectConstants.NAVIGATION_LEFT, android.view.SoundEffectConstants.NAVIGATION_UP, android.view.SoundEffectConstants.NAVIGATION_RIGHT, android.view.SoundEffectConstants.NAVIGATION_DOWN, android.view.SoundEffectConstants.NAVIGATION_REPEAT_LEFT, android.view.SoundEffectConstants.NAVIGATION_REPEAT_UP, android.view.SoundEffectConstants.NAVIGATION_REPEAT_RIGHT, android.view.SoundEffectConstants.NAVIGATION_REPEAT_DOWN}" />
+    </annotation>
+  </item>
+  <item name="android.view.SoundEffectConstants int getConstantForFocusDirection(int, boolean) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.View.FOCUS_BACKWARD, android.view.View.FOCUS_FORWARD, android.view.View.FOCUS_LEFT, android.view.View.FOCUS_UP, android.view.View.FOCUS_RIGHT, android.view.View.FOCUS_DOWN}" />
+    </annotation>
+  </item>
+  <item name="android.view.SoundEffectConstants int getContantForFocusDirection(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.View.FOCUS_BACKWARD, android.view.View.FOCUS_FORWARD, android.view.View.FOCUS_LEFT, android.view.View.FOCUS_UP, android.view.View.FOCUS_RIGHT, android.view.View.FOCUS_DOWN}" />
+    </annotation>
+  </item>
+  <item name="android.view.SubMenu android.view.SubMenu setHeaderIcon(int) 0">
+    <annotation name="androidx.annotation.DrawableRes"/>
+  </item>
+  <item name="android.view.SubMenu android.view.SubMenu setHeaderTitle(int) 0">
+    <annotation name="androidx.annotation.StringRes"/>
+  </item>
+  <item name="android.view.SubMenu android.view.SubMenu setIcon(int) 0">
+    <annotation name="androidx.annotation.DrawableRes"/>
+  </item>
+  <item name="android.view.Surface void setFrameRate(float, int) 0">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+    </annotation>
+  </item>
+  <item name="android.view.Surface void setFrameRate(float, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.Surface.FRAME_RATE_COMPATIBILITY_DEFAULT, android.view.Surface.FRAME_RATE_COMPATIBILITY_FIXED_SOURCE, android.view.Surface.FRAME_RATE_COMPATIBILITY_AT_LEAST}" />
+    </annotation>
+  </item>
+  <item name="android.view.Surface void setFrameRate(float, int, int) 0">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+    </annotation>
+  </item>
+  <item name="android.view.Surface void setFrameRate(float, int, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.Surface.FRAME_RATE_COMPATIBILITY_DEFAULT, android.view.Surface.FRAME_RATE_COMPATIBILITY_FIXED_SOURCE, android.view.Surface.FRAME_RATE_COMPATIBILITY_AT_LEAST}" />
+    </annotation>
+  </item>
+  <item name="android.view.Surface void setFrameRate(float, int, int) 2">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.Surface.CHANGE_FRAME_RATE_ONLY_IF_SEAMLESS, android.view.Surface.CHANGE_FRAME_RATE_ALWAYS}" />
+    </annotation>
+  </item>
+  <item name="android.view.SurfaceControl.Builder android.view.SurfaceControl.Builder setBufferSize(int, int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.view.SurfaceControl.Builder android.view.SurfaceControl.Builder setBufferSize(int, int) 1">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.view.SurfaceControl.Builder android.view.SurfaceControl.Builder setFormat(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.graphics.PixelFormat.RGBA_8888, android.graphics.PixelFormat.RGBX_8888, android.graphics.PixelFormat.RGBA_F16, android.graphics.PixelFormat.RGBA_1010102, android.graphics.PixelFormat.RGB_888, android.graphics.PixelFormat.RGB_565}" />
+    </annotation>
+  </item>
+  <item name="android.view.SurfaceControl.JankData int getJankType()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.SurfaceControl.JankData.JANK_NONE, android.view.SurfaceControl.JankData.JANK_COMPOSER, android.view.SurfaceControl.JankData.JANK_APPLICATION, android.view.SurfaceControl.JankData.JANK_OTHER}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.view.SurfaceControl.Transaction android.view.SurfaceControl.Transaction setAlpha(android.view.SurfaceControl, float) 1">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+      <val name="to" val="1.0" />
+    </annotation>
+  </item>
+  <item name="android.view.SurfaceControl.Transaction android.view.SurfaceControl.Transaction setBufferSize(android.view.SurfaceControl, int, int) 1">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.view.SurfaceControl.Transaction android.view.SurfaceControl.Transaction setBufferSize(android.view.SurfaceControl, int, int) 2">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.view.SurfaceControl.Transaction android.view.SurfaceControl.Transaction setBufferTransform(android.view.SurfaceControl, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.SurfaceControl.BUFFER_TRANSFORM_IDENTITY, android.view.SurfaceControl.BUFFER_TRANSFORM_MIRROR_HORIZONTAL, android.view.SurfaceControl.BUFFER_TRANSFORM_MIRROR_VERTICAL, android.view.SurfaceControl.BUFFER_TRANSFORM_ROTATE_90, android.view.SurfaceControl.BUFFER_TRANSFORM_ROTATE_180, android.view.SurfaceControl.BUFFER_TRANSFORM_ROTATE_270, android.view.SurfaceControl.BUFFER_TRANSFORM_MIRROR_HORIZONTAL_ROTATE_90, android.view.SurfaceControl.BUFFER_TRANSFORM_MIRROR_VERTICAL_ROTATE_90}" />
+    </annotation>
+  </item>
+  <item name="android.view.SurfaceControl.Transaction android.view.SurfaceControl.Transaction setDataSpace(android.view.SurfaceControl, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.hardware.DataSpace.DATASPACE_DEPTH, android.hardware.DataSpace.DATASPACE_DYNAMIC_DEPTH, android.hardware.DataSpace.DATASPACE_HEIF, android.hardware.DataSpace.DATASPACE_HEIF_ULTRAHDR, android.hardware.DataSpace.DATASPACE_JPEG_R, android.hardware.DataSpace.DATASPACE_UNKNOWN, android.hardware.DataSpace.DATASPACE_SCRGB_LINEAR, android.hardware.DataSpace.DATASPACE_SRGB, android.hardware.DataSpace.DATASPACE_SCRGB, android.hardware.DataSpace.DATASPACE_DISPLAY_P3, android.hardware.DataSpace.DATASPACE_BT2020_HLG, android.hardware.DataSpace.DATASPACE_BT2020_PQ, android.hardware.DataSpace.DATASPACE_ADOBE_RGB, android.hardware.DataSpace.DATASPACE_JFIF, android.hardware.DataSpace.DATASPACE_BT601_625, android.hardware.DataSpace.DATASPACE_BT601_525, android.hardware.DataSpace.DATASPACE_BT2020, android.hardware.DataSpace.DATASPACE_BT709, android.hardware.DataSpace.DATASPACE_DCI_P3, android.hardware.DataSpace.DATASPACE_SRGB_LINEAR, android.hardware.DataSpace.DATASPACE_DISPLAY_BT2020}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.view.SurfaceControl.Transaction android.view.SurfaceControl.Transaction setDesiredHdrHeadroom(android.view.SurfaceControl, float) 1">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+    </annotation>
+  </item>
+  <item name="android.view.SurfaceControl.Transaction android.view.SurfaceControl.Transaction setFrameRate(android.view.SurfaceControl, float, int) 1">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+    </annotation>
+  </item>
+  <item name="android.view.SurfaceControl.Transaction android.view.SurfaceControl.Transaction setFrameRate(android.view.SurfaceControl, float, int) 2">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.Surface.FRAME_RATE_COMPATIBILITY_DEFAULT, android.view.Surface.FRAME_RATE_COMPATIBILITY_FIXED_SOURCE, android.view.Surface.FRAME_RATE_COMPATIBILITY_AT_LEAST}" />
+    </annotation>
+  </item>
+  <item name="android.view.SurfaceControl.Transaction android.view.SurfaceControl.Transaction setFrameRate(android.view.SurfaceControl, float, int, int) 1">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+    </annotation>
+  </item>
+  <item name="android.view.SurfaceControl.Transaction android.view.SurfaceControl.Transaction setFrameRate(android.view.SurfaceControl, float, int, int) 2">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.Surface.FRAME_RATE_COMPATIBILITY_DEFAULT, android.view.Surface.FRAME_RATE_COMPATIBILITY_FIXED_SOURCE, android.view.Surface.FRAME_RATE_COMPATIBILITY_AT_LEAST}" />
+    </annotation>
+  </item>
+  <item name="android.view.SurfaceControl.Transaction android.view.SurfaceControl.Transaction setFrameRate(android.view.SurfaceControl, float, int, int) 3">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.Surface.CHANGE_FRAME_RATE_ONLY_IF_SEAMLESS, android.view.Surface.CHANGE_FRAME_RATE_ALWAYS}" />
+    </annotation>
+  </item>
+  <item name="android.view.SurfaceControl.Transaction android.view.SurfaceControl.Transaction setGeometry(android.view.SurfaceControl, android.graphics.Rect, android.graphics.Rect, int) 3">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.Surface.ROTATION_0, android.view.Surface.ROTATION_90, android.view.Surface.ROTATION_180, android.view.Surface.ROTATION_270}" />
+    </annotation>
+  </item>
+  <item name="android.view.SurfaceControl.Transaction android.view.SurfaceControl.Transaction setLayer(android.view.SurfaceControl, int) 1">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="-2147483648L" />
+      <val name="to" val="2147483647L" />
+    </annotation>
+  </item>
+  <item name="android.view.SurfaceControl.Transaction void writeToParcel(android.os.Parcel, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="android.os.Parcelable.PARCELABLE_WRITE_RETURN_VALUE" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.view.SurfaceControl.TrustedPresentationThresholds TrustedPresentationThresholds(float, float, int) 0">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+      <val name="fromInclusive" val="false" />
+      <val name="to" val="1.0" />
+    </annotation>
+  </item>
+  <item name="android.view.SurfaceControl.TrustedPresentationThresholds TrustedPresentationThresholds(float, float, int) 1">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+      <val name="fromInclusive" val="false" />
+      <val name="to" val="1.0" />
+    </annotation>
+  </item>
+  <item name="android.view.SurfaceControl.TrustedPresentationThresholds TrustedPresentationThresholds(float, float, int) 2">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="1L" />
+    </annotation>
+  </item>
+  <item name="android.view.SurfaceHolder.Callback void surfaceChanged(android.view.SurfaceHolder, int, int, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.graphics.PixelFormat.RGBA_8888, android.graphics.PixelFormat.RGBX_8888, android.graphics.PixelFormat.RGBA_F16, android.graphics.PixelFormat.RGBA_1010102, android.graphics.PixelFormat.RGB_888, android.graphics.PixelFormat.RGB_565}" />
+    </annotation>
+  </item>
+  <item name="android.view.SurfaceHolder.Callback void surfaceChanged(android.view.SurfaceHolder, int, int, int) 2">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.view.SurfaceHolder.Callback void surfaceChanged(android.view.SurfaceHolder, int, int, int) 3">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.view.SurfaceView void onFocusChanged(boolean, int, android.graphics.Rect) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.View.FOCUS_BACKWARD, android.view.View.FOCUS_FORWARD, android.view.View.FOCUS_LEFT, android.view.View.FOCUS_UP, android.view.View.FOCUS_RIGHT, android.view.View.FOCUS_DOWN}" />
+    </annotation>
+  </item>
+  <item name="android.view.SurfaceView void setDesiredHdrHeadroom(float) 0">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+      <val name="to" val="10000.0" />
+    </annotation>
+  </item>
+  <item name="android.view.SurfaceView void setSurfaceLifecycle(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.SurfaceView.SURFACE_LIFECYCLE_DEFAULT, android.view.SurfaceView.SURFACE_LIFECYCLE_FOLLOWS_VISIBILITY, android.view.SurfaceView.SURFACE_LIFECYCLE_FOLLOWS_ATTACHMENT}" />
+    </annotation>
+  </item>
+  <item name="android.view.VelocityTracker boolean isAxisSupported(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.MotionEvent.AXIS_X, android.view.MotionEvent.AXIS_Y, android.view.MotionEvent.AXIS_SCROLL}" />
+    </annotation>
+  </item>
+  <item name="android.view.VelocityTracker float getAxisVelocity(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.MotionEvent.AXIS_X, android.view.MotionEvent.AXIS_Y, android.view.MotionEvent.AXIS_SCROLL}" />
+    </annotation>
+  </item>
+  <item name="android.view.VelocityTracker float getAxisVelocity(int, int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.MotionEvent.AXIS_X, android.view.MotionEvent.AXIS_Y, android.view.MotionEvent.AXIS_SCROLL}" />
+    </annotation>
+  </item>
+  <item name="android.view.VerifiedKeyEvent int getAction()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.KeyEvent.ACTION_DOWN, android.view.KeyEvent.ACTION_UP}" />
+    </annotation>
+  </item>
+  <item name="android.view.VerifiedMotionEvent int getActionMasked()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.MotionEvent.ACTION_DOWN, android.view.MotionEvent.ACTION_POINTER_DOWN, android.view.MotionEvent.ACTION_CANCEL, android.view.MotionEvent.ACTION_POINTER_UP, android.view.MotionEvent.ACTION_UP}" />
+    </annotation>
+  </item>
+  <item name="android.view.View">
+    <annotation name="androidx.annotation.UiThread"/>
+  </item>
+  <item name="android.view.View T findViewById(int) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.view.View T requireViewById(int) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.view.View android.content.Context getContext()">
+    <annotation name="androidx.annotation.UiContext"/>
+  </item>
+  <item name="android.view.View android.os.Parcelable onSaveInstanceState()">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.view.View android.view.View focusSearch(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.View.FOCUS_LEFT, android.view.View.FOCUS_UP, android.view.View.FOCUS_RIGHT, android.view.View.FOCUS_DOWN}" />
+    </annotation>
+  </item>
+  <item name="android.view.View android.view.View inflate(android.content.Context, int, android.view.ViewGroup) 1">
+    <annotation name="androidx.annotation.LayoutRes"/>
+  </item>
+  <item name="android.view.View android.view.View keyboardNavigationClusterSearch(android.view.View, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.View.FOCUS_BACKWARD, android.view.View.FOCUS_FORWARD, android.view.View.FOCUS_LEFT, android.view.View.FOCUS_UP, android.view.View.FOCUS_RIGHT, android.view.View.FOCUS_DOWN}" />
+    </annotation>
+  </item>
+  <item name="android.view.View boolean dispatchNestedPreScroll(int, int, int[], int[]) 2">
+    <annotation name="androidx.annotation.Size">
+      <val name="value" val="2L" />
+    </annotation>
+  </item>
+  <item name="android.view.View boolean dispatchNestedPreScroll(int, int, int[], int[]) 3">
+    <annotation name="androidx.annotation.Size">
+      <val name="value" val="2L" />
+    </annotation>
+  </item>
+  <item name="android.view.View boolean dispatchNestedScroll(int, int, int, int, int[]) 4">
+    <annotation name="androidx.annotation.Size">
+      <val name="value" val="2L" />
+    </annotation>
+  </item>
+  <item name="android.view.View boolean dispatchUnhandledMove(android.view.View, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.View.FOCUS_LEFT, android.view.View.FOCUS_UP, android.view.View.FOCUS_RIGHT, android.view.View.FOCUS_DOWN}" />
+    </annotation>
+  </item>
+  <item name="android.view.View boolean requestRectangleOnScreen(android.graphics.Rect, boolean, int) 2">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.View.RECTANGLE_ON_SCREEN_REQUEST_SOURCE_UNDEFINED, android.view.View.RECTANGLE_ON_SCREEN_REQUEST_SOURCE_SCROLL_ONLY, android.view.View.RECTANGLE_ON_SCREEN_REQUEST_SOURCE_TEXT_CURSOR, android.view.View.RECTANGLE_ON_SCREEN_REQUEST_SOURCE_INPUT_FOCUS}" />
+    </annotation>
+  </item>
+  <item name="android.view.View boolean verifyDrawable(android.graphics.drawable.Drawable)">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.view.View int getAccessibilityTraversalAfter()">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.view.View int getAccessibilityTraversalBefore()">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.view.View int getAutofillType()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.View.AUTOFILL_TYPE_NONE, android.view.View.AUTOFILL_TYPE_TEXT, android.view.View.AUTOFILL_TYPE_TOGGLE, android.view.View.AUTOFILL_TYPE_LIST, android.view.View.AUTOFILL_TYPE_DATE}" />
+    </annotation>
+  </item>
+  <item name="android.view.View int getContentSensitivity()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.View.CONTENT_SENSITIVITY_AUTO, android.view.View.CONTENT_SENSITIVITY_SENSITIVE, android.view.View.CONTENT_SENSITIVITY_NOT_SENSITIVE}" />
+    </annotation>
+  </item>
+  <item name="android.view.View int getDrawingCacheBackgroundColor()">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.view.View int getDrawingCacheQuality()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.View.DRAWING_CACHE_QUALITY_LOW, android.view.View.DRAWING_CACHE_QUALITY_HIGH, android.view.View.DRAWING_CACHE_QUALITY_AUTO}" />
+    </annotation>
+  </item>
+  <item name="android.view.View int getExplicitStyle()">
+    <annotation name="androidx.annotation.StyleRes"/>
+  </item>
+  <item name="android.view.View int getFocusable()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.View.NOT_FOCUSABLE, android.view.View.FOCUSABLE, android.view.View.FOCUSABLE_AUTO}" />
+    </annotation>
+  </item>
+  <item name="android.view.View int getHandwritingDelegateFlags()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="android.view.inputmethod.InputMethodManager.HANDWRITING_DELEGATE_FLAG_HOME_DELEGATOR_ALLOWED" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.view.View int getId()">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.view.View int getImportantForAutofill()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.View.IMPORTANT_FOR_AUTOFILL_AUTO, android.view.View.IMPORTANT_FOR_AUTOFILL_YES, android.view.View.IMPORTANT_FOR_AUTOFILL_NO, android.view.View.IMPORTANT_FOR_AUTOFILL_YES_EXCLUDE_DESCENDANTS, android.view.View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS}" />
+    </annotation>
+  </item>
+  <item name="android.view.View int getImportantForContentCapture()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.View.IMPORTANT_FOR_CONTENT_CAPTURE_AUTO, android.view.View.IMPORTANT_FOR_CONTENT_CAPTURE_YES, android.view.View.IMPORTANT_FOR_CONTENT_CAPTURE_NO, android.view.View.IMPORTANT_FOR_CONTENT_CAPTURE_YES_EXCLUDE_DESCENDANTS, android.view.View.IMPORTANT_FOR_CONTENT_CAPTURE_NO_EXCLUDE_DESCENDANTS}" />
+    </annotation>
+  </item>
+  <item name="android.view.View int getLabelFor()">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.view.View int getLayerType()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.View.LAYER_TYPE_NONE, android.view.View.LAYER_TYPE_SOFTWARE, android.view.View.LAYER_TYPE_HARDWARE}" />
+    </annotation>
+  </item>
+  <item name="android.view.View int getLayoutDirection()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.View.LAYOUT_DIRECTION_LTR, android.view.View.LAYOUT_DIRECTION_RTL}" />
+    </annotation>
+  </item>
+  <item name="android.view.View int getNextClusterForwardId()">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.view.View int getNextFocusDownId()">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.view.View int getNextFocusForwardId()">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.view.View int getNextFocusLeftId()">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.view.View int getNextFocusRightId()">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.view.View int getNextFocusUpId()">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.view.View int getOutlineAmbientShadowColor()">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.view.View int getOutlineSpotShadowColor()">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.view.View int getScrollBarStyle()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.View.SCROLLBARS_INSIDE_OVERLAY, android.view.View.SCROLLBARS_INSIDE_INSET, android.view.View.SCROLLBARS_OUTSIDE_OVERLAY, android.view.View.SCROLLBARS_OUTSIDE_INSET}" />
+    </annotation>
+  </item>
+  <item name="android.view.View int getScrollCaptureHint()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.View.SCROLL_CAPTURE_HINT_AUTO, android.view.View.SCROLL_CAPTURE_HINT_EXCLUDE, android.view.View.SCROLL_CAPTURE_HINT_INCLUDE, android.view.View.SCROLL_CAPTURE_HINT_EXCLUDE_DESCENDANTS}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.view.View int getScrollIndicators()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.View.SCROLL_INDICATOR_TOP, android.view.View.SCROLL_INDICATOR_BOTTOM, android.view.View.SCROLL_INDICATOR_LEFT, android.view.View.SCROLL_INDICATOR_RIGHT, android.view.View.SCROLL_INDICATOR_START, android.view.View.SCROLL_INDICATOR_END}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.view.View int getSolidColor()">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.view.View int getSourceLayoutResId()">
+    <annotation name="androidx.annotation.LayoutRes"/>
+  </item>
+  <item name="android.view.View int getTextAlignment()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.View.TEXT_ALIGNMENT_INHERIT, android.view.View.TEXT_ALIGNMENT_GRAVITY, android.view.View.TEXT_ALIGNMENT_CENTER, android.view.View.TEXT_ALIGNMENT_TEXT_START, android.view.View.TEXT_ALIGNMENT_TEXT_END, android.view.View.TEXT_ALIGNMENT_VIEW_START, android.view.View.TEXT_ALIGNMENT_VIEW_END}" />
+    </annotation>
+  </item>
+  <item name="android.view.View int getVisibility()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.View.VISIBLE, android.view.View.INVISIBLE, android.view.View.GONE}" />
+    </annotation>
+  </item>
+  <item name="android.view.View int getWindowVisibility()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.View.VISIBLE, android.view.View.INVISIBLE, android.view.View.GONE}" />
+    </annotation>
+  </item>
+  <item name="android.view.View int[] getAttributeResolutionStack(int) 0">
+    <annotation name="androidx.annotation.AttrRes"/>
+  </item>
+  <item name="android.view.View java.util.ArrayList&lt;android.view.View&gt; getFocusables(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.View.FOCUS_BACKWARD, android.view.View.FOCUS_FORWARD, android.view.View.FOCUS_LEFT, android.view.View.FOCUS_UP, android.view.View.FOCUS_RIGHT, android.view.View.FOCUS_DOWN}" />
+    </annotation>
+  </item>
+  <item name="android.view.View void addExtraDataToAccessibilityNodeInfo(android.view.accessibility.AccessibilityNodeInfo, java.lang.String, android.os.Bundle)">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.view.View void addFocusables(java.util.ArrayList&lt;android.view.View&gt;, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.View.FOCUS_BACKWARD, android.view.View.FOCUS_FORWARD, android.view.View.FOCUS_LEFT, android.view.View.FOCUS_UP, android.view.View.FOCUS_RIGHT, android.view.View.FOCUS_DOWN}" />
+    </annotation>
+  </item>
+  <item name="android.view.View void addFocusables(java.util.ArrayList&lt;android.view.View&gt;, int, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.View.FOCUS_BACKWARD, android.view.View.FOCUS_FORWARD, android.view.View.FOCUS_LEFT, android.view.View.FOCUS_UP, android.view.View.FOCUS_RIGHT, android.view.View.FOCUS_DOWN}" />
+    </annotation>
+  </item>
+  <item name="android.view.View void addFocusables(java.util.ArrayList&lt;android.view.View&gt;, int, int) 2">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.View.FOCUSABLES_ALL, android.view.View.FOCUSABLES_TOUCH_MODE}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.view.View void dispatchCreateViewTranslationRequest(java.util.Map&lt;android.view.autofill.AutofillId,long[]&gt;, int[], android.view.translation.TranslationCapability, java.util.List&lt;android.view.translation.ViewTranslationRequest&gt;) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="android.view.translation.TranslationSpec.DATA_FORMAT_TEXT" />
+    </annotation>
+  </item>
+  <item name="android.view.View void dispatchDisplayHint(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.View.VISIBLE, android.view.View.INVISIBLE, android.view.View.GONE}" />
+    </annotation>
+  </item>
+  <item name="android.view.View void dispatchFinishTemporaryDetach()">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.view.View void dispatchProvideAutofillStructure(android.view.ViewStructure, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="android.view.View.AUTOFILL_FLAG_INCLUDE_NOT_IMPORTANT_VIEWS" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.view.View void dispatchStartTemporaryDetach()">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.view.View void dispatchVisibilityChanged(android.view.View, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.View.VISIBLE, android.view.View.INVISIBLE, android.view.View.GONE}" />
+    </annotation>
+  </item>
+  <item name="android.view.View void dispatchWindowVisibilityChanged(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.View.VISIBLE, android.view.View.INVISIBLE, android.view.View.GONE}" />
+    </annotation>
+  </item>
+  <item name="android.view.View void draw(android.graphics.Canvas)">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.view.View void drawableHotspotChanged(float, float)">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.view.View void drawableStateChanged()">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.view.View void findViewsWithText(java.util.ArrayList&lt;android.view.View&gt;, java.lang.CharSequence, int) 2">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.View.FIND_VIEWS_WITH_TEXT, android.view.View.FIND_VIEWS_WITH_CONTENT_DESCRIPTION}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.view.View void getLocationInSurface(int[]) 0">
+    <annotation name="androidx.annotation.Size">
+      <val name="value" val="2L" />
+    </annotation>
+  </item>
+  <item name="android.view.View void getLocationInWindow(int[]) 0">
+    <annotation name="androidx.annotation.Size">
+      <val name="value" val="2L" />
+    </annotation>
+  </item>
+  <item name="android.view.View void getLocationOnScreen(int[]) 0">
+    <annotation name="androidx.annotation.Size">
+      <val name="value" val="2L" />
+    </annotation>
+  </item>
+  <item name="android.view.View void jumpDrawablesToCurrentState()">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.view.View void onAnimationEnd()">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.view.View void onAnimationStart()">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.view.View void onAttachedToWindow()">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.view.View void onCreateViewTranslationRequest(int[], java.util.function.Consumer&lt;android.view.translation.ViewTranslationRequest&gt;) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="android.view.translation.TranslationSpec.DATA_FORMAT_TEXT" />
+    </annotation>
+  </item>
+  <item name="android.view.View void onCreateVirtualViewTranslationRequests(long[], int[], java.util.function.Consumer&lt;android.view.translation.ViewTranslationRequest&gt;) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="android.view.translation.TranslationSpec.DATA_FORMAT_TEXT" />
+    </annotation>
+  </item>
+  <item name="android.view.View void onDetachedFromWindow()">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.view.View void onDisplayHint(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.View.VISIBLE, android.view.View.INVISIBLE, android.view.View.GONE}" />
+    </annotation>
+  </item>
+  <item name="android.view.View void onFinishInflate()">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.view.View void onFocusChanged(boolean, int, android.graphics.Rect)">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.view.View void onFocusChanged(boolean, int, android.graphics.Rect) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.View.FOCUS_BACKWARD, android.view.View.FOCUS_FORWARD, android.view.View.FOCUS_LEFT, android.view.View.FOCUS_UP, android.view.View.FOCUS_RIGHT, android.view.View.FOCUS_DOWN}" />
+    </annotation>
+  </item>
+  <item name="android.view.View void onInitializeAccessibilityEvent(android.view.accessibility.AccessibilityEvent)">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.view.View void onInitializeAccessibilityNodeInfo(android.view.accessibility.AccessibilityNodeInfo)">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.view.View void onPointerCaptureChange(boolean)">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.view.View void onPopulateAccessibilityEvent(android.view.accessibility.AccessibilityEvent)">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.view.View void onProvideAutofillStructure(android.view.ViewStructure, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="android.view.View.AUTOFILL_FLAG_INCLUDE_NOT_IMPORTANT_VIEWS" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.view.View void onRestoreInstanceState(android.os.Parcelable)">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.view.View void onRtlPropertiesChanged(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.View.LAYOUT_DIRECTION_LTR, android.view.View.LAYOUT_DIRECTION_RTL}" />
+    </annotation>
+  </item>
+  <item name="android.view.View void onVisibilityAggregated(boolean)">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.view.View void onVisibilityChanged(android.view.View, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.View.VISIBLE, android.view.View.INVISIBLE, android.view.View.GONE}" />
+    </annotation>
+  </item>
+  <item name="android.view.View void onWindowVisibilityChanged(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.View.VISIBLE, android.view.View.INVISIBLE, android.view.View.GONE}" />
+    </annotation>
+  </item>
+  <item name="android.view.View void playSoundEffect(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.SoundEffectConstants.CLICK, android.view.SoundEffectConstants.NAVIGATION_LEFT, android.view.SoundEffectConstants.NAVIGATION_UP, android.view.SoundEffectConstants.NAVIGATION_RIGHT, android.view.SoundEffectConstants.NAVIGATION_DOWN, android.view.SoundEffectConstants.NAVIGATION_REPEAT_LEFT, android.view.SoundEffectConstants.NAVIGATION_REPEAT_UP, android.view.SoundEffectConstants.NAVIGATION_REPEAT_RIGHT, android.view.SoundEffectConstants.NAVIGATION_REPEAT_DOWN}" />
+    </annotation>
+  </item>
+  <item name="android.view.View void requestLayout()">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.view.View void requestPointerCapture(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.View.POINTER_CAPTURE_MODE_UNCAPTURED, android.view.View.POINTER_CAPTURE_MODE_ABSOLUTE, android.view.View.POINTER_CAPTURE_MODE_RELATIVE}" />
+    </annotation>
+  </item>
+  <item name="android.view.View void requestUnbufferedDispatch(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.InputDevice.SOURCE_CLASS_NONE, android.view.InputDevice.SOURCE_CLASS_BUTTON, android.view.InputDevice.SOURCE_CLASS_POINTER, android.view.InputDevice.SOURCE_CLASS_TRACKBALL, android.view.InputDevice.SOURCE_CLASS_POSITION, android.view.InputDevice.SOURCE_CLASS_JOYSTICK}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.view.View void setAccessibilityDataSensitive(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.View.ACCESSIBILITY_DATA_SENSITIVE_AUTO, android.view.View.ACCESSIBILITY_DATA_SENSITIVE_YES, android.view.View.ACCESSIBILITY_DATA_SENSITIVE_NO}" />
+    </annotation>
+  </item>
+  <item name="android.view.View void setAccessibilityTraversalAfter(int) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.view.View void setAccessibilityTraversalBefore(int) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.view.View void setAlpha(float) 0">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+      <val name="to" val="1.0" />
+    </annotation>
+  </item>
+  <item name="android.view.View void setBackgroundColor(int) 0">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.view.View void setBackgroundResource(int) 0">
+    <annotation name="androidx.annotation.DrawableRes"/>
+  </item>
+  <item name="android.view.View void setContentSensitivity(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.View.CONTENT_SENSITIVITY_AUTO, android.view.View.CONTENT_SENSITIVITY_SENSITIVE, android.view.View.CONTENT_SENSITIVITY_NOT_SENSITIVE}" />
+    </annotation>
+  </item>
+  <item name="android.view.View void setDrawingCacheBackgroundColor(int) 0">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.view.View void setDrawingCacheQuality(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.View.DRAWING_CACHE_QUALITY_LOW, android.view.View.DRAWING_CACHE_QUALITY_HIGH, android.view.View.DRAWING_CACHE_QUALITY_AUTO}" />
+    </annotation>
+  </item>
+  <item name="android.view.View void setFocusable(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.View.NOT_FOCUSABLE, android.view.View.FOCUSABLE, android.view.View.FOCUSABLE_AUTO}" />
+    </annotation>
+  </item>
+  <item name="android.view.View void setHandwritingDelegateFlags(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="android.view.inputmethod.InputMethodManager.HANDWRITING_DELEGATE_FLAG_HOME_DELEGATOR_ALLOWED" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.view.View void setId(int) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.view.View void setImportantForAutofill(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.View.IMPORTANT_FOR_AUTOFILL_AUTO, android.view.View.IMPORTANT_FOR_AUTOFILL_YES, android.view.View.IMPORTANT_FOR_AUTOFILL_NO, android.view.View.IMPORTANT_FOR_AUTOFILL_YES_EXCLUDE_DESCENDANTS, android.view.View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS}" />
+    </annotation>
+  </item>
+  <item name="android.view.View void setImportantForContentCapture(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.View.IMPORTANT_FOR_CONTENT_CAPTURE_AUTO, android.view.View.IMPORTANT_FOR_CONTENT_CAPTURE_YES, android.view.View.IMPORTANT_FOR_CONTENT_CAPTURE_NO, android.view.View.IMPORTANT_FOR_CONTENT_CAPTURE_YES_EXCLUDE_DESCENDANTS, android.view.View.IMPORTANT_FOR_CONTENT_CAPTURE_NO_EXCLUDE_DESCENDANTS}" />
+    </annotation>
+  </item>
+  <item name="android.view.View void setLabelFor(int) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.view.View void setLayerType(int, android.graphics.Paint) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.View.LAYER_TYPE_NONE, android.view.View.LAYER_TYPE_SOFTWARE, android.view.View.LAYER_TYPE_HARDWARE}" />
+    </annotation>
+  </item>
+  <item name="android.view.View void setLayoutDirection(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.View.LAYOUT_DIRECTION_LTR, android.view.View.LAYOUT_DIRECTION_RTL, android.view.View.LAYOUT_DIRECTION_INHERIT, android.view.View.LAYOUT_DIRECTION_LOCALE}" />
+    </annotation>
+  </item>
+  <item name="android.view.View void setNextClusterForwardId(int) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.view.View void setNextFocusDownId(int) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.view.View void setNextFocusForwardId(int) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.view.View void setNextFocusLeftId(int) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.view.View void setNextFocusRightId(int) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.view.View void setNextFocusUpId(int) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.view.View void setOutlineAmbientShadowColor(int) 0">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.view.View void setOutlineSpotShadowColor(int) 0">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.view.View void setScrollBarStyle(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.View.SCROLLBARS_INSIDE_OVERLAY, android.view.View.SCROLLBARS_INSIDE_INSET, android.view.View.SCROLLBARS_OUTSIDE_OVERLAY, android.view.View.SCROLLBARS_OUTSIDE_INSET}" />
+    </annotation>
+  </item>
+  <item name="android.view.View void setScrollCaptureHint(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.View.SCROLL_CAPTURE_HINT_AUTO, android.view.View.SCROLL_CAPTURE_HINT_EXCLUDE, android.view.View.SCROLL_CAPTURE_HINT_INCLUDE, android.view.View.SCROLL_CAPTURE_HINT_EXCLUDE_DESCENDANTS}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.view.View void setScrollIndicators(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.View.SCROLL_INDICATOR_TOP, android.view.View.SCROLL_INDICATOR_BOTTOM, android.view.View.SCROLL_INDICATOR_LEFT, android.view.View.SCROLL_INDICATOR_RIGHT, android.view.View.SCROLL_INDICATOR_START, android.view.View.SCROLL_INDICATOR_END}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.view.View void setScrollIndicators(int, int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.View.SCROLL_INDICATOR_TOP, android.view.View.SCROLL_INDICATOR_BOTTOM, android.view.View.SCROLL_INDICATOR_LEFT, android.view.View.SCROLL_INDICATOR_RIGHT, android.view.View.SCROLL_INDICATOR_START, android.view.View.SCROLL_INDICATOR_END}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.view.View void setScrollIndicators(int, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.View.SCROLL_INDICATOR_TOP, android.view.View.SCROLL_INDICATOR_BOTTOM, android.view.View.SCROLL_INDICATOR_LEFT, android.view.View.SCROLL_INDICATOR_RIGHT, android.view.View.SCROLL_INDICATOR_START, android.view.View.SCROLL_INDICATOR_END}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.view.View void setTextAlignment(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.View.TEXT_ALIGNMENT_INHERIT, android.view.View.TEXT_ALIGNMENT_GRAVITY, android.view.View.TEXT_ALIGNMENT_CENTER, android.view.View.TEXT_ALIGNMENT_TEXT_START, android.view.View.TEXT_ALIGNMENT_TEXT_END, android.view.View.TEXT_ALIGNMENT_VIEW_START, android.view.View.TEXT_ALIGNMENT_VIEW_END}" />
+    </annotation>
+  </item>
+  <item name="android.view.View void setTransitionVisibility(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.View.VISIBLE, android.view.View.INVISIBLE, android.view.View.GONE}" />
+    </annotation>
+  </item>
+  <item name="android.view.View void setVisibility(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.View.VISIBLE, android.view.View.INVISIBLE, android.view.View.GONE}" />
+    </annotation>
+  </item>
+  <item name="android.view.View.MeasureSpec int getMode(int)">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.View.MeasureSpec.UNSPECIFIED, android.view.View.MeasureSpec.EXACTLY, android.view.View.MeasureSpec.AT_MOST}" />
+    </annotation>
+  </item>
+  <item name="android.view.View.MeasureSpec int makeMeasureSpec(int, int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+      <val name="to" val="1073741823L" />
+    </annotation>
+  </item>
+  <item name="android.view.View.MeasureSpec int makeMeasureSpec(int, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.View.MeasureSpec.UNSPECIFIED, android.view.View.MeasureSpec.EXACTLY, android.view.View.MeasureSpec.AT_MOST}" />
+    </annotation>
+  </item>
+  <item name="android.view.ViewConfiguration android.view.ViewConfiguration get(android.content.Context) 0">
+    <annotation name="androidx.annotation.UiContext"/>
+  </item>
+  <item name="android.view.ViewConfiguration float getAmbiguousGestureMultiplier()">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="1.0" />
+    </annotation>
+  </item>
+  <item name="android.view.ViewConfiguration float getScaledAmbiguousGestureMultiplier()">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="1.0" />
+    </annotation>
+  </item>
+  <item name="android.view.ViewGroup">
+    <annotation name="androidx.annotation.UiThread"/>
+  </item>
+  <item name="android.view.ViewGroup void dispatchCreateViewTranslationRequest(java.util.Map&lt;android.view.autofill.AutofillId,long[]&gt;, int[], android.view.translation.TranslationCapability, java.util.List&lt;android.view.translation.ViewTranslationRequest&gt;) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="android.view.translation.TranslationSpec.DATA_FORMAT_TEXT" />
+    </annotation>
+  </item>
+  <item name="android.view.ViewGroup void dispatchProvideAutofillStructure(android.view.ViewStructure, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="android.view.View.AUTOFILL_FLAG_INCLUDE_NOT_IMPORTANT_VIEWS" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.view.ViewGroup void onDescendantInvalidated(android.view.View, android.view.View)">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.view.ViewParent boolean requestChildRectangleOnScreen(android.view.View, android.graphics.Rect, boolean, int) 3">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.View.RECTANGLE_ON_SCREEN_REQUEST_SOURCE_UNDEFINED, android.view.View.RECTANGLE_ON_SCREEN_REQUEST_SOURCE_SCROLL_ONLY, android.view.View.RECTANGLE_ON_SCREEN_REQUEST_SOURCE_TEXT_CURSOR, android.view.View.RECTANGLE_ON_SCREEN_REQUEST_SOURCE_INPUT_FOCUS}" />
+    </annotation>
+  </item>
+  <item name="android.view.ViewPropertyAnimator android.view.ViewPropertyAnimator alpha(float) 0">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+      <val name="to" val="1.0" />
+    </annotation>
+  </item>
+  <item name="android.view.ViewStructure void setAutofillType(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.View.AUTOFILL_TYPE_NONE, android.view.View.AUTOFILL_TYPE_TEXT, android.view.View.AUTOFILL_TYPE_TOGGLE, android.view.View.AUTOFILL_TYPE_LIST, android.view.View.AUTOFILL_TYPE_DATE}" />
+    </annotation>
+  </item>
+  <item name="android.view.ViewStructure void setImportantForAutofill(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.View.IMPORTANT_FOR_AUTOFILL_AUTO, android.view.View.IMPORTANT_FOR_AUTOFILL_YES, android.view.View.IMPORTANT_FOR_AUTOFILL_NO, android.view.View.IMPORTANT_FOR_AUTOFILL_YES_EXCLUDE_DESCENDANTS, android.view.View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS}" />
+    </annotation>
+  </item>
+  <item name="android.view.ViewStub ViewStub(android.content.Context, int) 1">
+    <annotation name="androidx.annotation.LayoutRes"/>
+  </item>
+  <item name="android.view.ViewStub int getInflatedId()">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.view.ViewStub int getLayoutResource()">
+    <annotation name="androidx.annotation.LayoutRes"/>
+  </item>
+  <item name="android.view.ViewStub void setInflatedId(int) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.view.ViewStub void setLayoutResource(int) 0">
+    <annotation name="androidx.annotation.LayoutRes"/>
+  </item>
+  <item name="android.view.ViewTreeObserver.OnWindowVisibilityChangeListener void onWindowVisibilityChanged(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.View.VISIBLE, android.view.View.INVISIBLE, android.view.View.GONE}" />
+    </annotation>
+  </item>
+  <item name="android.view.Window T findViewById(int) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.view.Window T requireViewById(int) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.view.Window Window(android.content.Context) 0">
+    <annotation name="androidx.annotation.UiContext"/>
+  </item>
+  <item name="android.view.Window android.content.Context getContext()">
+    <annotation name="androidx.annotation.UiContext"/>
+  </item>
+  <item name="android.view.Window int getColorMode()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.content.pm.ActivityInfo.COLOR_MODE_DEFAULT, android.content.pm.ActivityInfo.COLOR_MODE_WIDE_COLOR_GAMUT, android.content.pm.ActivityInfo.COLOR_MODE_HDR}" />
+    </annotation>
+  </item>
+  <item name="android.view.Window int getNavigationBarColor()">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.view.Window int getNavigationBarDividerColor()">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.view.Window int getStatusBarColor()">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.view.Window void setBackgroundDrawableResource(int) 0">
+    <annotation name="androidx.annotation.DrawableRes"/>
+  </item>
+  <item name="android.view.Window void setColorMode(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.content.pm.ActivityInfo.COLOR_MODE_DEFAULT, android.content.pm.ActivityInfo.COLOR_MODE_WIDE_COLOR_GAMUT, android.content.pm.ActivityInfo.COLOR_MODE_HDR}" />
+    </annotation>
+  </item>
+  <item name="android.view.Window void setContentView(int) 0">
+    <annotation name="androidx.annotation.LayoutRes"/>
+  </item>
+  <item name="android.view.Window void setDesiredHdrHeadroom(float) 0">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+      <val name="to" val="10000.0" />
+    </annotation>
+  </item>
+  <item name="android.view.Window void setFeatureDrawableResource(int, int) 1">
+    <annotation name="androidx.annotation.DrawableRes"/>
+  </item>
+  <item name="android.view.Window void setHideOverlayWindows(boolean)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.HIDE_OVERLAY_WINDOWS&quot;" />
+    </annotation>
+  </item>
+  <item name="android.view.Window void setIcon(int) 0">
+    <annotation name="androidx.annotation.DrawableRes"/>
+  </item>
+  <item name="android.view.Window void setLogo(int) 0">
+    <annotation name="androidx.annotation.DrawableRes"/>
+  </item>
+  <item name="android.view.Window void setNavigationBarColor(int) 0">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.view.Window void setNavigationBarDividerColor(int) 0">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.view.Window void setStatusBarColor(int) 0">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.view.Window void setTitleColor(int) 0">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.view.Window void setWindowAnimations(int) 0">
+    <annotation name="androidx.annotation.StyleRes"/>
+  </item>
+  <item name="android.view.WindowInsets android.graphics.Insets getInsets(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.view.WindowInsets android.graphics.Insets getInsetsIgnoringVisibility(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.view.WindowInsets android.view.RoundedCorner getRoundedCorner(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.RoundedCorner.POSITION_TOP_LEFT, android.view.RoundedCorner.POSITION_TOP_RIGHT, android.view.RoundedCorner.POSITION_BOTTOM_RIGHT, android.view.RoundedCorner.POSITION_BOTTOM_LEFT}" />
+    </annotation>
+  </item>
+  <item name="android.view.WindowInsets android.view.WindowInsets inset(int, int, int, int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.view.WindowInsets android.view.WindowInsets inset(int, int, int, int) 1">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.view.WindowInsets android.view.WindowInsets inset(int, int, int, int) 2">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.view.WindowInsets android.view.WindowInsets inset(int, int, int, int) 3">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.view.WindowInsets boolean isVisible(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.view.WindowInsets java.util.List&lt;android.graphics.Rect&gt; getBoundingRects(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.view.WindowInsets java.util.List&lt;android.graphics.Rect&gt; getBoundingRectsIgnoringVisibility(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.view.WindowInsets.Builder android.view.WindowInsets.Builder setBoundingRects(int, java.util.List&lt;android.graphics.Rect&gt;) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.view.WindowInsets.Builder android.view.WindowInsets.Builder setBoundingRectsIgnoringVisibility(int, java.util.List&lt;android.graphics.Rect&gt;) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.view.WindowInsets.Builder android.view.WindowInsets.Builder setInsets(int, android.graphics.Insets) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.view.WindowInsets.Builder android.view.WindowInsets.Builder setInsetsIgnoringVisibility(int, android.graphics.Insets) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.view.WindowInsets.Builder android.view.WindowInsets.Builder setRoundedCorner(int, android.view.RoundedCorner) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.RoundedCorner.POSITION_TOP_LEFT, android.view.RoundedCorner.POSITION_TOP_RIGHT, android.view.RoundedCorner.POSITION_BOTTOM_RIGHT, android.view.RoundedCorner.POSITION_BOTTOM_LEFT}" />
+    </annotation>
+  </item>
+  <item name="android.view.WindowInsets.Builder android.view.WindowInsets.Builder setVisible(int, boolean) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.view.WindowInsets.Side int all()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.WindowInsets.Side.LEFT, android.view.WindowInsets.Side.TOP, android.view.WindowInsets.Side.RIGHT, android.view.WindowInsets.Side.BOTTOM}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.view.WindowInsets.Type int captionBar()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.view.WindowInsets.Type int displayCutout()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.view.WindowInsets.Type int ime()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.view.WindowInsets.Type int mandatorySystemGestures()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.view.WindowInsets.Type int navigationBars()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.view.WindowInsets.Type int statusBars()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.view.WindowInsets.Type int systemBars()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.view.WindowInsets.Type int systemGestures()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.view.WindowInsets.Type int systemOverlays()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.view.WindowInsets.Type int tappableElement()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.view.WindowInsetsAnimation WindowInsetsAnimation(int, android.view.animation.Interpolator, long) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.view.WindowInsetsAnimation float getAlpha()">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+      <val name="to" val="1.0" />
+    </annotation>
+  </item>
+  <item name="android.view.WindowInsetsAnimation float getFraction()">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+      <val name="to" val="1.0" />
+    </annotation>
+  </item>
+  <item name="android.view.WindowInsetsAnimation int getTypeMask()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.view.WindowInsetsAnimation void setAlpha(float) 0">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+      <val name="to" val="1.0" />
+    </annotation>
+  </item>
+  <item name="android.view.WindowInsetsAnimation void setFraction(float) 0">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+      <val name="to" val="1.0" />
+    </annotation>
+  </item>
+  <item name="android.view.WindowInsetsAnimation.Callback Callback(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.WindowInsetsAnimation.Callback.DISPATCH_MODE_STOP, android.view.WindowInsetsAnimation.Callback.DISPATCH_MODE_CONTINUE_ON_SUBTREE}" />
+    </annotation>
+  </item>
+  <item name="android.view.WindowInsetsAnimation.Callback int getDispatchMode()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.WindowInsetsAnimation.Callback.DISPATCH_MODE_STOP, android.view.WindowInsetsAnimation.Callback.DISPATCH_MODE_CONTINUE_ON_SUBTREE}" />
+    </annotation>
+  </item>
+  <item name="android.view.WindowInsetsAnimationControlListener void onReady(android.view.WindowInsetsAnimationController, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.view.WindowInsetsAnimationController float getCurrentFraction()">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+      <val name="to" val="1.0" />
+    </annotation>
+  </item>
+  <item name="android.view.WindowInsetsAnimationController int getTypes()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.view.WindowInsetsAnimationController void setInsetsAndAlpha(android.graphics.Insets, float, float) 1">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+      <val name="to" val="1.0" />
+    </annotation>
+  </item>
+  <item name="android.view.WindowInsetsAnimationController void setInsetsAndAlpha(android.graphics.Insets, float, float) 2">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+      <val name="to" val="1.0" />
+    </annotation>
+  </item>
+  <item name="android.view.WindowInsetsController int getSystemBarsAppearance()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS, android.view.WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS, android.view.WindowInsetsController.APPEARANCE_TRANSPARENT_CAPTION_BAR_BACKGROUND, android.view.WindowInsetsController.APPEARANCE_LIGHT_CAPTION_BARS}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.view.WindowInsetsController int getSystemBarsBehavior()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.WindowInsetsController.BEHAVIOR_DEFAULT, android.view.WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE}" />
+    </annotation>
+  </item>
+  <item name="android.view.WindowInsetsController void controlWindowInsetsAnimation(int, long, android.view.animation.Interpolator, android.os.CancellationSignal, android.view.WindowInsetsAnimationControlListener) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.view.WindowInsetsController void hide(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.view.WindowInsetsController void setSystemBarsAppearance(int, int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS, android.view.WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS, android.view.WindowInsetsController.APPEARANCE_TRANSPARENT_CAPTION_BAR_BACKGROUND, android.view.WindowInsetsController.APPEARANCE_LIGHT_CAPTION_BARS}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.view.WindowInsetsController void setSystemBarsAppearance(int, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS, android.view.WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS, android.view.WindowInsetsController.APPEARANCE_TRANSPARENT_CAPTION_BAR_BACKGROUND, android.view.WindowInsetsController.APPEARANCE_LIGHT_CAPTION_BARS}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.view.WindowInsetsController void setSystemBarsBehavior(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.WindowInsetsController.BEHAVIOR_DEFAULT, android.view.WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE}" />
+    </annotation>
+  </item>
+  <item name="android.view.WindowInsetsController void show(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.view.WindowInsetsController.OnControllableInsetsChangedListener void onControllableInsetsChanged(android.view.WindowInsetsController, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.view.WindowManager COMPAT_SMALL_COVER_SCREEN_OPT_IN">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="android.view.WindowManager.COMPAT_SMALL_COVER_SCREEN_OPT_IN" />
+    </annotation>
+  </item>
+  <item name="android.view.WindowManager int addScreenRecordingCallback(java.util.concurrent.Executor, java.util.function.Consumer&lt;java.lang.Integer&gt;)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.DETECT_SCREEN_RECORDING&quot;" />
+    </annotation>
+  </item>
+  <item name="android.view.WindowManager void removeScreenRecordingCallback(java.util.function.Consumer&lt;java.lang.Integer&gt;)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.DETECT_SCREEN_RECORDING&quot;" />
+    </annotation>
+  </item>
+  <item name="android.view.WindowManager.LayoutParams flags">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.WindowManager.LayoutParams.FLAG_ALLOW_LOCK_WHILE_SCREEN_ON, android.view.WindowManager.LayoutParams.FLAG_DIM_BEHIND, android.view.WindowManager.LayoutParams.FLAG_BLUR_BEHIND, android.view.WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE, android.view.WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE, android.view.WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL, android.view.WindowManager.LayoutParams.FLAG_TOUCHABLE_WHEN_WAKING, android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON, android.view.WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN, android.view.WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS, android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN, android.view.WindowManager.LayoutParams.FLAG_FORCE_NOT_FULLSCREEN, android.view.WindowManager.LayoutParams.FLAG_DITHER, android.view.WindowManager.LayoutParams.FLAG_SECURE, android.view.WindowManager.LayoutParams.FLAG_SCALED, android.view.WindowManager.LayoutParams.FLAG_IGNORE_CHEEK_PRESSES, android.view.WindowManager.LayoutParams.FLAG_LAYOUT_INSET_DECOR, android.view.WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM, android.view.WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH, android.view.WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED, android.view.WindowManager.LayoutParams.FLAG_SHOW_WALLPAPER, android.view.WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON, android.view.WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD, android.view.WindowManager.LayoutParams.FLAG_SPLIT_TOUCH, android.view.WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED, android.view.WindowManager.LayoutParams.FLAG_LAYOUT_IN_OVERSCAN, android.view.WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS, android.view.WindowManager.LayoutParams.FLAG_TRANSLUCENT_NAVIGATION, android.view.WindowManager.LayoutParams.FLAG_LOCAL_FOCUS_MODE, android.view.WindowManager.LayoutParams.FLAG_LAYOUT_ATTACHED_IN_DECOR, android.view.WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.view.WindowManager.LayoutParams gravity">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.Gravity.FILL, android.view.Gravity.FILL_HORIZONTAL, android.view.Gravity.FILL_VERTICAL, android.view.Gravity.START, android.view.Gravity.END, android.view.Gravity.LEFT, android.view.Gravity.RIGHT, android.view.Gravity.TOP, android.view.Gravity.BOTTOM, android.view.Gravity.CENTER, android.view.Gravity.CENTER_HORIZONTAL, android.view.Gravity.CENTER_VERTICAL, android.view.Gravity.DISPLAY_CLIP_HORIZONTAL, android.view.Gravity.DISPLAY_CLIP_VERTICAL, android.view.Gravity.CLIP_HORIZONTAL, android.view.Gravity.CLIP_VERTICAL, android.view.Gravity.NO_GRAVITY}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.view.WindowManager.LayoutParams int getColorMode()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.content.pm.ActivityInfo.COLOR_MODE_DEFAULT, android.content.pm.ActivityInfo.COLOR_MODE_WIDE_COLOR_GAMUT, android.content.pm.ActivityInfo.COLOR_MODE_HDR}" />
+    </annotation>
+  </item>
+  <item name="android.view.WindowManager.LayoutParams int getFitInsetsSides()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.WindowInsets.Side.LEFT, android.view.WindowInsets.Side.TOP, android.view.WindowInsets.Side.RIGHT, android.view.WindowInsets.Side.BOTTOM}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.view.WindowManager.LayoutParams int getFitInsetsTypes()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.view.WindowManager.LayoutParams layoutInDisplayCutoutMode">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_DEFAULT, android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES, android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_NEVER, android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS}" />
+    </annotation>
+  </item>
+  <item name="android.view.WindowManager.LayoutParams screenOrientation">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED, android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE, android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT, android.content.pm.ActivityInfo.SCREEN_ORIENTATION_USER, android.content.pm.ActivityInfo.SCREEN_ORIENTATION_BEHIND, android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR, android.content.pm.ActivityInfo.SCREEN_ORIENTATION_NOSENSOR, android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE, android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT, android.content.pm.ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE, android.content.pm.ActivityInfo.SCREEN_ORIENTATION_REVERSE_PORTRAIT, android.content.pm.ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR, android.content.pm.ActivityInfo.SCREEN_ORIENTATION_USER_LANDSCAPE, android.content.pm.ActivityInfo.SCREEN_ORIENTATION_USER_PORTRAIT, android.content.pm.ActivityInfo.SCREEN_ORIENTATION_FULL_USER, android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LOCKED}" />
+    </annotation>
+  </item>
+  <item name="android.view.WindowManager.LayoutParams softInputMode">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_UNSPECIFIED, android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_UNCHANGED, android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN, android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN, android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE, android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE, android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_UNSPECIFIED, android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE, android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_PAN, android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING, android.view.WindowManager.LayoutParams.SOFT_INPUT_IS_FORWARD_NAVIGATION}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.view.WindowManager.LayoutParams systemUiVisibility">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.View.SYSTEM_UI_FLAG_VISIBLE, android.view.View.SYSTEM_UI_FLAG_LOW_PROFILE, android.view.View.SYSTEM_UI_FLAG_HIDE_NAVIGATION, android.view.View.SYSTEM_UI_FLAG_FULLSCREEN, android.view.View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR, android.view.View.SYSTEM_UI_FLAG_LAYOUT_STABLE, android.view.View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION, android.view.View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN, android.view.View.SYSTEM_UI_FLAG_IMMERSIVE, android.view.View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY, android.view.View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.view.WindowManager.LayoutParams type">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.WindowManager.LayoutParams.TYPE_BASE_APPLICATION, android.view.WindowManager.LayoutParams.TYPE_APPLICATION, android.view.WindowManager.LayoutParams.TYPE_APPLICATION_STARTING, android.view.WindowManager.LayoutParams.TYPE_DRAWN_APPLICATION, android.view.WindowManager.LayoutParams.TYPE_APPLICATION_PANEL, android.view.WindowManager.LayoutParams.TYPE_APPLICATION_MEDIA, android.view.WindowManager.LayoutParams.TYPE_APPLICATION_SUB_PANEL, android.view.WindowManager.LayoutParams.TYPE_APPLICATION_ATTACHED_DIALOG, android.view.WindowManager.LayoutParams.TYPE_STATUS_BAR, android.view.WindowManager.LayoutParams.TYPE_SEARCH_BAR, android.view.WindowManager.LayoutParams.TYPE_PHONE, android.view.WindowManager.LayoutParams.TYPE_SYSTEM_ALERT, android.view.WindowManager.LayoutParams.TYPE_TOAST, android.view.WindowManager.LayoutParams.TYPE_SYSTEM_OVERLAY, android.view.WindowManager.LayoutParams.TYPE_PRIORITY_PHONE, android.view.WindowManager.LayoutParams.TYPE_SYSTEM_DIALOG, android.view.WindowManager.LayoutParams.TYPE_KEYGUARD_DIALOG, android.view.WindowManager.LayoutParams.TYPE_SYSTEM_ERROR, android.view.WindowManager.LayoutParams.TYPE_INPUT_METHOD, android.view.WindowManager.LayoutParams.TYPE_INPUT_METHOD_DIALOG, android.view.WindowManager.LayoutParams.TYPE_WALLPAPER, android.view.WindowManager.LayoutParams.TYPE_PRIVATE_PRESENTATION, android.view.WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY, android.view.WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY}" />
+    </annotation>
+  </item>
+  <item name="android.view.WindowManager.LayoutParams void setBlurBehindRadius(int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.view.WindowManager.LayoutParams void setColorMode(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.content.pm.ActivityInfo.COLOR_MODE_DEFAULT, android.content.pm.ActivityInfo.COLOR_MODE_WIDE_COLOR_GAMUT, android.content.pm.ActivityInfo.COLOR_MODE_HDR}" />
+    </annotation>
+  </item>
+  <item name="android.view.WindowManager.LayoutParams void setDesiredHdrHeadroom(float) 0">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+      <val name="to" val="10000.0" />
+    </annotation>
+  </item>
+  <item name="android.view.WindowManager.LayoutParams void setFitInsetsSides(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.WindowInsets.Side.LEFT, android.view.WindowInsets.Side.TOP, android.view.WindowInsets.Side.RIGHT, android.view.WindowInsets.Side.BOTTOM}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.view.WindowManager.LayoutParams void setFitInsetsTypes(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.view.WindowManager.LayoutParams void setKeyboardCaptureEnabled(boolean)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.CAPTURE_KEYBOARD&quot;" />
+    </annotation>
+  </item>
+</root>
+

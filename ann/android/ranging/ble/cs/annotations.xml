@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+  <item name="android.ranging.ble.cs.BleCsRangingParams int getLocationType()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.ranging.ble.cs.BleCsRangingParams.LOCATION_TYPE_UNKNOWN, android.ranging.ble.cs.BleCsRangingParams.LOCATION_TYPE_INDOOR, android.ranging.ble.cs.BleCsRangingParams.LOCATION_TYPE_OUTDOOR}" />
+    </annotation>
+  </item>
+  <item name="android.ranging.ble.cs.BleCsRangingParams int getSightType()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.ranging.ble.cs.BleCsRangingParams.SIGHT_TYPE_UNKNOWN, android.ranging.ble.cs.BleCsRangingParams.SIGHT_TYPE_LINE_OF_SIGHT, android.ranging.ble.cs.BleCsRangingParams.SIGHT_TYPE_NON_LINE_OF_SIGHT}" />
+    </annotation>
+  </item>
+  <item name="android.ranging.ble.cs.BleCsRangingParams.Builder android.ranging.ble.cs.BleCsRangingParams.Builder setLocationType(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.ranging.ble.cs.BleCsRangingParams.LOCATION_TYPE_UNKNOWN, android.ranging.ble.cs.BleCsRangingParams.LOCATION_TYPE_INDOOR, android.ranging.ble.cs.BleCsRangingParams.LOCATION_TYPE_OUTDOOR}" />
+    </annotation>
+  </item>
+  <item name="android.ranging.ble.cs.BleCsRangingParams.Builder android.ranging.ble.cs.BleCsRangingParams.Builder setSightType(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.ranging.ble.cs.BleCsRangingParams.SIGHT_TYPE_UNKNOWN, android.ranging.ble.cs.BleCsRangingParams.SIGHT_TYPE_LINE_OF_SIGHT, android.ranging.ble.cs.BleCsRangingParams.SIGHT_TYPE_NON_LINE_OF_SIGHT}" />
+    </annotation>
+  </item>
+</root>
+

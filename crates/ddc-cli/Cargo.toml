@@ -20,6 +20,9 @@ pkg-url = "{ repo }/releases/download/v{ version }/ddc-v{ version }-{ target }{ 
 bin-dir = "{ bin }{ binary-ext }"
 pkg-fmt = "bin"
 
+[build-dependencies]
+flate2 = { version = "1", default-features = false, features = ["zlib-ng"] }
+
 [dependencies]
 libc = "0.2"  # SIGPIPE default disposition (pipe-aware CLIs)
 ddc-dex = { workspace = true }

@@ -1,0 +1,264 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+  <item name="android.graphics.text.LineBreakConfig int getHyphenation()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.graphics.text.LineBreakConfig.HYPHENATION_UNSPECIFIED, android.graphics.text.LineBreakConfig.HYPHENATION_ENABLED, android.graphics.text.LineBreakConfig.HYPHENATION_DISABLED}" />
+    </annotation>
+  </item>
+  <item name="android.graphics.text.LineBreakConfig int getLineBreakStyle()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.graphics.text.LineBreakConfig.LINE_BREAK_STYLE_NONE, android.graphics.text.LineBreakConfig.LINE_BREAK_STYLE_LOOSE, android.graphics.text.LineBreakConfig.LINE_BREAK_STYLE_NORMAL, android.graphics.text.LineBreakConfig.LINE_BREAK_STYLE_STRICT, android.graphics.text.LineBreakConfig.LINE_BREAK_STYLE_UNSPECIFIED, android.graphics.text.LineBreakConfig.LINE_BREAK_STYLE_NO_BREAK, android.graphics.text.LineBreakConfig.LINE_BREAK_STYLE_AUTO}" />
+    </annotation>
+  </item>
+  <item name="android.graphics.text.LineBreakConfig int getLineBreakWordStyle()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.graphics.text.LineBreakConfig.LINE_BREAK_WORD_STYLE_NONE, android.graphics.text.LineBreakConfig.LINE_BREAK_WORD_STYLE_PHRASE, android.graphics.text.LineBreakConfig.LINE_BREAK_WORD_STYLE_UNSPECIFIED, android.graphics.text.LineBreakConfig.LINE_BREAK_WORD_STYLE_AUTO}" />
+    </annotation>
+  </item>
+  <item name="android.graphics.text.LineBreakConfig.Builder android.graphics.text.LineBreakConfig.Builder setHyphenation(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.graphics.text.LineBreakConfig.HYPHENATION_UNSPECIFIED, android.graphics.text.LineBreakConfig.HYPHENATION_ENABLED, android.graphics.text.LineBreakConfig.HYPHENATION_DISABLED}" />
+    </annotation>
+  </item>
+  <item name="android.graphics.text.LineBreakConfig.Builder android.graphics.text.LineBreakConfig.Builder setLineBreakStyle(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.graphics.text.LineBreakConfig.LINE_BREAK_STYLE_NONE, android.graphics.text.LineBreakConfig.LINE_BREAK_STYLE_LOOSE, android.graphics.text.LineBreakConfig.LINE_BREAK_STYLE_NORMAL, android.graphics.text.LineBreakConfig.LINE_BREAK_STYLE_STRICT, android.graphics.text.LineBreakConfig.LINE_BREAK_STYLE_UNSPECIFIED, android.graphics.text.LineBreakConfig.LINE_BREAK_STYLE_NO_BREAK, android.graphics.text.LineBreakConfig.LINE_BREAK_STYLE_AUTO}" />
+    </annotation>
+  </item>
+  <item name="android.graphics.text.LineBreakConfig.Builder android.graphics.text.LineBreakConfig.Builder setLineBreakWordStyle(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.graphics.text.LineBreakConfig.LINE_BREAK_WORD_STYLE_NONE, android.graphics.text.LineBreakConfig.LINE_BREAK_WORD_STYLE_PHRASE, android.graphics.text.LineBreakConfig.LINE_BREAK_WORD_STYLE_UNSPECIFIED, android.graphics.text.LineBreakConfig.LINE_BREAK_WORD_STYLE_AUTO}" />
+    </annotation>
+  </item>
+  <item name="android.graphics.text.LineBreaker android.graphics.text.LineBreaker.Result computeLineBreaks(android.graphics.text.MeasuredText, android.graphics.text.LineBreaker.ParagraphConstraints, int) 2">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.text.LineBreaker.Builder android.graphics.text.LineBreaker.Builder setBreakStrategy(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.graphics.text.LineBreaker.BREAK_STRATEGY_SIMPLE, android.graphics.text.LineBreaker.BREAK_STRATEGY_HIGH_QUALITY, android.graphics.text.LineBreaker.BREAK_STRATEGY_BALANCED}" />
+    </annotation>
+  </item>
+  <item name="android.graphics.text.LineBreaker.Builder android.graphics.text.LineBreaker.Builder setHyphenationFrequency(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.graphics.text.LineBreaker.HYPHENATION_FREQUENCY_NORMAL, android.graphics.text.LineBreaker.HYPHENATION_FREQUENCY_FULL, android.graphics.text.LineBreaker.HYPHENATION_FREQUENCY_NONE}" />
+    </annotation>
+  </item>
+  <item name="android.graphics.text.LineBreaker.Builder android.graphics.text.LineBreaker.Builder setJustificationMode(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.graphics.text.LineBreaker.JUSTIFICATION_MODE_NONE, android.graphics.text.LineBreaker.JUSTIFICATION_MODE_INTER_WORD, android.graphics.text.LineBreaker.JUSTIFICATION_MODE_INTER_CHARACTER}" />
+    </annotation>
+  </item>
+  <item name="android.graphics.text.LineBreaker.ParagraphConstraints float getDefaultTabStop()">
+    <annotation name="androidx.annotation.Px"/>
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+    </annotation>
+  </item>
+  <item name="android.graphics.text.LineBreaker.ParagraphConstraints float getFirstWidth()">
+    <annotation name="androidx.annotation.Px"/>
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+    </annotation>
+  </item>
+  <item name="android.graphics.text.LineBreaker.ParagraphConstraints float getWidth()">
+    <annotation name="androidx.annotation.Px"/>
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+    </annotation>
+  </item>
+  <item name="android.graphics.text.LineBreaker.ParagraphConstraints int getFirstWidthLineCount()">
+    <annotation name="androidx.annotation.Px"/>
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.text.LineBreaker.ParagraphConstraints void setIndent(float, int) 0">
+    <annotation name="androidx.annotation.Px"/>
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+    </annotation>
+  </item>
+  <item name="android.graphics.text.LineBreaker.ParagraphConstraints void setIndent(float, int) 1">
+    <annotation name="androidx.annotation.Px"/>
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.text.LineBreaker.ParagraphConstraints void setTabStops(float[], float) 1">
+    <annotation name="androidx.annotation.Px"/>
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+    </annotation>
+  </item>
+  <item name="android.graphics.text.LineBreaker.ParagraphConstraints void setWidth(float) 0">
+    <annotation name="androidx.annotation.Px"/>
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+    </annotation>
+  </item>
+  <item name="android.graphics.text.LineBreaker.Result float getLineAscent(int)">
+    <annotation name="androidx.annotation.Px"/>
+  </item>
+  <item name="android.graphics.text.LineBreaker.Result float getLineAscent(int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.text.LineBreaker.Result float getLineDescent(int)">
+    <annotation name="androidx.annotation.Px"/>
+  </item>
+  <item name="android.graphics.text.LineBreaker.Result float getLineDescent(int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.text.LineBreaker.Result float getLineWidth(int)">
+    <annotation name="androidx.annotation.Px"/>
+  </item>
+  <item name="android.graphics.text.LineBreaker.Result float getLineWidth(int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.text.LineBreaker.Result int getLineBreakOffset(int)">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.text.LineBreaker.Result int getLineBreakOffset(int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.text.LineBreaker.Result int getLineCount()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.text.MeasuredText float getCharWidthAt(int)">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+    </annotation>
+    <annotation name="androidx.annotation.Px"/>
+  </item>
+  <item name="android.graphics.text.MeasuredText float getCharWidthAt(int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.text.MeasuredText float getWidth(int, int)">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+    </annotation>
+    <annotation name="androidx.annotation.Px"/>
+  </item>
+  <item name="android.graphics.text.MeasuredText float getWidth(int, int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.text.MeasuredText float getWidth(int, int) 1">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.text.MeasuredText void getBounds(int, int, android.graphics.Rect) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.text.MeasuredText void getBounds(int, int, android.graphics.Rect) 1">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.text.MeasuredText void getFontMetricsInt(int, int, android.graphics.Paint.FontMetricsInt) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.text.MeasuredText void getFontMetricsInt(int, int, android.graphics.Paint.FontMetricsInt) 1">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.text.MeasuredText.Builder android.graphics.text.MeasuredText.Builder appendReplacementRun(android.graphics.Paint, int, float) 1">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.text.MeasuredText.Builder android.graphics.text.MeasuredText.Builder appendReplacementRun(android.graphics.Paint, int, float) 2">
+    <annotation name="androidx.annotation.Px"/>
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+    </annotation>
+  </item>
+  <item name="android.graphics.text.MeasuredText.Builder android.graphics.text.MeasuredText.Builder appendStyleRun(android.graphics.Paint, android.graphics.text.LineBreakConfig, int, boolean) 2">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.text.MeasuredText.Builder android.graphics.text.MeasuredText.Builder appendStyleRun(android.graphics.Paint, int, boolean) 1">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.text.MeasuredText.Builder android.graphics.text.MeasuredText.Builder setComputeHyphenation(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.graphics.text.MeasuredText.Builder.HYPHENATION_MODE_NONE, android.graphics.text.MeasuredText.Builder.HYPHENATION_MODE_NORMAL, android.graphics.text.MeasuredText.Builder.HYPHENATION_MODE_FAST}" />
+    </annotation>
+  </item>
+  <item name="android.graphics.text.PositionedGlyphs android.graphics.fonts.Font getFont(int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.text.PositionedGlyphs boolean getFakeBold(int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.text.PositionedGlyphs boolean getFakeItalic(int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.text.PositionedGlyphs float getGlyphX(int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.text.PositionedGlyphs float getGlyphY(int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.text.PositionedGlyphs float getItalicOverride(int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.text.PositionedGlyphs float getWeightOverride(int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.text.PositionedGlyphs int getGlyphId(int)">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.text.PositionedGlyphs int getGlyphId(int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.text.PositionedGlyphs int glyphCount()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+</root>
+

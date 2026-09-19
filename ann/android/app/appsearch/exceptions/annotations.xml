@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+  <item name="android.app.appsearch.exceptions.AppSearchException AppSearchException(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.appsearch.AppSearchResult.RESULT_OK, android.app.appsearch.AppSearchResult.RESULT_UNKNOWN_ERROR, android.app.appsearch.AppSearchResult.RESULT_INTERNAL_ERROR, android.app.appsearch.AppSearchResult.RESULT_INVALID_ARGUMENT, android.app.appsearch.AppSearchResult.RESULT_IO_ERROR, android.app.appsearch.AppSearchResult.RESULT_OUT_OF_SPACE, android.app.appsearch.AppSearchResult.RESULT_NOT_FOUND, android.app.appsearch.AppSearchResult.RESULT_INVALID_SCHEMA, android.app.appsearch.AppSearchResult.RESULT_SECURITY_ERROR, android.app.appsearch.AppSearchResult.RESULT_DENIED, android.app.appsearch.AppSearchResult.RESULT_RATE_LIMITED, android.app.appsearch.AppSearchResult.RESULT_ALREADY_EXISTS, android.app.appsearch.AppSearchResult.RESULT_UNAVAILABLE}" />
+    </annotation>
+  </item>
+  <item name="android.app.appsearch.exceptions.AppSearchException AppSearchException(int, java.lang.String) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.appsearch.AppSearchResult.RESULT_OK, android.app.appsearch.AppSearchResult.RESULT_UNKNOWN_ERROR, android.app.appsearch.AppSearchResult.RESULT_INTERNAL_ERROR, android.app.appsearch.AppSearchResult.RESULT_INVALID_ARGUMENT, android.app.appsearch.AppSearchResult.RESULT_IO_ERROR, android.app.appsearch.AppSearchResult.RESULT_OUT_OF_SPACE, android.app.appsearch.AppSearchResult.RESULT_NOT_FOUND, android.app.appsearch.AppSearchResult.RESULT_INVALID_SCHEMA, android.app.appsearch.AppSearchResult.RESULT_SECURITY_ERROR, android.app.appsearch.AppSearchResult.RESULT_DENIED, android.app.appsearch.AppSearchResult.RESULT_RATE_LIMITED, android.app.appsearch.AppSearchResult.RESULT_ALREADY_EXISTS, android.app.appsearch.AppSearchResult.RESULT_UNAVAILABLE}" />
+    </annotation>
+  </item>
+  <item name="android.app.appsearch.exceptions.AppSearchException AppSearchException(int, java.lang.String, java.lang.Throwable) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.appsearch.AppSearchResult.RESULT_OK, android.app.appsearch.AppSearchResult.RESULT_UNKNOWN_ERROR, android.app.appsearch.AppSearchResult.RESULT_INTERNAL_ERROR, android.app.appsearch.AppSearchResult.RESULT_INVALID_ARGUMENT, android.app.appsearch.AppSearchResult.RESULT_IO_ERROR, android.app.appsearch.AppSearchResult.RESULT_OUT_OF_SPACE, android.app.appsearch.AppSearchResult.RESULT_NOT_FOUND, android.app.appsearch.AppSearchResult.RESULT_INVALID_SCHEMA, android.app.appsearch.AppSearchResult.RESULT_SECURITY_ERROR, android.app.appsearch.AppSearchResult.RESULT_DENIED, android.app.appsearch.AppSearchResult.RESULT_RATE_LIMITED, android.app.appsearch.AppSearchResult.RESULT_ALREADY_EXISTS, android.app.appsearch.AppSearchResult.RESULT_UNAVAILABLE}" />
+    </annotation>
+  </item>
+  <item name="android.app.appsearch.exceptions.AppSearchException int getResultCode()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.appsearch.AppSearchResult.RESULT_OK, android.app.appsearch.AppSearchResult.RESULT_UNKNOWN_ERROR, android.app.appsearch.AppSearchResult.RESULT_INTERNAL_ERROR, android.app.appsearch.AppSearchResult.RESULT_INVALID_ARGUMENT, android.app.appsearch.AppSearchResult.RESULT_IO_ERROR, android.app.appsearch.AppSearchResult.RESULT_OUT_OF_SPACE, android.app.appsearch.AppSearchResult.RESULT_NOT_FOUND, android.app.appsearch.AppSearchResult.RESULT_INVALID_SCHEMA, android.app.appsearch.AppSearchResult.RESULT_SECURITY_ERROR, android.app.appsearch.AppSearchResult.RESULT_DENIED, android.app.appsearch.AppSearchResult.RESULT_RATE_LIMITED, android.app.appsearch.AppSearchResult.RESULT_ALREADY_EXISTS, android.app.appsearch.AppSearchResult.RESULT_UNAVAILABLE}" />
+    </annotation>
+  </item>
+</root>
+

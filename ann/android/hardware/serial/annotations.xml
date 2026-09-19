@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+  <item name="android.hardware.serial.SerialPort void requestOpen(int, boolean, java.util.concurrent.Executor, android.os.OutcomeReceiver&lt;android.hardware.serial.SerialPortResponse,java.lang.Exception&gt;) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.hardware.serial.SerialPort.OPEN_FLAG_READ_ONLY, android.hardware.serial.SerialPort.OPEN_FLAG_WRITE_ONLY, android.hardware.serial.SerialPort.OPEN_FLAG_READ_WRITE, android.hardware.serial.SerialPort.OPEN_FLAG_NONBLOCK, android.hardware.serial.SerialPort.OPEN_FLAG_DATA_SYNC, android.hardware.serial.SerialPort.OPEN_FLAG_SYNC}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+</root>
+

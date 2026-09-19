@@ -1,0 +1,1221 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+  <item name="android.bluetooth.BluetoothA2dp ACTION_CONNECTION_STATE_CHANGED">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothA2dp ACTION_PLAYING_STATE_CHANGED">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothA2dp boolean isA2dpPlaying(android.bluetooth.BluetoothDevice)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothA2dp int getConnectionState(android.bluetooth.BluetoothDevice)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothProfile.STATE_DISCONNECTED, android.bluetooth.BluetoothProfile.STATE_CONNECTING, android.bluetooth.BluetoothProfile.STATE_CONNECTED, android.bluetooth.BluetoothProfile.STATE_DISCONNECTING}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothA2dp java.util.Collection&lt;android.bluetooth.BluetoothCodecType&gt; getSupportedCodecTypes()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_PRIVILEGED&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothA2dp java.util.List&lt;android.bluetooth.BluetoothDevice&gt; getConnectedDevices()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothA2dp java.util.List&lt;android.bluetooth.BluetoothDevice&gt; getDevicesMatchingConnectionStates(int[])">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothAdapter ACTION_CONNECTION_STATE_CHANGED">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothAdapter ACTION_DISCOVERY_FINISHED">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_SCAN&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothAdapter ACTION_DISCOVERY_STARTED">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_SCAN&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothAdapter ACTION_LOCAL_NAME_CHANGED">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothAdapter ACTION_REQUEST_DISCOVERABLE">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_ADVERTISE&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothAdapter ACTION_REQUEST_ENABLE">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothAdapter ACTION_SCAN_MODE_CHANGED">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_SCAN&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothAdapter android.bluetooth.BluetoothDevice getRemoteLeDevice(java.lang.String, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothDevice.ADDRESS_TYPE_PUBLIC, android.bluetooth.BluetoothDevice.ADDRESS_TYPE_RANDOM, android.bluetooth.BluetoothDevice.ADDRESS_TYPE_ANONYMOUS, android.bluetooth.BluetoothDevice.ADDRESS_TYPE_UNKNOWN}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothAdapter android.bluetooth.BluetoothServerSocket listenUsingInsecureL2capChannel()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothAdapter android.bluetooth.BluetoothServerSocket listenUsingInsecureRfcommWithServiceRecord(java.lang.String, java.util.UUID)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothAdapter android.bluetooth.BluetoothServerSocket listenUsingL2capChannel()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothAdapter android.bluetooth.BluetoothServerSocket listenUsingRfcommWithServiceRecord(java.lang.String, java.util.UUID)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothAdapter android.bluetooth.BluetoothServerSocket listenUsingSocketSettings(android.bluetooth.BluetoothSocketSettings)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="allOf" val="{&quot;android.permission.BLUETOOTH_CONNECT&quot;, &quot;android.permission.BLUETOOTH_PRIVILEGED&quot;}" />
+      <val name="conditional" val="true" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothAdapter boolean cancelDiscovery()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_SCAN&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothAdapter boolean disable()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothAdapter boolean enable()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothAdapter boolean isDiscovering()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_SCAN&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothAdapter boolean setName(java.lang.String)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothAdapter boolean startDiscovery()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_SCAN&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothAdapter boolean startLeScan(android.bluetooth.BluetoothAdapter.LeScanCallback)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="allOf" val="{&quot;android.permission.BLUETOOTH_PRIVILEGED&quot;, &quot;android.permission.BLUETOOTH_SCAN&quot;}" />
+      <val name="conditional" val="true" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothAdapter boolean startLeScan(java.util.UUID[], android.bluetooth.BluetoothAdapter.LeScanCallback)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="allOf" val="{&quot;android.permission.BLUETOOTH_PRIVILEGED&quot;, &quot;android.permission.BLUETOOTH_SCAN&quot;}" />
+      <val name="conditional" val="true" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothAdapter int getMaxConnectedAudioDevices()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothAdapter int getProfileConnectionState(int)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothAdapter.STATE_DISCONNECTED, android.bluetooth.BluetoothAdapter.STATE_CONNECTING, android.bluetooth.BluetoothAdapter.STATE_CONNECTED, android.bluetooth.BluetoothAdapter.STATE_DISCONNECTING}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothAdapter int getScanMode()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_SCAN&quot;" />
+    </annotation>
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothAdapter.SCAN_MODE_NONE, android.bluetooth.BluetoothAdapter.SCAN_MODE_CONNECTABLE, android.bluetooth.BluetoothAdapter.SCAN_MODE_CONNECTABLE_DISCOVERABLE}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothAdapter int getState()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothAdapter.STATE_OFF, android.bluetooth.BluetoothAdapter.STATE_TURNING_ON, android.bluetooth.BluetoothAdapter.STATE_ON, android.bluetooth.BluetoothAdapter.STATE_TURNING_OFF}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothAdapter int isLeAudioBroadcastAssistantSupported()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothStatusCodes.FEATURE_SUPPORTED, android.bluetooth.BluetoothStatusCodes.ERROR_UNKNOWN, android.bluetooth.BluetoothStatusCodes.ERROR_BLUETOOTH_NOT_ENABLED, android.bluetooth.BluetoothStatusCodes.FEATURE_NOT_SUPPORTED}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothAdapter int isLeAudioBroadcastSourceSupported()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothStatusCodes.FEATURE_SUPPORTED, android.bluetooth.BluetoothStatusCodes.ERROR_UNKNOWN, android.bluetooth.BluetoothStatusCodes.ERROR_BLUETOOTH_NOT_ENABLED, android.bluetooth.BluetoothStatusCodes.FEATURE_NOT_SUPPORTED}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothAdapter int isLeAudioSupported()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothStatusCodes.FEATURE_SUPPORTED, android.bluetooth.BluetoothStatusCodes.ERROR_UNKNOWN, android.bluetooth.BluetoothStatusCodes.ERROR_BLUETOOTH_NOT_ENABLED, android.bluetooth.BluetoothStatusCodes.FEATURE_NOT_SUPPORTED}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothAdapter int isLeHighDataThroughputPhySupported()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothStatusCodes.FEATURE_SUPPORTED, android.bluetooth.BluetoothStatusCodes.ERROR_UNKNOWN, android.bluetooth.BluetoothStatusCodes.ERROR_BLUETOOTH_NOT_ENABLED, android.bluetooth.BluetoothStatusCodes.FEATURE_NOT_SUPPORTED}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothAdapter java.lang.String getAddress()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="allOf" val="{&quot;android.permission.BLUETOOTH_CONNECT&quot;, &quot;android.permission.LOCAL_MAC_ADDRESS&quot;}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothAdapter java.lang.String getName()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothAdapter java.time.Duration getDiscoverableTimeout()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_SCAN&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothAdapter java.util.Set&lt;android.bluetooth.BluetoothDevice&gt; getBondedDevices()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothAdapter void stopLeScan(android.bluetooth.BluetoothAdapter.LeScanCallback)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_SCAN&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothCodecConfig int getBitsPerSample()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothCodecConfig.BITS_PER_SAMPLE_NONE, android.bluetooth.BluetoothCodecConfig.BITS_PER_SAMPLE_16, android.bluetooth.BluetoothCodecConfig.BITS_PER_SAMPLE_24, android.bluetooth.BluetoothCodecConfig.BITS_PER_SAMPLE_32}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothCodecConfig int getChannelMode()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothCodecConfig.CHANNEL_MODE_NONE, android.bluetooth.BluetoothCodecConfig.CHANNEL_MODE_MONO, android.bluetooth.BluetoothCodecConfig.CHANNEL_MODE_STEREO}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothCodecConfig int getCodecPriority()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothCodecConfig.CODEC_PRIORITY_DISABLED, android.bluetooth.BluetoothCodecConfig.CODEC_PRIORITY_DEFAULT, android.bluetooth.BluetoothCodecConfig.CODEC_PRIORITY_HIGHEST}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothCodecConfig int getCodecType()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothCodecConfig.SOURCE_CODEC_TYPE_SBC, android.bluetooth.BluetoothCodecConfig.SOURCE_CODEC_TYPE_AAC, android.bluetooth.BluetoothCodecConfig.SOURCE_CODEC_TYPE_APTX, android.bluetooth.BluetoothCodecConfig.SOURCE_CODEC_TYPE_APTX_HD, android.bluetooth.BluetoothCodecConfig.SOURCE_CODEC_TYPE_LDAC, android.bluetooth.BluetoothCodecConfig.SOURCE_CODEC_TYPE_LC3, android.bluetooth.BluetoothCodecConfig.SOURCE_CODEC_TYPE_OPUS, android.bluetooth.BluetoothCodecConfig.SOURCE_CODEC_TYPE_INVALID}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothCodecConfig int getSampleRate()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothCodecConfig.SAMPLE_RATE_NONE, android.bluetooth.BluetoothCodecConfig.SAMPLE_RATE_44100, android.bluetooth.BluetoothCodecConfig.SAMPLE_RATE_48000, android.bluetooth.BluetoothCodecConfig.SAMPLE_RATE_88200, android.bluetooth.BluetoothCodecConfig.SAMPLE_RATE_96000, android.bluetooth.BluetoothCodecConfig.SAMPLE_RATE_176400, android.bluetooth.BluetoothCodecConfig.SAMPLE_RATE_192000}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothCodecConfig.Builder android.bluetooth.BluetoothCodecConfig.Builder setBitsPerSample(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothCodecConfig.BITS_PER_SAMPLE_NONE, android.bluetooth.BluetoothCodecConfig.BITS_PER_SAMPLE_16, android.bluetooth.BluetoothCodecConfig.BITS_PER_SAMPLE_24, android.bluetooth.BluetoothCodecConfig.BITS_PER_SAMPLE_32}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothCodecConfig.Builder android.bluetooth.BluetoothCodecConfig.Builder setChannelMode(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothCodecConfig.CHANNEL_MODE_NONE, android.bluetooth.BluetoothCodecConfig.CHANNEL_MODE_MONO, android.bluetooth.BluetoothCodecConfig.CHANNEL_MODE_STEREO}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothCodecConfig.Builder android.bluetooth.BluetoothCodecConfig.Builder setCodecPriority(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothCodecConfig.CODEC_PRIORITY_DISABLED, android.bluetooth.BluetoothCodecConfig.CODEC_PRIORITY_DEFAULT, android.bluetooth.BluetoothCodecConfig.CODEC_PRIORITY_HIGHEST}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothCodecConfig.Builder android.bluetooth.BluetoothCodecConfig.Builder setCodecType(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothCodecConfig.SOURCE_CODEC_TYPE_SBC, android.bluetooth.BluetoothCodecConfig.SOURCE_CODEC_TYPE_AAC, android.bluetooth.BluetoothCodecConfig.SOURCE_CODEC_TYPE_APTX, android.bluetooth.BluetoothCodecConfig.SOURCE_CODEC_TYPE_APTX_HD, android.bluetooth.BluetoothCodecConfig.SOURCE_CODEC_TYPE_LDAC, android.bluetooth.BluetoothCodecConfig.SOURCE_CODEC_TYPE_LC3, android.bluetooth.BluetoothCodecConfig.SOURCE_CODEC_TYPE_OPUS, android.bluetooth.BluetoothCodecConfig.SOURCE_CODEC_TYPE_INVALID}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothCodecConfig.Builder android.bluetooth.BluetoothCodecConfig.Builder setSampleRate(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothCodecConfig.SAMPLE_RATE_NONE, android.bluetooth.BluetoothCodecConfig.SAMPLE_RATE_44100, android.bluetooth.BluetoothCodecConfig.SAMPLE_RATE_48000, android.bluetooth.BluetoothCodecConfig.SAMPLE_RATE_88200, android.bluetooth.BluetoothCodecConfig.SAMPLE_RATE_96000, android.bluetooth.BluetoothCodecConfig.SAMPLE_RATE_176400, android.bluetooth.BluetoothCodecConfig.SAMPLE_RATE_192000}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothCsipSetCoordinator ACTION_CSIS_CONNECTION_STATE_CHANGED">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothCsipSetCoordinator int getConnectionState(android.bluetooth.BluetoothDevice)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="allOf" val="{&quot;android.permission.BLUETOOTH_CONNECT&quot;, &quot;android.permission.BLUETOOTH_PRIVILEGED&quot;}" />
+    </annotation>
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothProfile.STATE_DISCONNECTED, android.bluetooth.BluetoothProfile.STATE_CONNECTING, android.bluetooth.BluetoothProfile.STATE_CONNECTED, android.bluetooth.BluetoothProfile.STATE_DISCONNECTING}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothCsipSetCoordinator java.util.List&lt;android.bluetooth.BluetoothDevice&gt; getConnectedDevices()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="allOf" val="{&quot;android.permission.BLUETOOTH_CONNECT&quot;, &quot;android.permission.BLUETOOTH_PRIVILEGED&quot;}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothCsipSetCoordinator java.util.List&lt;android.bluetooth.BluetoothDevice&gt; getDevicesMatchingConnectionStates(int[])">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="allOf" val="{&quot;android.permission.BLUETOOTH_CONNECT&quot;, &quot;android.permission.BLUETOOTH_PRIVILEGED&quot;}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothDevice ACTION_ACL_CONNECTED">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothDevice ACTION_ACL_DISCONNECTED">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothDevice ACTION_ACL_DISCONNECT_REQUESTED">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothDevice ACTION_ALIAS_CHANGED">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothDevice ACTION_BOND_STATE_CHANGED">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothDevice ACTION_CLASS_CHANGED">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothDevice ACTION_ENCRYPTION_CHANGE">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothDevice ACTION_FOUND">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_SCAN&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothDevice ACTION_KEY_MISSING">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="allOf" val="{&quot;android.permission.BLUETOOTH_CONNECT&quot;, &quot;android.permission.BLUETOOTH_PRIVILEGED&quot;}" />
+      <val name="conditional" val="true" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothDevice ACTION_NAME_CHANGED">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothDevice ACTION_PAIRING_REQUEST">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothDevice ACTION_UUID">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothDevice android.bluetooth.BluetoothClass getBluetoothClass()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothDevice android.bluetooth.BluetoothDevice.BluetoothAddress getIdentityAddressWithType()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="allOf" val="{&quot;android.permission.BLUETOOTH_CONNECT&quot;, &quot;android.permission.BLUETOOTH_PRIVILEGED&quot;}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothDevice android.bluetooth.BluetoothGatt connectGatt(android.bluetooth.BluetoothGattConnectionSettings, java.util.concurrent.Executor, android.bluetooth.BluetoothGattCallback)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothDevice android.bluetooth.BluetoothGatt connectGatt(android.content.Context, boolean, android.bluetooth.BluetoothGattCallback)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothDevice android.bluetooth.BluetoothGatt connectGatt(android.content.Context, boolean, android.bluetooth.BluetoothGattCallback, int)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothDevice android.bluetooth.BluetoothGatt connectGatt(android.content.Context, boolean, android.bluetooth.BluetoothGattCallback, int, int)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothDevice android.bluetooth.BluetoothGatt connectGatt(android.content.Context, boolean, android.bluetooth.BluetoothGattCallback, int, int, android.os.Handler)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothDevice android.bluetooth.BondStatus getBondStatus(int)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothDevice android.bluetooth.BondStatus getBondStatus(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothDevice.TRANSPORT_BREDR, android.bluetooth.BluetoothDevice.TRANSPORT_LE}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothDevice android.bluetooth.EncryptionStatus getEncryptionStatus(int)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothDevice android.bluetooth.EncryptionStatus getEncryptionStatus(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothDevice.TRANSPORT_BREDR, android.bluetooth.BluetoothDevice.TRANSPORT_LE}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothDevice android.os.ParcelUuid[] getUuids()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothDevice boolean cancelBondProcess()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="allOf" val="{&quot;android.permission.BLUETOOTH_CONNECT&quot;, &quot;android.permission.BLUETOOTH_PRIVILEGED&quot;}" />
+      <val name="conditional" val="true" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothDevice boolean createBond()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothDevice boolean createBond(int)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothDevice boolean createBond(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothDevice.TRANSPORT_AUTO, android.bluetooth.BluetoothDevice.TRANSPORT_BREDR, android.bluetooth.BluetoothDevice.TRANSPORT_LE}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothDevice boolean fetchUuids(int)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothDevice boolean fetchUuids(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothDevice.TRANSPORT_AUTO, android.bluetooth.BluetoothDevice.TRANSPORT_BREDR, android.bluetooth.BluetoothDevice.TRANSPORT_LE}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothDevice boolean fetchUuidsWithSdp()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothDevice boolean isConnected(int)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothDevice boolean isConnected(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothDevice.TRANSPORT_BREDR, android.bluetooth.BluetoothDevice.TRANSPORT_LE}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothDevice boolean setPairingConfirmation(boolean)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="allOf" val="{&quot;android.permission.BLUETOOTH_CONNECT&quot;, &quot;android.permission.BLUETOOTH_PRIVILEGED&quot;}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothDevice boolean setPin(byte[])">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="allOf" val="{&quot;android.permission.BLUETOOTH_CONNECT&quot;, &quot;android.permission.BLUETOOTH_PRIVILEGED&quot;}" />
+      <val name="conditional" val="true" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothDevice int connect()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="allOf" val="{&quot;android.permission.BLUETOOTH_CONNECT&quot;, &quot;android.permission.BLUETOOTH_PRIVILEGED&quot;}" />
+      <val name="conditional" val="true" />
+    </annotation>
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothStatusCodes.SUCCESS, android.bluetooth.BluetoothStatusCodes.ERROR_BLUETOOTH_NOT_ENABLED, android.bluetooth.BluetoothStatusCodes.ERROR_BLUETOOTH_NOT_ALLOWED, android.bluetooth.BluetoothStatusCodes.ERROR_MISSING_BLUETOOTH_CONNECT_PERMISSION, android.bluetooth.BluetoothStatusCodes.ERROR_DEVICE_NOT_BONDED}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothDevice int disconnect()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="allOf" val="{&quot;android.permission.BLUETOOTH_CONNECT&quot;, &quot;android.permission.BLUETOOTH_PRIVILEGED&quot;}" />
+      <val name="conditional" val="true" />
+    </annotation>
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothStatusCodes.SUCCESS, android.bluetooth.BluetoothStatusCodes.ERROR_BLUETOOTH_NOT_ENABLED, android.bluetooth.BluetoothStatusCodes.ERROR_BLUETOOTH_NOT_ALLOWED, android.bluetooth.BluetoothStatusCodes.ERROR_MISSING_BLUETOOTH_CONNECT_PERMISSION, android.bluetooth.BluetoothStatusCodes.ERROR_DEVICE_NOT_BONDED}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothDevice int getAddressType()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothDevice.ADDRESS_TYPE_PUBLIC, android.bluetooth.BluetoothDevice.ADDRESS_TYPE_RANDOM, android.bluetooth.BluetoothDevice.ADDRESS_TYPE_ANONYMOUS, android.bluetooth.BluetoothDevice.ADDRESS_TYPE_UNKNOWN}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothDevice int getBondState()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothDevice int getKeyMissingCount()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothDevice int getType()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothDevice int setAlias(java.lang.String)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="allOf" val="{&quot;android.permission.BLUETOOTH_CONNECT&quot;, &quot;android.permission.BLUETOOTH_PRIVILEGED&quot;}" />
+      <val name="conditional" val="true" />
+    </annotation>
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothStatusCodes.SUCCESS, android.bluetooth.BluetoothStatusCodes.ERROR_BLUETOOTH_NOT_ENABLED, android.bluetooth.BluetoothStatusCodes.ERROR_BLUETOOTH_NOT_ALLOWED, android.bluetooth.BluetoothStatusCodes.ERROR_MISSING_BLUETOOTH_CONNECT_PERMISSION, android.bluetooth.BluetoothStatusCodes.ERROR_DEVICE_NOT_BONDED}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothDevice java.lang.String getAlias()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothDevice java.lang.String getName()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothDevice.BluetoothAddress BluetoothAddress(java.lang.String, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothDevice.ADDRESS_TYPE_PUBLIC, android.bluetooth.BluetoothDevice.ADDRESS_TYPE_RANDOM, android.bluetooth.BluetoothDevice.ADDRESS_TYPE_ANONYMOUS, android.bluetooth.BluetoothDevice.ADDRESS_TYPE_UNKNOWN}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothDevice.BluetoothAddress int getAddressType()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothDevice.ADDRESS_TYPE_PUBLIC, android.bluetooth.BluetoothDevice.ADDRESS_TYPE_RANDOM, android.bluetooth.BluetoothDevice.ADDRESS_TYPE_ANONYMOUS, android.bluetooth.BluetoothDevice.ADDRESS_TYPE_UNKNOWN}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothGatt boolean beginReliableWrite()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothGatt boolean connect()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothGatt boolean discoverServices()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothGatt boolean executeReliableWrite()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothGatt boolean readCharacteristic(android.bluetooth.BluetoothGattCharacteristic)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothGatt boolean readDescriptor(android.bluetooth.BluetoothGattDescriptor)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothGatt boolean readRemoteRssi()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothGatt boolean requestConnectionPriority(int)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothGatt boolean requestMtu(int)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothGatt boolean setCharacteristicNotification(android.bluetooth.BluetoothGattCharacteristic, boolean)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothGatt boolean writeCharacteristic(android.bluetooth.BluetoothGattCharacteristic)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothGatt boolean writeDescriptor(android.bluetooth.BluetoothGattDescriptor)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothGatt int requestSubrateMode(int)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="allOf" val="{&quot;android.permission.BLUETOOTH_CONNECT&quot;, &quot;android.permission.BLUETOOTH_PRIVILEGED&quot;}" />
+      <val name="conditional" val="true" />
+    </annotation>
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothStatusCodes.SUCCESS, android.bluetooth.BluetoothStatusCodes.ERROR_BLUETOOTH_NOT_ENABLED, android.bluetooth.BluetoothStatusCodes.ERROR_BLUETOOTH_NOT_ALLOWED, android.bluetooth.BluetoothStatusCodes.ERROR_MISSING_BLUETOOTH_CONNECT_PERMISSION, android.bluetooth.BluetoothStatusCodes.ERROR_DEVICE_NOT_BONDED, android.bluetooth.BluetoothStatusCodes.FEATURE_NOT_SUPPORTED, android.bluetooth.BluetoothStatusCodes.ERROR_UNKNOWN}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothGatt int requestSubrateMode(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothGatt.SUBRATE_MODE_OFF, android.bluetooth.BluetoothGatt.SUBRATE_MODE_LOW, android.bluetooth.BluetoothGatt.SUBRATE_MODE_BALANCED, android.bluetooth.BluetoothGatt.SUBRATE_MODE_HIGH}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothGatt int writeCharacteristic(android.bluetooth.BluetoothGattCharacteristic, byte[], int)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothStatusCodes.SUCCESS, android.bluetooth.BluetoothStatusCodes.ERROR_MISSING_BLUETOOTH_CONNECT_PERMISSION, android.bluetooth.BluetoothStatusCodes.ERROR_PROFILE_SERVICE_NOT_BOUND, android.bluetooth.BluetoothStatusCodes.ERROR_GATT_WRITE_NOT_ALLOWED, android.bluetooth.BluetoothStatusCodes.ERROR_GATT_WRITE_REQUEST_BUSY, android.bluetooth.BluetoothStatusCodes.ERROR_UNKNOWN}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothGatt int writeCharacteristic(android.bluetooth.BluetoothGattCharacteristic, byte[], int) 2">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT, android.bluetooth.BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE, android.bluetooth.BluetoothGattCharacteristic.WRITE_TYPE_SIGNED}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothGatt int writeDescriptor(android.bluetooth.BluetoothGattDescriptor, byte[])">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothStatusCodes.SUCCESS, android.bluetooth.BluetoothStatusCodes.ERROR_MISSING_BLUETOOTH_CONNECT_PERMISSION, android.bluetooth.BluetoothStatusCodes.ERROR_PROFILE_SERVICE_NOT_BOUND, android.bluetooth.BluetoothStatusCodes.ERROR_GATT_WRITE_NOT_ALLOWED, android.bluetooth.BluetoothStatusCodes.ERROR_GATT_WRITE_REQUEST_BUSY, android.bluetooth.BluetoothStatusCodes.ERROR_UNKNOWN}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothGatt void abortReliableWrite()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothGatt void abortReliableWrite(android.bluetooth.BluetoothDevice)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothGatt void close()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothGatt void disconnect()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothGatt void readPhy()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothGatt void setPreferredPhy(int, int, int)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothGatt void setPreferredPhy(int, int, int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothDevice.PHY_LE_1M_MASK, android.bluetooth.BluetoothDevice.PHY_LE_2M_MASK, android.bluetooth.BluetoothDevice.PHY_LE_CODED_MASK, android.bluetooth.BluetoothDevice.PHY_LE_HDT_MASK}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothGatt void setPreferredPhy(int, int, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothDevice.PHY_LE_1M_MASK, android.bluetooth.BluetoothDevice.PHY_LE_2M_MASK, android.bluetooth.BluetoothDevice.PHY_LE_CODED_MASK, android.bluetooth.BluetoothDevice.PHY_LE_HDT_MASK}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothGattCallback void onPhyRead(android.bluetooth.BluetoothGatt, int, int, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothDevice.PHY_LE_1M, android.bluetooth.BluetoothDevice.PHY_LE_2M, android.bluetooth.BluetoothDevice.PHY_LE_CODED, android.bluetooth.BluetoothDevice.PHY_LE_HDT}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothGattCallback void onPhyRead(android.bluetooth.BluetoothGatt, int, int, int) 2">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothDevice.PHY_LE_1M, android.bluetooth.BluetoothDevice.PHY_LE_2M, android.bluetooth.BluetoothDevice.PHY_LE_CODED, android.bluetooth.BluetoothDevice.PHY_LE_HDT}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothGattCallback void onPhyUpdate(android.bluetooth.BluetoothGatt, int, int, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothDevice.PHY_LE_1M, android.bluetooth.BluetoothDevice.PHY_LE_2M, android.bluetooth.BluetoothDevice.PHY_LE_CODED, android.bluetooth.BluetoothDevice.PHY_LE_HDT}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothGattCallback void onPhyUpdate(android.bluetooth.BluetoothGatt, int, int, int) 2">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothDevice.PHY_LE_1M, android.bluetooth.BluetoothDevice.PHY_LE_2M, android.bluetooth.BluetoothDevice.PHY_LE_CODED, android.bluetooth.BluetoothDevice.PHY_LE_HDT}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothGattCallback void onSubrateChange(android.bluetooth.BluetoothGatt, int, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothGatt.SUBRATE_MODE_OFF, android.bluetooth.BluetoothGatt.SUBRATE_MODE_LOW, android.bluetooth.BluetoothGatt.SUBRATE_MODE_BALANCED, android.bluetooth.BluetoothGatt.SUBRATE_MODE_HIGH, android.bluetooth.BluetoothGatt.SUBRATE_MODE_SYSTEM_UPDATE, android.bluetooth.BluetoothGatt.SUBRATE_MODE_NOT_UPDATED}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothGattCallback void onSubrateChange(android.bluetooth.BluetoothGatt, int, int) 2">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothStatusCodes.SUCCESS, android.bluetooth.BluetoothStatusCodes.ERROR_UNKNOWN}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothGattCharacteristic int getWriteType()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT, android.bluetooth.BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE, android.bluetooth.BluetoothGattCharacteristic.WRITE_TYPE_SIGNED}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothGattCharacteristic void setWriteType(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT, android.bluetooth.BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE, android.bluetooth.BluetoothGattCharacteristic.WRITE_TYPE_SIGNED}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothGattConnectionSettings int getTransport()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothDevice.TRANSPORT_AUTO, android.bluetooth.BluetoothDevice.TRANSPORT_BREDR, android.bluetooth.BluetoothDevice.TRANSPORT_LE}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothGattConnectionSettings.Builder android.bluetooth.BluetoothGattConnectionSettings.Builder setTransport(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothDevice.TRANSPORT_AUTO, android.bluetooth.BluetoothDevice.TRANSPORT_BREDR, android.bluetooth.BluetoothDevice.TRANSPORT_LE}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothGattServer boolean addService(android.bluetooth.BluetoothGattService)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothGattServer boolean connect(android.bluetooth.BluetoothDevice, boolean)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothGattServer boolean notifyCharacteristicChanged(android.bluetooth.BluetoothDevice, android.bluetooth.BluetoothGattCharacteristic, boolean)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothGattServer boolean removeService(android.bluetooth.BluetoothGattService)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothGattServer boolean sendResponse(android.bluetooth.BluetoothDevice, int, int, int, byte[])">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothGattServer int notifyCharacteristicChanged(android.bluetooth.BluetoothDevice, android.bluetooth.BluetoothGattCharacteristic, boolean, byte[])">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothStatusCodes.SUCCESS, android.bluetooth.BluetoothStatusCodes.ERROR_MISSING_BLUETOOTH_CONNECT_PERMISSION, android.bluetooth.BluetoothStatusCodes.ERROR_PROFILE_SERVICE_NOT_BOUND, android.bluetooth.BluetoothStatusCodes.ERROR_UNKNOWN}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothGattServer void cancelConnection(android.bluetooth.BluetoothDevice)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothGattServer void clearServices()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothGattServer void close()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothGattServer void readPhy(android.bluetooth.BluetoothDevice)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothGattServer void setPreferredPhy(android.bluetooth.BluetoothDevice, int, int, int)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothGattServer void setPreferredPhy(android.bluetooth.BluetoothDevice, int, int, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothDevice.PHY_LE_1M_MASK, android.bluetooth.BluetoothDevice.PHY_LE_2M_MASK, android.bluetooth.BluetoothDevice.PHY_LE_CODED_MASK, android.bluetooth.BluetoothDevice.PHY_LE_HDT_MASK}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothGattServer void setPreferredPhy(android.bluetooth.BluetoothDevice, int, int, int) 2">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothDevice.PHY_LE_1M_MASK, android.bluetooth.BluetoothDevice.PHY_LE_2M_MASK, android.bluetooth.BluetoothDevice.PHY_LE_CODED_MASK, android.bluetooth.BluetoothDevice.PHY_LE_HDT_MASK}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothGattServerCallback void onPhyRead(android.bluetooth.BluetoothDevice, int, int, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothDevice.PHY_LE_1M, android.bluetooth.BluetoothDevice.PHY_LE_2M, android.bluetooth.BluetoothDevice.PHY_LE_CODED, android.bluetooth.BluetoothDevice.PHY_LE_HDT}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothGattServerCallback void onPhyRead(android.bluetooth.BluetoothDevice, int, int, int) 2">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothDevice.PHY_LE_1M, android.bluetooth.BluetoothDevice.PHY_LE_2M, android.bluetooth.BluetoothDevice.PHY_LE_CODED, android.bluetooth.BluetoothDevice.PHY_LE_HDT}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothGattServerCallback void onPhyUpdate(android.bluetooth.BluetoothDevice, int, int, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothDevice.PHY_LE_1M, android.bluetooth.BluetoothDevice.PHY_LE_2M, android.bluetooth.BluetoothDevice.PHY_LE_CODED, android.bluetooth.BluetoothDevice.PHY_LE_HDT}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothGattServerCallback void onPhyUpdate(android.bluetooth.BluetoothDevice, int, int, int) 2">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothDevice.PHY_LE_1M, android.bluetooth.BluetoothDevice.PHY_LE_2M, android.bluetooth.BluetoothDevice.PHY_LE_CODED, android.bluetooth.BluetoothDevice.PHY_LE_HDT}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothGattServerCallback void onSubrateChange(android.bluetooth.BluetoothDevice, int, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothGatt.SUBRATE_MODE_OFF, android.bluetooth.BluetoothGatt.SUBRATE_MODE_LOW, android.bluetooth.BluetoothGatt.SUBRATE_MODE_BALANCED, android.bluetooth.BluetoothGatt.SUBRATE_MODE_HIGH, android.bluetooth.BluetoothGatt.SUBRATE_MODE_SYSTEM_UPDATE, android.bluetooth.BluetoothGatt.SUBRATE_MODE_NOT_UPDATED}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothGattServerCallback void onSubrateChange(android.bluetooth.BluetoothDevice, int, int) 2">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothStatusCodes.SUCCESS, android.bluetooth.BluetoothStatusCodes.ERROR_UNKNOWN}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothHeadset ACTION_AUDIO_STATE_CHANGED">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothHeadset ACTION_CONNECTION_STATE_CHANGED">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothHeadset ACTION_VENDOR_SPECIFIC_HEADSET_EVENT">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothHeadset boolean isAudioConnected(android.bluetooth.BluetoothDevice)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothHeadset boolean isNoiseReductionSupported(android.bluetooth.BluetoothDevice)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothHeadset boolean isVoiceRecognitionSupported(android.bluetooth.BluetoothDevice)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothHeadset boolean sendVendorSpecificResultCode(android.bluetooth.BluetoothDevice, java.lang.String, java.lang.String)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothHeadset boolean startVoiceRecognition(android.bluetooth.BluetoothDevice)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothHeadset boolean stopVoiceRecognition(android.bluetooth.BluetoothDevice)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothHeadset int getConnectionState(android.bluetooth.BluetoothDevice)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothHeadset java.util.List&lt;android.bluetooth.BluetoothDevice&gt; getConnectedDevices()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothHeadset java.util.List&lt;android.bluetooth.BluetoothDevice&gt; getDevicesMatchingConnectionStates(int[])">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothHealth android.os.ParcelFileDescriptor getMainChannelFd(android.bluetooth.BluetoothDevice, android.bluetooth.BluetoothHealthAppConfiguration)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothHealth boolean connectChannelToSource(android.bluetooth.BluetoothDevice, android.bluetooth.BluetoothHealthAppConfiguration)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothHealth boolean disconnectChannel(android.bluetooth.BluetoothDevice, android.bluetooth.BluetoothHealthAppConfiguration, int)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothHealth boolean registerSinkAppConfiguration(java.lang.String, int, android.bluetooth.BluetoothHealthCallback)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothHealth boolean unregisterAppConfiguration(android.bluetooth.BluetoothHealthAppConfiguration)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothHealth int getConnectionState(android.bluetooth.BluetoothDevice)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothHealth java.util.List&lt;android.bluetooth.BluetoothDevice&gt; getConnectedDevices()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothHealth java.util.List&lt;android.bluetooth.BluetoothDevice&gt; getDevicesMatchingConnectionStates(int[])">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothHealthCallback void onHealthAppConfigurationStatusChange(android.bluetooth.BluetoothHealthAppConfiguration, int)">
+    <annotation name="androidx.annotation.BinderThread"/>
+  </item>
+  <item name="android.bluetooth.BluetoothHealthCallback void onHealthChannelStateChange(android.bluetooth.BluetoothHealthAppConfiguration, android.bluetooth.BluetoothDevice, int, int, android.os.ParcelFileDescriptor, int)">
+    <annotation name="androidx.annotation.BinderThread"/>
+  </item>
+  <item name="android.bluetooth.BluetoothHearingAid ACTION_CONNECTION_STATE_CHANGED">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothHearingAid int getConnectionState(android.bluetooth.BluetoothDevice)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothProfile.STATE_DISCONNECTED, android.bluetooth.BluetoothProfile.STATE_CONNECTING, android.bluetooth.BluetoothProfile.STATE_CONNECTED, android.bluetooth.BluetoothProfile.STATE_DISCONNECTING}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothHearingAid java.util.List&lt;android.bluetooth.BluetoothDevice&gt; getConnectedDevices()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothHearingAid java.util.List&lt;android.bluetooth.BluetoothDevice&gt; getDevicesMatchingConnectionStates(int[])">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothHidDevice ACTION_CONNECTION_STATE_CHANGED">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothHidDevice boolean connect(android.bluetooth.BluetoothDevice)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothHidDevice boolean disconnect(android.bluetooth.BluetoothDevice)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothHidDevice boolean registerApp(android.bluetooth.BluetoothHidDeviceAppSdpSettings, android.bluetooth.BluetoothHidDeviceAppQosSettings, android.bluetooth.BluetoothHidDeviceAppQosSettings, java.util.concurrent.Executor, android.bluetooth.BluetoothHidDevice.Callback)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothHidDevice boolean replyReport(android.bluetooth.BluetoothDevice, byte, byte, byte[])">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothHidDevice boolean reportError(android.bluetooth.BluetoothDevice, byte)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothHidDevice boolean sendReport(android.bluetooth.BluetoothDevice, int, byte[])">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothHidDevice boolean unregisterApp()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothHidDevice int getConnectionState(android.bluetooth.BluetoothDevice)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothHidDevice java.util.List&lt;android.bluetooth.BluetoothDevice&gt; getConnectedDevices()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothHidDevice java.util.List&lt;android.bluetooth.BluetoothDevice&gt; getDevicesMatchingConnectionStates(int[])">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothLeAudio ACTION_LE_AUDIO_CONNECTION_STATE_CHANGED">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothLeAudio android.bluetooth.BluetoothDevice getConnectedGroupLeadDevice(int)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothLeAudio int getConnectionState(android.bluetooth.BluetoothDevice)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothProfile.STATE_DISCONNECTED, android.bluetooth.BluetoothProfile.STATE_CONNECTING, android.bluetooth.BluetoothProfile.STATE_CONNECTED, android.bluetooth.BluetoothProfile.STATE_DISCONNECTING}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothLeAudio int getGroupId(android.bluetooth.BluetoothDevice)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothLeAudio java.util.List&lt;android.bluetooth.BluetoothDevice&gt; getConnectedDevices()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothLeAudio java.util.List&lt;android.bluetooth.BluetoothDevice&gt; getDevicesMatchingConnectionStates(int[])">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothLeAudioCodecConfig int getBitsPerSample()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothLeAudioCodecConfig.BITS_PER_SAMPLE_NONE, android.bluetooth.BluetoothLeAudioCodecConfig.BITS_PER_SAMPLE_16, android.bluetooth.BluetoothLeAudioCodecConfig.BITS_PER_SAMPLE_24, android.bluetooth.BluetoothLeAudioCodecConfig.BITS_PER_SAMPLE_32}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothLeAudioCodecConfig int getChannelCount()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothLeAudioCodecConfig.CHANNEL_COUNT_NONE, android.bluetooth.BluetoothLeAudioCodecConfig.CHANNEL_COUNT_1, android.bluetooth.BluetoothLeAudioCodecConfig.CHANNEL_COUNT_2}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothLeAudioCodecConfig int getCodecPriority()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothLeAudioCodecConfig.CODEC_PRIORITY_DISABLED, android.bluetooth.BluetoothLeAudioCodecConfig.CODEC_PRIORITY_DEFAULT, android.bluetooth.BluetoothLeAudioCodecConfig.CODEC_PRIORITY_HIGHEST}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothLeAudioCodecConfig int getCodecType()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothLeAudioCodecConfig.SOURCE_CODEC_TYPE_LC3, android.bluetooth.BluetoothLeAudioCodecConfig.SOURCE_CODEC_TYPE_OPUS, android.bluetooth.BluetoothLeAudioCodecConfig.SOURCE_CODEC_TYPE_OPUS_HI_RES, android.bluetooth.BluetoothLeAudioCodecConfig.SOURCE_CODEC_TYPE_VENDOR_SPECIFIC, android.bluetooth.BluetoothLeAudioCodecConfig.SOURCE_CODEC_TYPE_INVALID}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothLeAudioCodecConfig int getFrameDuration()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothLeAudioCodecConfig.FRAME_DURATION_NONE, android.bluetooth.BluetoothLeAudioCodecConfig.FRAME_DURATION_7500, android.bluetooth.BluetoothLeAudioCodecConfig.FRAME_DURATION_10000}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothLeAudioCodecConfig int getSampleRate()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothLeAudioCodecConfig.SAMPLE_RATE_NONE, android.bluetooth.BluetoothLeAudioCodecConfig.SAMPLE_RATE_8000, android.bluetooth.BluetoothLeAudioCodecConfig.SAMPLE_RATE_11025, android.bluetooth.BluetoothLeAudioCodecConfig.SAMPLE_RATE_16000, android.bluetooth.BluetoothLeAudioCodecConfig.SAMPLE_RATE_22050, android.bluetooth.BluetoothLeAudioCodecConfig.SAMPLE_RATE_24000, android.bluetooth.BluetoothLeAudioCodecConfig.SAMPLE_RATE_32000, android.bluetooth.BluetoothLeAudioCodecConfig.SAMPLE_RATE_44100, android.bluetooth.BluetoothLeAudioCodecConfig.SAMPLE_RATE_48000, android.bluetooth.BluetoothLeAudioCodecConfig.SAMPLE_RATE_88200, android.bluetooth.BluetoothLeAudioCodecConfig.SAMPLE_RATE_96000, android.bluetooth.BluetoothLeAudioCodecConfig.SAMPLE_RATE_176400, android.bluetooth.BluetoothLeAudioCodecConfig.SAMPLE_RATE_192000, android.bluetooth.BluetoothLeAudioCodecConfig.SAMPLE_RATE_384000}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothLeAudioCodecConfig.Builder android.bluetooth.BluetoothLeAudioCodecConfig.Builder setBitsPerSample(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothLeAudioCodecConfig.BITS_PER_SAMPLE_NONE, android.bluetooth.BluetoothLeAudioCodecConfig.BITS_PER_SAMPLE_16, android.bluetooth.BluetoothLeAudioCodecConfig.BITS_PER_SAMPLE_24, android.bluetooth.BluetoothLeAudioCodecConfig.BITS_PER_SAMPLE_32}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothLeAudioCodecConfig.Builder android.bluetooth.BluetoothLeAudioCodecConfig.Builder setChannelCount(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothLeAudioCodecConfig.CHANNEL_COUNT_NONE, android.bluetooth.BluetoothLeAudioCodecConfig.CHANNEL_COUNT_1, android.bluetooth.BluetoothLeAudioCodecConfig.CHANNEL_COUNT_2}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothLeAudioCodecConfig.Builder android.bluetooth.BluetoothLeAudioCodecConfig.Builder setCodecPriority(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothLeAudioCodecConfig.CODEC_PRIORITY_DISABLED, android.bluetooth.BluetoothLeAudioCodecConfig.CODEC_PRIORITY_DEFAULT, android.bluetooth.BluetoothLeAudioCodecConfig.CODEC_PRIORITY_HIGHEST}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothLeAudioCodecConfig.Builder android.bluetooth.BluetoothLeAudioCodecConfig.Builder setCodecType(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothLeAudioCodecConfig.SOURCE_CODEC_TYPE_LC3, android.bluetooth.BluetoothLeAudioCodecConfig.SOURCE_CODEC_TYPE_OPUS, android.bluetooth.BluetoothLeAudioCodecConfig.SOURCE_CODEC_TYPE_OPUS_HI_RES, android.bluetooth.BluetoothLeAudioCodecConfig.SOURCE_CODEC_TYPE_VENDOR_SPECIFIC, android.bluetooth.BluetoothLeAudioCodecConfig.SOURCE_CODEC_TYPE_INVALID}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothLeAudioCodecConfig.Builder android.bluetooth.BluetoothLeAudioCodecConfig.Builder setFrameDuration(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothLeAudioCodecConfig.FRAME_DURATION_NONE, android.bluetooth.BluetoothLeAudioCodecConfig.FRAME_DURATION_7500, android.bluetooth.BluetoothLeAudioCodecConfig.FRAME_DURATION_10000}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothLeAudioCodecConfig.Builder android.bluetooth.BluetoothLeAudioCodecConfig.Builder setSampleRate(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothLeAudioCodecConfig.SAMPLE_RATE_NONE, android.bluetooth.BluetoothLeAudioCodecConfig.SAMPLE_RATE_8000, android.bluetooth.BluetoothLeAudioCodecConfig.SAMPLE_RATE_11025, android.bluetooth.BluetoothLeAudioCodecConfig.SAMPLE_RATE_16000, android.bluetooth.BluetoothLeAudioCodecConfig.SAMPLE_RATE_22050, android.bluetooth.BluetoothLeAudioCodecConfig.SAMPLE_RATE_24000, android.bluetooth.BluetoothLeAudioCodecConfig.SAMPLE_RATE_32000, android.bluetooth.BluetoothLeAudioCodecConfig.SAMPLE_RATE_44100, android.bluetooth.BluetoothLeAudioCodecConfig.SAMPLE_RATE_48000, android.bluetooth.BluetoothLeAudioCodecConfig.SAMPLE_RATE_88200, android.bluetooth.BluetoothLeAudioCodecConfig.SAMPLE_RATE_96000, android.bluetooth.BluetoothLeAudioCodecConfig.SAMPLE_RATE_176400, android.bluetooth.BluetoothLeAudioCodecConfig.SAMPLE_RATE_192000, android.bluetooth.BluetoothLeAudioCodecConfig.SAMPLE_RATE_384000}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothManager android.bluetooth.BluetoothGattServer openGattServer(android.content.Context, android.bluetooth.BluetoothGattServerCallback)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothManager int getConnectionState(android.bluetooth.BluetoothDevice, int)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothManager java.util.List&lt;android.bluetooth.BluetoothDevice&gt; getConnectedDevices(int)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothManager java.util.List&lt;android.bluetooth.BluetoothDevice&gt; getDevicesMatchingConnectionStates(int, int[])">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothProfile int getConnectionState(android.bluetooth.BluetoothDevice)">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothProfile.STATE_DISCONNECTED, android.bluetooth.BluetoothProfile.STATE_CONNECTING, android.bluetooth.BluetoothProfile.STATE_CONNECTED, android.bluetooth.BluetoothProfile.STATE_DISCONNECTING}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothSocket void connect()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="allOf" val="{&quot;android.permission.BLUETOOTH_CONNECT&quot;, &quot;android.permission.BLUETOOTH_PRIVILEGED&quot;}" />
+      <val name="conditional" val="true" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothSocketException BluetoothSocketException(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothSocketException.UNSPECIFIED, android.bluetooth.BluetoothSocketException.L2CAP_UNKNOWN, android.bluetooth.BluetoothSocketException.L2CAP_ACL_FAILURE, android.bluetooth.BluetoothSocketException.L2CAP_CLIENT_SECURITY_FAILURE, android.bluetooth.BluetoothSocketException.L2CAP_INSUFFICIENT_AUTHENTICATION, android.bluetooth.BluetoothSocketException.L2CAP_INSUFFICIENT_AUTHORIZATION, android.bluetooth.BluetoothSocketException.L2CAP_INSUFFICIENT_ENCRYPT_KEY_SIZE, android.bluetooth.BluetoothSocketException.L2CAP_INSUFFICIENT_ENCRYPTION, android.bluetooth.BluetoothSocketException.L2CAP_INVALID_SOURCE_CID, android.bluetooth.BluetoothSocketException.L2CAP_SOURCE_CID_ALREADY_ALLOCATED, android.bluetooth.BluetoothSocketException.L2CAP_UNACCEPTABLE_PARAMETERS, android.bluetooth.BluetoothSocketException.L2CAP_INVALID_PARAMETERS, android.bluetooth.BluetoothSocketException.L2CAP_NO_RESOURCES, android.bluetooth.BluetoothSocketException.L2CAP_NO_PSM_AVAILABLE, android.bluetooth.BluetoothSocketException.L2CAP_TIMEOUT, android.bluetooth.BluetoothSocketException.BLUETOOTH_OFF_FAILURE, android.bluetooth.BluetoothSocketException.SOCKET_MANAGER_FAILURE, android.bluetooth.BluetoothSocketException.SOCKET_CLOSED, android.bluetooth.BluetoothSocketException.SOCKET_CONNECTION_FAILURE, android.bluetooth.BluetoothSocketException.NULL_DEVICE, android.bluetooth.BluetoothSocketException.RPC_FAILURE, android.bluetooth.BluetoothSocketException.UNIX_FILE_SOCKET_CREATION_FAILURE}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothSocketException BluetoothSocketException(int, java.lang.String) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothSocketException.UNSPECIFIED, android.bluetooth.BluetoothSocketException.L2CAP_UNKNOWN, android.bluetooth.BluetoothSocketException.L2CAP_ACL_FAILURE, android.bluetooth.BluetoothSocketException.L2CAP_CLIENT_SECURITY_FAILURE, android.bluetooth.BluetoothSocketException.L2CAP_INSUFFICIENT_AUTHENTICATION, android.bluetooth.BluetoothSocketException.L2CAP_INSUFFICIENT_AUTHORIZATION, android.bluetooth.BluetoothSocketException.L2CAP_INSUFFICIENT_ENCRYPT_KEY_SIZE, android.bluetooth.BluetoothSocketException.L2CAP_INSUFFICIENT_ENCRYPTION, android.bluetooth.BluetoothSocketException.L2CAP_INVALID_SOURCE_CID, android.bluetooth.BluetoothSocketException.L2CAP_SOURCE_CID_ALREADY_ALLOCATED, android.bluetooth.BluetoothSocketException.L2CAP_UNACCEPTABLE_PARAMETERS, android.bluetooth.BluetoothSocketException.L2CAP_INVALID_PARAMETERS, android.bluetooth.BluetoothSocketException.L2CAP_NO_RESOURCES, android.bluetooth.BluetoothSocketException.L2CAP_NO_PSM_AVAILABLE, android.bluetooth.BluetoothSocketException.L2CAP_TIMEOUT, android.bluetooth.BluetoothSocketException.BLUETOOTH_OFF_FAILURE, android.bluetooth.BluetoothSocketException.SOCKET_MANAGER_FAILURE, android.bluetooth.BluetoothSocketException.SOCKET_CLOSED, android.bluetooth.BluetoothSocketException.SOCKET_CONNECTION_FAILURE, android.bluetooth.BluetoothSocketException.NULL_DEVICE, android.bluetooth.BluetoothSocketException.RPC_FAILURE, android.bluetooth.BluetoothSocketException.UNIX_FILE_SOCKET_CREATION_FAILURE}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothSocketException int getErrorCode()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothSocketException.UNSPECIFIED, android.bluetooth.BluetoothSocketException.L2CAP_UNKNOWN, android.bluetooth.BluetoothSocketException.L2CAP_ACL_FAILURE, android.bluetooth.BluetoothSocketException.L2CAP_CLIENT_SECURITY_FAILURE, android.bluetooth.BluetoothSocketException.L2CAP_INSUFFICIENT_AUTHENTICATION, android.bluetooth.BluetoothSocketException.L2CAP_INSUFFICIENT_AUTHORIZATION, android.bluetooth.BluetoothSocketException.L2CAP_INSUFFICIENT_ENCRYPT_KEY_SIZE, android.bluetooth.BluetoothSocketException.L2CAP_INSUFFICIENT_ENCRYPTION, android.bluetooth.BluetoothSocketException.L2CAP_INVALID_SOURCE_CID, android.bluetooth.BluetoothSocketException.L2CAP_SOURCE_CID_ALREADY_ALLOCATED, android.bluetooth.BluetoothSocketException.L2CAP_UNACCEPTABLE_PARAMETERS, android.bluetooth.BluetoothSocketException.L2CAP_INVALID_PARAMETERS, android.bluetooth.BluetoothSocketException.L2CAP_NO_RESOURCES, android.bluetooth.BluetoothSocketException.L2CAP_NO_PSM_AVAILABLE, android.bluetooth.BluetoothSocketException.L2CAP_TIMEOUT, android.bluetooth.BluetoothSocketException.BLUETOOTH_OFF_FAILURE, android.bluetooth.BluetoothSocketException.SOCKET_MANAGER_FAILURE, android.bluetooth.BluetoothSocketException.SOCKET_CLOSED, android.bluetooth.BluetoothSocketException.SOCKET_CONNECTION_FAILURE, android.bluetooth.BluetoothSocketException.NULL_DEVICE, android.bluetooth.BluetoothSocketException.RPC_FAILURE, android.bluetooth.BluetoothSocketException.UNIX_FILE_SOCKET_CREATION_FAILURE}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothSocketSettings int getL2capPsm()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="128L" />
+      <val name="to" val="255L" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothSocketSettings int getSocketType()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothSocket.TYPE_RFCOMM, android.bluetooth.BluetoothSocket.TYPE_SCO, android.bluetooth.BluetoothSocket.TYPE_L2CAP, android.bluetooth.BluetoothSocket.TYPE_LE}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothSocketSettings.Builder android.bluetooth.BluetoothSocketSettings.Builder setL2capPsm(int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="128L" />
+      <val name="to" val="255L" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BluetoothSocketSettings.Builder android.bluetooth.BluetoothSocketSettings.Builder setSocketType(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothSocket.TYPE_RFCOMM, android.bluetooth.BluetoothSocket.TYPE_SCO, android.bluetooth.BluetoothSocket.TYPE_L2CAP, android.bluetooth.BluetoothSocket.TYPE_LE}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BondStatus BondStatus(int, int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothDevice.PAIRING_ALGORITHM_LE_LEGACY, android.bluetooth.BluetoothDevice.PAIRING_ALGORITHM_BREDR_LEGACY, android.bluetooth.BluetoothDevice.PAIRING_ALGORITHM_BREDR_SSP, android.bluetooth.BluetoothDevice.PAIRING_ALGORITHM_SC}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BondStatus BondStatus(int, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothDevice.PAIRING_VARIANT_PIN, android.bluetooth.BluetoothDevice.PAIRING_VARIANT_PASSKEY_CONFIRMATION}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BondStatus int getPairingAlgorithm()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothDevice.PAIRING_ALGORITHM_LE_LEGACY, android.bluetooth.BluetoothDevice.PAIRING_ALGORITHM_BREDR_LEGACY, android.bluetooth.BluetoothDevice.PAIRING_ALGORITHM_BREDR_SSP, android.bluetooth.BluetoothDevice.PAIRING_ALGORITHM_SC}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.BondStatus int getPairingVariant()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothDevice.PAIRING_VARIANT_PIN, android.bluetooth.BluetoothDevice.PAIRING_VARIANT_PASSKEY_CONFIRMATION}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.EncryptionStatus EncryptionStatus(int, int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="1L" />
+      <val name="to" val="16L" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.EncryptionStatus EncryptionStatus(int, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothDevice.ENCRYPTION_ALGORITHM_NONE, android.bluetooth.BluetoothDevice.ENCRYPTION_ALGORITHM_E0, android.bluetooth.BluetoothDevice.ENCRYPTION_ALGORITHM_AES, android.bluetooth.BluetoothDevice.ENCRYPTION_ALGORITHM_UNKNOWN}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.EncryptionStatus int getAlgorithm()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.bluetooth.BluetoothDevice.ENCRYPTION_ALGORITHM_NONE, android.bluetooth.BluetoothDevice.ENCRYPTION_ALGORITHM_E0, android.bluetooth.BluetoothDevice.ENCRYPTION_ALGORITHM_AES, android.bluetooth.BluetoothDevice.ENCRYPTION_ALGORITHM_UNKNOWN}" />
+    </annotation>
+  </item>
+  <item name="android.bluetooth.EncryptionStatus int getKeySize()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="1L" />
+      <val name="to" val="16L" />
+    </annotation>
+  </item>
+</root>
+

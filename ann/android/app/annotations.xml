@@ -1,0 +1,1663 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+  <item name="android.app.ActionBar int getNavigationMode()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.ActionBar.NAVIGATION_MODE_STANDARD, android.app.ActionBar.NAVIGATION_MODE_LIST, android.app.ActionBar.NAVIGATION_MODE_TABS}" />
+    </annotation>
+  </item>
+  <item name="android.app.ActionBar void setCustomView(int) 0">
+    <annotation name="androidx.annotation.LayoutRes"/>
+  </item>
+  <item name="android.app.ActionBar void setDisplayOptions(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.ActionBar.DISPLAY_USE_LOGO, android.app.ActionBar.DISPLAY_SHOW_HOME, android.app.ActionBar.DISPLAY_HOME_AS_UP, android.app.ActionBar.DISPLAY_SHOW_TITLE, android.app.ActionBar.DISPLAY_SHOW_CUSTOM}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.app.ActionBar void setDisplayOptions(int, int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.ActionBar.DISPLAY_USE_LOGO, android.app.ActionBar.DISPLAY_SHOW_HOME, android.app.ActionBar.DISPLAY_HOME_AS_UP, android.app.ActionBar.DISPLAY_SHOW_TITLE, android.app.ActionBar.DISPLAY_SHOW_CUSTOM}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.app.ActionBar void setDisplayOptions(int, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.ActionBar.DISPLAY_USE_LOGO, android.app.ActionBar.DISPLAY_SHOW_HOME, android.app.ActionBar.DISPLAY_HOME_AS_UP, android.app.ActionBar.DISPLAY_SHOW_TITLE, android.app.ActionBar.DISPLAY_SHOW_CUSTOM}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.app.ActionBar void setHomeActionContentDescription(int) 0">
+    <annotation name="androidx.annotation.StringRes"/>
+  </item>
+  <item name="android.app.ActionBar void setHomeAsUpIndicator(int) 0">
+    <annotation name="androidx.annotation.DrawableRes"/>
+  </item>
+  <item name="android.app.ActionBar void setIcon(int) 0">
+    <annotation name="androidx.annotation.DrawableRes"/>
+  </item>
+  <item name="android.app.ActionBar void setLogo(int) 0">
+    <annotation name="androidx.annotation.DrawableRes"/>
+  </item>
+  <item name="android.app.ActionBar void setNavigationMode(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.ActionBar.NAVIGATION_MODE_STANDARD, android.app.ActionBar.NAVIGATION_MODE_LIST, android.app.ActionBar.NAVIGATION_MODE_TABS}" />
+    </annotation>
+  </item>
+  <item name="android.app.ActionBar void setSubtitle(int) 0">
+    <annotation name="androidx.annotation.StringRes"/>
+  </item>
+  <item name="android.app.ActionBar void setTitle(int) 0">
+    <annotation name="androidx.annotation.StringRes"/>
+  </item>
+  <item name="android.app.ActionBar.Tab android.app.ActionBar.Tab setContentDescription(int) 0">
+    <annotation name="androidx.annotation.StringRes"/>
+  </item>
+  <item name="android.app.ActionBar.Tab android.app.ActionBar.Tab setCustomView(int) 0">
+    <annotation name="androidx.annotation.LayoutRes"/>
+  </item>
+  <item name="android.app.ActionBar.Tab android.app.ActionBar.Tab setIcon(int) 0">
+    <annotation name="androidx.annotation.DrawableRes"/>
+  </item>
+  <item name="android.app.ActionBar.Tab android.app.ActionBar.Tab setText(int) 0">
+    <annotation name="androidx.annotation.StringRes"/>
+  </item>
+  <item name="android.app.Activity">
+    <annotation name="androidx.annotation.UiContext"/>
+  </item>
+  <item name="android.app.Activity T findViewById(int) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.app.Activity T requireViewById(int) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.app.Activity android.app.PendingIntent createPendingResult(int, android.content.Intent, int) 2">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.PendingIntent.FLAG_ONE_SHOT, android.app.PendingIntent.FLAG_NO_CREATE, android.app.PendingIntent.FLAG_CANCEL_CURRENT, android.app.PendingIntent.FLAG_UPDATE_CURRENT, android.app.PendingIntent.FLAG_IMMUTABLE, android.app.PendingIntent.FLAG_MUTABLE, android.app.PendingIntent.FLAG_ALLOW_UNSAFE_IMPLICIT_INTENT, android.content.Intent.FILL_IN_ACTION, android.content.Intent.FILL_IN_DATA, android.content.Intent.FILL_IN_CATEGORIES, android.content.Intent.FILL_IN_COMPONENT, android.content.Intent.FILL_IN_PACKAGE, android.content.Intent.FILL_IN_SOURCE_BOUNDS, android.content.Intent.FILL_IN_SELECTOR, android.content.Intent.FILL_IN_CLIP_DATA}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.app.Activity android.content.SharedPreferences getPreferences(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.content.Context.MODE_PRIVATE, android.content.Context.MODE_WORLD_READABLE, android.content.Context.MODE_WORLD_WRITEABLE, android.content.Context.MODE_MULTI_PROCESS}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.app.Activity boolean startActivityIfNeeded(android.content.Intent, int) 0">
+    <annotation name="androidx.annotation.RequiresPermission"/>
+  </item>
+  <item name="android.app.Activity boolean startActivityIfNeeded(android.content.Intent, int, android.os.Bundle) 0">
+    <annotation name="androidx.annotation.RequiresPermission"/>
+  </item>
+  <item name="android.app.Activity boolean startNextMatchingActivity(android.content.Intent) 0">
+    <annotation name="androidx.annotation.RequiresPermission"/>
+  </item>
+  <item name="android.app.Activity boolean startNextMatchingActivity(android.content.Intent, android.os.Bundle) 0">
+    <annotation name="androidx.annotation.RequiresPermission"/>
+  </item>
+  <item name="android.app.Activity int getRequestedOrientation()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED, android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE, android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT, android.content.pm.ActivityInfo.SCREEN_ORIENTATION_USER, android.content.pm.ActivityInfo.SCREEN_ORIENTATION_BEHIND, android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR, android.content.pm.ActivityInfo.SCREEN_ORIENTATION_NOSENSOR, android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE, android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT, android.content.pm.ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE, android.content.pm.ActivityInfo.SCREEN_ORIENTATION_REVERSE_PORTRAIT, android.content.pm.ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR, android.content.pm.ActivityInfo.SCREEN_ORIENTATION_USER_LANDSCAPE, android.content.pm.ActivityInfo.SCREEN_ORIENTATION_USER_PORTRAIT, android.content.pm.ActivityInfo.SCREEN_ORIENTATION_FULL_USER, android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LOCKED}" />
+    </annotation>
+  </item>
+  <item name="android.app.Activity java.lang.Object getSystemService(java.lang.String) 0">
+    <annotation name="androidx.annotation.StringDef">
+      <val name="value" val="{android.content.Context.POWER_SERVICE, android.content.Context.WINDOW_SERVICE, android.content.Context.LAYOUT_INFLATER_SERVICE, android.content.Context.ACCOUNT_SERVICE, android.content.Context.ACTIVITY_SERVICE, android.content.Context.ALARM_SERVICE, android.content.Context.NOTIFICATION_SERVICE, android.content.Context.ACCESSIBILITY_SERVICE, android.content.Context.CAPTIONING_SERVICE, android.content.Context.KEYGUARD_SERVICE, android.content.Context.LOCATION_SERVICE, android.content.Context.HEALTHCONNECT_SERVICE, android.content.Context.SEARCH_SERVICE, android.content.Context.SENSOR_SERVICE, android.content.Context.STORAGE_SERVICE, android.content.Context.STORAGE_STATS_SERVICE, android.content.Context.WALLPAPER_SERVICE, android.content.Context.VIBRATOR_MANAGER_SERVICE, android.content.Context.VIBRATOR_SERVICE, android.content.Context.CONNECTIVITY_SERVICE, android.content.Context.TETHERING_SERVICE, android.content.Context.IPSEC_SERVICE, android.content.Context.VPN_MANAGEMENT_SERVICE, android.content.Context.NETWORK_STATS_SERVICE, android.content.Context.WIFI_SERVICE, android.content.Context.WIFI_AWARE_SERVICE, android.content.Context.WIFI_P2P_SERVICE, android.content.Context.WIFI_RTT_RANGING_SERVICE, android.content.Context.NSD_SERVICE, android.content.Context.AUDIO_SERVICE, android.content.Context.BIOMETRIC_SERVICE, android.content.Context.MEDIA_ROUTER_SERVICE, android.content.Context.TELEPHONY_SERVICE, android.content.Context.TELEPHONY_SUBSCRIPTION_SERVICE, android.content.Context.TELEPHONY_PHONE_NUMBER_SERVICE, android.content.Context.CARRIER_CONFIG_SERVICE, android.content.Context.EUICC_SERVICE, android.content.Context.TELECOM_SERVICE, android.content.Context.CLIPBOARD_SERVICE, android.content.Context.INPUT_METHOD_SERVICE, android.content.Context.TEXT_SERVICES_MANAGER_SERVICE, android.content.Context.TEXT_CLASSIFICATION_SERVICE, android.content.Context.APPWIDGET_SERVICE, android.content.Context.DROPBOX_SERVICE, android.content.Context.DEVICE_POLICY_SERVICE, android.content.Context.UI_MODE_SERVICE, android.content.Context.DOWNLOAD_SERVICE, android.content.Context.NFC_SERVICE, android.content.Context.BLUETOOTH_SERVICE, android.content.Context.USB_SERVICE, android.content.Context.LAUNCHER_APPS_SERVICE, android.content.Context.SERIAL_SERVICE, android.content.Context.INPUT_SERVICE, android.content.Context.DISPLAY_SERVICE, android.content.Context.USER_SERVICE, android.content.Context.RESTRICTIONS_SERVICE, android.content.Context.APP_OPS_SERVICE, android.content.Context.ROLE_SERVICE, android.content.Context.CAMERA_SERVICE, android.content.Context.PRINT_SERVICE, android.content.Context.CONSUMER_IR_SERVICE, android.content.Context.TV_INTERACTIVE_APP_SERVICE, android.content.Context.TV_INPUT_SERVICE, android.content.Context.USAGE_STATS_SERVICE, android.content.Context.MEDIA_SESSION_SERVICE, android.content.Context.MEDIA_COMMUNICATION_SERVICE, android.content.Context.BATTERY_SERVICE, android.content.Context.JOB_SCHEDULER_SERVICE, android.content.Context.PERSISTENT_DATA_BLOCK_SERVICE, android.content.Context.MEDIA_PROJECTION_SERVICE, android.content.Context.MIDI_SERVICE, android.content.Context.HARDWARE_PROPERTIES_SERVICE, android.content.Context.SHORTCUT_SERVICE, android.content.Context.SYSTEM_HEALTH_SERVICE, android.content.Context.COMPANION_DEVICE_SERVICE, android.content.Context.VIRTUAL_DEVICE_SERVICE, android.content.Context.CROSS_PROFILE_APPS_SERVICE, android.content.Context.LOCALE_SERVICE, android.content.Context.MEDIA_METRICS_SERVICE, android.content.Context.DISPLAY_HASH_SERVICE, android.content.Context.CREDENTIAL_SERVICE, android.content.Context.DEVICE_LOCK_SERVICE, android.content.Context.GRAMMATICAL_INFLECTION_SERVICE, android.content.Context.SECURITY_STATE_SERVICE, android.content.Context.CONTACT_KEYS_SERVICE, android.content.Context.MEDIA_QUALITY_SERVICE, android.content.Context.ADVANCED_PROTECTION_SERVICE, android.content.Context.NPU_SERVICE, android.content.Context.WEB_APP_SERVICE}" />
+    </annotation>
+  </item>
+  <item name="android.app.Activity void clearOverrideActivityTransition(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.Activity.OVERRIDE_TRANSITION_OPEN, android.app.Activity.OVERRIDE_TRANSITION_CLOSE}" />
+    </annotation>
+  </item>
+  <item name="android.app.Activity void onActionModeFinished(android.view.ActionMode)">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.app.Activity void onActionModeStarted(android.view.ActionMode)">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.app.Activity void onApplyThemeResource(android.content.res.Resources.Theme, int, boolean) 1">
+    <annotation name="androidx.annotation.StyleRes"/>
+  </item>
+  <item name="android.app.Activity void onCreate(android.os.Bundle)">
+    <annotation name="androidx.annotation.MainThread"/>
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.app.Activity void onDestroy()">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.app.Activity void onPause()">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.app.Activity void onPostCreate(android.os.Bundle)">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.app.Activity void onPostResume()">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.app.Activity void onRestart()">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.app.Activity void onResume()">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.app.Activity void onStart()">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.app.Activity void onStop()">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.app.Activity void onVisibleBehindCanceled()">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.app.Activity void overrideActivityTransition(int, int, int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.Activity.OVERRIDE_TRANSITION_OPEN, android.app.Activity.OVERRIDE_TRANSITION_CLOSE}" />
+    </annotation>
+  </item>
+  <item name="android.app.Activity void overrideActivityTransition(int, int, int) 1">
+    <annotation name="androidx.annotation.AnimRes"/>
+  </item>
+  <item name="android.app.Activity void overrideActivityTransition(int, int, int) 2">
+    <annotation name="androidx.annotation.AnimRes"/>
+  </item>
+  <item name="android.app.Activity void overrideActivityTransition(int, int, int, int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.Activity.OVERRIDE_TRANSITION_OPEN, android.app.Activity.OVERRIDE_TRANSITION_CLOSE}" />
+    </annotation>
+  </item>
+  <item name="android.app.Activity void overrideActivityTransition(int, int, int, int) 1">
+    <annotation name="androidx.annotation.AnimRes"/>
+  </item>
+  <item name="android.app.Activity void overrideActivityTransition(int, int, int, int) 2">
+    <annotation name="androidx.annotation.AnimRes"/>
+  </item>
+  <item name="android.app.Activity void overrideActivityTransition(int, int, int, int) 3">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.app.Activity void registerScreenCaptureCallback(java.util.concurrent.Executor, android.app.Activity.ScreenCaptureCallback)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.DETECT_SCREEN_CAPTURE&quot;" />
+    </annotation>
+  </item>
+  <item name="android.app.Activity void requestFullscreenMode(int, android.os.OutcomeReceiver&lt;java.lang.Void,java.lang.Throwable&gt;) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.Activity.FULLSCREEN_MODE_REQUEST_EXIT, android.app.Activity.FULLSCREEN_MODE_REQUEST_ENTER}" />
+    </annotation>
+  </item>
+  <item name="android.app.Activity void setContentView(int) 0">
+    <annotation name="androidx.annotation.LayoutRes"/>
+  </item>
+  <item name="android.app.Activity void setDefaultKeyMode(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.Activity.DEFAULT_KEYS_DISABLE, android.app.Activity.DEFAULT_KEYS_DIALER, android.app.Activity.DEFAULT_KEYS_SHORTCUT, android.app.Activity.DEFAULT_KEYS_SEARCH_LOCAL, android.app.Activity.DEFAULT_KEYS_SEARCH_GLOBAL}" />
+    </annotation>
+  </item>
+  <item name="android.app.Activity void setFeatureDrawableResource(int, int) 1">
+    <annotation name="androidx.annotation.DrawableRes"/>
+  </item>
+  <item name="android.app.Activity void setRequestedOrientation(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED, android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE, android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT, android.content.pm.ActivityInfo.SCREEN_ORIENTATION_USER, android.content.pm.ActivityInfo.SCREEN_ORIENTATION_BEHIND, android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR, android.content.pm.ActivityInfo.SCREEN_ORIENTATION_NOSENSOR, android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE, android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT, android.content.pm.ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE, android.content.pm.ActivityInfo.SCREEN_ORIENTATION_REVERSE_PORTRAIT, android.content.pm.ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR, android.content.pm.ActivityInfo.SCREEN_ORIENTATION_USER_LANDSCAPE, android.content.pm.ActivityInfo.SCREEN_ORIENTATION_USER_PORTRAIT, android.content.pm.ActivityInfo.SCREEN_ORIENTATION_FULL_USER, android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LOCKED}" />
+    </annotation>
+  </item>
+  <item name="android.app.Activity void startActivityForResult(android.content.Intent, int) 0">
+    <annotation name="androidx.annotation.RequiresPermission"/>
+  </item>
+  <item name="android.app.Activity void startActivityForResult(android.content.Intent, int, android.os.Bundle) 0">
+    <annotation name="androidx.annotation.RequiresPermission"/>
+  </item>
+  <item name="android.app.Activity void startActivityFromChild(android.app.Activity, android.content.Intent, int) 1">
+    <annotation name="androidx.annotation.RequiresPermission"/>
+  </item>
+  <item name="android.app.Activity void startActivityFromChild(android.app.Activity, android.content.Intent, int, android.os.Bundle) 1">
+    <annotation name="androidx.annotation.RequiresPermission"/>
+  </item>
+  <item name="android.app.Activity void startActivityFromFragment(android.app.Fragment, android.content.Intent, int) 1">
+    <annotation name="androidx.annotation.RequiresPermission"/>
+  </item>
+  <item name="android.app.Activity void startActivityFromFragment(android.app.Fragment, android.content.Intent, int, android.os.Bundle) 1">
+    <annotation name="androidx.annotation.RequiresPermission"/>
+  </item>
+  <item name="android.app.Activity void unregisterScreenCaptureCallback(android.app.Activity.ScreenCaptureCallback)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.DETECT_SCREEN_CAPTURE&quot;" />
+    </annotation>
+  </item>
+  <item name="android.app.ActivityManager java.util.List&lt;android.app.ApplicationExitInfo&gt; getHistoricalProcessExitReasons(java.lang.String, int, int) 1">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.app.ActivityManager java.util.List&lt;android.app.ApplicationExitInfo&gt; getHistoricalProcessExitReasons(java.lang.String, int, int) 2">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.app.ActivityManager java.util.List&lt;android.app.ApplicationStartInfo&gt; getHistoricalProcessStartReasons(int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.app.ActivityManager void addStartInfoTimestamp(int, long) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="21L" />
+      <val name="to" val="30L" />
+    </annotation>
+  </item>
+  <item name="android.app.ActivityManager void dumpPackageState(java.io.FileDescriptor, java.lang.String)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.DUMP&quot;" />
+    </annotation>
+  </item>
+  <item name="android.app.ActivityManager void killBackgroundProcesses(java.lang.String)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.KILL_BACKGROUND_PROCESSES&quot;" />
+    </annotation>
+  </item>
+  <item name="android.app.ActivityManager void moveTaskToFront(int, int)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.REORDER_TASKS&quot;" />
+    </annotation>
+  </item>
+  <item name="android.app.ActivityManager void moveTaskToFront(int, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.ActivityManager.MOVE_TASK_WITH_HOME, android.app.ActivityManager.MOVE_TASK_NO_USER_ACTION}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.app.ActivityManager void moveTaskToFront(int, int, android.os.Bundle)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.REORDER_TASKS&quot;" />
+    </annotation>
+  </item>
+  <item name="android.app.ActivityManager void moveTaskToFront(int, int, android.os.Bundle) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.ActivityManager.MOVE_TASK_WITH_HOME, android.app.ActivityManager.MOVE_TASK_NO_USER_ACTION}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.app.ActivityManager.AppTask void moveTaskTo(android.app.TaskLocation, java.util.concurrent.Executor, android.os.OutcomeReceiver&lt;android.app.TaskLocation,java.lang.Exception&gt;)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.REPOSITION_SELF_WINDOWS&quot;" />
+    </annotation>
+  </item>
+  <item name="android.app.ActivityManager.AppTask void requestWindowingLayer(int, java.util.concurrent.Executor, android.os.OutcomeReceiver&lt;java.lang.Integer,java.lang.Exception&gt;)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.USE_PINNED_WINDOWING_LAYER&quot;" />
+      <val name="conditional" val="true" />
+    </annotation>
+  </item>
+  <item name="android.app.ActivityManager.AppTask void requestWindowingLayer(int, java.util.concurrent.Executor, android.os.OutcomeReceiver&lt;java.lang.Integer,java.lang.Exception&gt;) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.ActivityManager.AppTask.WINDOWING_LAYER_UNDEFINED, android.app.ActivityManager.AppTask.WINDOWING_LAYER_NORMAL_APP, android.app.ActivityManager.AppTask.WINDOWING_LAYER_PINNED}" />
+    </annotation>
+  </item>
+  <item name="android.app.ActivityManager.RunningAppProcessInfo importance">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND, android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND_SERVICE, android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_TOP_SLEEPING, android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_VISIBLE, android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_PERCEPTIBLE, android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_CANT_SAVE_STATE, android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_SERVICE, android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_CACHED, android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_GONE}" />
+    </annotation>
+  </item>
+  <item name="android.app.ActivityManager.TaskDescription TaskDescription(java.lang.String, int) 1">
+    <annotation name="androidx.annotation.DrawableRes"/>
+  </item>
+  <item name="android.app.ActivityManager.TaskDescription TaskDescription(java.lang.String, int, int) 1">
+    <annotation name="androidx.annotation.DrawableRes"/>
+  </item>
+  <item name="android.app.ActivityManager.TaskDescription int getBackgroundColor()">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.app.ActivityManager.TaskDescription int getNavigationBarColor()">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.app.ActivityManager.TaskDescription int getPrimaryColor()">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.app.ActivityManager.TaskDescription int getStatusBarColor()">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.app.ActivityManager.TaskDescription.Builder android.app.ActivityManager.TaskDescription.Builder setBackgroundColor(int) 0">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.app.ActivityManager.TaskDescription.Builder android.app.ActivityManager.TaskDescription.Builder setIcon(int) 0">
+    <annotation name="androidx.annotation.DrawableRes"/>
+  </item>
+  <item name="android.app.ActivityManager.TaskDescription.Builder android.app.ActivityManager.TaskDescription.Builder setNavigationBarColor(int) 0">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.app.ActivityManager.TaskDescription.Builder android.app.ActivityManager.TaskDescription.Builder setPrimaryColor(int) 0">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.app.ActivityManager.TaskDescription.Builder android.app.ActivityManager.TaskDescription.Builder setStatusBarColor(int) 0">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.app.ActivityOptions android.app.ActivityOptions setMovableTaskRequired(boolean)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.REPOSITION_SELF_WINDOWS&quot;" />
+    </annotation>
+  </item>
+  <item name="android.app.ActivityOptions android.app.ActivityOptions setPendingIntentBackgroundActivityStartMode(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_SYSTEM_DEFINED, android.app.ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED, android.app.ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_DENIED, android.app.ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOW_ALWAYS, android.app.ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOW_IF_VISIBLE}" />
+    </annotation>
+  </item>
+  <item name="android.app.ActivityOptions android.app.ActivityOptions setPendingIntentCreatorBackgroundActivityStartMode(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_SYSTEM_DEFINED, android.app.ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED, android.app.ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_DENIED, android.app.ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOW_ALWAYS, android.app.ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOW_IF_VISIBLE}" />
+    </annotation>
+  </item>
+  <item name="android.app.ActivityOptions android.app.ActivityOptions setSplashScreenStyle(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.window.SplashScreen.SPLASH_SCREEN_STYLE_SOLID_COLOR, android.window.SplashScreen.SPLASH_SCREEN_STYLE_ICON}" />
+    </annotation>
+  </item>
+  <item name="android.app.ActivityOptions int getPendingIntentBackgroundActivityStartMode()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_SYSTEM_DEFINED, android.app.ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED, android.app.ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_DENIED, android.app.ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOW_ALWAYS, android.app.ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOW_IF_VISIBLE}" />
+    </annotation>
+  </item>
+  <item name="android.app.ActivityOptions int getPendingIntentCreatorBackgroundActivityStartMode()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_SYSTEM_DEFINED, android.app.ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED, android.app.ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_DENIED, android.app.ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOW_ALWAYS, android.app.ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOW_IF_VISIBLE}" />
+    </annotation>
+  </item>
+  <item name="android.app.ActivityOptions int getSplashScreenStyle()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.window.SplashScreen.SPLASH_SCREEN_STYLE_SOLID_COLOR, android.window.SplashScreen.SPLASH_SCREEN_STYLE_ICON}" />
+    </annotation>
+  </item>
+  <item name="android.app.AlarmManager void set(int, long, android.app.PendingIntent) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.AlarmManager.RTC_WAKEUP, android.app.AlarmManager.RTC, android.app.AlarmManager.ELAPSED_REALTIME_WAKEUP, android.app.AlarmManager.ELAPSED_REALTIME}" />
+    </annotation>
+  </item>
+  <item name="android.app.AlarmManager void set(int, long, java.lang.String, android.app.AlarmManager.OnAlarmListener, android.os.Handler) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.AlarmManager.RTC_WAKEUP, android.app.AlarmManager.RTC, android.app.AlarmManager.ELAPSED_REALTIME_WAKEUP, android.app.AlarmManager.ELAPSED_REALTIME}" />
+    </annotation>
+  </item>
+  <item name="android.app.AlarmManager void setAlarmClock(android.app.AlarmManager.AlarmClockInfo, android.app.PendingIntent)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.SCHEDULE_EXACT_ALARM&quot;" />
+    </annotation>
+  </item>
+  <item name="android.app.AlarmManager void setAndAllowWhileIdle(int, long, android.app.PendingIntent) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.AlarmManager.RTC_WAKEUP, android.app.AlarmManager.RTC, android.app.AlarmManager.ELAPSED_REALTIME_WAKEUP, android.app.AlarmManager.ELAPSED_REALTIME}" />
+    </annotation>
+  </item>
+  <item name="android.app.AlarmManager void setExact(int, long, android.app.PendingIntent)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.SCHEDULE_EXACT_ALARM&quot;" />
+      <val name="conditional" val="true" />
+    </annotation>
+  </item>
+  <item name="android.app.AlarmManager void setExact(int, long, android.app.PendingIntent) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.AlarmManager.RTC_WAKEUP, android.app.AlarmManager.RTC, android.app.AlarmManager.ELAPSED_REALTIME_WAKEUP, android.app.AlarmManager.ELAPSED_REALTIME}" />
+    </annotation>
+  </item>
+  <item name="android.app.AlarmManager void setExact(int, long, java.lang.String, android.app.AlarmManager.OnAlarmListener, android.os.Handler) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.AlarmManager.RTC_WAKEUP, android.app.AlarmManager.RTC, android.app.AlarmManager.ELAPSED_REALTIME_WAKEUP, android.app.AlarmManager.ELAPSED_REALTIME}" />
+    </annotation>
+  </item>
+  <item name="android.app.AlarmManager void setExactAndAllowWhileIdle(int, long, android.app.PendingIntent)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.SCHEDULE_EXACT_ALARM&quot;" />
+      <val name="conditional" val="true" />
+    </annotation>
+  </item>
+  <item name="android.app.AlarmManager void setExactAndAllowWhileIdle(int, long, android.app.PendingIntent) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.AlarmManager.RTC_WAKEUP, android.app.AlarmManager.RTC, android.app.AlarmManager.ELAPSED_REALTIME_WAKEUP, android.app.AlarmManager.ELAPSED_REALTIME}" />
+    </annotation>
+  </item>
+  <item name="android.app.AlarmManager void setExactAndAllowWhileIdle(int, long, java.lang.String, java.util.concurrent.Executor, android.app.AlarmManager.OnAlarmListener) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.AlarmManager.RTC_WAKEUP, android.app.AlarmManager.RTC, android.app.AlarmManager.ELAPSED_REALTIME_WAKEUP, android.app.AlarmManager.ELAPSED_REALTIME}" />
+    </annotation>
+  </item>
+  <item name="android.app.AlarmManager void setInexactRepeating(int, long, long, android.app.PendingIntent) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.AlarmManager.RTC_WAKEUP, android.app.AlarmManager.RTC, android.app.AlarmManager.ELAPSED_REALTIME_WAKEUP, android.app.AlarmManager.ELAPSED_REALTIME}" />
+    </annotation>
+  </item>
+  <item name="android.app.AlarmManager void setRepeating(int, long, long, android.app.PendingIntent) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.AlarmManager.RTC_WAKEUP, android.app.AlarmManager.RTC, android.app.AlarmManager.ELAPSED_REALTIME_WAKEUP, android.app.AlarmManager.ELAPSED_REALTIME}" />
+    </annotation>
+  </item>
+  <item name="android.app.AlarmManager void setTime(long)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.SET_TIME&quot;" />
+    </annotation>
+  </item>
+  <item name="android.app.AlarmManager void setTimeZone(java.lang.String)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.SET_TIME_ZONE&quot;" />
+    </annotation>
+  </item>
+  <item name="android.app.AlarmManager void setWindow(int, long, long, android.app.PendingIntent) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.AlarmManager.RTC_WAKEUP, android.app.AlarmManager.RTC, android.app.AlarmManager.ELAPSED_REALTIME_WAKEUP, android.app.AlarmManager.ELAPSED_REALTIME}" />
+    </annotation>
+  </item>
+  <item name="android.app.AlarmManager void setWindow(int, long, long, java.lang.String, android.app.AlarmManager.OnAlarmListener, android.os.Handler) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.AlarmManager.RTC_WAKEUP, android.app.AlarmManager.RTC, android.app.AlarmManager.ELAPSED_REALTIME_WAKEUP, android.app.AlarmManager.ELAPSED_REALTIME}" />
+    </annotation>
+  </item>
+  <item name="android.app.AlarmManager void setWindow(int, long, long, java.lang.String, java.util.concurrent.Executor, android.app.AlarmManager.OnAlarmListener) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.AlarmManager.RTC_WAKEUP, android.app.AlarmManager.RTC, android.app.AlarmManager.ELAPSED_REALTIME_WAKEUP, android.app.AlarmManager.ELAPSED_REALTIME}" />
+    </annotation>
+  </item>
+  <item name="android.app.AlertDialog AlertDialog(android.content.Context, int) 1">
+    <annotation name="androidx.annotation.StyleRes"/>
+  </item>
+  <item name="android.app.AlertDialog void setIcon(int) 0">
+    <annotation name="androidx.annotation.DrawableRes"/>
+  </item>
+  <item name="android.app.AlertDialog void setIconAttribute(int) 0">
+    <annotation name="androidx.annotation.AttrRes"/>
+  </item>
+  <item name="android.app.AlertDialog.Builder android.app.AlertDialog.Builder setIcon(int) 0">
+    <annotation name="androidx.annotation.DrawableRes"/>
+  </item>
+  <item name="android.app.AlertDialog.Builder android.app.AlertDialog.Builder setIconAttribute(int) 0">
+    <annotation name="androidx.annotation.AttrRes"/>
+  </item>
+  <item name="android.app.AlertDialog.Builder android.app.AlertDialog.Builder setItems(int, android.content.DialogInterface.OnClickListener) 0">
+    <annotation name="androidx.annotation.ArrayRes"/>
+  </item>
+  <item name="android.app.AlertDialog.Builder android.app.AlertDialog.Builder setMessage(int) 0">
+    <annotation name="androidx.annotation.StringRes"/>
+  </item>
+  <item name="android.app.AlertDialog.Builder android.app.AlertDialog.Builder setMultiChoiceItems(int, boolean[], android.content.DialogInterface.OnMultiChoiceClickListener) 0">
+    <annotation name="androidx.annotation.ArrayRes"/>
+  </item>
+  <item name="android.app.AlertDialog.Builder android.app.AlertDialog.Builder setNegativeButton(int, android.content.DialogInterface.OnClickListener) 0">
+    <annotation name="androidx.annotation.StringRes"/>
+  </item>
+  <item name="android.app.AlertDialog.Builder android.app.AlertDialog.Builder setNeutralButton(int, android.content.DialogInterface.OnClickListener) 0">
+    <annotation name="androidx.annotation.StringRes"/>
+  </item>
+  <item name="android.app.AlertDialog.Builder android.app.AlertDialog.Builder setPositiveButton(int, android.content.DialogInterface.OnClickListener) 0">
+    <annotation name="androidx.annotation.StringRes"/>
+  </item>
+  <item name="android.app.AlertDialog.Builder android.app.AlertDialog.Builder setSingleChoiceItems(int, int, android.content.DialogInterface.OnClickListener) 0">
+    <annotation name="androidx.annotation.ArrayRes"/>
+  </item>
+  <item name="android.app.AlertDialog.Builder android.app.AlertDialog.Builder setTitle(int) 0">
+    <annotation name="androidx.annotation.StringRes"/>
+  </item>
+  <item name="android.app.AnrWarningResult int getAnrType()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.AnrTypes.ANR_TYPE_OTHER, android.app.AnrTypes.ANR_TYPE_INPUT_DISPATCH_NO_FOCUSED_WINDOW, android.app.AnrTypes.ANR_TYPE_INPUT_DISPATCH, android.app.AnrTypes.ANR_TYPE_BROADCAST_OF_INTENT, android.app.AnrTypes.ANR_TYPE_START_FOREGROUND_SERVICE, android.app.AnrTypes.ANR_TYPE_EXECUTE_SERVICE, android.app.AnrTypes.ANR_TYPE_CONTENT_PROVIDER_NOT_RESPONDING, android.app.AnrTypes.ANR_TYPE_APP_TRIGGERED, android.app.AnrTypes.ANR_TYPE_FOREGROUND_SHORT_SERVICE_TIMEOUT, android.app.AnrTypes.ANR_TYPE_JOB_SERVICE_START, android.app.AnrTypes.ANR_TYPE_APPLICATION_START}" />
+    </annotation>
+  </item>
+  <item name="android.app.AppInteractionAttribution int getInteractionType()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.AppInteractionAttribution.INTERACTION_TYPE_OTHER, android.app.AppInteractionAttribution.INTERACTION_TYPE_USER_QUERY, android.app.AppInteractionAttribution.INTERACTION_TYPE_USER_SCHEDULED}" />
+    </annotation>
+  </item>
+  <item name="android.app.AppInteractionAttribution.Builder Builder(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.AppInteractionAttribution.INTERACTION_TYPE_OTHER, android.app.AppInteractionAttribution.INTERACTION_TYPE_USER_QUERY, android.app.AppInteractionAttribution.INTERACTION_TYPE_USER_SCHEDULED}" />
+    </annotation>
+  </item>
+  <item name="android.app.AppInteractionContract java.util.List&lt;java.lang.String&gt; getDeviceAssistancePackageNames(android.content.Context)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="anyOf" val="{&quot;android.permission.EXECUTE_APP_FUNCTIONS&quot;, &quot;android.permission.EXECUTE_APP_FUNCTIONS_SYSTEM&quot;, &quot;android.permission.READ_APP_INTERACTION&quot;}" />
+    </annotation>
+  </item>
+  <item name="android.app.AppOpsManager void setOnOpNotedCallback(java.util.concurrent.Executor, android.app.AppOpsManager.OnOpNotedCallback, int) 2">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="android.app.AppOpsManager.OP_NOTED_CALLBACK_FLAG_IGNORE_ASYNC" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.app.AppOpsManager.OnOpActiveChangedListener void onOpActiveChanged(java.lang.String, int, java.lang.String, java.lang.String, int, boolean, int, int) 6">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.app.Application void onConfigurationChanged(android.content.res.Configuration)">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.app.Application void onCreate()">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.app.Application void onLowMemory()">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.app.Application void onTerminate()">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.app.Application void onTrimMemory(int)">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.app.ApplicationExitInfo int getImportance()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND, android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND_SERVICE, android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_TOP_SLEEPING, android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_VISIBLE, android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_PERCEPTIBLE, android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_CANT_SAVE_STATE, android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_SERVICE, android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_CACHED, android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_GONE}" />
+    </annotation>
+  </item>
+  <item name="android.app.ApplicationExitInfo int getReason()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.ApplicationExitInfo.REASON_UNKNOWN, android.app.ApplicationExitInfo.REASON_EXIT_SELF, android.app.ApplicationExitInfo.REASON_SIGNALED, android.app.ApplicationExitInfo.REASON_LOW_MEMORY, android.app.ApplicationExitInfo.REASON_CRASH, android.app.ApplicationExitInfo.REASON_CRASH_NATIVE, android.app.ApplicationExitInfo.REASON_ANR, android.app.ApplicationExitInfo.REASON_INITIALIZATION_FAILURE, android.app.ApplicationExitInfo.REASON_PERMISSION_CHANGE, android.app.ApplicationExitInfo.REASON_EXCESSIVE_RESOURCE_USAGE, android.app.ApplicationExitInfo.REASON_USER_REQUESTED, android.app.ApplicationExitInfo.REASON_USER_STOPPED, android.app.ApplicationExitInfo.REASON_DEPENDENCY_DIED, android.app.ApplicationExitInfo.REASON_OTHER, android.app.ApplicationExitInfo.REASON_FREEZER, android.app.ApplicationExitInfo.REASON_PACKAGE_STATE_CHANGE, android.app.ApplicationExitInfo.REASON_PACKAGE_UPDATED}" />
+    </annotation>
+  </item>
+  <item name="android.app.ApplicationExitInfo.AnrInfo int getAnrType()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.AnrTypes.ANR_TYPE_OTHER, android.app.AnrTypes.ANR_TYPE_INPUT_DISPATCH_NO_FOCUSED_WINDOW, android.app.AnrTypes.ANR_TYPE_INPUT_DISPATCH, android.app.AnrTypes.ANR_TYPE_BROADCAST_OF_INTENT, android.app.AnrTypes.ANR_TYPE_START_FOREGROUND_SERVICE, android.app.AnrTypes.ANR_TYPE_EXECUTE_SERVICE, android.app.AnrTypes.ANR_TYPE_CONTENT_PROVIDER_NOT_RESPONDING, android.app.AnrTypes.ANR_TYPE_APP_TRIGGERED, android.app.AnrTypes.ANR_TYPE_FOREGROUND_SHORT_SERVICE_TIMEOUT, android.app.AnrTypes.ANR_TYPE_JOB_SERVICE_START, android.app.AnrTypes.ANR_TYPE_APPLICATION_START}" />
+    </annotation>
+  </item>
+  <item name="android.app.ApplicationStartInfo int getLaunchMode()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.ApplicationStartInfo.LAUNCH_MODE_STANDARD, android.app.ApplicationStartInfo.LAUNCH_MODE_SINGLE_TOP, android.app.ApplicationStartInfo.LAUNCH_MODE_SINGLE_INSTANCE, android.app.ApplicationStartInfo.LAUNCH_MODE_SINGLE_TASK, android.app.ApplicationStartInfo.LAUNCH_MODE_SINGLE_INSTANCE_PER_TASK}" />
+    </annotation>
+  </item>
+  <item name="android.app.ApplicationStartInfo int getReason()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.ApplicationStartInfo.START_REASON_ALARM, android.app.ApplicationStartInfo.START_REASON_BACKUP, android.app.ApplicationStartInfo.START_REASON_BOOT_COMPLETE, android.app.ApplicationStartInfo.START_REASON_BROADCAST, android.app.ApplicationStartInfo.START_REASON_CONTENT_PROVIDER, android.app.ApplicationStartInfo.START_REASON_JOB, android.app.ApplicationStartInfo.START_REASON_LAUNCHER, android.app.ApplicationStartInfo.START_REASON_LAUNCHER_RECENTS, android.app.ApplicationStartInfo.START_REASON_OTHER, android.app.ApplicationStartInfo.START_REASON_PUSH, android.app.ApplicationStartInfo.START_REASON_SERVICE, android.app.ApplicationStartInfo.START_REASON_START_ACTIVITY}" />
+    </annotation>
+  </item>
+  <item name="android.app.ApplicationStartInfo int getStartComponent()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.ApplicationStartInfo.START_COMPONENT_ACTIVITY, android.app.ApplicationStartInfo.START_COMPONENT_BROADCAST, android.app.ApplicationStartInfo.START_COMPONENT_CONTENT_PROVIDER, android.app.ApplicationStartInfo.START_COMPONENT_SERVICE, android.app.ApplicationStartInfo.START_COMPONENT_OTHER}" />
+    </annotation>
+  </item>
+  <item name="android.app.ApplicationStartInfo int getStartType()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.ApplicationStartInfo.START_TYPE_UNSET, android.app.ApplicationStartInfo.START_TYPE_COLD, android.app.ApplicationStartInfo.START_TYPE_WARM, android.app.ApplicationStartInfo.START_TYPE_HOT}" />
+    </annotation>
+  </item>
+  <item name="android.app.ApplicationStartInfo int getStartupState()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.ApplicationStartInfo.STARTUP_STATE_STARTED, android.app.ApplicationStartInfo.STARTUP_STATE_ERROR, android.app.ApplicationStartInfo.STARTUP_STATE_FIRST_FRAME_DRAWN}" />
+    </annotation>
+  </item>
+  <item name="android.app.AsyncNotedAppOp int getNotingUid()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.app.AutomaticZenRule int getIconResId()">
+    <annotation name="androidx.annotation.DrawableRes"/>
+  </item>
+  <item name="android.app.AutomaticZenRule int getType()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.AutomaticZenRule.TYPE_UNKNOWN, android.app.AutomaticZenRule.TYPE_OTHER, android.app.AutomaticZenRule.TYPE_SCHEDULE_TIME, android.app.AutomaticZenRule.TYPE_SCHEDULE_CALENDAR, android.app.AutomaticZenRule.TYPE_BEDTIME, android.app.AutomaticZenRule.TYPE_DRIVING, android.app.AutomaticZenRule.TYPE_IMMERSIVE, android.app.AutomaticZenRule.TYPE_THEATER, android.app.AutomaticZenRule.TYPE_MANAGED, android.app.AutomaticZenRule.TYPE_TRANSIT}" />
+    </annotation>
+  </item>
+  <item name="android.app.AutomaticZenRule void setInterruptionFilter(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.NotificationManager.INTERRUPTION_FILTER_NONE, android.app.NotificationManager.INTERRUPTION_FILTER_PRIORITY, android.app.NotificationManager.INTERRUPTION_FILTER_ALARMS, android.app.NotificationManager.INTERRUPTION_FILTER_ALL, android.app.NotificationManager.INTERRUPTION_FILTER_UNKNOWN}" />
+    </annotation>
+  </item>
+  <item name="android.app.AutomaticZenRule.Builder android.app.AutomaticZenRule.Builder setIconResId(int) 0">
+    <annotation name="androidx.annotation.DrawableRes"/>
+  </item>
+  <item name="android.app.AutomaticZenRule.Builder android.app.AutomaticZenRule.Builder setInterruptionFilter(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.NotificationManager.INTERRUPTION_FILTER_NONE, android.app.NotificationManager.INTERRUPTION_FILTER_PRIORITY, android.app.NotificationManager.INTERRUPTION_FILTER_ALARMS, android.app.NotificationManager.INTERRUPTION_FILTER_ALL, android.app.NotificationManager.INTERRUPTION_FILTER_UNKNOWN}" />
+    </annotation>
+  </item>
+  <item name="android.app.AutomaticZenRule.Builder android.app.AutomaticZenRule.Builder setType(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.AutomaticZenRule.TYPE_UNKNOWN, android.app.AutomaticZenRule.TYPE_OTHER, android.app.AutomaticZenRule.TYPE_SCHEDULE_TIME, android.app.AutomaticZenRule.TYPE_SCHEDULE_CALENDAR, android.app.AutomaticZenRule.TYPE_BEDTIME, android.app.AutomaticZenRule.TYPE_DRIVING, android.app.AutomaticZenRule.TYPE_IMMERSIVE, android.app.AutomaticZenRule.TYPE_THEATER, android.app.AutomaticZenRule.TYPE_MANAGED, android.app.AutomaticZenRule.TYPE_TRANSIT}" />
+    </annotation>
+  </item>
+  <item name="android.app.BroadcastOptions android.app.BroadcastOptions setDeferralPolicy(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.BroadcastOptions.DEFERRAL_POLICY_DEFAULT, android.app.BroadcastOptions.DEFERRAL_POLICY_NONE, android.app.BroadcastOptions.DEFERRAL_POLICY_UNTIL_ACTIVE}" />
+    </annotation>
+  </item>
+  <item name="android.app.BroadcastOptions android.app.BroadcastOptions setDeliveryGroupPolicy(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.BroadcastOptions.DELIVERY_GROUP_POLICY_ALL, android.app.BroadcastOptions.DELIVERY_GROUP_POLICY_MOST_RECENT}" />
+    </annotation>
+  </item>
+  <item name="android.app.BroadcastOptions int getDeferralPolicy()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.BroadcastOptions.DEFERRAL_POLICY_DEFAULT, android.app.BroadcastOptions.DEFERRAL_POLICY_NONE, android.app.BroadcastOptions.DEFERRAL_POLICY_UNTIL_ACTIVE}" />
+    </annotation>
+  </item>
+  <item name="android.app.BroadcastOptions int getDeliveryGroupPolicy()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.BroadcastOptions.DELIVERY_GROUP_POLICY_ALL, android.app.BroadcastOptions.DELIVERY_GROUP_POLICY_MOST_RECENT}" />
+    </annotation>
+  </item>
+  <item name="android.app.ComponentCaller int checkContentUriPermission(android.net.Uri, int)">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.content.pm.PackageManager.PERMISSION_GRANTED, android.content.pm.PackageManager.PERMISSION_DENIED}" />
+    </annotation>
+  </item>
+  <item name="android.app.ComponentCaller int checkContentUriPermission(android.net.Uri, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION, android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.app.DatePickerDialog DatePickerDialog(android.content.Context, int) 1">
+    <annotation name="androidx.annotation.StyleRes"/>
+  </item>
+  <item name="android.app.DatePickerDialog DatePickerDialog(android.content.Context, int, android.app.DatePickerDialog.OnDateSetListener, int, int, int) 1">
+    <annotation name="androidx.annotation.StyleRes"/>
+  </item>
+  <item name="android.app.Dialog Dialog(android.content.Context) 0">
+    <annotation name="androidx.annotation.UiContext"/>
+  </item>
+  <item name="android.app.Dialog Dialog(android.content.Context, boolean, android.content.DialogInterface.OnCancelListener) 0">
+    <annotation name="androidx.annotation.UiContext"/>
+  </item>
+  <item name="android.app.Dialog Dialog(android.content.Context, int) 0">
+    <annotation name="androidx.annotation.UiContext"/>
+  </item>
+  <item name="android.app.Dialog Dialog(android.content.Context, int) 1">
+    <annotation name="androidx.annotation.StyleRes"/>
+  </item>
+  <item name="android.app.Dialog T findViewById(int) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.app.Dialog T requireViewById(int) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.app.Dialog android.content.Context getContext()">
+    <annotation name="androidx.annotation.UiContext"/>
+  </item>
+  <item name="android.app.Dialog void onActionModeFinished(android.view.ActionMode)">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.app.Dialog void onActionModeStarted(android.view.ActionMode)">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.app.Dialog void setContentView(int) 0">
+    <annotation name="androidx.annotation.LayoutRes"/>
+  </item>
+  <item name="android.app.Dialog void setFeatureDrawableResource(int, int) 1">
+    <annotation name="androidx.annotation.DrawableRes"/>
+  </item>
+  <item name="android.app.Dialog void setTitle(int) 0">
+    <annotation name="androidx.annotation.StringRes"/>
+  </item>
+  <item name="android.app.Fragment java.lang.CharSequence getText(int) 0">
+    <annotation name="androidx.annotation.StringRes"/>
+  </item>
+  <item name="android.app.Fragment java.lang.String getString(int) 0">
+    <annotation name="androidx.annotation.StringRes"/>
+  </item>
+  <item name="android.app.Fragment java.lang.String getString(int, java.lang.Object...) 0">
+    <annotation name="androidx.annotation.StringRes"/>
+  </item>
+  <item name="android.app.Fragment void onActivityCreated(android.os.Bundle)">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.app.Fragment void onAttach(android.app.Activity)">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.app.Fragment void onAttach(android.content.Context)">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.app.Fragment void onConfigurationChanged(android.content.res.Configuration)">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.app.Fragment void onCreate(android.os.Bundle)">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.app.Fragment void onDestroy()">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.app.Fragment void onDestroyView()">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.app.Fragment void onDetach()">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.app.Fragment void onInflate(android.app.Activity, android.util.AttributeSet, android.os.Bundle)">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.app.Fragment void onInflate(android.content.Context, android.util.AttributeSet, android.os.Bundle)">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.app.Fragment void onInflate(android.util.AttributeSet, android.os.Bundle)">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.app.Fragment void onLowMemory()">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.app.Fragment void onPause()">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.app.Fragment void onResume()">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.app.Fragment void onStart()">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.app.Fragment void onStop()">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.app.Fragment void onTrimMemory(int)">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.app.Fragment void onViewStateRestored(android.os.Bundle)">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.app.FragmentContainer T onFindViewById(int) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.app.FragmentTransaction android.app.FragmentTransaction add(int, android.app.Fragment) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.app.FragmentTransaction android.app.FragmentTransaction add(int, android.app.Fragment, java.lang.String) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.app.FragmentTransaction android.app.FragmentTransaction replace(int, android.app.Fragment) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.app.FragmentTransaction android.app.FragmentTransaction replace(int, android.app.Fragment, java.lang.String) 0">
+    <annotation name="androidx.annotation.IdRes"/>
+  </item>
+  <item name="android.app.FragmentTransaction android.app.FragmentTransaction setBreadCrumbShortTitle(int) 0">
+    <annotation name="androidx.annotation.StringRes"/>
+  </item>
+  <item name="android.app.FragmentTransaction android.app.FragmentTransaction setBreadCrumbTitle(int) 0">
+    <annotation name="androidx.annotation.StringRes"/>
+  </item>
+  <item name="android.app.FragmentTransaction android.app.FragmentTransaction setCustomAnimations(int, int) 0">
+    <annotation name="androidx.annotation.AnimatorRes"/>
+  </item>
+  <item name="android.app.FragmentTransaction android.app.FragmentTransaction setCustomAnimations(int, int) 1">
+    <annotation name="androidx.annotation.AnimatorRes"/>
+  </item>
+  <item name="android.app.FragmentTransaction android.app.FragmentTransaction setCustomAnimations(int, int, int, int) 0">
+    <annotation name="androidx.annotation.AnimatorRes"/>
+  </item>
+  <item name="android.app.FragmentTransaction android.app.FragmentTransaction setCustomAnimations(int, int, int, int) 1">
+    <annotation name="androidx.annotation.AnimatorRes"/>
+  </item>
+  <item name="android.app.FragmentTransaction android.app.FragmentTransaction setCustomAnimations(int, int, int, int) 2">
+    <annotation name="androidx.annotation.AnimatorRes"/>
+  </item>
+  <item name="android.app.FragmentTransaction android.app.FragmentTransaction setCustomAnimations(int, int, int, int) 3">
+    <annotation name="androidx.annotation.AnimatorRes"/>
+  </item>
+  <item name="android.app.FragmentTransaction android.app.FragmentTransaction setTransition(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.FragmentTransaction.TRANSIT_NONE, android.app.FragmentTransaction.TRANSIT_FRAGMENT_OPEN, android.app.FragmentTransaction.TRANSIT_FRAGMENT_CLOSE, android.app.FragmentTransaction.TRANSIT_FRAGMENT_FADE}" />
+    </annotation>
+  </item>
+  <item name="android.app.FragmentTransaction android.app.FragmentTransaction setTransitionStyle(int) 0">
+    <annotation name="androidx.annotation.StyleRes"/>
+  </item>
+  <item name="android.app.GameManager int getGameMode()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.GameManager.GAME_MODE_UNSUPPORTED, android.app.GameManager.GAME_MODE_STANDARD, android.app.GameManager.GAME_MODE_PERFORMANCE, android.app.GameManager.GAME_MODE_BATTERY, android.app.GameManager.GAME_MODE_CUSTOM}" />
+      <val name="flag" val="false" />
+    </annotation>
+  </item>
+  <item name="android.app.GameState GameState(boolean, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.GameState.MODE_UNKNOWN, android.app.GameState.MODE_NONE, android.app.GameState.MODE_GAMEPLAY_INTERRUPTIBLE, android.app.GameState.MODE_GAMEPLAY_UNINTERRUPTIBLE, android.app.GameState.MODE_CONTENT}" />
+    </annotation>
+  </item>
+  <item name="android.app.GameState GameState(boolean, int, int, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.GameState.MODE_UNKNOWN, android.app.GameState.MODE_NONE, android.app.GameState.MODE_GAMEPLAY_INTERRUPTIBLE, android.app.GameState.MODE_GAMEPLAY_UNINTERRUPTIBLE, android.app.GameState.MODE_CONTENT}" />
+    </annotation>
+  </item>
+  <item name="android.app.GameState int getMode()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.GameState.MODE_UNKNOWN, android.app.GameState.MODE_NONE, android.app.GameState.MODE_GAMEPLAY_INTERRUPTIBLE, android.app.GameState.MODE_GAMEPLAY_UNINTERRUPTIBLE, android.app.GameState.MODE_CONTENT}" />
+    </annotation>
+  </item>
+  <item name="android.app.GrammaticalInflectionManager int getApplicationGrammaticalGender()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.content.res.Configuration.GRAMMATICAL_GENDER_NOT_SPECIFIED, android.content.res.Configuration.GRAMMATICAL_GENDER_NEUTRAL, android.content.res.Configuration.GRAMMATICAL_GENDER_FEMININE, android.content.res.Configuration.GRAMMATICAL_GENDER_MASCULINE}" />
+    </annotation>
+  </item>
+  <item name="android.app.GrammaticalInflectionManager int getSystemGrammaticalGender()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.READ_SYSTEM_GRAMMATICAL_GENDER&quot;" />
+    </annotation>
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.content.res.Configuration.GRAMMATICAL_GENDER_NOT_SPECIFIED, android.content.res.Configuration.GRAMMATICAL_GENDER_NEUTRAL, android.content.res.Configuration.GRAMMATICAL_GENDER_FEMININE, android.content.res.Configuration.GRAMMATICAL_GENDER_MASCULINE}" />
+    </annotation>
+  </item>
+  <item name="android.app.GrammaticalInflectionManager void setRequestedApplicationGrammaticalGender(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.content.res.Configuration.GRAMMATICAL_GENDER_NOT_SPECIFIED, android.content.res.Configuration.GRAMMATICAL_GENDER_NEUTRAL, android.content.res.Configuration.GRAMMATICAL_GENDER_FEMININE, android.content.res.Configuration.GRAMMATICAL_GENDER_MASCULINE}" />
+    </annotation>
+  </item>
+  <item name="android.app.Instrumentation android.app.UiAutomation getUiAutomation(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{0, android.app.UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES, android.app.UiAutomation.FLAG_DONT_USE_ACCESSIBILITY}" />
+    </annotation>
+  </item>
+  <item name="android.app.IntentService void onHandleIntent(android.content.Intent)">
+    <annotation name="androidx.annotation.WorkerThread"/>
+  </item>
+  <item name="android.app.KeyguardManager void addDeviceLockedStateListener(java.util.concurrent.Executor, android.app.KeyguardManager.DeviceLockedStateListener)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.SUBSCRIBE_TO_KEYGUARD_LOCKED_STATE&quot;" />
+    </annotation>
+  </item>
+  <item name="android.app.KeyguardManager void addKeyguardLockedStateListener(java.util.concurrent.Executor, android.app.KeyguardManager.KeyguardLockedStateListener)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.SUBSCRIBE_TO_KEYGUARD_LOCKED_STATE&quot;" />
+    </annotation>
+  </item>
+  <item name="android.app.KeyguardManager void exitKeyguardSecurely(android.app.KeyguardManager.OnKeyguardExitResult)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.DISABLE_KEYGUARD&quot;" />
+    </annotation>
+  </item>
+  <item name="android.app.KeyguardManager void removeDeviceLockedStateListener(android.app.KeyguardManager.DeviceLockedStateListener)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.SUBSCRIBE_TO_KEYGUARD_LOCKED_STATE&quot;" />
+    </annotation>
+  </item>
+  <item name="android.app.KeyguardManager void removeKeyguardLockedStateListener(android.app.KeyguardManager.KeyguardLockedStateListener)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.SUBSCRIBE_TO_KEYGUARD_LOCKED_STATE&quot;" />
+    </annotation>
+  </item>
+  <item name="android.app.KeyguardManager.KeyguardLock void disableKeyguard()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.DISABLE_KEYGUARD&quot;" />
+    </annotation>
+  </item>
+  <item name="android.app.KeyguardManager.KeyguardLock void reenableKeyguard()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.DISABLE_KEYGUARD&quot;" />
+    </annotation>
+  </item>
+  <item name="android.app.LocaleConfig int getStatus()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.LocaleConfig.STATUS_SUCCESS, android.app.LocaleConfig.STATUS_NOT_SPECIFIED, android.app.LocaleConfig.STATUS_PARSING_FAILED}" />
+    </annotation>
+  </item>
+  <item name="android.app.LocaleManager android.os.LocaleList getApplicationLocales(java.lang.String)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.READ_APP_SPECIFIC_LOCALES&quot;" />
+      <val name="conditional" val="true" />
+    </annotation>
+  </item>
+  <item name="android.app.Notification COLOR_DEFAULT">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.app.Notification FOREGROUND_SERVICE_DEFAULT">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.Notification.FOREGROUND_SERVICE_DEFAULT, android.app.Notification.FOREGROUND_SERVICE_IMMEDIATE, android.app.Notification.FOREGROUND_SERVICE_DEFERRED}" />
+    </annotation>
+  </item>
+  <item name="android.app.Notification FOREGROUND_SERVICE_DEFERRED">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.Notification.FOREGROUND_SERVICE_DEFAULT, android.app.Notification.FOREGROUND_SERVICE_IMMEDIATE, android.app.Notification.FOREGROUND_SERVICE_DEFERRED}" />
+    </annotation>
+  </item>
+  <item name="android.app.Notification FOREGROUND_SERVICE_IMMEDIATE">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.Notification.FOREGROUND_SERVICE_DEFAULT, android.app.Notification.FOREGROUND_SERVICE_IMMEDIATE, android.app.Notification.FOREGROUND_SERVICE_DEFERRED}" />
+    </annotation>
+  </item>
+  <item name="android.app.Notification android.text.Annotation createSemanticStyleAnnotation(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.Notification.SEMANTIC_STYLE_UNSPECIFIED, android.app.Notification.SEMANTIC_STYLE_INFO, android.app.Notification.SEMANTIC_STYLE_SAFE, android.app.Notification.SEMANTIC_STYLE_CAUTION, android.app.Notification.SEMANTIC_STYLE_DANGER}" />
+    </annotation>
+  </item>
+  <item name="android.app.Notification color">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.app.Notification icon">
+    <annotation name="androidx.annotation.DrawableRes"/>
+  </item>
+  <item name="android.app.Notification int getGroupAlertBehavior()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.Notification.GROUP_ALERT_ALL, android.app.Notification.GROUP_ALERT_CHILDREN, android.app.Notification.GROUP_ALERT_SUMMARY}" />
+    </annotation>
+  </item>
+  <item name="android.app.Notification ledARGB">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.app.Notification priority">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.Notification.PRIORITY_DEFAULT, android.app.Notification.PRIORITY_LOW, android.app.Notification.PRIORITY_MIN, android.app.Notification.PRIORITY_HIGH, android.app.Notification.PRIORITY_MAX}" />
+    </annotation>
+  </item>
+  <item name="android.app.Notification visibility">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.Notification.VISIBILITY_PUBLIC, android.app.Notification.VISIBILITY_PRIVATE, android.app.Notification.VISIBILITY_SECRET}" />
+    </annotation>
+  </item>
+  <item name="android.app.Notification.Action int getEmphasisHint()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.Notification.Action.EMPHASIS_AUTO, android.app.Notification.Action.EMPHASIS_PRIMARY, android.app.Notification.Action.EMPHASIS_SECONDARY}" />
+    </annotation>
+  </item>
+  <item name="android.app.Notification.Action int getSemanticAction()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.Notification.Action.SEMANTIC_ACTION_NONE, android.app.Notification.Action.SEMANTIC_ACTION_REPLY, android.app.Notification.Action.SEMANTIC_ACTION_MARK_AS_READ, android.app.Notification.Action.SEMANTIC_ACTION_MARK_AS_UNREAD, android.app.Notification.Action.SEMANTIC_ACTION_DELETE, android.app.Notification.Action.SEMANTIC_ACTION_ARCHIVE, android.app.Notification.Action.SEMANTIC_ACTION_MUTE, android.app.Notification.Action.SEMANTIC_ACTION_UNMUTE, android.app.Notification.Action.SEMANTIC_ACTION_THUMBS_UP, android.app.Notification.Action.SEMANTIC_ACTION_THUMBS_DOWN, android.app.Notification.Action.SEMANTIC_ACTION_CALL, android.app.Notification.Action.SEMANTIC_ACTION_PLAY, android.app.Notification.Action.SEMANTIC_ACTION_PAUSE, android.app.Notification.Action.SEMANTIC_ACTION_STOP}" />
+    </annotation>
+  </item>
+  <item name="android.app.Notification.Action int getStyleHint()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.Notification.Action.STYLE_AUTO, android.app.Notification.Action.STYLE_TEXT_ONLY, android.app.Notification.Action.STYLE_ICON_AND_TEXT, android.app.Notification.Action.STYLE_ICON_ONLY}" />
+    </annotation>
+  </item>
+  <item name="android.app.Notification.Action.Builder android.app.Notification.Action.Builder setEmphasisHint(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.Notification.Action.EMPHASIS_AUTO, android.app.Notification.Action.EMPHASIS_PRIMARY, android.app.Notification.Action.EMPHASIS_SECONDARY}" />
+    </annotation>
+  </item>
+  <item name="android.app.Notification.Action.Builder android.app.Notification.Action.Builder setSemanticAction(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.Notification.Action.SEMANTIC_ACTION_NONE, android.app.Notification.Action.SEMANTIC_ACTION_REPLY, android.app.Notification.Action.SEMANTIC_ACTION_MARK_AS_READ, android.app.Notification.Action.SEMANTIC_ACTION_MARK_AS_UNREAD, android.app.Notification.Action.SEMANTIC_ACTION_DELETE, android.app.Notification.Action.SEMANTIC_ACTION_ARCHIVE, android.app.Notification.Action.SEMANTIC_ACTION_MUTE, android.app.Notification.Action.SEMANTIC_ACTION_UNMUTE, android.app.Notification.Action.SEMANTIC_ACTION_THUMBS_UP, android.app.Notification.Action.SEMANTIC_ACTION_THUMBS_DOWN, android.app.Notification.Action.SEMANTIC_ACTION_CALL, android.app.Notification.Action.SEMANTIC_ACTION_PLAY, android.app.Notification.Action.SEMANTIC_ACTION_PAUSE, android.app.Notification.Action.SEMANTIC_ACTION_STOP}" />
+    </annotation>
+  </item>
+  <item name="android.app.Notification.Action.Builder android.app.Notification.Action.Builder setStyleHint(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.Notification.Action.STYLE_AUTO, android.app.Notification.Action.STYLE_TEXT_ONLY, android.app.Notification.Action.STYLE_ICON_AND_TEXT, android.app.Notification.Action.STYLE_ICON_ONLY}" />
+    </annotation>
+  </item>
+  <item name="android.app.Notification.BubbleMetadata int getDesiredHeight()">
+    <annotation name="androidx.annotation.Dimension">
+      <val name="unit" val="0" />
+    </annotation>
+  </item>
+  <item name="android.app.Notification.BubbleMetadata int getDesiredHeightResId()">
+    <annotation name="androidx.annotation.DimenRes"/>
+  </item>
+  <item name="android.app.Notification.BubbleMetadata.Builder android.app.Notification.BubbleMetadata.Builder setDesiredHeight(int) 0">
+    <annotation name="androidx.annotation.Dimension">
+      <val name="unit" val="0" />
+    </annotation>
+  </item>
+  <item name="android.app.Notification.BubbleMetadata.Builder android.app.Notification.BubbleMetadata.Builder setDesiredHeightResId(int) 0">
+    <annotation name="androidx.annotation.DimenRes"/>
+  </item>
+  <item name="android.app.Notification.Builder android.app.Notification.Builder setColor(int) 0">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.app.Notification.Builder android.app.Notification.Builder setFlag(int, boolean) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.Notification.FLAG_SHOW_LIGHTS, android.app.Notification.FLAG_ONGOING_EVENT, android.app.Notification.FLAG_INSISTENT, android.app.Notification.FLAG_ONLY_ALERT_ONCE, android.app.Notification.FLAG_AUTO_CANCEL, android.app.Notification.FLAG_NO_CLEAR, android.app.Notification.FLAG_FOREGROUND_SERVICE, android.app.Notification.FLAG_HIGH_PRIORITY, android.app.Notification.FLAG_LOCAL_ONLY, android.app.Notification.FLAG_GROUP_SUMMARY, android.app.Notification.FLAG_BUBBLE, android.app.Notification.FLAG_PROMOTED_ONGOING}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.app.Notification.Builder android.app.Notification.Builder setForegroundServiceBehavior(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.Notification.FOREGROUND_SERVICE_DEFAULT, android.app.Notification.FOREGROUND_SERVICE_IMMEDIATE, android.app.Notification.FOREGROUND_SERVICE_DEFERRED}" />
+    </annotation>
+  </item>
+  <item name="android.app.Notification.Builder android.app.Notification.Builder setFullScreenIntent(android.app.PendingIntent, boolean)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.USE_FULL_SCREEN_INTENT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.app.Notification.Builder android.app.Notification.Builder setGroupAlertBehavior(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.Notification.GROUP_ALERT_ALL, android.app.Notification.GROUP_ALERT_CHILDREN, android.app.Notification.GROUP_ALERT_SUMMARY}" />
+    </annotation>
+  </item>
+  <item name="android.app.Notification.Builder android.app.Notification.Builder setLights(int, int, int) 0">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.app.Notification.Builder android.app.Notification.Builder setPriority(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.Notification.PRIORITY_DEFAULT, android.app.Notification.PRIORITY_LOW, android.app.Notification.PRIORITY_MIN, android.app.Notification.PRIORITY_HIGH, android.app.Notification.PRIORITY_MAX}" />
+    </annotation>
+  </item>
+  <item name="android.app.Notification.Builder android.app.Notification.Builder setSmallIcon(int) 0">
+    <annotation name="androidx.annotation.DrawableRes"/>
+  </item>
+  <item name="android.app.Notification.Builder android.app.Notification.Builder setSmallIcon(int, int) 0">
+    <annotation name="androidx.annotation.DrawableRes"/>
+  </item>
+  <item name="android.app.Notification.Builder android.app.Notification.Builder setVisibility(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.Notification.VISIBILITY_PUBLIC, android.app.Notification.VISIBILITY_PRIVATE, android.app.Notification.VISIBILITY_SECRET}" />
+    </annotation>
+  </item>
+  <item name="android.app.Notification.CallStyle android.app.Notification.CallStyle setAnswerButtonColorHint(int) 0">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.app.Notification.CallStyle android.app.Notification.CallStyle setDeclineButtonColorHint(int) 0">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.app.Notification.CarExtender android.app.Notification.CarExtender setColor(int) 0">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.app.Notification.CarExtender int getColor()">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.app.Notification.MediaStyle android.app.Notification.MediaStyle setRemotePlaybackInfo(java.lang.CharSequence, int, android.app.PendingIntent)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.MEDIA_CONTENT_CONTROL&quot;" />
+    </annotation>
+  </item>
+  <item name="android.app.Notification.MediaStyle android.app.Notification.MediaStyle setRemotePlaybackInfo(java.lang.CharSequence, int, android.app.PendingIntent) 1">
+    <annotation name="androidx.annotation.DrawableRes"/>
+  </item>
+  <item name="android.app.Notification.Metric Metric(android.app.Notification.Metric.MetricValue, java.lang.CharSequence, int) 2">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.Notification.SEMANTIC_STYLE_UNSPECIFIED, android.app.Notification.SEMANTIC_STYLE_INFO, android.app.Notification.SEMANTIC_STYLE_SAFE, android.app.Notification.SEMANTIC_STYLE_CAUTION, android.app.Notification.SEMANTIC_STYLE_DANGER}" />
+    </annotation>
+  </item>
+  <item name="android.app.Notification.Metric int getSemanticStyle()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.Notification.SEMANTIC_STYLE_UNSPECIFIED, android.app.Notification.SEMANTIC_STYLE_INFO, android.app.Notification.SEMANTIC_STYLE_SAFE, android.app.Notification.SEMANTIC_STYLE_CAUTION, android.app.Notification.SEMANTIC_STYLE_DANGER}" />
+    </annotation>
+  </item>
+  <item name="android.app.Notification.Metric.FixedDate FixedDate(java.time.LocalDate, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.Notification.Metric.FixedDate.FORMAT_AUTOMATIC, android.app.Notification.Metric.FixedDate.FORMAT_LONG_DATE, android.app.Notification.Metric.FixedDate.FORMAT_SHORT_DATE}" />
+    </annotation>
+  </item>
+  <item name="android.app.Notification.Metric.FixedDate int getFormat()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.Notification.Metric.FixedDate.FORMAT_AUTOMATIC, android.app.Notification.Metric.FixedDate.FORMAT_LONG_DATE, android.app.Notification.Metric.FixedDate.FORMAT_SHORT_DATE}" />
+    </annotation>
+  </item>
+  <item name="android.app.Notification.Metric.FixedFloat FixedFloat(float, java.lang.CharSequence, int, int) 2">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+      <val name="to" val="6L" />
+    </annotation>
+  </item>
+  <item name="android.app.Notification.Metric.FixedFloat FixedFloat(float, java.lang.CharSequence, int, int) 3">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+      <val name="to" val="6L" />
+    </annotation>
+  </item>
+  <item name="android.app.Notification.Metric.FixedFloat int getMaxFractionDigits()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+      <val name="to" val="6L" />
+    </annotation>
+  </item>
+  <item name="android.app.Notification.Metric.FixedFloat int getMinFractionDigits()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+      <val name="to" val="6L" />
+    </annotation>
+  </item>
+  <item name="android.app.Notification.Metric.TimeDifference android.app.Notification.Metric.TimeDifference forPausedStopwatch(java.time.Duration, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.Notification.Metric.TimeDifference.FORMAT_ADAPTIVE, android.app.Notification.Metric.TimeDifference.FORMAT_CHRONOMETER}" />
+    </annotation>
+  </item>
+  <item name="android.app.Notification.Metric.TimeDifference android.app.Notification.Metric.TimeDifference forPausedTimer(java.time.Duration, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.Notification.Metric.TimeDifference.FORMAT_ADAPTIVE, android.app.Notification.Metric.TimeDifference.FORMAT_CHRONOMETER}" />
+    </annotation>
+  </item>
+  <item name="android.app.Notification.Metric.TimeDifference android.app.Notification.Metric.TimeDifference forStopwatch(java.time.Instant, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.Notification.Metric.TimeDifference.FORMAT_ADAPTIVE, android.app.Notification.Metric.TimeDifference.FORMAT_CHRONOMETER}" />
+    </annotation>
+  </item>
+  <item name="android.app.Notification.Metric.TimeDifference android.app.Notification.Metric.TimeDifference forStopwatch(long, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.Notification.Metric.TimeDifference.FORMAT_ADAPTIVE, android.app.Notification.Metric.TimeDifference.FORMAT_CHRONOMETER}" />
+    </annotation>
+  </item>
+  <item name="android.app.Notification.Metric.TimeDifference android.app.Notification.Metric.TimeDifference forTimer(java.time.Instant, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.Notification.Metric.TimeDifference.FORMAT_ADAPTIVE, android.app.Notification.Metric.TimeDifference.FORMAT_CHRONOMETER}" />
+    </annotation>
+  </item>
+  <item name="android.app.Notification.Metric.TimeDifference android.app.Notification.Metric.TimeDifference forTimer(long, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.Notification.Metric.TimeDifference.FORMAT_ADAPTIVE, android.app.Notification.Metric.TimeDifference.FORMAT_CHRONOMETER}" />
+    </annotation>
+  </item>
+  <item name="android.app.Notification.Metric.TimeDifference int getFormat()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.Notification.Metric.TimeDifference.FORMAT_ADAPTIVE, android.app.Notification.Metric.TimeDifference.FORMAT_CHRONOMETER}" />
+    </annotation>
+  </item>
+  <item name="android.app.Notification.ProgressStyle android.app.Notification.ProgressStyle setProgress(int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.app.Notification.ProgressStyle int getProgress()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.app.Notification.ProgressStyle int getProgressMax()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.app.Notification.ProgressStyle.Point Point(int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="1L" />
+    </annotation>
+  </item>
+  <item name="android.app.Notification.ProgressStyle.Point android.app.Notification.ProgressStyle.Point setColor(int) 0">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.app.Notification.ProgressStyle.Point android.app.Notification.ProgressStyle.Point setSemanticStyle(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.Notification.SEMANTIC_STYLE_UNSPECIFIED, android.app.Notification.SEMANTIC_STYLE_INFO, android.app.Notification.SEMANTIC_STYLE_SAFE, android.app.Notification.SEMANTIC_STYLE_CAUTION, android.app.Notification.SEMANTIC_STYLE_DANGER}" />
+    </annotation>
+  </item>
+  <item name="android.app.Notification.ProgressStyle.Point int getColor()">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.app.Notification.ProgressStyle.Point int getPosition()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="1L" />
+    </annotation>
+  </item>
+  <item name="android.app.Notification.ProgressStyle.Point int getSemanticStyle()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.Notification.SEMANTIC_STYLE_UNSPECIFIED, android.app.Notification.SEMANTIC_STYLE_INFO, android.app.Notification.SEMANTIC_STYLE_SAFE, android.app.Notification.SEMANTIC_STYLE_CAUTION, android.app.Notification.SEMANTIC_STYLE_DANGER}" />
+    </annotation>
+  </item>
+  <item name="android.app.Notification.ProgressStyle.Segment Segment(int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="1L" />
+    </annotation>
+  </item>
+  <item name="android.app.Notification.ProgressStyle.Segment android.app.Notification.ProgressStyle.Segment setColor(int) 0">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.app.Notification.ProgressStyle.Segment android.app.Notification.ProgressStyle.Segment setSemanticStyle(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.Notification.SEMANTIC_STYLE_UNSPECIFIED, android.app.Notification.SEMANTIC_STYLE_INFO, android.app.Notification.SEMANTIC_STYLE_SAFE, android.app.Notification.SEMANTIC_STYLE_CAUTION, android.app.Notification.SEMANTIC_STYLE_DANGER}" />
+    </annotation>
+  </item>
+  <item name="android.app.Notification.ProgressStyle.Segment int getColor()">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.app.Notification.ProgressStyle.Segment int getLength()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="1L" />
+    </annotation>
+  </item>
+  <item name="android.app.Notification.ProgressStyle.Segment int getSemanticStyle()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.Notification.SEMANTIC_STYLE_UNSPECIFIED, android.app.Notification.SEMANTIC_STYLE_INFO, android.app.Notification.SEMANTIC_STYLE_SAFE, android.app.Notification.SEMANTIC_STYLE_CAUTION, android.app.Notification.SEMANTIC_STYLE_DANGER}" />
+    </annotation>
+  </item>
+  <item name="android.app.NotificationChannel NotificationChannel(java.lang.String, java.lang.CharSequence, int) 2">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.NotificationManager.IMPORTANCE_UNSPECIFIED, android.app.NotificationManager.IMPORTANCE_NONE, android.app.NotificationManager.IMPORTANCE_MIN, android.app.NotificationManager.IMPORTANCE_LOW, android.app.NotificationManager.IMPORTANCE_DEFAULT, android.app.NotificationManager.IMPORTANCE_HIGH}" />
+    </annotation>
+  </item>
+  <item name="android.app.NotificationChannel int getImportance()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.NotificationManager.IMPORTANCE_UNSPECIFIED, android.app.NotificationManager.IMPORTANCE_NONE, android.app.NotificationManager.IMPORTANCE_MIN, android.app.NotificationManager.IMPORTANCE_LOW, android.app.NotificationManager.IMPORTANCE_DEFAULT, android.app.NotificationManager.IMPORTANCE_HIGH}" />
+    </annotation>
+  </item>
+  <item name="android.app.NotificationChannel int getOriginalImportance()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.NotificationManager.IMPORTANCE_UNSPECIFIED, android.app.NotificationManager.IMPORTANCE_NONE, android.app.NotificationManager.IMPORTANCE_MIN, android.app.NotificationManager.IMPORTANCE_LOW, android.app.NotificationManager.IMPORTANCE_DEFAULT, android.app.NotificationManager.IMPORTANCE_HIGH}" />
+    </annotation>
+  </item>
+  <item name="android.app.NotificationChannel void setImportance(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.NotificationManager.IMPORTANCE_UNSPECIFIED, android.app.NotificationManager.IMPORTANCE_NONE, android.app.NotificationManager.IMPORTANCE_MIN, android.app.NotificationManager.IMPORTANCE_LOW, android.app.NotificationManager.IMPORTANCE_DEFAULT, android.app.NotificationManager.IMPORTANCE_HIGH}" />
+    </annotation>
+  </item>
+  <item name="android.app.NotificationManager boolean matchesCallFilter(android.net.Uri)">
+    <annotation name="androidx.annotation.WorkerThread"/>
+  </item>
+  <item name="android.app.NotificationManager int getAutomaticZenRuleState(java.lang.String)">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.service.notification.Condition.STATE_FALSE, android.service.notification.Condition.STATE_TRUE, android.service.notification.Condition.STATE_UNKNOWN, android.service.notification.Condition.STATE_ERROR}" />
+    </annotation>
+  </item>
+  <item name="android.app.NotificationManager int getBubblePreference()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.NotificationManager.BUBBLE_PREFERENCE_NONE, android.app.NotificationManager.BUBBLE_PREFERENCE_SELECTED, android.app.NotificationManager.BUBBLE_PREFERENCE_ALL}" />
+    </annotation>
+  </item>
+  <item name="android.app.NotificationManager int getCurrentInterruptionFilter()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.NotificationManager.INTERRUPTION_FILTER_NONE, android.app.NotificationManager.INTERRUPTION_FILTER_PRIORITY, android.app.NotificationManager.INTERRUPTION_FILTER_ALARMS, android.app.NotificationManager.INTERRUPTION_FILTER_ALL, android.app.NotificationManager.INTERRUPTION_FILTER_UNKNOWN}" />
+    </annotation>
+  </item>
+  <item name="android.app.NotificationManager int getImportance()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.NotificationManager.IMPORTANCE_UNSPECIFIED, android.app.NotificationManager.IMPORTANCE_NONE, android.app.NotificationManager.IMPORTANCE_MIN, android.app.NotificationManager.IMPORTANCE_LOW, android.app.NotificationManager.IMPORTANCE_DEFAULT, android.app.NotificationManager.IMPORTANCE_HIGH}" />
+    </annotation>
+  </item>
+  <item name="android.app.NotificationManager void setInterruptionFilter(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.NotificationManager.INTERRUPTION_FILTER_NONE, android.app.NotificationManager.INTERRUPTION_FILTER_PRIORITY, android.app.NotificationManager.INTERRUPTION_FILTER_ALARMS, android.app.NotificationManager.INTERRUPTION_FILTER_ALL, android.app.NotificationManager.INTERRUPTION_FILTER_UNKNOWN}" />
+    </annotation>
+  </item>
+  <item name="android.app.NotificationManager.Policy Policy(int, int, int, int, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.NotificationManager.Policy.PRIORITY_SENDERS_ANY, android.app.NotificationManager.Policy.PRIORITY_SENDERS_CONTACTS, android.app.NotificationManager.Policy.PRIORITY_SENDERS_STARRED}" />
+    </annotation>
+  </item>
+  <item name="android.app.NotificationManager.Policy Policy(int, int, int, int, int) 2">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.NotificationManager.Policy.PRIORITY_SENDERS_ANY, android.app.NotificationManager.Policy.PRIORITY_SENDERS_CONTACTS, android.app.NotificationManager.Policy.PRIORITY_SENDERS_STARRED}" />
+    </annotation>
+  </item>
+  <item name="android.app.NotificationManager.Policy Policy(int, int, int, int, int) 4">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.NotificationManager.Policy.CONVERSATION_SENDERS_ANYONE, android.app.NotificationManager.Policy.CONVERSATION_SENDERS_IMPORTANT, android.app.NotificationManager.Policy.CONVERSATION_SENDERS_NONE}" />
+    </annotation>
+  </item>
+  <item name="android.app.NotificationManager.Policy priorityCallSenders">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.NotificationManager.Policy.PRIORITY_SENDERS_ANY, android.app.NotificationManager.Policy.PRIORITY_SENDERS_CONTACTS, android.app.NotificationManager.Policy.PRIORITY_SENDERS_STARRED}" />
+    </annotation>
+  </item>
+  <item name="android.app.NotificationManager.Policy priorityConversationSenders">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.NotificationManager.Policy.CONVERSATION_SENDERS_ANYONE, android.app.NotificationManager.Policy.CONVERSATION_SENDERS_IMPORTANT, android.app.NotificationManager.Policy.CONVERSATION_SENDERS_NONE}" />
+    </annotation>
+  </item>
+  <item name="android.app.NotificationManager.Policy priorityMessageSenders">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.NotificationManager.Policy.PRIORITY_SENDERS_ANY, android.app.NotificationManager.Policy.PRIORITY_SENDERS_CONTACTS, android.app.NotificationManager.Policy.PRIORITY_SENDERS_STARRED}" />
+    </annotation>
+  </item>
+  <item name="android.app.PendingIntent android.app.PendingIntent getActivities(android.content.Context, int, android.content.Intent[], int) 3">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.PendingIntent.FLAG_ONE_SHOT, android.app.PendingIntent.FLAG_NO_CREATE, android.app.PendingIntent.FLAG_CANCEL_CURRENT, android.app.PendingIntent.FLAG_UPDATE_CURRENT, android.app.PendingIntent.FLAG_IMMUTABLE, android.app.PendingIntent.FLAG_MUTABLE, android.app.PendingIntent.FLAG_ALLOW_UNSAFE_IMPLICIT_INTENT, android.content.Intent.FILL_IN_ACTION, android.content.Intent.FILL_IN_DATA, android.content.Intent.FILL_IN_CATEGORIES, android.content.Intent.FILL_IN_COMPONENT, android.content.Intent.FILL_IN_PACKAGE, android.content.Intent.FILL_IN_SOURCE_BOUNDS, android.content.Intent.FILL_IN_SELECTOR, android.content.Intent.FILL_IN_CLIP_DATA}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.app.PendingIntent android.app.PendingIntent getActivities(android.content.Context, int, android.content.Intent[], int, android.os.Bundle) 3">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.PendingIntent.FLAG_ONE_SHOT, android.app.PendingIntent.FLAG_NO_CREATE, android.app.PendingIntent.FLAG_CANCEL_CURRENT, android.app.PendingIntent.FLAG_UPDATE_CURRENT, android.app.PendingIntent.FLAG_IMMUTABLE, android.app.PendingIntent.FLAG_MUTABLE, android.app.PendingIntent.FLAG_ALLOW_UNSAFE_IMPLICIT_INTENT, android.content.Intent.FILL_IN_ACTION, android.content.Intent.FILL_IN_DATA, android.content.Intent.FILL_IN_CATEGORIES, android.content.Intent.FILL_IN_COMPONENT, android.content.Intent.FILL_IN_PACKAGE, android.content.Intent.FILL_IN_SOURCE_BOUNDS, android.content.Intent.FILL_IN_SELECTOR, android.content.Intent.FILL_IN_CLIP_DATA}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.app.PendingIntent android.app.PendingIntent getActivity(android.content.Context, int, android.content.Intent, int) 3">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.PendingIntent.FLAG_ONE_SHOT, android.app.PendingIntent.FLAG_NO_CREATE, android.app.PendingIntent.FLAG_CANCEL_CURRENT, android.app.PendingIntent.FLAG_UPDATE_CURRENT, android.app.PendingIntent.FLAG_IMMUTABLE, android.app.PendingIntent.FLAG_MUTABLE, android.app.PendingIntent.FLAG_ALLOW_UNSAFE_IMPLICIT_INTENT, android.content.Intent.FILL_IN_ACTION, android.content.Intent.FILL_IN_DATA, android.content.Intent.FILL_IN_CATEGORIES, android.content.Intent.FILL_IN_COMPONENT, android.content.Intent.FILL_IN_PACKAGE, android.content.Intent.FILL_IN_SOURCE_BOUNDS, android.content.Intent.FILL_IN_SELECTOR, android.content.Intent.FILL_IN_CLIP_DATA}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.app.PendingIntent android.app.PendingIntent getActivity(android.content.Context, int, android.content.Intent, int, android.os.Bundle) 3">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.PendingIntent.FLAG_ONE_SHOT, android.app.PendingIntent.FLAG_NO_CREATE, android.app.PendingIntent.FLAG_CANCEL_CURRENT, android.app.PendingIntent.FLAG_UPDATE_CURRENT, android.app.PendingIntent.FLAG_IMMUTABLE, android.app.PendingIntent.FLAG_MUTABLE, android.app.PendingIntent.FLAG_ALLOW_UNSAFE_IMPLICIT_INTENT, android.content.Intent.FILL_IN_ACTION, android.content.Intent.FILL_IN_DATA, android.content.Intent.FILL_IN_CATEGORIES, android.content.Intent.FILL_IN_COMPONENT, android.content.Intent.FILL_IN_PACKAGE, android.content.Intent.FILL_IN_SOURCE_BOUNDS, android.content.Intent.FILL_IN_SELECTOR, android.content.Intent.FILL_IN_CLIP_DATA}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.app.PendingIntent android.app.PendingIntent getBroadcast(android.content.Context, int, android.content.Intent, int) 3">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.PendingIntent.FLAG_ONE_SHOT, android.app.PendingIntent.FLAG_NO_CREATE, android.app.PendingIntent.FLAG_CANCEL_CURRENT, android.app.PendingIntent.FLAG_UPDATE_CURRENT, android.app.PendingIntent.FLAG_IMMUTABLE, android.app.PendingIntent.FLAG_MUTABLE, android.app.PendingIntent.FLAG_ALLOW_UNSAFE_IMPLICIT_INTENT, android.content.Intent.FILL_IN_ACTION, android.content.Intent.FILL_IN_DATA, android.content.Intent.FILL_IN_CATEGORIES, android.content.Intent.FILL_IN_COMPONENT, android.content.Intent.FILL_IN_PACKAGE, android.content.Intent.FILL_IN_SOURCE_BOUNDS, android.content.Intent.FILL_IN_SELECTOR, android.content.Intent.FILL_IN_CLIP_DATA}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.app.PendingIntent android.app.PendingIntent getForegroundService(android.content.Context, int, android.content.Intent, int) 3">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.PendingIntent.FLAG_ONE_SHOT, android.app.PendingIntent.FLAG_NO_CREATE, android.app.PendingIntent.FLAG_CANCEL_CURRENT, android.app.PendingIntent.FLAG_UPDATE_CURRENT, android.app.PendingIntent.FLAG_IMMUTABLE, android.app.PendingIntent.FLAG_MUTABLE, android.app.PendingIntent.FLAG_ALLOW_UNSAFE_IMPLICIT_INTENT, android.content.Intent.FILL_IN_ACTION, android.content.Intent.FILL_IN_DATA, android.content.Intent.FILL_IN_CATEGORIES, android.content.Intent.FILL_IN_COMPONENT, android.content.Intent.FILL_IN_PACKAGE, android.content.Intent.FILL_IN_SOURCE_BOUNDS, android.content.Intent.FILL_IN_SELECTOR, android.content.Intent.FILL_IN_CLIP_DATA}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.app.PendingIntent android.app.PendingIntent getService(android.content.Context, int, android.content.Intent, int) 3">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.PendingIntent.FLAG_ONE_SHOT, android.app.PendingIntent.FLAG_NO_CREATE, android.app.PendingIntent.FLAG_CANCEL_CURRENT, android.app.PendingIntent.FLAG_UPDATE_CURRENT, android.app.PendingIntent.FLAG_IMMUTABLE, android.app.PendingIntent.FLAG_MUTABLE, android.app.PendingIntent.FLAG_ALLOW_UNSAFE_IMPLICIT_INTENT, android.content.Intent.FILL_IN_ACTION, android.content.Intent.FILL_IN_DATA, android.content.Intent.FILL_IN_CATEGORIES, android.content.Intent.FILL_IN_COMPONENT, android.content.Intent.FILL_IN_PACKAGE, android.content.Intent.FILL_IN_SOURCE_BOUNDS, android.content.Intent.FILL_IN_SELECTOR, android.content.Intent.FILL_IN_CLIP_DATA}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.app.Person void writeToParcel(android.os.Parcel, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="android.os.Parcelable.PARCELABLE_WRITE_RETURN_VALUE" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.app.RemoteInput int getEditChoicesBeforeSending()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.RemoteInput.EDIT_CHOICES_BEFORE_SENDING_AUTO, android.app.RemoteInput.EDIT_CHOICES_BEFORE_SENDING_DISABLED, android.app.RemoteInput.EDIT_CHOICES_BEFORE_SENDING_ENABLED}" />
+    </annotation>
+  </item>
+  <item name="android.app.RemoteInput int getResultsSource(android.content.Intent)">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.RemoteInput.SOURCE_FREE_FORM_INPUT, android.app.RemoteInput.SOURCE_CHOICE}" />
+    </annotation>
+  </item>
+  <item name="android.app.RemoteInput void setResultsSource(android.content.Intent, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.RemoteInput.SOURCE_FREE_FORM_INPUT, android.app.RemoteInput.SOURCE_CHOICE}" />
+    </annotation>
+  </item>
+  <item name="android.app.RemoteInput.Builder android.app.RemoteInput.Builder setEditChoicesBeforeSending(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.RemoteInput.EDIT_CHOICES_BEFORE_SENDING_AUTO, android.app.RemoteInput.EDIT_CHOICES_BEFORE_SENDING_DISABLED, android.app.RemoteInput.EDIT_CHOICES_BEFORE_SENDING_ENABLED}" />
+    </annotation>
+  </item>
+  <item name="android.app.SearchableInfo int getVoiceLanguageId()">
+    <annotation name="androidx.annotation.StringRes"/>
+  </item>
+  <item name="android.app.SearchableInfo int getVoiceLanguageModeId()">
+    <annotation name="androidx.annotation.StringRes"/>
+  </item>
+  <item name="android.app.SearchableInfo int getVoicePromptTextId()">
+    <annotation name="androidx.annotation.StringRes"/>
+  </item>
+  <item name="android.app.Service int getForegroundServiceType()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MANIFEST, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_NONE, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_HEALTH, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_REMOTE_MESSAGING, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SYSTEM_EXEMPTED, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SHORT_SERVICE, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROCESSING, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.app.Service int onStartCommand(android.content.Intent, int, int)">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.Service.START_STICKY_COMPATIBILITY, android.app.Service.START_STICKY, android.app.Service.START_NOT_STICKY, android.app.Service.START_REDELIVER_INTENT}" />
+      <val name="flag" val="false" />
+    </annotation>
+  </item>
+  <item name="android.app.Service int onStartCommand(android.content.Intent, int, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.Service.START_FLAG_REDELIVERY, android.app.Service.START_FLAG_RETRY}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.app.Service void onTimeout(int, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MANIFEST, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_NONE, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_HEALTH, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_REMOTE_MESSAGING, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SYSTEM_EXEMPTED, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SHORT_SERVICE, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROCESSING, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.app.Service void startForeground(int, android.app.Notification, int) 2">
+    <annotation name="androidx.annotation.RequiresPermission"/>
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MANIFEST, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_NONE, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_HEALTH, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_REMOTE_MESSAGING, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SYSTEM_EXEMPTED, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SHORT_SERVICE, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROCESSING, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.app.Service void stopForeground(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.Service.STOP_FOREGROUND_LEGACY, android.app.Service.STOP_FOREGROUND_REMOVE, android.app.Service.STOP_FOREGROUND_DETACH}" />
+      <val name="flag" val="false" />
+    </annotation>
+  </item>
+  <item name="android.app.StatusBarManager boolean canLaunchCaptureContentActivityForNote(android.app.Activity)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.LAUNCH_CAPTURE_CONTENT_ACTIVITY_FOR_NOTE&quot;" />
+    </annotation>
+  </item>
+  <item name="android.app.StatusBarManager void showPowerMenu(java.util.concurrent.Executor, android.os.OutcomeReceiver&lt;java.lang.Integer,java.lang.Throwable&gt;)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="anyOf" val="{&quot;android.permission.SHOW_POWER_MENU&quot;, &quot;android.permission.SHOW_POWER_MENU_PRIVILEGED&quot;}" />
+    </annotation>
+  </item>
+  <item name="android.app.StatusBarManager void showPowerMenu(java.util.concurrent.Executor, android.os.OutcomeReceiver&lt;java.lang.Integer,java.lang.Throwable&gt;) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.StatusBarManager.SHOW_POWER_MENU_RESULT_UNKNOWN, android.app.StatusBarManager.SHOW_POWER_MENU_RESULT_SHOWING, android.app.StatusBarManager.SHOW_POWER_MENU_RESULT_DISABLED}" />
+    </annotation>
+  </item>
+  <item name="android.app.SyncNotedAppOp SyncNotedAppOp(int, java.lang.String) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.app.TaskStackBuilder android.app.PendingIntent getPendingIntent(int, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.PendingIntent.FLAG_ONE_SHOT, android.app.PendingIntent.FLAG_NO_CREATE, android.app.PendingIntent.FLAG_CANCEL_CURRENT, android.app.PendingIntent.FLAG_UPDATE_CURRENT, android.app.PendingIntent.FLAG_IMMUTABLE, android.app.PendingIntent.FLAG_MUTABLE, android.app.PendingIntent.FLAG_ALLOW_UNSAFE_IMPLICIT_INTENT, android.content.Intent.FILL_IN_ACTION, android.content.Intent.FILL_IN_DATA, android.content.Intent.FILL_IN_CATEGORIES, android.content.Intent.FILL_IN_COMPONENT, android.content.Intent.FILL_IN_PACKAGE, android.content.Intent.FILL_IN_SOURCE_BOUNDS, android.content.Intent.FILL_IN_SELECTOR, android.content.Intent.FILL_IN_CLIP_DATA}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.app.TaskStackBuilder android.app.PendingIntent getPendingIntent(int, int, android.os.Bundle) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.PendingIntent.FLAG_ONE_SHOT, android.app.PendingIntent.FLAG_NO_CREATE, android.app.PendingIntent.FLAG_CANCEL_CURRENT, android.app.PendingIntent.FLAG_UPDATE_CURRENT, android.app.PendingIntent.FLAG_IMMUTABLE, android.app.PendingIntent.FLAG_MUTABLE, android.app.PendingIntent.FLAG_ALLOW_UNSAFE_IMPLICIT_INTENT, android.content.Intent.FILL_IN_ACTION, android.content.Intent.FILL_IN_DATA, android.content.Intent.FILL_IN_CATEGORIES, android.content.Intent.FILL_IN_COMPONENT, android.content.Intent.FILL_IN_PACKAGE, android.content.Intent.FILL_IN_SOURCE_BOUNDS, android.content.Intent.FILL_IN_SELECTOR, android.content.Intent.FILL_IN_CLIP_DATA}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.app.UiModeManager float getContrast()">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="-1.0" />
+      <val name="to" val="1.0" />
+    </annotation>
+  </item>
+  <item name="android.app.UiModeManager int getNightMode()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.UiModeManager.MODE_NIGHT_AUTO, android.app.UiModeManager.MODE_NIGHT_CUSTOM, android.app.UiModeManager.MODE_NIGHT_NO, android.app.UiModeManager.MODE_NIGHT_YES}" />
+    </annotation>
+  </item>
+  <item name="android.app.UiModeManager void disableCarMode(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="android.app.UiModeManager.DISABLE_CAR_MODE_GO_HOME" />
+    </annotation>
+  </item>
+  <item name="android.app.UiModeManager void setApplicationNightMode(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.UiModeManager.MODE_NIGHT_AUTO, android.app.UiModeManager.MODE_NIGHT_CUSTOM, android.app.UiModeManager.MODE_NIGHT_NO, android.app.UiModeManager.MODE_NIGHT_YES}" />
+    </annotation>
+  </item>
+  <item name="android.app.UiModeManager void setNightMode(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.UiModeManager.MODE_NIGHT_AUTO, android.app.UiModeManager.MODE_NIGHT_CUSTOM, android.app.UiModeManager.MODE_NIGHT_NO, android.app.UiModeManager.MODE_NIGHT_YES}" />
+    </annotation>
+  </item>
+  <item name="android.app.UiModeManager.ContrastChangeListener void onContrastChanged(float) 0">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="-1.0" />
+      <val name="to" val="1.0" />
+    </annotation>
+  </item>
+  <item name="android.app.WallpaperColors WallpaperColors(android.graphics.Color, android.graphics.Color, android.graphics.Color, int) 3">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.WallpaperColors.HINT_SUPPORTS_DARK_TEXT, android.app.WallpaperColors.HINT_SUPPORTS_DARK_THEME}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.app.WallpaperColors int getColorHints()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.WallpaperColors.HINT_SUPPORTS_DARK_TEXT, android.app.WallpaperColors.HINT_SUPPORTS_DARK_THEME}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.app.WallpaperManager android.app.WallpaperInfo getWallpaperInfo()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;QUERY_ALL_PACKAGES&quot;" />
+      <val name="conditional" val="true" />
+    </annotation>
+  </item>
+  <item name="android.app.WallpaperManager android.app.WallpaperInfo getWallpaperInfo(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.WallpaperManager.FLAG_SYSTEM, android.app.WallpaperManager.FLAG_LOCK}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.app.WallpaperManager android.graphics.drawable.Drawable getBuiltInDrawable(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.WallpaperManager.FLAG_SYSTEM, android.app.WallpaperManager.FLAG_LOCK}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.app.WallpaperManager android.graphics.drawable.Drawable getBuiltInDrawable(int, int, boolean, float, float, int) 5">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.WallpaperManager.FLAG_SYSTEM, android.app.WallpaperManager.FLAG_LOCK}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.app.WallpaperManager android.graphics.drawable.Drawable getDrawable()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="anyOf" val="{&quot;android.permission.MANAGE_EXTERNAL_STORAGE&quot;, &quot;android.permission.READ_WALLPAPER_INTERNAL&quot;}" />
+    </annotation>
+  </item>
+  <item name="android.app.WallpaperManager android.graphics.drawable.Drawable getDrawable(int)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="anyOf" val="{&quot;android.permission.MANAGE_EXTERNAL_STORAGE&quot;, &quot;android.permission.READ_WALLPAPER_INTERNAL&quot;}" />
+    </annotation>
+  </item>
+  <item name="android.app.WallpaperManager android.graphics.drawable.Drawable getDrawable(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.WallpaperManager.FLAG_SYSTEM, android.app.WallpaperManager.FLAG_LOCK}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.app.WallpaperManager android.graphics.drawable.Drawable getFastDrawable()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="anyOf" val="{&quot;android.permission.MANAGE_EXTERNAL_STORAGE&quot;, &quot;android.permission.READ_WALLPAPER_INTERNAL&quot;}" />
+    </annotation>
+  </item>
+  <item name="android.app.WallpaperManager android.graphics.drawable.Drawable getFastDrawable(int)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="anyOf" val="{&quot;android.permission.MANAGE_EXTERNAL_STORAGE&quot;, &quot;android.permission.READ_WALLPAPER_INTERNAL&quot;}" />
+    </annotation>
+  </item>
+  <item name="android.app.WallpaperManager android.graphics.drawable.Drawable getFastDrawable(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.WallpaperManager.FLAG_SYSTEM, android.app.WallpaperManager.FLAG_LOCK}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.app.WallpaperManager android.graphics.drawable.Drawable peekDrawable()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="anyOf" val="{&quot;android.permission.MANAGE_EXTERNAL_STORAGE&quot;, &quot;android.permission.READ_WALLPAPER_INTERNAL&quot;}" />
+    </annotation>
+  </item>
+  <item name="android.app.WallpaperManager android.graphics.drawable.Drawable peekDrawable(int)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="anyOf" val="{&quot;android.permission.MANAGE_EXTERNAL_STORAGE&quot;, &quot;android.permission.READ_WALLPAPER_INTERNAL&quot;}" />
+    </annotation>
+  </item>
+  <item name="android.app.WallpaperManager android.graphics.drawable.Drawable peekDrawable(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.WallpaperManager.FLAG_SYSTEM, android.app.WallpaperManager.FLAG_LOCK}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.app.WallpaperManager android.graphics.drawable.Drawable peekFastDrawable()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="anyOf" val="{&quot;android.permission.MANAGE_EXTERNAL_STORAGE&quot;, &quot;android.permission.READ_WALLPAPER_INTERNAL&quot;}" />
+    </annotation>
+  </item>
+  <item name="android.app.WallpaperManager android.graphics.drawable.Drawable peekFastDrawable(int)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="anyOf" val="{&quot;android.permission.MANAGE_EXTERNAL_STORAGE&quot;, &quot;android.permission.READ_WALLPAPER_INTERNAL&quot;}" />
+    </annotation>
+  </item>
+  <item name="android.app.WallpaperManager android.graphics.drawable.Drawable peekFastDrawable(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.WallpaperManager.FLAG_SYSTEM, android.app.WallpaperManager.FLAG_LOCK}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.app.WallpaperManager android.os.ParcelFileDescriptor getWallpaperFile(int)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="anyOf" val="{&quot;android.permission.MANAGE_EXTERNAL_STORAGE&quot;, &quot;android.permission.READ_WALLPAPER_INTERNAL&quot;}" />
+    </annotation>
+  </item>
+  <item name="android.app.WallpaperManager android.os.ParcelFileDescriptor getWallpaperFile(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.WallpaperManager.FLAG_SYSTEM, android.app.WallpaperManager.FLAG_LOCK}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.app.WallpaperManager boolean hasResourceWallpaper(int) 0">
+    <annotation name="androidx.annotation.RawRes"/>
+  </item>
+  <item name="android.app.WallpaperManager int getWallpaperId(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.WallpaperManager.FLAG_SYSTEM, android.app.WallpaperManager.FLAG_LOCK}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.app.WallpaperManager int setBitmap(android.graphics.Bitmap, android.graphics.Rect, boolean)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.SET_WALLPAPER&quot;" />
+    </annotation>
+  </item>
+  <item name="android.app.WallpaperManager int setBitmap(android.graphics.Bitmap, android.graphics.Rect, boolean, int)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.SET_WALLPAPER&quot;" />
+    </annotation>
+  </item>
+  <item name="android.app.WallpaperManager int setBitmap(android.graphics.Bitmap, android.graphics.Rect, boolean, int) 3">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.WallpaperManager.FLAG_SYSTEM, android.app.WallpaperManager.FLAG_LOCK}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.app.WallpaperManager int setResource(int, int)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.SET_WALLPAPER&quot;" />
+    </annotation>
+  </item>
+  <item name="android.app.WallpaperManager int setResource(int, int) 0">
+    <annotation name="androidx.annotation.RawRes"/>
+  </item>
+  <item name="android.app.WallpaperManager int setResource(int, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.WallpaperManager.FLAG_SYSTEM, android.app.WallpaperManager.FLAG_LOCK}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.app.WallpaperManager int setStream(java.io.InputStream, android.graphics.Rect, boolean)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.SET_WALLPAPER&quot;" />
+    </annotation>
+  </item>
+  <item name="android.app.WallpaperManager int setStream(java.io.InputStream, android.graphics.Rect, boolean, int)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.SET_WALLPAPER&quot;" />
+    </annotation>
+  </item>
+  <item name="android.app.WallpaperManager int setStream(java.io.InputStream, android.graphics.Rect, boolean, int) 3">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.WallpaperManager.FLAG_SYSTEM, android.app.WallpaperManager.FLAG_LOCK}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.app.WallpaperManager void clear()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.SET_WALLPAPER&quot;" />
+    </annotation>
+  </item>
+  <item name="android.app.WallpaperManager void clear(int)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.SET_WALLPAPER&quot;" />
+    </annotation>
+  </item>
+  <item name="android.app.WallpaperManager void clear(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.WallpaperManager.FLAG_SYSTEM, android.app.WallpaperManager.FLAG_LOCK}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.app.WallpaperManager void clearWallpaper()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.SET_WALLPAPER&quot;" />
+    </annotation>
+  </item>
+  <item name="android.app.WallpaperManager void sendWallpaperCommand(android.os.IBinder, java.lang.String, int, int, int, android.os.Bundle)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.ALWAYS_UPDATE_WALLPAPER&quot;" />
+      <val name="conditional" val="true" />
+    </annotation>
+  </item>
+  <item name="android.app.WallpaperManager void setBitmap(android.graphics.Bitmap)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.SET_WALLPAPER&quot;" />
+    </annotation>
+  </item>
+  <item name="android.app.WallpaperManager void setDisplayPadding(android.graphics.Rect)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.SET_WALLPAPER_HINTS&quot;" />
+    </annotation>
+  </item>
+  <item name="android.app.WallpaperManager void setResource(int)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.SET_WALLPAPER&quot;" />
+    </annotation>
+  </item>
+  <item name="android.app.WallpaperManager void setResource(int) 0">
+    <annotation name="androidx.annotation.RawRes"/>
+  </item>
+  <item name="android.app.WallpaperManager void setStream(java.io.InputStream)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.SET_WALLPAPER&quot;" />
+    </annotation>
+  </item>
+</root>
+

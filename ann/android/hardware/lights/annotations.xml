@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+  <item name="android.hardware.lights.ColorSequence int getInterpolationMode()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.hardware.lights.ColorSequence.INTERPOLATION_MODE_NONE, android.hardware.lights.ColorSequence.INTERPOLATION_MODE_LINEAR}" />
+    </annotation>
+  </item>
+  <item name="android.hardware.lights.ColorSequence int[] getColors()">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.hardware.lights.ColorSequence.Builder android.hardware.lights.ColorSequence.Builder addControlPoint(long, int) 1">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.hardware.lights.ColorSequence.Builder android.hardware.lights.ColorSequence.Builder addControlPoints(long[], int[]) 1">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.hardware.lights.ColorSequence.Builder android.hardware.lights.ColorSequence.Builder setInterpolationMode(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.hardware.lights.ColorSequence.INTERPOLATION_MODE_NONE, android.hardware.lights.ColorSequence.INTERPOLATION_MODE_LINEAR}" />
+    </annotation>
+  </item>
+  <item name="android.hardware.lights.Light int getType()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.hardware.lights.Light.LIGHT_TYPE_MICROPHONE, android.hardware.lights.Light.LIGHT_TYPE_INPUT, android.hardware.lights.Light.LIGHT_TYPE_PLAYER_ID, android.hardware.lights.Light.LIGHT_TYPE_KEYBOARD_BACKLIGHT, android.hardware.lights.Light.LIGHT_TYPE_APPLICATION}" />
+    </annotation>
+  </item>
+  <item name="android.hardware.lights.LightState int getColor()">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.hardware.lights.LightState.Builder android.hardware.lights.LightState.Builder setColor(int) 0">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+</root>
+

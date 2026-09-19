@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+  <item name="android.service.carrier.CarrierService android.os.IBinder onBind(android.content.Intent)">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+</root>
+

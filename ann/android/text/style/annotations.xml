@@ -1,0 +1,202 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+  <item name="android.text.style.BackgroundColorSpan BackgroundColorSpan(int) 0">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.text.style.BackgroundColorSpan int getBackgroundColor()">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.text.style.BulletSpan BulletSpan(int, int) 1">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.text.style.BulletSpan BulletSpan(int, int, int) 1">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.text.style.BulletSpan BulletSpan(int, int, int) 2">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.text.style.DrawableMarginSpan int getPadding()">
+    <annotation name="androidx.annotation.Px"/>
+  </item>
+  <item name="android.text.style.DynamicDrawableSpan DynamicDrawableSpan(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.text.style.DynamicDrawableSpan.ALIGN_BOTTOM, android.text.style.DynamicDrawableSpan.ALIGN_BASELINE, android.text.style.DynamicDrawableSpan.ALIGN_CENTER}" />
+    </annotation>
+  </item>
+  <item name="android.text.style.DynamicDrawableSpan int getSize(android.graphics.Paint, java.lang.CharSequence, int, int, android.graphics.Paint.FontMetricsInt) 2">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.text.style.DynamicDrawableSpan int getSize(android.graphics.Paint, java.lang.CharSequence, int, int, android.graphics.Paint.FontMetricsInt) 3">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.text.style.DynamicDrawableSpan int getVerticalAlignment()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.text.style.DynamicDrawableSpan.ALIGN_BOTTOM, android.text.style.DynamicDrawableSpan.ALIGN_BASELINE, android.text.style.DynamicDrawableSpan.ALIGN_CENTER}" />
+    </annotation>
+  </item>
+  <item name="android.text.style.DynamicDrawableSpan void draw(android.graphics.Canvas, java.lang.CharSequence, int, int, float, int, int, int, android.graphics.Paint) 2">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.text.style.DynamicDrawableSpan void draw(android.graphics.Canvas, java.lang.CharSequence, int, int, float, int, int, int, android.graphics.Paint) 3">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.text.style.ForegroundColorSpan ForegroundColorSpan(int) 0">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.text.style.ForegroundColorSpan int getForegroundColor()">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.text.style.IconMarginSpan IconMarginSpan(android.graphics.Bitmap, int) 1">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.text.style.IconMarginSpan int getPadding()">
+    <annotation name="androidx.annotation.Px"/>
+  </item>
+  <item name="android.text.style.ImageSpan ImageSpan(android.content.Context, int) 1">
+    <annotation name="androidx.annotation.DrawableRes"/>
+  </item>
+  <item name="android.text.style.ImageSpan ImageSpan(android.content.Context, int, int) 1">
+    <annotation name="androidx.annotation.DrawableRes"/>
+  </item>
+  <item name="android.text.style.LineBackgroundSpan void drawBackground(android.graphics.Canvas, android.graphics.Paint, int, int, int, int, int, java.lang.CharSequence, int, int, int) 2">
+    <annotation name="androidx.annotation.Px"/>
+  </item>
+  <item name="android.text.style.LineBackgroundSpan void drawBackground(android.graphics.Canvas, android.graphics.Paint, int, int, int, int, int, java.lang.CharSequence, int, int, int) 3">
+    <annotation name="androidx.annotation.Px"/>
+  </item>
+  <item name="android.text.style.LineBackgroundSpan void drawBackground(android.graphics.Canvas, android.graphics.Paint, int, int, int, int, int, java.lang.CharSequence, int, int, int) 4">
+    <annotation name="androidx.annotation.Px"/>
+  </item>
+  <item name="android.text.style.LineBackgroundSpan void drawBackground(android.graphics.Canvas, android.graphics.Paint, int, int, int, int, int, java.lang.CharSequence, int, int, int) 5">
+    <annotation name="androidx.annotation.Px"/>
+  </item>
+  <item name="android.text.style.LineBackgroundSpan void drawBackground(android.graphics.Canvas, android.graphics.Paint, int, int, int, int, int, java.lang.CharSequence, int, int, int) 6">
+    <annotation name="androidx.annotation.Px"/>
+  </item>
+  <item name="android.text.style.LineBackgroundSpan.Standard Standard(int) 0">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.text.style.LineBackgroundSpan.Standard int getColor()">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.text.style.LineBackgroundSpan.Standard void drawBackground(android.graphics.Canvas, android.graphics.Paint, int, int, int, int, int, java.lang.CharSequence, int, int, int) 2">
+    <annotation name="androidx.annotation.Px"/>
+  </item>
+  <item name="android.text.style.LineBackgroundSpan.Standard void drawBackground(android.graphics.Canvas, android.graphics.Paint, int, int, int, int, int, java.lang.CharSequence, int, int, int) 3">
+    <annotation name="androidx.annotation.Px"/>
+  </item>
+  <item name="android.text.style.LineBackgroundSpan.Standard void drawBackground(android.graphics.Canvas, android.graphics.Paint, int, int, int, int, int, java.lang.CharSequence, int, int, int) 4">
+    <annotation name="androidx.annotation.Px"/>
+  </item>
+  <item name="android.text.style.LineBackgroundSpan.Standard void drawBackground(android.graphics.Canvas, android.graphics.Paint, int, int, int, int, int, java.lang.CharSequence, int, int, int) 5">
+    <annotation name="androidx.annotation.Px"/>
+  </item>
+  <item name="android.text.style.LineBackgroundSpan.Standard void drawBackground(android.graphics.Canvas, android.graphics.Paint, int, int, int, int, int, java.lang.CharSequence, int, int, int) 6">
+    <annotation name="androidx.annotation.Px"/>
+  </item>
+  <item name="android.text.style.LineHeightSpan.Standard Standard(int) 0">
+    <annotation name="androidx.annotation.Px"/>
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="1L" />
+    </annotation>
+  </item>
+  <item name="android.text.style.LineHeightSpan.Standard int getHeight()">
+    <annotation name="androidx.annotation.Px"/>
+  </item>
+  <item name="android.text.style.QuoteSpan QuoteSpan(int) 0">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.text.style.QuoteSpan QuoteSpan(int, int, int) 0">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.text.style.QuoteSpan QuoteSpan(int, int, int) 1">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.text.style.QuoteSpan QuoteSpan(int, int, int) 2">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.text.style.QuoteSpan STANDARD_COLOR">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.text.style.QuoteSpan int getColor()">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.text.style.RelativeSizeSpan RelativeSizeSpan(float) 0">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+    </annotation>
+  </item>
+  <item name="android.text.style.ReplacementSpan int getSize(android.graphics.Paint, java.lang.CharSequence, int, int, android.graphics.Paint.FontMetricsInt) 2">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.text.style.ReplacementSpan int getSize(android.graphics.Paint, java.lang.CharSequence, int, int, android.graphics.Paint.FontMetricsInt) 3">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.text.style.ReplacementSpan void draw(android.graphics.Canvas, java.lang.CharSequence, int, int, float, int, int, int, android.graphics.Paint) 2">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.text.style.ReplacementSpan void draw(android.graphics.Canvas, java.lang.CharSequence, int, int, float, int, int, int, android.graphics.Paint) 3">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.text.style.ScaleXSpan ScaleXSpan(float) 0">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+    </annotation>
+  </item>
+  <item name="android.text.style.StyleSpan StyleSpan(int, int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.graphics.Typeface.NORMAL, android.graphics.Typeface.BOLD, android.graphics.Typeface.ITALIC, android.graphics.Typeface.BOLD_ITALIC}" />
+    </annotation>
+  </item>
+  <item name="android.text.style.SuggestionSpan int getUnderlineColor()">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.text.style.TabStopSpan.Standard Standard(int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.text.style.TtsSpan.TimeBuilder android.text.style.TtsSpan.TimeBuilder setHours(int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+      <val name="to" val="24L" />
+    </annotation>
+  </item>
+  <item name="android.text.style.TtsSpan.TimeBuilder android.text.style.TtsSpan.TimeBuilder setMinutes(int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+      <val name="to" val="59L" />
+    </annotation>
+  </item>
+  <item name="android.text.style.TtsSpan.TimeBuilder android.text.style.TtsSpan.TimeBuilder setSeconds(int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+      <val name="to" val="59L" />
+    </annotation>
+  </item>
+</root>
+

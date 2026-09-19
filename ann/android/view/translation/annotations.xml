@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+  <item name="android.view.translation.TranslationCapability STATE_AVAILABLE_TO_DOWNLOAD">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.translation.TranslationCapability.STATE_AVAILABLE_TO_DOWNLOAD, android.view.translation.TranslationCapability.STATE_DOWNLOADING, android.view.translation.TranslationCapability.STATE_ON_DEVICE, android.view.translation.TranslationCapability.STATE_NOT_AVAILABLE}" />
+    </annotation>
+  </item>
+  <item name="android.view.translation.TranslationCapability STATE_DOWNLOADING">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.translation.TranslationCapability.STATE_AVAILABLE_TO_DOWNLOAD, android.view.translation.TranslationCapability.STATE_DOWNLOADING, android.view.translation.TranslationCapability.STATE_ON_DEVICE, android.view.translation.TranslationCapability.STATE_NOT_AVAILABLE}" />
+    </annotation>
+  </item>
+  <item name="android.view.translation.TranslationCapability STATE_NOT_AVAILABLE">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.translation.TranslationCapability.STATE_AVAILABLE_TO_DOWNLOAD, android.view.translation.TranslationCapability.STATE_DOWNLOADING, android.view.translation.TranslationCapability.STATE_ON_DEVICE, android.view.translation.TranslationCapability.STATE_NOT_AVAILABLE}" />
+    </annotation>
+  </item>
+  <item name="android.view.translation.TranslationCapability STATE_ON_DEVICE">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.translation.TranslationCapability.STATE_AVAILABLE_TO_DOWNLOAD, android.view.translation.TranslationCapability.STATE_DOWNLOADING, android.view.translation.TranslationCapability.STATE_ON_DEVICE, android.view.translation.TranslationCapability.STATE_NOT_AVAILABLE}" />
+    </annotation>
+  </item>
+  <item name="android.view.translation.TranslationCapability int getState()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.translation.TranslationCapability.STATE_AVAILABLE_TO_DOWNLOAD, android.view.translation.TranslationCapability.STATE_DOWNLOADING, android.view.translation.TranslationCapability.STATE_ON_DEVICE, android.view.translation.TranslationCapability.STATE_NOT_AVAILABLE}" />
+    </annotation>
+  </item>
+  <item name="android.view.translation.TranslationCapability int getSupportedTranslationFlags()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.translation.TranslationContext.FLAG_LOW_LATENCY, android.view.translation.TranslationContext.FLAG_TRANSLITERATION, android.view.translation.TranslationContext.FLAG_DEFINITIONS}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.view.translation.TranslationContext FLAG_DEFINITIONS">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.translation.TranslationContext.FLAG_LOW_LATENCY, android.view.translation.TranslationContext.FLAG_TRANSLITERATION, android.view.translation.TranslationContext.FLAG_DEFINITIONS}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.view.translation.TranslationContext FLAG_LOW_LATENCY">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.translation.TranslationContext.FLAG_LOW_LATENCY, android.view.translation.TranslationContext.FLAG_TRANSLITERATION, android.view.translation.TranslationContext.FLAG_DEFINITIONS}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.view.translation.TranslationContext FLAG_TRANSLITERATION">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.translation.TranslationContext.FLAG_LOW_LATENCY, android.view.translation.TranslationContext.FLAG_TRANSLITERATION, android.view.translation.TranslationContext.FLAG_DEFINITIONS}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.view.translation.TranslationContext int getTranslationFlags()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.translation.TranslationContext.FLAG_LOW_LATENCY, android.view.translation.TranslationContext.FLAG_TRANSLITERATION, android.view.translation.TranslationContext.FLAG_DEFINITIONS}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.view.translation.TranslationContext.Builder android.view.translation.TranslationContext.Builder setTranslationFlags(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.translation.TranslationContext.FLAG_LOW_LATENCY, android.view.translation.TranslationContext.FLAG_TRANSLITERATION, android.view.translation.TranslationContext.FLAG_DEFINITIONS}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.view.translation.TranslationManager java.util.Set&lt;android.view.translation.TranslationCapability&gt; getOnDeviceTranslationCapabilities(int, int)">
+    <annotation name="androidx.annotation.WorkerThread"/>
+  </item>
+  <item name="android.view.translation.TranslationManager java.util.Set&lt;android.view.translation.TranslationCapability&gt; getOnDeviceTranslationCapabilities(int, int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="android.view.translation.TranslationSpec.DATA_FORMAT_TEXT" />
+    </annotation>
+  </item>
+  <item name="android.view.translation.TranslationManager java.util.Set&lt;android.view.translation.TranslationCapability&gt; getOnDeviceTranslationCapabilities(int, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="android.view.translation.TranslationSpec.DATA_FORMAT_TEXT" />
+    </annotation>
+  </item>
+  <item name="android.view.translation.TranslationRequest FLAG_DICTIONARY_RESULT">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.translation.TranslationRequest.FLAG_TRANSLATION_RESULT, android.view.translation.TranslationRequest.FLAG_DICTIONARY_RESULT, android.view.translation.TranslationRequest.FLAG_TRANSLITERATION_RESULT, android.view.translation.TranslationRequest.FLAG_PARTIAL_RESPONSES}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.view.translation.TranslationRequest FLAG_PARTIAL_RESPONSES">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.translation.TranslationRequest.FLAG_TRANSLATION_RESULT, android.view.translation.TranslationRequest.FLAG_DICTIONARY_RESULT, android.view.translation.TranslationRequest.FLAG_TRANSLITERATION_RESULT, android.view.translation.TranslationRequest.FLAG_PARTIAL_RESPONSES}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.view.translation.TranslationRequest FLAG_TRANSLATION_RESULT">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.translation.TranslationRequest.FLAG_TRANSLATION_RESULT, android.view.translation.TranslationRequest.FLAG_DICTIONARY_RESULT, android.view.translation.TranslationRequest.FLAG_TRANSLITERATION_RESULT, android.view.translation.TranslationRequest.FLAG_PARTIAL_RESPONSES}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.view.translation.TranslationRequest FLAG_TRANSLITERATION_RESULT">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.translation.TranslationRequest.FLAG_TRANSLATION_RESULT, android.view.translation.TranslationRequest.FLAG_DICTIONARY_RESULT, android.view.translation.TranslationRequest.FLAG_TRANSLITERATION_RESULT, android.view.translation.TranslationRequest.FLAG_PARTIAL_RESPONSES}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.view.translation.TranslationRequest int getFlags()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.translation.TranslationRequest.FLAG_TRANSLATION_RESULT, android.view.translation.TranslationRequest.FLAG_DICTIONARY_RESULT, android.view.translation.TranslationRequest.FLAG_TRANSLITERATION_RESULT, android.view.translation.TranslationRequest.FLAG_PARTIAL_RESPONSES}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.view.translation.TranslationRequest.Builder android.view.translation.TranslationRequest.Builder setFlags(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.translation.TranslationRequest.FLAG_TRANSLATION_RESULT, android.view.translation.TranslationRequest.FLAG_DICTIONARY_RESULT, android.view.translation.TranslationRequest.FLAG_TRANSLITERATION_RESULT, android.view.translation.TranslationRequest.FLAG_PARTIAL_RESPONSES}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.view.translation.TranslationResponse int getTranslationStatus()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.translation.TranslationResponse.TRANSLATION_STATUS_SUCCESS, android.view.translation.TranslationResponse.TRANSLATION_STATUS_UNKNOWN_ERROR, android.view.translation.TranslationResponse.TRANSLATION_STATUS_CONTEXT_UNSUPPORTED}" />
+    </annotation>
+  </item>
+  <item name="android.view.translation.TranslationResponse.Builder Builder(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.translation.TranslationResponse.TRANSLATION_STATUS_SUCCESS, android.view.translation.TranslationResponse.TRANSLATION_STATUS_UNKNOWN_ERROR, android.view.translation.TranslationResponse.TRANSLATION_STATUS_CONTEXT_UNSUPPORTED}" />
+    </annotation>
+  </item>
+  <item name="android.view.translation.TranslationResponseValue int getStatusCode()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.translation.TranslationResponseValue.STATUS_SUCCESS, android.view.translation.TranslationResponseValue.STATUS_ERROR}" />
+    </annotation>
+  </item>
+  <item name="android.view.translation.TranslationResponseValue.Builder Builder(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.translation.TranslationResponseValue.STATUS_SUCCESS, android.view.translation.TranslationResponseValue.STATUS_ERROR}" />
+    </annotation>
+  </item>
+  <item name="android.view.translation.TranslationSpec TranslationSpec(android.icu.util.ULocale, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="android.view.translation.TranslationSpec.DATA_FORMAT_TEXT" />
+    </annotation>
+  </item>
+  <item name="android.view.translation.TranslationSpec int getDataFormat()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="android.view.translation.TranslationSpec.DATA_FORMAT_TEXT" />
+    </annotation>
+  </item>
+  <item name="android.view.translation.ViewTranslationCallback">
+    <annotation name="androidx.annotation.UiThread"/>
+  </item>
+</root>
+

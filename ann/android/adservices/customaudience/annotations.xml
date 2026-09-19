@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+  <item name="android.adservices.customaudience.CustomAudience int getAuctionServerRequestFlags()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="android.adservices.customaudience.CustomAudience.FLAG_AUCTION_SERVER_REQUEST_OMIT_ADS" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.adservices.customaudience.CustomAudience.Builder android.adservices.customaudience.CustomAudience.Builder setAuctionServerRequestFlags(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="android.adservices.customaudience.CustomAudience.FLAG_AUCTION_SERVER_REQUEST_OMIT_ADS" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.adservices.customaudience.CustomAudienceManager void fetchAndJoinCustomAudience(android.adservices.customaudience.FetchAndJoinCustomAudienceRequest, java.util.concurrent.Executor, android.os.OutcomeReceiver&lt;java.lang.Object,java.lang.Exception&gt;)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.ACCESS_ADSERVICES_CUSTOM_AUDIENCE&quot;" />
+    </annotation>
+  </item>
+  <item name="android.adservices.customaudience.CustomAudienceManager void joinCustomAudience(android.adservices.customaudience.JoinCustomAudienceRequest, java.util.concurrent.Executor, android.os.OutcomeReceiver&lt;java.lang.Object,java.lang.Exception&gt;)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.ACCESS_ADSERVICES_CUSTOM_AUDIENCE&quot;" />
+    </annotation>
+  </item>
+  <item name="android.adservices.customaudience.CustomAudienceManager void leaveCustomAudience(android.adservices.customaudience.LeaveCustomAudienceRequest, java.util.concurrent.Executor, android.os.OutcomeReceiver&lt;java.lang.Object,java.lang.Exception&gt;)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.ACCESS_ADSERVICES_CUSTOM_AUDIENCE&quot;" />
+    </annotation>
+  </item>
+  <item name="android.adservices.customaudience.CustomAudienceManager void scheduleCustomAudienceUpdate(android.adservices.customaudience.ScheduleCustomAudienceUpdateRequest, java.util.concurrent.Executor, android.adservices.common.AdServicesOutcomeReceiver&lt;java.lang.Object,java.lang.Exception&gt;)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.ACCESS_ADSERVICES_CUSTOM_AUDIENCE&quot;" />
+    </annotation>
+  </item>
+  <item name="android.adservices.customaudience.TestCustomAudienceManager void overrideCustomAudienceRemoteInfo(android.adservices.customaudience.AddCustomAudienceOverrideRequest, java.util.concurrent.Executor, android.os.OutcomeReceiver&lt;java.lang.Object,java.lang.Exception&gt;)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.ACCESS_ADSERVICES_CUSTOM_AUDIENCE&quot;" />
+    </annotation>
+  </item>
+  <item name="android.adservices.customaudience.TestCustomAudienceManager void removeCustomAudienceRemoteInfoOverride(android.adservices.customaudience.RemoveCustomAudienceOverrideRequest, java.util.concurrent.Executor, android.os.OutcomeReceiver&lt;java.lang.Object,java.lang.Exception&gt;)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.ACCESS_ADSERVICES_CUSTOM_AUDIENCE&quot;" />
+    </annotation>
+  </item>
+  <item name="android.adservices.customaudience.TestCustomAudienceManager void resetAllCustomAudienceOverrides(java.util.concurrent.Executor, android.os.OutcomeReceiver&lt;java.lang.Object,java.lang.Exception&gt;)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.ACCESS_ADSERVICES_CUSTOM_AUDIENCE&quot;" />
+    </annotation>
+  </item>
+</root>
+

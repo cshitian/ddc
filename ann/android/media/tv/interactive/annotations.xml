@@ -1,0 +1,275 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+  <item name="android.media.tv.interactive.TvInteractiveAppManager.TvInteractiveAppCallback void onTvInteractiveAppServiceStateChanged(java.lang.String, int, int, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.interactive.TvInteractiveAppServiceInfo.INTERACTIVE_APP_TYPE_HBBTV, android.media.tv.interactive.TvInteractiveAppServiceInfo.INTERACTIVE_APP_TYPE_ATSC, android.media.tv.interactive.TvInteractiveAppServiceInfo.INTERACTIVE_APP_TYPE_GINGA, android.media.tv.interactive.TvInteractiveAppServiceInfo.INTERACTIVE_APP_TYPE_TARGETED_AD, android.media.tv.interactive.TvInteractiveAppServiceInfo.INTERACTIVE_APP_TYPE_OTHER}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.interactive.TvInteractiveAppManager.TvInteractiveAppCallback void onTvInteractiveAppServiceStateChanged(java.lang.String, int, int, int) 2">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.interactive.TvInteractiveAppManager.SERVICE_STATE_UNREALIZED, android.media.tv.interactive.TvInteractiveAppManager.SERVICE_STATE_PREPARING, android.media.tv.interactive.TvInteractiveAppManager.SERVICE_STATE_READY, android.media.tv.interactive.TvInteractiveAppManager.SERVICE_STATE_ERROR}" />
+      <val name="flag" val="false" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.interactive.TvInteractiveAppManager.TvInteractiveAppCallback void onTvInteractiveAppServiceStateChanged(java.lang.String, int, int, int) 3">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.interactive.TvInteractiveAppManager.ERROR_NONE, android.media.tv.interactive.TvInteractiveAppManager.ERROR_UNKNOWN, android.media.tv.interactive.TvInteractiveAppManager.ERROR_NOT_SUPPORTED, android.media.tv.interactive.TvInteractiveAppManager.ERROR_WEAK_SIGNAL, android.media.tv.interactive.TvInteractiveAppManager.ERROR_RESOURCE_UNAVAILABLE, android.media.tv.interactive.TvInteractiveAppManager.ERROR_BLOCKED, android.media.tv.interactive.TvInteractiveAppManager.ERROR_ENCRYPTED, android.media.tv.interactive.TvInteractiveAppManager.ERROR_UNKNOWN_CHANNEL}" />
+      <val name="flag" val="false" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.interactive.TvInteractiveAppService android.media.tv.interactive.TvInteractiveAppService.Session onCreateSession(java.lang.String, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.interactive.TvInteractiveAppServiceInfo.INTERACTIVE_APP_TYPE_HBBTV, android.media.tv.interactive.TvInteractiveAppServiceInfo.INTERACTIVE_APP_TYPE_ATSC, android.media.tv.interactive.TvInteractiveAppServiceInfo.INTERACTIVE_APP_TYPE_GINGA, android.media.tv.interactive.TvInteractiveAppServiceInfo.INTERACTIVE_APP_TYPE_TARGETED_AD, android.media.tv.interactive.TvInteractiveAppServiceInfo.INTERACTIVE_APP_TYPE_OTHER}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.interactive.TvInteractiveAppService void notifyStateChanged(int, int, int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.interactive.TvInteractiveAppServiceInfo.INTERACTIVE_APP_TYPE_HBBTV, android.media.tv.interactive.TvInteractiveAppServiceInfo.INTERACTIVE_APP_TYPE_ATSC, android.media.tv.interactive.TvInteractiveAppServiceInfo.INTERACTIVE_APP_TYPE_GINGA, android.media.tv.interactive.TvInteractiveAppServiceInfo.INTERACTIVE_APP_TYPE_TARGETED_AD, android.media.tv.interactive.TvInteractiveAppServiceInfo.INTERACTIVE_APP_TYPE_OTHER}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.interactive.TvInteractiveAppService void notifyStateChanged(int, int, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.interactive.TvInteractiveAppManager.SERVICE_STATE_UNREALIZED, android.media.tv.interactive.TvInteractiveAppManager.SERVICE_STATE_PREPARING, android.media.tv.interactive.TvInteractiveAppManager.SERVICE_STATE_READY, android.media.tv.interactive.TvInteractiveAppManager.SERVICE_STATE_ERROR}" />
+      <val name="flag" val="false" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.interactive.TvInteractiveAppService void notifyStateChanged(int, int, int) 2">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.interactive.TvInteractiveAppManager.ERROR_NONE, android.media.tv.interactive.TvInteractiveAppManager.ERROR_UNKNOWN, android.media.tv.interactive.TvInteractiveAppManager.ERROR_NOT_SUPPORTED, android.media.tv.interactive.TvInteractiveAppManager.ERROR_WEAK_SIGNAL, android.media.tv.interactive.TvInteractiveAppManager.ERROR_RESOURCE_UNAVAILABLE, android.media.tv.interactive.TvInteractiveAppManager.ERROR_BLOCKED, android.media.tv.interactive.TvInteractiveAppManager.ERROR_ENCRYPTED, android.media.tv.interactive.TvInteractiveAppManager.ERROR_UNKNOWN_CHANNEL}" />
+      <val name="flag" val="false" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.interactive.TvInteractiveAppService.Session void layoutSurface(int, int, int, int)">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.media.tv.interactive.TvInteractiveAppService.Session void notifyAdBufferReady(android.media.tv.AdBuffer)">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.media.tv.interactive.TvInteractiveAppService.Session void notifyBiInteractiveAppCreated(android.net.Uri, java.lang.String)">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.media.tv.interactive.TvInteractiveAppService.Session void notifySessionStateChanged(int, int)">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.media.tv.interactive.TvInteractiveAppService.Session void notifySessionStateChanged(int, int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.interactive.TvInteractiveAppManager.INTERACTIVE_APP_STATE_STOPPED, android.media.tv.interactive.TvInteractiveAppManager.INTERACTIVE_APP_STATE_RUNNING, android.media.tv.interactive.TvInteractiveAppManager.INTERACTIVE_APP_STATE_ERROR}" />
+      <val name="flag" val="false" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.interactive.TvInteractiveAppService.Session void notifySessionStateChanged(int, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.interactive.TvInteractiveAppManager.ERROR_NONE, android.media.tv.interactive.TvInteractiveAppManager.ERROR_UNKNOWN, android.media.tv.interactive.TvInteractiveAppManager.ERROR_NOT_SUPPORTED, android.media.tv.interactive.TvInteractiveAppManager.ERROR_WEAK_SIGNAL, android.media.tv.interactive.TvInteractiveAppManager.ERROR_RESOURCE_UNAVAILABLE, android.media.tv.interactive.TvInteractiveAppManager.ERROR_BLOCKED, android.media.tv.interactive.TvInteractiveAppManager.ERROR_ENCRYPTED, android.media.tv.interactive.TvInteractiveAppManager.ERROR_UNKNOWN_CHANNEL}" />
+      <val name="flag" val="false" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.interactive.TvInteractiveAppService.Session void notifyTeletextAppStateChanged(int)">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.media.tv.interactive.TvInteractiveAppService.Session void notifyTeletextAppStateChanged(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.interactive.TvInteractiveAppManager.TELETEXT_APP_STATE_SHOW, android.media.tv.interactive.TvInteractiveAppManager.TELETEXT_APP_STATE_HIDE, android.media.tv.interactive.TvInteractiveAppManager.TELETEXT_APP_STATE_ERROR}" />
+      <val name="flag" val="false" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.interactive.TvInteractiveAppService.Session void onMediaViewSizeChanged(int, int) 0">
+    <annotation name="androidx.annotation.Px"/>
+  </item>
+  <item name="android.media.tv.interactive.TvInteractiveAppService.Session void onMediaViewSizeChanged(int, int) 1">
+    <annotation name="androidx.annotation.Px"/>
+  </item>
+  <item name="android.media.tv.interactive.TvInteractiveAppService.Session void onRecordingError(java.lang.String, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.TvInputManager.RECORDING_ERROR_UNKNOWN, android.media.tv.TvInputManager.RECORDING_ERROR_INSUFFICIENT_SPACE, android.media.tv.TvInputManager.RECORDING_ERROR_RESOURCE_BUSY}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.interactive.TvInteractiveAppService.Session void onSignalStrength(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.TvInputManager.SIGNAL_STRENGTH_LOST, android.media.tv.TvInputManager.SIGNAL_STRENGTH_WEAK, android.media.tv.TvInputManager.SIGNAL_STRENGTH_STRONG}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.interactive.TvInteractiveAppService.Session void onSurfaceChanged(int, int, int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.graphics.PixelFormat.RGBA_8888, android.graphics.PixelFormat.RGBX_8888, android.graphics.PixelFormat.RGBA_F16, android.graphics.PixelFormat.RGBA_1010102, android.graphics.PixelFormat.RGB_888, android.graphics.PixelFormat.RGB_565}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.interactive.TvInteractiveAppService.Session void onTimeShiftMode(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.TvInputManager.TIME_SHIFT_MODE_OFF, android.media.tv.TvInputManager.TIME_SHIFT_MODE_LOCAL, android.media.tv.TvInputManager.TIME_SHIFT_MODE_NETWORK, android.media.tv.TvInputManager.TIME_SHIFT_MODE_AUTO}" />
+      <val name="flag" val="false" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.interactive.TvInteractiveAppService.Session void onTimeShiftStatusChanged(java.lang.String, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.TvInputManager.TIME_SHIFT_STATUS_UNKNOWN, android.media.tv.TvInputManager.TIME_SHIFT_STATUS_UNSUPPORTED, android.media.tv.TvInputManager.TIME_SHIFT_STATUS_UNAVAILABLE, android.media.tv.TvInputManager.TIME_SHIFT_STATUS_AVAILABLE}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.interactive.TvInteractiveAppService.Session void onTrackSelected(int, java.lang.String) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.TvTrackInfo.TYPE_AUDIO, android.media.tv.TvTrackInfo.TYPE_VIDEO, android.media.tv.TvTrackInfo.TYPE_SUBTITLE}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.interactive.TvInteractiveAppService.Session void onTvMessage(int, android.os.Bundle) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.TvInputManager.TV_MESSAGE_TYPE_WATERMARK, android.media.tv.TvInputManager.TV_MESSAGE_TYPE_CLOSED_CAPTION, android.media.tv.TvInputManager.TV_MESSAGE_TYPE_OTHER}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.interactive.TvInteractiveAppService.Session void onVideoUnavailable(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.TvInputManager.VIDEO_UNAVAILABLE_REASON_UNKNOWN, android.media.tv.TvInputManager.VIDEO_UNAVAILABLE_REASON_TUNING, android.media.tv.TvInputManager.VIDEO_UNAVAILABLE_REASON_WEAK_SIGNAL, android.media.tv.TvInputManager.VIDEO_UNAVAILABLE_REASON_BUFFERING, android.media.tv.TvInputManager.VIDEO_UNAVAILABLE_REASON_AUDIO_ONLY, android.media.tv.TvInputManager.VIDEO_UNAVAILABLE_REASON_NOT_CONNECTED, android.media.tv.TvInputManager.VIDEO_UNAVAILABLE_REASON_INSUFFICIENT_RESOURCE, android.media.tv.TvInputManager.VIDEO_UNAVAILABLE_REASON_CAS_INSUFFICIENT_OUTPUT_PROTECTION, android.media.tv.TvInputManager.VIDEO_UNAVAILABLE_REASON_CAS_PVR_RECORDING_NOT_ALLOWED, android.media.tv.TvInputManager.VIDEO_UNAVAILABLE_REASON_CAS_LICENSE_EXPIRED, android.media.tv.TvInputManager.VIDEO_UNAVAILABLE_REASON_CAS_NEED_ACTIVATION, android.media.tv.TvInputManager.VIDEO_UNAVAILABLE_REASON_CAS_NEED_PAIRING, android.media.tv.TvInputManager.VIDEO_UNAVAILABLE_REASON_CAS_NO_CARD, android.media.tv.TvInputManager.VIDEO_UNAVAILABLE_REASON_CAS_CARD_MUTE, android.media.tv.TvInputManager.VIDEO_UNAVAILABLE_REASON_CAS_CARD_INVALID, android.media.tv.TvInputManager.VIDEO_UNAVAILABLE_REASON_CAS_BLACKOUT, android.media.tv.TvInputManager.VIDEO_UNAVAILABLE_REASON_CAS_REBOOTING, android.media.tv.TvInputManager.VIDEO_UNAVAILABLE_REASON_CAS_UNKNOWN, android.media.tv.TvInputManager.VIDEO_UNAVAILABLE_REASON_STOPPED}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.interactive.TvInteractiveAppService.Session void removeBroadcastInfo(int)">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.media.tv.interactive.TvInteractiveAppService.Session void requestAd(android.media.tv.AdRequest)">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.media.tv.interactive.TvInteractiveAppService.Session void requestAvailableSpeeds()">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.media.tv.interactive.TvInteractiveAppService.Session void requestBroadcastInfo(android.media.tv.BroadcastInfoRequest)">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.media.tv.interactive.TvInteractiveAppService.Session void requestCertificate(java.lang.String, int)">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.media.tv.interactive.TvInteractiveAppService.Session void requestCurrentChannelLcn()">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.media.tv.interactive.TvInteractiveAppService.Session void requestCurrentChannelUri()">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.media.tv.interactive.TvInteractiveAppService.Session void requestCurrentTvInputId()">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.media.tv.interactive.TvInteractiveAppService.Session void requestCurrentVideoBounds()">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.media.tv.interactive.TvInteractiveAppService.Session void requestScheduleRecording(java.lang.String, java.lang.String, android.net.Uri, android.net.Uri, android.os.Bundle)">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.media.tv.interactive.TvInteractiveAppService.Session void requestScheduleRecording(java.lang.String, java.lang.String, android.net.Uri, long, long, int, android.os.Bundle)">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.media.tv.interactive.TvInteractiveAppService.Session void requestSelectedTrackInfo()">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.media.tv.interactive.TvInteractiveAppService.Session void requestSigning(java.lang.String, java.lang.String, java.lang.String, byte[])">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.media.tv.interactive.TvInteractiveAppService.Session void requestSigning(java.lang.String, java.lang.String, java.lang.String, int, byte[])">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.media.tv.interactive.TvInteractiveAppService.Session void requestStartRecording(java.lang.String, android.net.Uri)">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.media.tv.interactive.TvInteractiveAppService.Session void requestStopRecording(java.lang.String)">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.media.tv.interactive.TvInteractiveAppService.Session void requestStreamVolume()">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.media.tv.interactive.TvInteractiveAppService.Session void requestTimeShiftMode()">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.media.tv.interactive.TvInteractiveAppService.Session void requestTrackInfoList()">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.media.tv.interactive.TvInteractiveAppService.Session void requestTvRecordingInfo(java.lang.String)">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.media.tv.interactive.TvInteractiveAppService.Session void requestTvRecordingInfoList(int)">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.media.tv.interactive.TvInteractiveAppService.Session void requestTvRecordingInfoList(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.TvRecordingInfo.RECORDING_SCHEDULED, android.media.tv.TvRecordingInfo.RECORDING_IN_PROGRESS, android.media.tv.TvRecordingInfo.RECORDING_ALL}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.interactive.TvInteractiveAppService.Session void sendPlaybackCommandRequest(java.lang.String, android.os.Bundle)">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.media.tv.interactive.TvInteractiveAppService.Session void sendPlaybackCommandRequest(java.lang.String, android.os.Bundle) 0">
+    <annotation name="androidx.annotation.StringDef">
+      <val name="value" val="{android.media.tv.interactive.TvInteractiveAppService.PLAYBACK_COMMAND_TYPE_TUNE, android.media.tv.interactive.TvInteractiveAppService.PLAYBACK_COMMAND_TYPE_TUNE_NEXT, android.media.tv.interactive.TvInteractiveAppService.PLAYBACK_COMMAND_TYPE_TUNE_PREV, android.media.tv.interactive.TvInteractiveAppService.PLAYBACK_COMMAND_TYPE_STOP, android.media.tv.interactive.TvInteractiveAppService.PLAYBACK_COMMAND_TYPE_SET_STREAM_VOLUME, android.media.tv.interactive.TvInteractiveAppService.PLAYBACK_COMMAND_TYPE_SELECT_TRACK}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.interactive.TvInteractiveAppService.Session void sendTimeShiftCommandRequest(java.lang.String, android.os.Bundle)">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.media.tv.interactive.TvInteractiveAppService.Session void sendTimeShiftCommandRequest(java.lang.String, android.os.Bundle) 0">
+    <annotation name="androidx.annotation.StringDef">
+      <val name="value" val="{android.media.tv.interactive.TvInteractiveAppService.TIME_SHIFT_COMMAND_TYPE_PLAY, android.media.tv.interactive.TvInteractiveAppService.TIME_SHIFT_COMMAND_TYPE_PAUSE, android.media.tv.interactive.TvInteractiveAppService.TIME_SHIFT_COMMAND_TYPE_RESUME, android.media.tv.interactive.TvInteractiveAppService.TIME_SHIFT_COMMAND_TYPE_SEEK_TO, android.media.tv.interactive.TvInteractiveAppService.TIME_SHIFT_COMMAND_TYPE_SET_PLAYBACK_PARAMS, android.media.tv.interactive.TvInteractiveAppService.TIME_SHIFT_COMMAND_TYPE_SET_MODE}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.interactive.TvInteractiveAppService.Session void setMediaViewEnabled(boolean)">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.media.tv.interactive.TvInteractiveAppService.Session void setTvRecordingInfo(java.lang.String, android.media.tv.TvRecordingInfo)">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.media.tv.interactive.TvInteractiveAppService.Session void setVideoBounds(android.graphics.Rect)">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.media.tv.interactive.TvInteractiveAppServiceInfo int getSupportedTypes()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.interactive.TvInteractiveAppServiceInfo.INTERACTIVE_APP_TYPE_HBBTV, android.media.tv.interactive.TvInteractiveAppServiceInfo.INTERACTIVE_APP_TYPE_ATSC, android.media.tv.interactive.TvInteractiveAppServiceInfo.INTERACTIVE_APP_TYPE_GINGA, android.media.tv.interactive.TvInteractiveAppServiceInfo.INTERACTIVE_APP_TYPE_TARGETED_AD, android.media.tv.interactive.TvInteractiveAppServiceInfo.INTERACTIVE_APP_TYPE_OTHER}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.interactive.TvInteractiveAppView void notifyTimeShiftStatusChanged(java.lang.String, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.TvInputManager.TIME_SHIFT_STATUS_UNKNOWN, android.media.tv.TvInputManager.TIME_SHIFT_STATUS_UNSUPPORTED, android.media.tv.TvInputManager.TIME_SHIFT_STATUS_UNAVAILABLE, android.media.tv.TvInputManager.TIME_SHIFT_STATUS_AVAILABLE}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.interactive.TvInteractiveAppView void notifyTvMessage(int, android.os.Bundle) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.TvInputManager.TV_MESSAGE_TYPE_WATERMARK, android.media.tv.TvInputManager.TV_MESSAGE_TYPE_CLOSED_CAPTION, android.media.tv.TvInputManager.TV_MESSAGE_TYPE_OTHER}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.interactive.TvInteractiveAppView void prepareInteractiveApp(java.lang.String, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.interactive.TvInteractiveAppServiceInfo.INTERACTIVE_APP_TYPE_HBBTV, android.media.tv.interactive.TvInteractiveAppServiceInfo.INTERACTIVE_APP_TYPE_ATSC, android.media.tv.interactive.TvInteractiveAppServiceInfo.INTERACTIVE_APP_TYPE_GINGA, android.media.tv.interactive.TvInteractiveAppServiceInfo.INTERACTIVE_APP_TYPE_TARGETED_AD, android.media.tv.interactive.TvInteractiveAppServiceInfo.INTERACTIVE_APP_TYPE_OTHER}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.interactive.TvInteractiveAppView void sendTimeShiftMode(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.TvInputManager.TIME_SHIFT_MODE_OFF, android.media.tv.TvInputManager.TIME_SHIFT_MODE_LOCAL, android.media.tv.TvInputManager.TIME_SHIFT_MODE_NETWORK, android.media.tv.TvInputManager.TIME_SHIFT_MODE_AUTO}" />
+      <val name="flag" val="false" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.interactive.TvInteractiveAppView.TvInteractiveAppCallback void onPlaybackCommandRequest(java.lang.String, java.lang.String, android.os.Bundle) 1">
+    <annotation name="androidx.annotation.StringDef">
+      <val name="value" val="{android.media.tv.interactive.TvInteractiveAppService.PLAYBACK_COMMAND_TYPE_TUNE, android.media.tv.interactive.TvInteractiveAppService.PLAYBACK_COMMAND_TYPE_TUNE_NEXT, android.media.tv.interactive.TvInteractiveAppService.PLAYBACK_COMMAND_TYPE_TUNE_PREV, android.media.tv.interactive.TvInteractiveAppService.PLAYBACK_COMMAND_TYPE_STOP, android.media.tv.interactive.TvInteractiveAppService.PLAYBACK_COMMAND_TYPE_SET_STREAM_VOLUME, android.media.tv.interactive.TvInteractiveAppService.PLAYBACK_COMMAND_TYPE_SELECT_TRACK}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.interactive.TvInteractiveAppView.TvInteractiveAppCallback void onRequestTvRecordingInfoList(java.lang.String, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.TvRecordingInfo.RECORDING_SCHEDULED, android.media.tv.TvRecordingInfo.RECORDING_IN_PROGRESS, android.media.tv.TvRecordingInfo.RECORDING_ALL}" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.interactive.TvInteractiveAppView.TvInteractiveAppCallback void onStateChanged(java.lang.String, int, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.interactive.TvInteractiveAppManager.INTERACTIVE_APP_STATE_STOPPED, android.media.tv.interactive.TvInteractiveAppManager.INTERACTIVE_APP_STATE_RUNNING, android.media.tv.interactive.TvInteractiveAppManager.INTERACTIVE_APP_STATE_ERROR}" />
+      <val name="flag" val="false" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.interactive.TvInteractiveAppView.TvInteractiveAppCallback void onStateChanged(java.lang.String, int, int) 2">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.interactive.TvInteractiveAppManager.ERROR_NONE, android.media.tv.interactive.TvInteractiveAppManager.ERROR_UNKNOWN, android.media.tv.interactive.TvInteractiveAppManager.ERROR_NOT_SUPPORTED, android.media.tv.interactive.TvInteractiveAppManager.ERROR_WEAK_SIGNAL, android.media.tv.interactive.TvInteractiveAppManager.ERROR_RESOURCE_UNAVAILABLE, android.media.tv.interactive.TvInteractiveAppManager.ERROR_BLOCKED, android.media.tv.interactive.TvInteractiveAppManager.ERROR_ENCRYPTED, android.media.tv.interactive.TvInteractiveAppManager.ERROR_UNKNOWN_CHANNEL}" />
+      <val name="flag" val="false" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.interactive.TvInteractiveAppView.TvInteractiveAppCallback void onTeletextAppStateChanged(java.lang.String, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.tv.interactive.TvInteractiveAppManager.TELETEXT_APP_STATE_SHOW, android.media.tv.interactive.TvInteractiveAppManager.TELETEXT_APP_STATE_HIDE, android.media.tv.interactive.TvInteractiveAppManager.TELETEXT_APP_STATE_ERROR}" />
+      <val name="flag" val="false" />
+    </annotation>
+  </item>
+  <item name="android.media.tv.interactive.TvInteractiveAppView.TvInteractiveAppCallback void onTimeShiftCommandRequest(java.lang.String, java.lang.String, android.os.Bundle) 1">
+    <annotation name="androidx.annotation.StringDef">
+      <val name="value" val="{android.media.tv.interactive.TvInteractiveAppService.TIME_SHIFT_COMMAND_TYPE_PLAY, android.media.tv.interactive.TvInteractiveAppService.TIME_SHIFT_COMMAND_TYPE_PAUSE, android.media.tv.interactive.TvInteractiveAppService.TIME_SHIFT_COMMAND_TYPE_RESUME, android.media.tv.interactive.TvInteractiveAppService.TIME_SHIFT_COMMAND_TYPE_SEEK_TO, android.media.tv.interactive.TvInteractiveAppService.TIME_SHIFT_COMMAND_TYPE_SET_PLAYBACK_PARAMS, android.media.tv.interactive.TvInteractiveAppService.TIME_SHIFT_COMMAND_TYPE_SET_MODE}" />
+    </annotation>
+  </item>
+</root>
+

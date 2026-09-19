@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+  <item name="android.companion.virtual.VirtualDeviceManager">
+    <annotation name="androidx.annotation.RestrictedForEnvironment">
+      <val name="environments" val="&quot;SDK Runtime&quot;" />
+      <val name="from" val="34" />
+    </annotation>
+  </item>
+</root>
+

@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+  <item name="android.printservice.PrintJob android.print.PrintJobId getId()">
+    <annotation name="androidx.annotation.MainThread"/>
+  </item>
+  <item name="android.printservice.PrintJob android.print.PrintJobInfo getInfo()">
+    <annotation name="androidx.annotation.MainThread"/>
+  </item>
+  <item name="android.printservice.PrintJob android.printservice.PrintDocument getDocument()">
+    <annotation name="androidx.annotation.MainThread"/>
+  </item>
+  <item name="android.printservice.PrintJob boolean block(java.lang.String)">
+    <annotation name="androidx.annotation.MainThread"/>
+  </item>
+  <item name="android.printservice.PrintJob boolean cancel()">
+    <annotation name="androidx.annotation.MainThread"/>
+  </item>
+  <item name="android.printservice.PrintJob boolean complete()">
+    <annotation name="androidx.annotation.MainThread"/>
+  </item>
+  <item name="android.printservice.PrintJob boolean fail(java.lang.String)">
+    <annotation name="androidx.annotation.MainThread"/>
+  </item>
+  <item name="android.printservice.PrintJob boolean hasAdvancedOption(java.lang.String)">
+    <annotation name="androidx.annotation.MainThread"/>
+  </item>
+  <item name="android.printservice.PrintJob boolean isBlocked()">
+    <annotation name="androidx.annotation.MainThread"/>
+  </item>
+  <item name="android.printservice.PrintJob boolean isCancelled()">
+    <annotation name="androidx.annotation.MainThread"/>
+  </item>
+  <item name="android.printservice.PrintJob boolean isCompleted()">
+    <annotation name="androidx.annotation.MainThread"/>
+  </item>
+  <item name="android.printservice.PrintJob boolean isFailed()">
+    <annotation name="androidx.annotation.MainThread"/>
+  </item>
+  <item name="android.printservice.PrintJob boolean isQueued()">
+    <annotation name="androidx.annotation.MainThread"/>
+  </item>
+  <item name="android.printservice.PrintJob boolean isStarted()">
+    <annotation name="androidx.annotation.MainThread"/>
+  </item>
+  <item name="android.printservice.PrintJob boolean setTag(java.lang.String)">
+    <annotation name="androidx.annotation.MainThread"/>
+  </item>
+  <item name="android.printservice.PrintJob boolean start()">
+    <annotation name="androidx.annotation.MainThread"/>
+  </item>
+  <item name="android.printservice.PrintJob int getAdvancedIntOption(java.lang.String)">
+    <annotation name="androidx.annotation.MainThread"/>
+  </item>
+  <item name="android.printservice.PrintJob java.lang.String getAdvancedStringOption(java.lang.String)">
+    <annotation name="androidx.annotation.MainThread"/>
+  </item>
+  <item name="android.printservice.PrintJob java.lang.String getTag()">
+    <annotation name="androidx.annotation.MainThread"/>
+  </item>
+  <item name="android.printservice.PrintJob void setProgress(float)">
+    <annotation name="androidx.annotation.MainThread"/>
+  </item>
+  <item name="android.printservice.PrintJob void setProgress(float) 0">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+      <val name="to" val="1.0" />
+    </annotation>
+  </item>
+  <item name="android.printservice.PrintJob void setStatus(int)">
+    <annotation name="androidx.annotation.MainThread"/>
+  </item>
+  <item name="android.printservice.PrintJob void setStatus(int) 0">
+    <annotation name="androidx.annotation.StringRes"/>
+  </item>
+  <item name="android.printservice.PrintJob void setStatus(java.lang.CharSequence)">
+    <annotation name="androidx.annotation.MainThread"/>
+  </item>
+</root>
+

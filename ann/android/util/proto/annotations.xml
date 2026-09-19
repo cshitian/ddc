@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+  <item name="android.util.proto.ProtoOutputStream java.lang.String getFieldTypeString(long) 0">
+    <annotation name="androidx.annotation.LongDef">
+      <val name="value" val="{}" />
+    </annotation>
+  </item>
+  <item name="android.util.proto.ProtoOutputStream java.lang.String getWireTypeString(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{}" />
+    </annotation>
+  </item>
+  <item name="android.util.proto.ProtoOutputStream void writeTag(int, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{}" />
+    </annotation>
+  </item>
+</root>
+

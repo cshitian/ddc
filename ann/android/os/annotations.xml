@@ -1,0 +1,631 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<root>
+  <item name="android.os.AsyncTask Result doInBackground(Params...)">
+    <annotation name="androidx.annotation.WorkerThread" />
+  </item>
+  <item name="android.os.AsyncTask android.os.AsyncTask&lt;Params,Progress,Result&gt; execute(Params...)">
+    <annotation name="androidx.annotation.MainThread" />
+  </item>
+  <item name="android.os.AsyncTask android.os.AsyncTask&lt;Params,Progress,Result&gt; executeOnExecutor(java.util.concurrent.Executor, Params...)">
+    <annotation name="androidx.annotation.MainThread" />
+  </item>
+  <item name="android.os.AsyncTask void execute(java.lang.Runnable)">
+    <annotation name="androidx.annotation.MainThread" />
+  </item>
+  <item name="android.os.AsyncTask void onCancelled()">
+    <annotation name="androidx.annotation.MainThread" />
+  </item>
+  <item name="android.os.AsyncTask void onCancelled(Result)">
+    <annotation name="androidx.annotation.MainThread" />
+  </item>
+  <item name="android.os.AsyncTask void onPostExecute(Result)">
+    <annotation name="androidx.annotation.MainThread" />
+  </item>
+  <item name="android.os.AsyncTask void onPreExecute()">
+    <annotation name="androidx.annotation.MainThread" />
+  </item>
+  <item name="android.os.AsyncTask void onProgressUpdate(Progress...)">
+    <annotation name="androidx.annotation.MainThread" />
+  </item>
+  <item name="android.os.AsyncTask void publishProgress(Progress...)">
+    <annotation name="androidx.annotation.WorkerThread" />
+  </item>
+  <item name="android.os.BugreportManager">
+    <annotation name="androidx.annotation.RestrictedForEnvironment">
+      <val name="environments" val="&quot;SDK Runtime&quot;" />
+      <val name="from" val="34" />
+    </annotation>
+  </item>
+  <item name="android.os.BugreportManager void cancelBugreport()">
+    <annotation name="androidx.annotation.WorkerThread" />
+  </item>
+  <item name="android.os.BugreportManager void startConnectivityBugreport(android.os.ParcelFileDescriptor, java.util.concurrent.Executor, android.os.BugreportManager.BugreportCallback)">
+    <annotation name="androidx.annotation.WorkerThread" />
+  </item>
+  <item name="android.os.BugreportManager.BugreportCallback void onError(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.os.BugreportManager.BugreportCallback.BUGREPORT_ERROR_INVALID_INPUT, android.os.BugreportManager.BugreportCallback.BUGREPORT_ERROR_RUNTIME, android.os.BugreportManager.BugreportCallback.BUGREPORT_ERROR_USER_DENIED_CONSENT, android.os.BugreportManager.BugreportCallback.BUGREPORT_ERROR_USER_CONSENT_TIMED_OUT, android.os.BugreportManager.BugreportCallback.BUGREPORT_ERROR_ANOTHER_REPORT_IN_PROGRESS, android.os.BugreportManager.BugreportCallback.BUGREPORT_ERROR_NO_BUGREPORT_TO_RETRIEVE}" />
+    </annotation>
+  </item>
+  <item name="android.os.BugreportManager.BugreportCallback void onProgress(float) 0">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+      <val name="to" val="100.0" />
+    </annotation>
+  </item>
+  <item name="android.os.Build int getBackportedFixStatus(long)">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.os.Build.BACKPORTED_FIX_STATUS_UNKNOWN, android.os.Build.BACKPORTED_FIX_STATUS_FIXED, android.os.Build.BACKPORTED_FIX_STATUS_NOT_APPLICABLE, android.os.Build.BACKPORTED_FIX_STATUS_NOT_FIXED}" />
+    </annotation>
+  </item>
+  <item name="android.os.Build java.lang.String getSerial()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.READ_PRIVILEGED_PHONE_STATE&quot;" />
+    </annotation>
+  </item>
+  <item name="android.os.CpuHeadroomParams int getCalculationType()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.os.CpuHeadroomParams.CPU_HEADROOM_CALCULATION_TYPE_MIN, android.os.CpuHeadroomParams.CPU_HEADROOM_CALCULATION_TYPE_AVERAGE}" />
+      <val name="flag" val="false" />
+    </annotation>
+  </item>
+  <item name="android.os.CpuHeadroomParams.Builder android.os.CpuHeadroomParams.Builder setCalculationType(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.os.CpuHeadroomParams.CPU_HEADROOM_CALCULATION_TYPE_MIN, android.os.CpuHeadroomParams.CPU_HEADROOM_CALCULATION_TYPE_AVERAGE}" />
+      <val name="flag" val="false" />
+    </annotation>
+  </item>
+  <item name="android.os.CpuHeadroomParams.Builder android.os.CpuHeadroomParams.Builder setCalculationWindowMillis(int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="1L" />
+    </annotation>
+  </item>
+  <item name="android.os.DropBoxManager android.os.DropBoxManager.Entry getNextEntry(java.lang.String, long)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="allOf" val="{&quot;android.permission.READ_DROPBOX_DATA&quot;, &quot;android.permission.PACKAGE_USAGE_STATS&quot;}" />
+    </annotation>
+  </item>
+  <item name="android.os.DropBoxManager void addData(java.lang.String, byte[], int) 2">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.os.DropBoxManager.IS_EMPTY, android.os.DropBoxManager.IS_TEXT, android.os.DropBoxManager.IS_GZIPPED}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.os.DropBoxManager void addFile(java.lang.String, java.io.File, int) 2">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.os.DropBoxManager.IS_EMPTY, android.os.DropBoxManager.IS_TEXT, android.os.DropBoxManager.IS_GZIPPED}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.os.DropBoxManager.Entry Entry(java.lang.String, long, android.os.ParcelFileDescriptor, int) 3">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.os.DropBoxManager.IS_EMPTY, android.os.DropBoxManager.IS_TEXT, android.os.DropBoxManager.IS_GZIPPED}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.os.DropBoxManager.Entry Entry(java.lang.String, long, byte[], int) 3">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.os.DropBoxManager.IS_EMPTY, android.os.DropBoxManager.IS_TEXT, android.os.DropBoxManager.IS_GZIPPED}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.os.DropBoxManager.Entry Entry(java.lang.String, long, java.io.File, int) 3">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.os.DropBoxManager.IS_EMPTY, android.os.DropBoxManager.IS_TEXT, android.os.DropBoxManager.IS_GZIPPED}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.os.DropBoxManager.Entry int getFlags()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.os.DropBoxManager.IS_EMPTY, android.os.DropBoxManager.IS_TEXT, android.os.DropBoxManager.IS_GZIPPED}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.os.FileObserver ALL_EVENTS">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.os.FileObserver.ACCESS, android.os.FileObserver.MODIFY, android.os.FileObserver.ATTRIB, android.os.FileObserver.CLOSE_WRITE, android.os.FileObserver.CLOSE_NOWRITE, android.os.FileObserver.OPEN, android.os.FileObserver.MOVED_FROM, android.os.FileObserver.MOVED_TO, android.os.FileObserver.CREATE, android.os.FileObserver.DELETE, android.os.FileObserver.DELETE_SELF, android.os.FileObserver.MOVE_SELF}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.os.FileObserver FileObserver(java.io.File, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.os.FileObserver.ACCESS, android.os.FileObserver.MODIFY, android.os.FileObserver.ATTRIB, android.os.FileObserver.CLOSE_WRITE, android.os.FileObserver.CLOSE_NOWRITE, android.os.FileObserver.OPEN, android.os.FileObserver.MOVED_FROM, android.os.FileObserver.MOVED_TO, android.os.FileObserver.CREATE, android.os.FileObserver.DELETE, android.os.FileObserver.DELETE_SELF, android.os.FileObserver.MOVE_SELF}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.os.FileObserver FileObserver(java.lang.String, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.os.FileObserver.ACCESS, android.os.FileObserver.MODIFY, android.os.FileObserver.ATTRIB, android.os.FileObserver.CLOSE_WRITE, android.os.FileObserver.CLOSE_NOWRITE, android.os.FileObserver.OPEN, android.os.FileObserver.MOVED_FROM, android.os.FileObserver.MOVED_TO, android.os.FileObserver.CREATE, android.os.FileObserver.DELETE, android.os.FileObserver.DELETE_SELF, android.os.FileObserver.MOVE_SELF}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.os.FileObserver FileObserver(java.util.List&lt;java.io.File&gt;, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.os.FileObserver.ACCESS, android.os.FileObserver.MODIFY, android.os.FileObserver.ATTRIB, android.os.FileObserver.CLOSE_WRITE, android.os.FileObserver.CLOSE_NOWRITE, android.os.FileObserver.OPEN, android.os.FileObserver.MOVED_FROM, android.os.FileObserver.MOVED_TO, android.os.FileObserver.CREATE, android.os.FileObserver.DELETE, android.os.FileObserver.DELETE_SELF, android.os.FileObserver.MOVE_SELF}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.os.GpuHeadroomParams int getCalculationType()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.os.GpuHeadroomParams.GPU_HEADROOM_CALCULATION_TYPE_MIN, android.os.GpuHeadroomParams.GPU_HEADROOM_CALCULATION_TYPE_AVERAGE}" />
+      <val name="flag" val="false" />
+    </annotation>
+  </item>
+  <item name="android.os.GpuHeadroomParams.Builder android.os.GpuHeadroomParams.Builder setCalculationType(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.os.GpuHeadroomParams.GPU_HEADROOM_CALCULATION_TYPE_MIN, android.os.GpuHeadroomParams.GPU_HEADROOM_CALCULATION_TYPE_AVERAGE}" />
+      <val name="flag" val="false" />
+    </annotation>
+  </item>
+  <item name="android.os.GpuHeadroomParams.Builder android.os.GpuHeadroomParams.Builder setCalculationWindowMillis(int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="1L" />
+    </annotation>
+  </item>
+  <item name="android.os.HardwarePropertiesManager float[] getDeviceTemperatures(int, int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.os.HardwarePropertiesManager.DEVICE_TEMPERATURE_CPU, android.os.HardwarePropertiesManager.DEVICE_TEMPERATURE_GPU, android.os.HardwarePropertiesManager.DEVICE_TEMPERATURE_BATTERY, android.os.HardwarePropertiesManager.DEVICE_TEMPERATURE_SKIN}" />
+    </annotation>
+  </item>
+  <item name="android.os.HardwarePropertiesManager float[] getDeviceTemperatures(int, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.os.HardwarePropertiesManager.TEMPERATURE_CURRENT, android.os.HardwarePropertiesManager.TEMPERATURE_THROTTLING, android.os.HardwarePropertiesManager.TEMPERATURE_SHUTDOWN, android.os.HardwarePropertiesManager.TEMPERATURE_THROTTLING_BELOW_VR_MIN}" />
+    </annotation>
+  </item>
+  <item name="android.os.IBinder.FrozenStateChangeCallback void onFrozenStateChanged(android.os.IBinder, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.os.IBinder.FrozenStateChangeCallback.STATE_FROZEN, android.os.IBinder.FrozenStateChangeCallback.STATE_UNFROZEN}" />
+    </annotation>
+  </item>
+  <item name="android.os.LocaleList android.os.LocaleList getAdjustedDefault()">
+    <annotation name="androidx.annotation.Size">
+      <val name="min" val="1L" />
+    </annotation>
+  </item>
+  <item name="android.os.LocaleList android.os.LocaleList getDefault()">
+    <annotation name="androidx.annotation.Size">
+      <val name="min" val="1L" />
+    </annotation>
+  </item>
+  <item name="android.os.LocaleList int indexOf(java.util.Locale)">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="-1L" />
+    </annotation>
+  </item>
+  <item name="android.os.LocaleList int size()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.os.LocaleList void setDefault(android.os.LocaleList) 0">
+    <annotation name="androidx.annotation.Size">
+      <val name="min" val="1L" />
+    </annotation>
+  </item>
+  <item name="android.os.MessageQueue void addOnFileDescriptorEventListener(java.io.FileDescriptor, int, android.os.MessageQueue.OnFileDescriptorEventListener) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.os.MessageQueue.OnFileDescriptorEventListener.EVENT_INPUT, android.os.MessageQueue.OnFileDescriptorEventListener.EVENT_OUTPUT, android.os.MessageQueue.OnFileDescriptorEventListener.EVENT_ERROR}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.os.MessageQueue.OnFileDescriptorEventListener int onFileDescriptorEvents(java.io.FileDescriptor, int)">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.os.MessageQueue.OnFileDescriptorEventListener.EVENT_INPUT, android.os.MessageQueue.OnFileDescriptorEventListener.EVENT_OUTPUT, android.os.MessageQueue.OnFileDescriptorEventListener.EVENT_ERROR}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.os.MessageQueue.OnFileDescriptorEventListener int onFileDescriptorEvents(java.io.FileDescriptor, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.os.MessageQueue.OnFileDescriptorEventListener.EVENT_INPUT, android.os.MessageQueue.OnFileDescriptorEventListener.EVENT_OUTPUT, android.os.MessageQueue.OnFileDescriptorEventListener.EVENT_ERROR}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.os.Parcelable int describeContents()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="android.os.Parcelable.CONTENTS_FILE_DESCRIPTOR" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.os.Parcelable void writeToParcel(android.os.Parcel, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="android.os.Parcelable.PARCELABLE_WRITE_RETURN_VALUE" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.os.PowerManager ACQUIRE_CAUSES_WAKEUP">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.TURN_SCREEN_ON&quot;" />
+      <val name="conditional" val="true" />
+    </annotation>
+  </item>
+  <item name="android.os.PowerManager boolean isAllowedInLowPowerStandby(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.os.PowerManager.LOW_POWER_STANDBY_ALLOWED_REASON_VOICE_INTERACTION, android.os.PowerManager.LOW_POWER_STANDBY_ALLOWED_REASON_TEMP_POWER_SAVE_ALLOWLIST, android.os.PowerManager.LOW_POWER_STANDBY_ALLOWED_REASON_ONGOING_CALL}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.os.PowerManager float getThermalHeadroom(int)">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+    </annotation>
+  </item>
+  <item name="android.os.PowerManager float getThermalHeadroom(int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+      <val name="to" val="60L" />
+    </annotation>
+  </item>
+  <item name="android.os.PowerManager int getLocationPowerSaveMode()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.os.PowerManager.LOCATION_MODE_NO_CHANGE, android.os.PowerManager.LOCATION_MODE_GPS_DISABLED_WHEN_SCREEN_OFF, android.os.PowerManager.LOCATION_MODE_ALL_DISABLED_WHEN_SCREEN_OFF, android.os.PowerManager.LOCATION_MODE_FOREGROUND_ONLY, android.os.PowerManager.LOCATION_MODE_THROTTLE_REQUESTS_WHEN_SCREEN_OFF}" />
+    </annotation>
+  </item>
+  <item name="android.os.PowerManager void reboot(java.lang.String)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.REBOOT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.os.PowerManager.OnThermalHeadroomChangedListener void onThermalHeadroomChanged(float, float, int, java.util.Map&lt;java.lang.Integer,java.lang.Float&gt;) 0">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+    </annotation>
+  </item>
+  <item name="android.os.PowerManager.OnThermalHeadroomChangedListener void onThermalHeadroomChanged(float, float, int, java.util.Map&lt;java.lang.Integer,java.lang.Float&gt;) 1">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+    </annotation>
+  </item>
+  <item name="android.os.PowerManager.OnThermalHeadroomChangedListener void onThermalHeadroomChanged(float, float, int, java.util.Map&lt;java.lang.Integer,java.lang.Float&gt;) 2">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.os.PowerMonitor int getType()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.os.PowerMonitor.POWER_MONITOR_TYPE_CONSUMER, android.os.PowerMonitor.POWER_MONITOR_TYPE_MEASUREMENT}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.os.Process int getThreadPriority(int)">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="-20L" />
+      <val name="to" val="19L" />
+    </annotation>
+  </item>
+  <item name="android.os.Process void setThreadPriority(int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="-20L" />
+      <val name="to" val="19L" />
+    </annotation>
+  </item>
+  <item name="android.os.Process void setThreadPriority(int, int) 1">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="-20L" />
+      <val name="to" val="19L" />
+    </annotation>
+  </item>
+  <item name="android.os.ProfilingManager void removeProfilingTriggersByType(int[]) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.os.ProfilingTrigger.TRIGGER_TYPE_NONE, android.os.ProfilingTrigger.TRIGGER_TYPE_APP_FULLY_DRAWN, android.os.ProfilingTrigger.TRIGGER_TYPE_ANR, android.os.ProfilingTrigger.TRIGGER_TYPE_APP_REQUEST_RUNNING_TRACE, android.os.ProfilingTrigger.TRIGGER_TYPE_KILL_FORCE_STOP, android.os.ProfilingTrigger.TRIGGER_TYPE_KILL_RECENTS, android.os.ProfilingTrigger.TRIGGER_TYPE_KILL_TASK_MANAGER, android.os.ProfilingTrigger.TRIGGER_TYPE_OOM, android.os.ProfilingTrigger.TRIGGER_TYPE_ANOMALY, android.os.ProfilingTrigger.TRIGGER_TYPE_KILL_EXCESSIVE_CPU_USAGE, android.os.ProfilingTrigger.TRIGGER_TYPE_COLD_START, android.os.ProfilingTrigger.TRIGGER_TYPE_APP_COMPAT}" />
+    </annotation>
+  </item>
+  <item name="android.os.ProfilingManager void requestProfiling(int, android.os.Bundle, java.lang.String, android.os.CancellationSignal, java.util.concurrent.Executor, java.util.function.Consumer&lt;android.os.ProfilingResult&gt;) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.os.ProfilingManager.PROFILING_TYPE_JAVA_HEAP_DUMP, android.os.ProfilingManager.PROFILING_TYPE_HEAP_PROFILE, android.os.ProfilingManager.PROFILING_TYPE_STACK_SAMPLING, android.os.ProfilingManager.PROFILING_TYPE_SYSTEM_TRACE}" />
+    </annotation>
+  </item>
+  <item name="android.os.ProfilingResult int getErrorCode()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.os.ProfilingResult.ERROR_NONE, android.os.ProfilingResult.ERROR_FAILED_RATE_LIMIT_SYSTEM, android.os.ProfilingResult.ERROR_FAILED_RATE_LIMIT_PROCESS, android.os.ProfilingResult.ERROR_FAILED_PROFILING_IN_PROGRESS, android.os.ProfilingResult.ERROR_FAILED_EXECUTING, android.os.ProfilingResult.ERROR_FAILED_POST_PROCESSING, android.os.ProfilingResult.ERROR_FAILED_NO_DISK_SPACE, android.os.ProfilingResult.ERROR_UNKNOWN}" />
+    </annotation>
+  </item>
+  <item name="android.os.ProfilingTrigger int getTriggerType()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.os.ProfilingTrigger.TRIGGER_TYPE_NONE, android.os.ProfilingTrigger.TRIGGER_TYPE_APP_FULLY_DRAWN, android.os.ProfilingTrigger.TRIGGER_TYPE_ANR, android.os.ProfilingTrigger.TRIGGER_TYPE_APP_REQUEST_RUNNING_TRACE, android.os.ProfilingTrigger.TRIGGER_TYPE_KILL_FORCE_STOP, android.os.ProfilingTrigger.TRIGGER_TYPE_KILL_RECENTS, android.os.ProfilingTrigger.TRIGGER_TYPE_KILL_TASK_MANAGER, android.os.ProfilingTrigger.TRIGGER_TYPE_OOM, android.os.ProfilingTrigger.TRIGGER_TYPE_ANOMALY, android.os.ProfilingTrigger.TRIGGER_TYPE_KILL_EXCESSIVE_CPU_USAGE, android.os.ProfilingTrigger.TRIGGER_TYPE_COLD_START, android.os.ProfilingTrigger.TRIGGER_TYPE_APP_COMPAT}" />
+    </annotation>
+  </item>
+  <item name="android.os.ProfilingTrigger.Builder Builder(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.os.ProfilingTrigger.TRIGGER_TYPE_NONE, android.os.ProfilingTrigger.TRIGGER_TYPE_APP_FULLY_DRAWN, android.os.ProfilingTrigger.TRIGGER_TYPE_ANR, android.os.ProfilingTrigger.TRIGGER_TYPE_APP_REQUEST_RUNNING_TRACE, android.os.ProfilingTrigger.TRIGGER_TYPE_KILL_FORCE_STOP, android.os.ProfilingTrigger.TRIGGER_TYPE_KILL_RECENTS, android.os.ProfilingTrigger.TRIGGER_TYPE_KILL_TASK_MANAGER, android.os.ProfilingTrigger.TRIGGER_TYPE_OOM, android.os.ProfilingTrigger.TRIGGER_TYPE_ANOMALY, android.os.ProfilingTrigger.TRIGGER_TYPE_KILL_EXCESSIVE_CPU_USAGE, android.os.ProfilingTrigger.TRIGGER_TYPE_COLD_START, android.os.ProfilingTrigger.TRIGGER_TYPE_APP_COMPAT}" />
+    </annotation>
+  </item>
+<item name="android.os.RecoverySystem void installPackage(android.content.Context, java.io.File)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.RECOVERY&quot;" />
+    </annotation>
+  </item>
+  <item name="android.os.RemoteCallbackList int getFrozenCalleePolicy()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.os.RemoteCallbackList.FROZEN_CALLEE_POLICY_UNSET, android.os.RemoteCallbackList.FROZEN_CALLEE_POLICY_ENQUEUE_ALL, android.os.RemoteCallbackList.FROZEN_CALLEE_POLICY_ENQUEUE_MOST_RECENT, android.os.RemoteCallbackList.FROZEN_CALLEE_POLICY_DROP}" />
+    </annotation>
+  </item>
+  <item name="android.os.RemoteCallbackList.Builder Builder(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.os.RemoteCallbackList.FROZEN_CALLEE_POLICY_UNSET, android.os.RemoteCallbackList.FROZEN_CALLEE_POLICY_ENQUEUE_ALL, android.os.RemoteCallbackList.FROZEN_CALLEE_POLICY_ENQUEUE_MOST_RECENT, android.os.RemoteCallbackList.FROZEN_CALLEE_POLICY_DROP}" />
+    </annotation>
+  </item>
+  <item name="android.os.UserManager android.os.Bundle getApplicationRestrictions(java.lang.String)">
+    <annotation name="androidx.annotation.WorkerThread" />
+  </item>
+  <item name="android.os.UserManager android.os.Bundle getUserRestrictions(android.os.UserHandle)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="anyOf" val="{&quot;android.permission.MANAGE_USERS&quot;, &quot;android.permission.INTERACT_ACROSS_USERS&quot;}" />
+      <val name="conditional" val="true" />
+    </annotation>
+  </item>
+  <item name="android.os.UserManager boolean hasUserRestriction(java.lang.String) 0">
+    <annotation name="androidx.annotation.StringDef">
+      <val name="value" val="{android.os.UserManager.ALLOW_PARENT_PROFILE_APP_LINKING, android.os.UserManager.DISALLOW_ADD_MANAGED_PROFILE, android.os.UserManager.DISALLOW_ADD_PRIVATE_PROFILE, android.os.UserManager.DISALLOW_ADD_USER, android.os.UserManager.DISALLOW_ADD_WIFI_CONFIG, android.os.UserManager.DISALLOW_ADJUST_VOLUME, android.os.UserManager.DISALLOW_AIRPLANE_MODE, android.os.UserManager.DISALLOW_AMBIENT_DISPLAY, android.os.UserManager.DISALLOW_APPS_CONTROL, android.os.UserManager.DISALLOW_ASSIST_CONTENT, android.os.UserManager.DISALLOW_AUTOFILL, android.os.UserManager.DISALLOW_BLUETOOTH, android.os.UserManager.DISALLOW_BLUETOOTH_SHARING, android.os.UserManager.DISALLOW_CAMERA_TOGGLE, android.os.UserManager.DISALLOW_CELLULAR_2G, android.os.UserManager.DISALLOW_CHANGE_NEAR_FIELD_COMMUNICATION_RADIO, android.os.UserManager.DISALLOW_CHANGE_WIFI_STATE, android.os.UserManager.DISALLOW_CONFIG_BLUETOOTH, android.os.UserManager.DISALLOW_CONFIG_BRIGHTNESS, android.os.UserManager.DISALLOW_CONFIG_CELL_BROADCASTS, android.os.UserManager.DISALLOW_CONFIG_CREDENTIALS, android.os.UserManager.DISALLOW_CONFIG_DATE_TIME, android.os.UserManager.DISALLOW_CONFIG_DEFAULT_APPS, android.os.UserManager.DISALLOW_CONFIG_LOCALE, android.os.UserManager.DISALLOW_CONFIG_LOCATION, android.os.UserManager.DISALLOW_CONFIG_MOBILE_NETWORKS, android.os.UserManager.DISALLOW_CONFIG_PRIVATE_DNS, android.os.UserManager.DISALLOW_CONFIG_SCREEN_TIMEOUT, android.os.UserManager.DISALLOW_CONFIG_TETHERING, android.os.UserManager.DISALLOW_CONFIG_VPN, android.os.UserManager.DISALLOW_CONFIG_WIFI, android.os.UserManager.DISALLOW_CONTENT_CAPTURE, android.os.UserManager.DISALLOW_CONTENT_SUGGESTIONS, android.os.UserManager.DISALLOW_CREATE_WINDOWS, android.os.UserManager.DISALLOW_CROSS_PROFILE_COPY_PASTE, android.os.UserManager.DISALLOW_DATA_ROAMING, android.os.UserManager.DISALLOW_DEBUGGING_FEATURES, android.os.UserManager.DISALLOW_FACTORY_RESET, android.os.UserManager.DISALLOW_FUN, android.os.UserManager.DISALLOW_GRANT_ADMIN, android.os.UserManager.DISALLOW_TASK_CONTINUITY_HANDOFF, android.os.UserManager.DISALLOW_INSTALL_APPS, android.os.UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES, android.os.UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES_GLOBALLY, android.os.UserManager.DISALLOW_MICROPHONE_TOGGLE, android.os.UserManager.DISALLOW_MODIFY_ACCOUNTS, android.os.UserManager.DISALLOW_MOUNT_PHYSICAL_MEDIA, android.os.UserManager.DISALLOW_NEAR_FIELD_COMMUNICATION_RADIO, android.os.UserManager.DISALLOW_NETWORK_RESET, android.os.UserManager.DISALLOW_OUTGOING_BEAM, android.os.UserManager.DISALLOW_OUTGOING_CALLS, android.os.UserManager.DISALLOW_PRINTING, android.os.UserManager.DISALLOW_REMOVE_MANAGED_PROFILE, android.os.UserManager.DISALLOW_REMOVE_USER, android.os.UserManager.DISALLOW_SAFE_BOOT, android.os.UserManager.DISALLOW_SET_USER_ICON, android.os.UserManager.DISALLOW_SET_WALLPAPER, android.os.UserManager.DISALLOW_SHARE_INTO_MANAGED_PROFILE, android.os.UserManager.DISALLOW_SHARE_LOCATION, android.os.UserManager.DISALLOW_SHARING_ADMIN_CONFIGURED_WIFI, android.os.UserManager.DISALLOW_SIM_GLOBALLY, android.os.UserManager.DISALLOW_SMS, android.os.UserManager.DISALLOW_SYSTEM_ERROR_DIALOGS, android.os.UserManager.DISALLOW_THREAD_NETWORK, android.os.UserManager.DISALLOW_ULTRA_WIDEBAND_RADIO, android.os.UserManager.DISALLOW_UNIFIED_PASSWORD, android.os.UserManager.DISALLOW_UNINSTALL_APPS, android.os.UserManager.DISALLOW_UNMUTE_MICROPHONE, android.os.UserManager.DISALLOW_USB_FILE_TRANSFER, android.os.UserManager.DISALLOW_USER_SWITCH, android.os.UserManager.DISALLOW_WIFI_DIRECT, android.os.UserManager.DISALLOW_WIFI_TETHERING, android.os.UserManager.ENSURE_VERIFY_APPS, android.os.UserManager.KEY_RESTRICTIONS_PENDING}" />
+    </annotation>
+  </item>
+  <item name="android.os.UserManager boolean isUserRunning(android.os.UserHandle)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="anyOf" val="{&quot;android.permission.MANAGE_USERS&quot;, &quot;android.permission.INTERACT_ACROSS_USERS&quot;}" />
+      <val name="conditional" val="true" />
+    </annotation>
+  </item>
+  <item name="android.os.UserManager boolean isUserRunningOrStopping(android.os.UserHandle)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="anyOf" val="{&quot;android.permission.MANAGE_USERS&quot;, &quot;android.permission.INTERACT_ACROSS_USERS&quot;}" />
+      <val name="conditional" val="true" />
+    </annotation>
+  </item>
+  <item name="android.os.UserManager boolean isUserUnlocked(android.os.UserHandle)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="anyOf" val="{&quot;android.permission.MANAGE_USERS&quot;, &quot;android.permission.INTERACT_ACROSS_USERS&quot;}" />
+      <val name="conditional" val="true" />
+    </annotation>
+  </item>
+  <item name="android.os.UserManager boolean requestQuietModeEnabled(boolean, android.os.UserHandle)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="anyOf" val="{&quot;android.permission.MANAGE_USERS&quot;, &quot;android.permission.MODIFY_QUIET_MODE&quot;}" />
+      <val name="conditional" val="true" />
+    </annotation>
+  </item>
+  <item name="android.os.UserManager boolean requestQuietModeEnabled(boolean, android.os.UserHandle, int) 2">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="android.os.UserManager.QUIET_MODE_DISABLE_ONLY_IF_CREDENTIAL_NOT_REQUIRED" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.os.UserManager int getUserCount()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="anyOf" val="{&quot;android.permission.MANAGE_USERS&quot;, &quot;android.permission.CREATE_USERS&quot;}" />
+    </annotation>
+  </item>
+  <item name="android.os.UserManager java.lang.String getUserName()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="anyOf" val="{&quot;android.permission.MANAGE_USERS&quot;, &quot;android.permission.CREATE_USERS&quot;, &quot;android.permission.QUERY_USERS&quot;, &quot;android.permission.GET_ACCOUNTS_PRIVILEGED&quot;}" />
+    </annotation>
+  </item>
+  <item name="android.os.UserManager void setUserRestriction(java.lang.String, boolean)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.MANAGE_USERS&quot;" />
+    </annotation>
+  </item>
+  <item name="android.os.UserManager.UserOperationException int getUserOperationResult()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.os.UserManager.USER_OPERATION_SUCCESS, android.os.UserManager.USER_OPERATION_ERROR_UNKNOWN, android.os.UserManager.USER_OPERATION_ERROR_MANAGED_PROFILE, android.os.UserManager.USER_OPERATION_ERROR_MAX_RUNNING_USERS, android.os.UserManager.USER_OPERATION_ERROR_CURRENT_USER, android.os.UserManager.USER_OPERATION_ERROR_LOW_STORAGE, android.os.UserManager.USER_OPERATION_ERROR_MAX_USERS}" />
+    </annotation>
+  </item>
+  <item name="android.os.VibrationAttributes android.os.VibrationAttributes createForUsage(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.os.VibrationAttributes.USAGE_UNKNOWN, android.os.VibrationAttributes.USAGE_ACCESSIBILITY, android.os.VibrationAttributes.USAGE_ALARM, android.os.VibrationAttributes.USAGE_COMMUNICATION_REQUEST, android.os.VibrationAttributes.USAGE_HARDWARE_FEEDBACK, android.os.VibrationAttributes.USAGE_MEDIA, android.os.VibrationAttributes.USAGE_NOTIFICATION, android.os.VibrationAttributes.USAGE_PHYSICAL_EMULATION, android.os.VibrationAttributes.USAGE_RINGTONE, android.os.VibrationAttributes.USAGE_TOUCH, android.os.VibrationAttributes.USAGE_GESTURE_INPUT}" />
+    </annotation>
+  </item>
+  <item name="android.os.VibrationAttributes boolean isFlagSet(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="android.os.VibrationAttributes.FLAG_BYPASS_INTERRUPTION_POLICY" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.os.VibrationAttributes int getFlags()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="android.os.VibrationAttributes.FLAG_BYPASS_INTERRUPTION_POLICY" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.os.VibrationAttributes int getUsage()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.os.VibrationAttributes.USAGE_UNKNOWN, android.os.VibrationAttributes.USAGE_ACCESSIBILITY, android.os.VibrationAttributes.USAGE_ALARM, android.os.VibrationAttributes.USAGE_COMMUNICATION_REQUEST, android.os.VibrationAttributes.USAGE_HARDWARE_FEEDBACK, android.os.VibrationAttributes.USAGE_MEDIA, android.os.VibrationAttributes.USAGE_NOTIFICATION, android.os.VibrationAttributes.USAGE_PHYSICAL_EMULATION, android.os.VibrationAttributes.USAGE_RINGTONE, android.os.VibrationAttributes.USAGE_TOUCH, android.os.VibrationAttributes.USAGE_GESTURE_INPUT}" />
+    </annotation>
+  </item>
+  <item name="android.os.VibrationAttributes int getUsageClass()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.os.VibrationAttributes.USAGE_CLASS_UNKNOWN, android.os.VibrationAttributes.USAGE_CLASS_ALARM, android.os.VibrationAttributes.USAGE_CLASS_FEEDBACK, android.os.VibrationAttributes.USAGE_CLASS_MEDIA}" />
+    </annotation>
+  </item>
+  <item name="android.os.VibrationAttributes.Builder android.os.VibrationAttributes.Builder setFlags(int, int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="android.os.VibrationAttributes.FLAG_BYPASS_INTERRUPTION_POLICY" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.os.VibrationAttributes.Builder android.os.VibrationAttributes.Builder setUsage(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.os.VibrationAttributes.USAGE_UNKNOWN, android.os.VibrationAttributes.USAGE_ACCESSIBILITY, android.os.VibrationAttributes.USAGE_ALARM, android.os.VibrationAttributes.USAGE_COMMUNICATION_REQUEST, android.os.VibrationAttributes.USAGE_HARDWARE_FEEDBACK, android.os.VibrationAttributes.USAGE_MEDIA, android.os.VibrationAttributes.USAGE_NOTIFICATION, android.os.VibrationAttributes.USAGE_PHYSICAL_EMULATION, android.os.VibrationAttributes.USAGE_RINGTONE, android.os.VibrationAttributes.USAGE_TOUCH, android.os.VibrationAttributes.USAGE_GESTURE_INPUT}" />
+    </annotation>
+  </item>
+  <item name="android.os.VibrationEffect android.os.VibrationEffect createPredefined(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.os.VibrationEffect.EFFECT_TICK, android.os.VibrationEffect.EFFECT_CLICK, android.os.VibrationEffect.EFFECT_HEAVY_CLICK, android.os.VibrationEffect.EFFECT_DOUBLE_CLICK}" />
+    </annotation>
+  </item>
+  <item name="android.os.VibrationEffect.BasicEnvelopeBuilder android.os.VibrationEffect.BasicEnvelopeBuilder addControlPoint(float, float, long) 0">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+      <val name="to" val="1.0" />
+    </annotation>
+  </item>
+  <item name="android.os.VibrationEffect.BasicEnvelopeBuilder android.os.VibrationEffect.BasicEnvelopeBuilder addControlPoint(float, float, long) 1">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+      <val name="to" val="1.0" />
+    </annotation>
+  </item>
+  <item name="android.os.VibrationEffect.BasicEnvelopeBuilder android.os.VibrationEffect.BasicEnvelopeBuilder setInitialSharpness(float) 0">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+      <val name="to" val="1.0" />
+    </annotation>
+  </item>
+  <item name="android.os.VibrationEffect.Composition android.os.VibrationEffect.Composition addPrimitive(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.os.VibrationEffect.Composition.PRIMITIVE_CLICK, android.os.VibrationEffect.Composition.PRIMITIVE_THUD, android.os.VibrationEffect.Composition.PRIMITIVE_SPIN, android.os.VibrationEffect.Composition.PRIMITIVE_QUICK_RISE, android.os.VibrationEffect.Composition.PRIMITIVE_SLOW_RISE, android.os.VibrationEffect.Composition.PRIMITIVE_QUICK_FALL, android.os.VibrationEffect.Composition.PRIMITIVE_TICK, android.os.VibrationEffect.Composition.PRIMITIVE_LOW_TICK}" />
+    </annotation>
+  </item>
+  <item name="android.os.VibrationEffect.Composition android.os.VibrationEffect.Composition addPrimitive(int, float) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.os.VibrationEffect.Composition.PRIMITIVE_CLICK, android.os.VibrationEffect.Composition.PRIMITIVE_THUD, android.os.VibrationEffect.Composition.PRIMITIVE_SPIN, android.os.VibrationEffect.Composition.PRIMITIVE_QUICK_RISE, android.os.VibrationEffect.Composition.PRIMITIVE_SLOW_RISE, android.os.VibrationEffect.Composition.PRIMITIVE_QUICK_FALL, android.os.VibrationEffect.Composition.PRIMITIVE_TICK, android.os.VibrationEffect.Composition.PRIMITIVE_LOW_TICK}" />
+    </annotation>
+  </item>
+  <item name="android.os.VibrationEffect.Composition android.os.VibrationEffect.Composition addPrimitive(int, float) 1">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+      <val name="to" val="1.0" />
+    </annotation>
+  </item>
+  <item name="android.os.VibrationEffect.Composition android.os.VibrationEffect.Composition addPrimitive(int, float, int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.os.VibrationEffect.Composition.PRIMITIVE_CLICK, android.os.VibrationEffect.Composition.PRIMITIVE_THUD, android.os.VibrationEffect.Composition.PRIMITIVE_SPIN, android.os.VibrationEffect.Composition.PRIMITIVE_QUICK_RISE, android.os.VibrationEffect.Composition.PRIMITIVE_SLOW_RISE, android.os.VibrationEffect.Composition.PRIMITIVE_QUICK_FALL, android.os.VibrationEffect.Composition.PRIMITIVE_TICK, android.os.VibrationEffect.Composition.PRIMITIVE_LOW_TICK}" />
+    </annotation>
+  </item>
+  <item name="android.os.VibrationEffect.Composition android.os.VibrationEffect.Composition addPrimitive(int, float, int) 1">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+      <val name="to" val="1.0" />
+    </annotation>
+  </item>
+  <item name="android.os.VibrationEffect.Composition android.os.VibrationEffect.Composition addPrimitive(int, float, int) 2">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.os.VibrationEffect.Composition android.os.VibrationEffect.Composition addPrimitive(int, float, int, int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.os.VibrationEffect.Composition.PRIMITIVE_CLICK, android.os.VibrationEffect.Composition.PRIMITIVE_THUD, android.os.VibrationEffect.Composition.PRIMITIVE_SPIN, android.os.VibrationEffect.Composition.PRIMITIVE_QUICK_RISE, android.os.VibrationEffect.Composition.PRIMITIVE_SLOW_RISE, android.os.VibrationEffect.Composition.PRIMITIVE_QUICK_FALL, android.os.VibrationEffect.Composition.PRIMITIVE_TICK, android.os.VibrationEffect.Composition.PRIMITIVE_LOW_TICK}" />
+    </annotation>
+  </item>
+  <item name="android.os.VibrationEffect.Composition android.os.VibrationEffect.Composition addPrimitive(int, float, int, int) 1">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+      <val name="to" val="1.0" />
+    </annotation>
+  </item>
+  <item name="android.os.VibrationEffect.Composition android.os.VibrationEffect.Composition addPrimitive(int, float, int, int) 2">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.os.VibrationEffect.Composition android.os.VibrationEffect.Composition addPrimitive(int, float, int, int) 3">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.os.VibrationEffect.Composition.DELAY_TYPE_PAUSE, android.os.VibrationEffect.Composition.DELAY_TYPE_RELATIVE_START_OFFSET}" />
+    </annotation>
+  </item>
+  <item name="android.os.VibrationEffect.WaveformEnvelopeBuilder android.os.VibrationEffect.WaveformEnvelopeBuilder addControlPoint(float, float, long) 0">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+      <val name="to" val="1.0" />
+    </annotation>
+  </item>
+  <item name="android.os.VibrationEffect.WaveformEnvelopeBuilder android.os.VibrationEffect.WaveformEnvelopeBuilder addControlPoint(float, float, long) 1">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+    </annotation>
+  </item>
+  <item name="android.os.VibrationEffect.WaveformEnvelopeBuilder android.os.VibrationEffect.WaveformEnvelopeBuilder setInitialFrequencyHz(float) 0">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+    </annotation>
+  </item>
+  <item name="android.os.Vibrator boolean areAllPrimitivesSupported(int...) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.os.VibrationEffect.Composition.PRIMITIVE_CLICK, android.os.VibrationEffect.Composition.PRIMITIVE_THUD, android.os.VibrationEffect.Composition.PRIMITIVE_SPIN, android.os.VibrationEffect.Composition.PRIMITIVE_QUICK_RISE, android.os.VibrationEffect.Composition.PRIMITIVE_SLOW_RISE, android.os.VibrationEffect.Composition.PRIMITIVE_QUICK_FALL, android.os.VibrationEffect.Composition.PRIMITIVE_TICK, android.os.VibrationEffect.Composition.PRIMITIVE_LOW_TICK}" />
+    </annotation>
+  </item>
+  <item name="android.os.Vibrator boolean[] arePrimitivesSupported(int...) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.os.VibrationEffect.Composition.PRIMITIVE_CLICK, android.os.VibrationEffect.Composition.PRIMITIVE_THUD, android.os.VibrationEffect.Composition.PRIMITIVE_SPIN, android.os.VibrationEffect.Composition.PRIMITIVE_QUICK_RISE, android.os.VibrationEffect.Composition.PRIMITIVE_SLOW_RISE, android.os.VibrationEffect.Composition.PRIMITIVE_QUICK_FALL, android.os.VibrationEffect.Composition.PRIMITIVE_TICK, android.os.VibrationEffect.Composition.PRIMITIVE_LOW_TICK}" />
+    </annotation>
+  </item>
+  <item name="android.os.Vibrator int areAllEffectsSupported(int...)">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.os.Vibrator.VIBRATION_EFFECT_SUPPORT_UNKNOWN, android.os.Vibrator.VIBRATION_EFFECT_SUPPORT_YES, android.os.Vibrator.VIBRATION_EFFECT_SUPPORT_NO}" />
+    </annotation>
+  </item>
+  <item name="android.os.Vibrator int areAllEffectsSupported(int...) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.os.VibrationEffect.EFFECT_TICK, android.os.VibrationEffect.EFFECT_CLICK, android.os.VibrationEffect.EFFECT_HEAVY_CLICK, android.os.VibrationEffect.EFFECT_DOUBLE_CLICK}" />
+    </annotation>
+  </item>
+  <item name="android.os.Vibrator int[] areEffectsSupported(int...)">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.os.Vibrator.VIBRATION_EFFECT_SUPPORT_UNKNOWN, android.os.Vibrator.VIBRATION_EFFECT_SUPPORT_YES, android.os.Vibrator.VIBRATION_EFFECT_SUPPORT_NO}" />
+    </annotation>
+  </item>
+  <item name="android.os.Vibrator int[] areEffectsSupported(int...) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.os.VibrationEffect.EFFECT_TICK, android.os.VibrationEffect.EFFECT_CLICK, android.os.VibrationEffect.EFFECT_HEAVY_CLICK, android.os.VibrationEffect.EFFECT_DOUBLE_CLICK}" />
+    </annotation>
+  </item>
+  <item name="android.os.Vibrator int[] getPrimitiveDurations(int...) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.os.VibrationEffect.Composition.PRIMITIVE_CLICK, android.os.VibrationEffect.Composition.PRIMITIVE_THUD, android.os.VibrationEffect.Composition.PRIMITIVE_SPIN, android.os.VibrationEffect.Composition.PRIMITIVE_QUICK_RISE, android.os.VibrationEffect.Composition.PRIMITIVE_SLOW_RISE, android.os.VibrationEffect.Composition.PRIMITIVE_QUICK_FALL, android.os.VibrationEffect.Composition.PRIMITIVE_TICK, android.os.VibrationEffect.Composition.PRIMITIVE_LOW_TICK}" />
+    </annotation>
+  </item>
+  <item name="android.os.Vibrator void cancel()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.VIBRATE&quot;" />
+    </annotation>
+  </item>
+  <item name="android.os.Vibrator void vibrate(android.os.VibrationEffect)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.VIBRATE&quot;" />
+    </annotation>
+  </item>
+  <item name="android.os.Vibrator void vibrate(android.os.VibrationEffect, android.media.AudioAttributes)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.VIBRATE&quot;" />
+    </annotation>
+  </item>
+  <item name="android.os.Vibrator void vibrate(android.os.VibrationEffect, android.os.VibrationAttributes)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.VIBRATE&quot;" />
+    </annotation>
+  </item>
+  <item name="android.os.Vibrator void vibrate(long)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.VIBRATE&quot;" />
+    </annotation>
+  </item>
+  <item name="android.os.Vibrator void vibrate(long, android.media.AudioAttributes)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.VIBRATE&quot;" />
+    </annotation>
+  </item>
+  <item name="android.os.Vibrator void vibrate(long[], int)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.VIBRATE&quot;" />
+    </annotation>
+  </item>
+  <item name="android.os.Vibrator void vibrate(long[], int, android.media.AudioAttributes)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.VIBRATE&quot;" />
+    </annotation>
+  </item>
+  <item name="android.os.VibratorManager void cancel()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.VIBRATE&quot;" />
+    </annotation>
+  </item>
+  <item name="android.os.VibratorManager void vibrate(android.os.CombinedVibration)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.VIBRATE&quot;" />
+    </annotation>
+  </item>
+  <item name="android.os.VibratorManager void vibrate(android.os.CombinedVibration, android.os.VibrationAttributes)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.VIBRATE&quot;" />
+    </annotation>
+  </item>
+</root>

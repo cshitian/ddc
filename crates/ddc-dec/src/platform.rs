@@ -150,6 +150,83 @@ impl PlatformSymbols {
         out
     }
 
+    /// Parse the plaintext format (one domain per line):
+    /// `cls method desc param member,member…` where member is
+    /// `owner.field=value` with dots. `-` marks an unmapped parameter.
+    /// This is the repo-maintained form (build.rs compresses it).
+    pub fn from_text(text: &[u8]) -> Option<Self> {
+        let text = String::from_utf8_lossy(text);
+        let mut domains = HashMap::new();
+        for line in text.lines() {
+            let line = line.trim();
+            if line.is_empty() || line.starts_with('#') {
+                continue;
+            }
+            let mut parts = line.split(' ');
+            let cls = parts.next()?.replace('.', "/");
+            let name = parts.next()?.to_string();
+            let desc = parts.next()?.to_string();
+            // Remaining parts: (param_idx, members) pairs.
+            let entry = domains
+                .entry((cls, name, desc))
+                .or_insert_with(Vec::new);
+            while let Some(idx) = parts.next() {
+                let param: usize = idx.parse().ok()?;
+                let members_s = parts.next()?;
+                while entry.len() <= param {
+                    entry.push(None);
+                }
+                if members_s == "-" {
+                    continue;
+                }
+                let members: Vec<(String, String, i64)> = members_s
+                    .split(',')
+                    .filter_map(|m| {
+                        // owner.field=value (owner uses dots)
+                        let (path, value) = m.rsplit_once('=')?;
+                        let value: i64 = value.parse().ok()?;
+                        let (owner_dot, field) = path.rsplit_once('.')?;
+                        Some((owner_dot.replace('.', "/"), field.to_string(), value))
+                    })
+                    .collect();
+                if !members.is_empty() {
+                    entry[param] = Some(ConstantDomain { members });
+                }
+            }
+        }
+        Some(Self { domains })
+    }
+
+    /// Emit the plaintext form (round-trips `from_text`).
+    pub fn to_text(&self) -> String {
+        use std::collections::BTreeMap;
+        let ordered: BTreeMap<_, _> = self.domains.iter().collect();
+        let mut out = String::new();
+        for ((cls, name, desc), per_arg) in ordered {
+            let mut line = format!("{cls} {name} {desc}");
+            for (i, d) in per_arg.iter().enumerate() {
+                match d {
+                    Some(d) => {
+                        let members: Vec<String> = d
+                            .members
+                            .iter()
+                            .map(|(owner, field, value)| {
+                                format!("{}.{}={}", owner.replace('/', "."), field, value)
+                            })
+                            .collect();
+                        line.push_str(&format!(" {i} {}", members.join(",")));
+                    }
+                    None => line.push_str(&format!(" {i} -")),
+                }
+            }
+            if line.split(' ').count() > 3 {
+                out.push_str(&line);
+                out.push('\n');
+            }
+        }
+        out
+    }
+
     pub fn deserialize(bytes: &[u8]) -> Option<Self> {
         let mut p = 0usize;
         let rd_u32 = |p: &mut usize| -> Option<u32> {
@@ -214,6 +291,12 @@ fn put_str(out: &mut Vec<u8>, s: &str) {
 /// `android.view.View` → `Landroid/view/View;`, `int[]` → `[I`).
 fn java_type_to_dex(t: &str) -> String {
     let t = t.trim();
+    // Generic signatures (`Callback<? super List<InetAddress>>`, XML-
+    // escaped as &lt;…&gt;) never match our erased descriptors — map
+    // the whole parameter to Object rather than emit a key with spaces.
+    if t.contains('<') || t.contains("&lt;") || t.starts_with("? ") || t.starts_with("?\t") {
+        return "Ljava/lang/Object;".to_string();
+    }
     if let Some(inner) = t.strip_suffix("[]") {
         return format!("[{}", java_type_to_dex(inner));
     }
@@ -260,7 +343,11 @@ fn parse_annotations_xml(xml: &[u8], on_domain: &mut DomainSink<'_>) {
         if t.starts_with("<item ") {
             // `android.view.View void setVisibility(int) 0` — class,
             // RETURN type, method(args), parameter index.
-            let name = attr(t, "name").unwrap_or_default();
+            let name = attr(t, "name").unwrap_or_default()
+                .replace("&lt;", "<")
+                .replace("&gt;", ">")
+                .replace("&quot;", "\"")
+                .replace("&amp;", "&");
             let mut tail = name.rsplitn(2, ' ');
             let param = tail.next().and_then(|p| p.parse::<usize>().ok());
             let rest = tail.next().unwrap_or("").trim().to_string();
@@ -269,14 +356,20 @@ fn parse_annotations_xml(xml: &[u8], on_domain: &mut DomainSink<'_>) {
                 None => (rest.clone(), String::new()),
             };
             // `void setVisibility(int)` → method `setVisibility`, dex
-            // descriptor `(I)V`.
-            let (ret, sig) = match rest.split_once(' ') {
-                Some((r, s)) => (r.to_string(), s.to_string()),
-                None => (String::new(), rest.clone()),
-            };
-            let (method, args) = match sig.split_once('(') {
-                Some((m, a)) => (m.to_string(), a.trim_end_matches(')')),
-                None => (sig.clone(), ""),
+            // descriptor `(I)V`; constructors carry no return type
+            // (`Builder(long, java.lang.String, int)`) — anchor on the
+            // '(' and take the LAST space-separated token before it as
+            // the method name.
+            let (ret, method, args) = match rest.find('(') {
+                Some(p) => {
+                    let sig = &rest[..p];
+                    let (ret, method) = match sig.rsplit_once(' ') {
+                        Some((r, m)) => (r.to_string(), m.to_string()),
+                        None => ("void".to_string(), sig.to_string()),
+                    };
+                    (ret, method, rest[p + 1..].trim_end_matches(')'))
+                }
+                None => (String::new(), String::new(), ""),
             };
             let mut desc = String::from("(");
             for a in args.split(',') {
@@ -493,6 +586,31 @@ mod tests {
         // Unknown methods and wrong descriptors stay numeric.
         assert!(named_constant("android/view/View", "setAlpha", "(F)V", 0, 0).is_none());
         assert!(named_constant("android/view/View", "setVisibility", "(J)V", 0, 0).is_none());
+    }
+
+    #[test]
+    fn text_roundtrip() {
+        let mut constants: HashMap<(String, String), i64> = HashMap::new();
+        for (c, f, v) in [
+            ("android/view/View", "VISIBLE", 0i64),
+            ("android/view/View", "GONE", 8),
+        ] {
+            constants.insert((c.to_string(), f.to_string()), v);
+        }
+        let syms = PlatformSymbols::from_metadata(&[XML], &constants);
+        let text = syms.to_text();
+        let back = PlatformSymbols::from_text(text.as_bytes()).expect("text parse");
+        assert_eq!(back.domain_count(), syms.domain_count());
+        // The parsed structure must carry the setVisibility domain with
+        // GONE=8 (named_constant reads the process-global registry set
+        // by whichever test ran first — not reliable for isolation).
+        let per_arg = back
+            .domains
+            .get(&("android/view/View".to_string(), "setVisibility".to_string(), "(I)V".to_string()))
+            .expect("domain present");
+        let domain = per_arg.first().and_then(|d| d.as_ref()).expect("param 0 domain");
+        assert_eq!(domain.exact(8).map(|m| m.1.as_str()), Some("GONE"));
+        assert_eq!(domain.exact(0).map(|m| m.1.as_str()), Some("VISIBLE"));
     }
 
     #[test]

@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+  <item name="android.graphics.fonts.Font float getGlyphBounds(int, android.graphics.Paint, android.graphics.RectF) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.fonts.Font int getTtcIndex()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.fonts.Font.Builder Builder(android.os.ParcelFileDescriptor, long, long) 1">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.fonts.Font.Builder Builder(android.os.ParcelFileDescriptor, long, long) 2">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="-1L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.fonts.Font.Builder android.graphics.fonts.Font.Builder setSlant(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.graphics.fonts.FontStyle.FONT_SLANT_UPRIGHT, android.graphics.fonts.FontStyle.FONT_SLANT_ITALIC}" />
+    </annotation>
+  </item>
+  <item name="android.graphics.fonts.Font.Builder android.graphics.fonts.Font.Builder setTtcIndex(int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.fonts.Font.Builder android.graphics.fonts.Font.Builder setWeight(int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="1L" />
+      <val name="to" val="1000L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.fonts.FontFamily android.graphics.fonts.Font getFont(int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.fonts.FontFamily int getSize()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="1L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.fonts.FontStyle FontStyle(int, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.graphics.fonts.FontStyle.FONT_SLANT_UPRIGHT, android.graphics.fonts.FontStyle.FONT_SLANT_ITALIC}" />
+    </annotation>
+  </item>
+  <item name="android.graphics.fonts.FontStyle int getSlant()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.graphics.fonts.FontStyle.FONT_SLANT_UPRIGHT, android.graphics.fonts.FontStyle.FONT_SLANT_ITALIC}" />
+    </annotation>
+  </item>
+  <item name="android.graphics.fonts.FontStyle int getWeight()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+      <val name="to" val="1000L" />
+    </annotation>
+  </item>
+</root>
+

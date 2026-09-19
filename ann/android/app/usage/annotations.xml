@@ -1,0 +1,116 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<root>
+  <item name="android.app.usage.NetworkStats.Bucket int getDefaultNetworkStatus()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.usage.NetworkStats.Bucket.DEFAULT_NETWORK_ALL, android.app.usage.NetworkStats.Bucket.DEFAULT_NETWORK_NO, android.app.usage.NetworkStats.Bucket.DEFAULT_NETWORK_YES}" />
+    </annotation>
+  </item>
+  <item name="android.app.usage.NetworkStats.Bucket int getMetered()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.usage.NetworkStats.Bucket.METERED_ALL, android.app.usage.NetworkStats.Bucket.METERED_NO, android.app.usage.NetworkStats.Bucket.METERED_YES}" />
+    </annotation>
+  </item>
+  <item name="android.app.usage.NetworkStats.Bucket int getRoaming()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.usage.NetworkStats.Bucket.ROAMING_ALL, android.app.usage.NetworkStats.Bucket.ROAMING_NO, android.app.usage.NetworkStats.Bucket.ROAMING_YES}" />
+    </annotation>
+  </item>
+  <item name="android.app.usage.NetworkStats.Bucket int getState()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.usage.NetworkStats.Bucket.STATE_ALL, android.app.usage.NetworkStats.Bucket.STATE_DEFAULT, android.app.usage.NetworkStats.Bucket.STATE_FOREGROUND}" />
+    </annotation>
+  </item>
+  <item name="android.app.usage.NetworkStatsManager android.app.usage.NetworkStats queryDetails(int, java.lang.String, long, long)">
+    <annotation name="androidx.annotation.WorkerThread" />
+  </item>
+  <item name="android.app.usage.NetworkStatsManager android.app.usage.NetworkStats queryDetailsForUid(int, java.lang.String, long, long, int)">
+    <annotation name="androidx.annotation.WorkerThread" />
+  </item>
+  <item name="android.app.usage.NetworkStatsManager android.app.usage.NetworkStats queryDetailsForUidTag(int, java.lang.String, long, long, int, int)">
+    <annotation name="androidx.annotation.WorkerThread" />
+  </item>
+  <item name="android.app.usage.NetworkStatsManager android.app.usage.NetworkStats queryDetailsForUidTagState(int, java.lang.String, long, long, int, int, int)">
+    <annotation name="androidx.annotation.WorkerThread" />
+  </item>
+  <item name="android.app.usage.NetworkStatsManager android.app.usage.NetworkStats querySummary(int, java.lang.String, long, long)">
+    <annotation name="androidx.annotation.WorkerThread" />
+  </item>
+  <item name="android.app.usage.NetworkStatsManager android.app.usage.NetworkStats.Bucket querySummaryForDevice(int, java.lang.String, long, long)">
+    <annotation name="androidx.annotation.WorkerThread" />
+  </item>
+  <item name="android.app.usage.NetworkStatsManager android.app.usage.NetworkStats.Bucket querySummaryForUser(int, java.lang.String, long, long)">
+    <annotation name="androidx.annotation.WorkerThread" />
+  </item>
+<item name="android.app.usage.StorageStats long getAppBytesByDataType(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.usage.StorageStats.APP_DATA_TYPE_FILE_TYPE_DEXOPT_ARTIFACT, android.app.usage.StorageStats.APP_DATA_TYPE_FILE_TYPE_REFERENCE_PROFILE, android.app.usage.StorageStats.APP_DATA_TYPE_FILE_TYPE_CURRENT_PROFILE, android.app.usage.StorageStats.APP_DATA_TYPE_FILE_TYPE_APK, android.app.usage.StorageStats.APP_DATA_TYPE_FILE_TYPE_DM, android.app.usage.StorageStats.APP_DATA_TYPE_LIB}" />
+      <val name="flag" val="false" />
+    </annotation>
+  </item>
+  <item name="android.app.usage.StorageStatsManager android.app.usage.ExternalStorageStats queryExternalStatsForUser(java.util.UUID, android.os.UserHandle)">
+    <annotation name="androidx.annotation.WorkerThread" />
+  </item>
+  <item name="android.app.usage.StorageStatsManager android.app.usage.StorageStats queryStatsForPackage(java.util.UUID, java.lang.String, android.os.UserHandle)">
+    <annotation name="androidx.annotation.WorkerThread" />
+  </item>
+  <item name="android.app.usage.StorageStatsManager android.app.usage.StorageStats queryStatsForUid(java.util.UUID, int)">
+    <annotation name="androidx.annotation.WorkerThread" />
+  </item>
+  <item name="android.app.usage.StorageStatsManager android.app.usage.StorageStats queryStatsForUser(java.util.UUID, android.os.UserHandle)">
+    <annotation name="androidx.annotation.WorkerThread" />
+  </item>
+  <item name="android.app.usage.StorageStatsManager long getFreeBytes(java.util.UUID)">
+    <annotation name="androidx.annotation.WorkerThread" />
+  </item>
+  <item name="android.app.usage.StorageStatsManager long getTotalBytes(java.util.UUID)">
+    <annotation name="androidx.annotation.WorkerThread" />
+  </item>
+  <item name="android.app.usage.UsageEventsQuery int[] getEventTypes()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.usage.UsageEvents.Event.NONE, android.app.usage.UsageEvents.Event.ACTIVITY_RESUMED, android.app.usage.UsageEvents.Event.ACTIVITY_PAUSED, android.app.usage.UsageEvents.Event.CONFIGURATION_CHANGE, android.app.usage.UsageEvents.Event.USER_INTERACTION, android.app.usage.UsageEvents.Event.SHORTCUT_INVOCATION, android.app.usage.UsageEvents.Event.STANDBY_BUCKET_CHANGED, android.app.usage.UsageEvents.Event.SCREEN_INTERACTIVE, android.app.usage.UsageEvents.Event.SCREEN_NON_INTERACTIVE, android.app.usage.UsageEvents.Event.KEYGUARD_SHOWN, android.app.usage.UsageEvents.Event.KEYGUARD_HIDDEN, android.app.usage.UsageEvents.Event.FOREGROUND_SERVICE_START, android.app.usage.UsageEvents.Event.FOREGROUND_SERVICE_STOP, android.app.usage.UsageEvents.Event.ACTIVITY_STOPPED, android.app.usage.UsageEvents.Event.DEVICE_SHUTDOWN, android.app.usage.UsageEvents.Event.DEVICE_STARTUP}" />
+      <val name="flag" val="false" />
+    </annotation>
+  </item>
+  <item name="android.app.usage.UsageEventsQuery.Builder android.app.usage.UsageEventsQuery.Builder setEventTypes(int...) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.usage.UsageEvents.Event.NONE, android.app.usage.UsageEvents.Event.ACTIVITY_RESUMED, android.app.usage.UsageEvents.Event.ACTIVITY_PAUSED, android.app.usage.UsageEvents.Event.CONFIGURATION_CHANGE, android.app.usage.UsageEvents.Event.USER_INTERACTION, android.app.usage.UsageEvents.Event.SHORTCUT_INVOCATION, android.app.usage.UsageEvents.Event.STANDBY_BUCKET_CHANGED, android.app.usage.UsageEvents.Event.SCREEN_INTERACTIVE, android.app.usage.UsageEvents.Event.SCREEN_NON_INTERACTIVE, android.app.usage.UsageEvents.Event.KEYGUARD_SHOWN, android.app.usage.UsageEvents.Event.KEYGUARD_HIDDEN, android.app.usage.UsageEvents.Event.FOREGROUND_SERVICE_START, android.app.usage.UsageEvents.Event.FOREGROUND_SERVICE_STOP, android.app.usage.UsageEvents.Event.ACTIVITY_STOPPED, android.app.usage.UsageEvents.Event.DEVICE_SHUTDOWN, android.app.usage.UsageEvents.Event.DEVICE_STARTUP}" />
+      <val name="flag" val="false" />
+    </annotation>
+  </item>
+  <item name="android.app.usage.UsageStatsManager android.app.usage.UsageEvents queryEvents(android.app.usage.UsageEventsQuery)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.PACKAGE_USAGE_STATS&quot;" />
+    </annotation>
+  </item>
+  <item name="android.app.usage.UsageStatsManager android.app.usage.UsageEvents queryEvents(long, long)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.PACKAGE_USAGE_STATS&quot;" />
+    </annotation>
+  </item>
+  <item name="android.app.usage.UsageStatsManager int getAppStandbyBucket()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.app.usage.UsageStatsManager.STANDBY_BUCKET_ACTIVE, android.app.usage.UsageStatsManager.STANDBY_BUCKET_WORKING_SET, android.app.usage.UsageStatsManager.STANDBY_BUCKET_FREQUENT, android.app.usage.UsageStatsManager.STANDBY_BUCKET_RARE, android.app.usage.UsageStatsManager.STANDBY_BUCKET_RESTRICTED}" />
+      <val name="flag" val="false" />
+    </annotation>
+  </item>
+  <item name="android.app.usage.UsageStatsManager java.util.List&lt;android.app.usage.ConfigurationStats&gt; queryConfigurations(int, long, long)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.PACKAGE_USAGE_STATS&quot;" />
+    </annotation>
+  </item>
+  <item name="android.app.usage.UsageStatsManager java.util.List&lt;android.app.usage.EventStats&gt; queryEventStats(int, long, long)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.PACKAGE_USAGE_STATS&quot;" />
+    </annotation>
+  </item>
+  <item name="android.app.usage.UsageStatsManager java.util.List&lt;android.app.usage.UsageStats&gt; queryUsageStats(int, long, long)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.PACKAGE_USAGE_STATS&quot;" />
+    </annotation>
+  </item>
+  <item name="android.app.usage.UsageStatsManager java.util.Map&lt;java.lang.String,android.app.usage.UsageStats&gt; queryAndAggregateUsageStats(long, long)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.PACKAGE_USAGE_STATS&quot;" />
+    </annotation>
+  </item>
+</root>

@@ -337,9 +337,10 @@ fn main() {
 /// (metadata looked up in `<parent>/data/annotations.zip`). Scanned
 /// once here — every path (full run and subcommands) flows through
 /// main().
-/// Built-in platform symbol table (deflated; see
-/// scripts/gen-platform-symbols.sh).
-static BUILTIN_SYMBOLS: &[u8] = include_bytes!("platform_symbols.bin.gz");
+/// Built-in platform symbol table: the readable
+/// `src/platform_symbols.txt`, raw-DEFLATE'd by build.rs into OUT_DIR.
+/// Text form for maintenance, compressed form for the binary.
+static BUILTIN_SYMBOLS: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/platform_symbols.txt.gz"));
 
 fn load_symbols_from_args(args: &[String]) -> Result<()> {
     let Some(idx) = args.iter().position(|a| a == "--symbols") else {
@@ -348,7 +349,7 @@ fn load_symbols_from_args(args: &[String]) -> Result<()> {
         // startup — the table is consulted only when a literal matches a
         // platform call site, so the cost is one 750KB deserialize.
         let raw = inflate(BUILTIN_SYMBOLS)?;
-        if let Some(syms) = ddc_dec::platform::PlatformSymbols::deserialize(&raw) {
+        if let Some(syms) = ddc_dec::platform::PlatformSymbols::from_text(&raw) {
             ddc_dec::platform::set_symbols(syms);
         }
         return Ok(());
@@ -364,13 +365,13 @@ fn load_symbols_from_args(args: &[String]) -> Result<()> {
             .get(idx + 1)
             .context("--symbols-out needs --symbols <platform-dir>")?;
         let syms = build_symbols(Path::new(platform))?;
-        std::fs::write(out, syms.serialize())?;
+        std::fs::write(out, syms.to_text())?;
         eprintln!(
             "{}",
             bif!(
-                "ddc: wrote {0} ({1} domains, {2} bytes)",
-                "ddc：已写出 {0}（{1} 个域，{2} 字节）";
-                out, syms.domain_count(), syms.serialize().len()
+                "ddc: wrote {0} ({1} domains, text format)",
+                "ddc：已写出 {0}（{1} 个域，文本格式）";
+                out, syms.domain_count()
             )
         );
         return Ok(());

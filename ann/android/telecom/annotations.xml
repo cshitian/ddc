@@ -1,0 +1,519 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+  <item name="android.telecom.Call int getState()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.telecom.Call.STATE_NEW, android.telecom.Call.STATE_DIALING, android.telecom.Call.STATE_RINGING, android.telecom.Call.STATE_HOLDING, android.telecom.Call.STATE_ACTIVE, android.telecom.Call.STATE_DISCONNECTED, android.telecom.Call.STATE_SELECT_PHONE_ACCOUNT, android.telecom.Call.STATE_CONNECTING, android.telecom.Call.STATE_DISCONNECTING, android.telecom.Call.STATE_PULLING_CALL, android.telecom.Call.STATE_AUDIO_PROCESSING, android.telecom.Call.STATE_SIMULATED_RINGING}" />
+    </annotation>
+  </item>
+  <item name="android.telecom.Call void answer(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.telecom.VideoProfile.STATE_AUDIO_ONLY, android.telecom.VideoProfile.STATE_TX_ENABLED, android.telecom.VideoProfile.STATE_RX_ENABLED, android.telecom.VideoProfile.STATE_BIDIRECTIONAL, android.telecom.VideoProfile.STATE_PAUSED}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.telecom.Call void handoverTo(android.telecom.PhoneAccountHandle, int, android.os.Bundle) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.telecom.VideoProfile.STATE_AUDIO_ONLY, android.telecom.VideoProfile.STATE_TX_ENABLED, android.telecom.VideoProfile.STATE_RX_ENABLED, android.telecom.VideoProfile.STATE_BIDIRECTIONAL, android.telecom.VideoProfile.STATE_PAUSED}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.telecom.Call void reject(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.telecom.Call.REJECT_REASON_DECLINED, android.telecom.Call.REJECT_REASON_UNWANTED}" />
+    </annotation>
+  </item>
+  <item name="android.telecom.Call.Callback void onHandoverFailed(android.telecom.Call, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.telecom.Call.Callback.HANDOVER_FAILURE_DEST_APP_REJECTED, android.telecom.Call.Callback.HANDOVER_FAILURE_NOT_SUPPORTED, android.telecom.Call.Callback.HANDOVER_FAILURE_USER_REJECTED, android.telecom.Call.Callback.HANDOVER_FAILURE_ONGOING_EMERGENCY_CALL, android.telecom.Call.Callback.HANDOVER_FAILURE_UNKNOWN}" />
+    </annotation>
+  </item>
+  <item name="android.telecom.Call.Callback void onRttInitiationFailure(android.telecom.Call, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.telecom.Connection.RttModifyStatus.SESSION_MODIFY_REQUEST_SUCCESS, android.telecom.Connection.RttModifyStatus.SESSION_MODIFY_REQUEST_FAIL, android.telecom.Connection.RttModifyStatus.SESSION_MODIFY_REQUEST_INVALID, android.telecom.Connection.RttModifyStatus.SESSION_MODIFY_REQUEST_TIMED_OUT, android.telecom.Connection.RttModifyStatus.SESSION_MODIFY_REQUEST_REJECTED_BY_REMOTE}" />
+    </annotation>
+  </item>
+  <item name="android.telecom.Call.Callback void onStateChanged(android.telecom.Call, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.telecom.Call.STATE_NEW, android.telecom.Call.STATE_DIALING, android.telecom.Call.STATE_RINGING, android.telecom.Call.STATE_HOLDING, android.telecom.Call.STATE_ACTIVE, android.telecom.Call.STATE_DISCONNECTED, android.telecom.Call.STATE_SELECT_PHONE_ACCOUNT, android.telecom.Call.STATE_CONNECTING, android.telecom.Call.STATE_DISCONNECTING, android.telecom.Call.STATE_PULLING_CALL, android.telecom.Call.STATE_AUDIO_PROCESSING, android.telecom.Call.STATE_SIMULATED_RINGING}" />
+    </annotation>
+  </item>
+  <item name="android.telecom.Call.Details int getCallDirection()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.telecom.Call.Details.DIRECTION_UNKNOWN, android.telecom.Call.Details.DIRECTION_INCOMING, android.telecom.Call.Details.DIRECTION_OUTGOING}" />
+    </annotation>
+  </item>
+  <item name="android.telecom.Call.Details int getCallerNumberVerificationStatus()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.telecom.Connection.VERIFICATION_STATUS_NOT_VERIFIED, android.telecom.Connection.VERIFICATION_STATUS_PASSED, android.telecom.Connection.VERIFICATION_STATUS_FAILED}" />
+    </annotation>
+  </item>
+  <item name="android.telecom.Call.Details int getState()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.telecom.Call.STATE_NEW, android.telecom.Call.STATE_DIALING, android.telecom.Call.STATE_RINGING, android.telecom.Call.STATE_HOLDING, android.telecom.Call.STATE_ACTIVE, android.telecom.Call.STATE_DISCONNECTED, android.telecom.Call.STATE_SELECT_PHONE_ACCOUNT, android.telecom.Call.STATE_CONNECTING, android.telecom.Call.STATE_DISCONNECTING, android.telecom.Call.STATE_PULLING_CALL, android.telecom.Call.STATE_AUDIO_PROCESSING, android.telecom.Call.STATE_SIMULATED_RINGING}" />
+    </annotation>
+  </item>
+  <item name="android.telecom.Call.RttCall void setRttMode(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.telecom.Call.RttCall.RTT_MODE_FULL, android.telecom.Call.RttCall.RTT_MODE_HCO, android.telecom.Call.RttCall.RTT_MODE_VCO}" />
+    </annotation>
+  </item>
+  <item name="android.telecom.CallAttributes int getCallCapabilities()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.telecom.CallAttributes.SUPPORTS_SET_INACTIVE, android.telecom.CallAttributes.SUPPORTS_STREAM, android.telecom.CallAttributes.SUPPORTS_TRANSFER, android.telecom.CallAttributes.SUPPORTS_VIDEO_CALLING}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.telecom.CallAttributes int getCallType()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.telecom.CallAttributes.AUDIO_CALL, android.telecom.CallAttributes.VIDEO_CALL, android.telecom.CallAttributes.MESSAGING}" />
+    </annotation>
+  </item>
+  <item name="android.telecom.CallAttributes int getDirection()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.telecom.CallAttributes.DIRECTION_INCOMING, android.telecom.CallAttributes.DIRECTION_OUTGOING}" />
+    </annotation>
+  </item>
+  <item name="android.telecom.CallAttributes.Builder Builder(android.telecom.PhoneAccountHandle, int, java.lang.CharSequence, android.net.Uri) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.telecom.CallAttributes.DIRECTION_INCOMING, android.telecom.CallAttributes.DIRECTION_OUTGOING}" />
+    </annotation>
+  </item>
+  <item name="android.telecom.CallAttributes.Builder android.telecom.CallAttributes.Builder setCallCapabilities(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.telecom.CallAttributes.SUPPORTS_SET_INACTIVE, android.telecom.CallAttributes.SUPPORTS_STREAM, android.telecom.CallAttributes.SUPPORTS_TRANSFER, android.telecom.CallAttributes.SUPPORTS_VIDEO_CALLING}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.telecom.CallAttributes.Builder android.telecom.CallAttributes.Builder setCallType(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.telecom.CallAttributes.AUDIO_CALL, android.telecom.CallAttributes.VIDEO_CALL, android.telecom.CallAttributes.MESSAGING}" />
+    </annotation>
+  </item>
+  <item name="android.telecom.CallAudioState CallAudioState(boolean, int, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.telecom.CallAudioState.ROUTE_EARPIECE, android.telecom.CallAudioState.ROUTE_BLUETOOTH, android.telecom.CallAudioState.ROUTE_WIRED_HEADSET, android.telecom.CallAudioState.ROUTE_SPEAKER}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.telecom.CallAudioState CallAudioState(boolean, int, int) 2">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.telecom.CallAudioState.ROUTE_EARPIECE, android.telecom.CallAudioState.ROUTE_BLUETOOTH, android.telecom.CallAudioState.ROUTE_WIRED_HEADSET, android.telecom.CallAudioState.ROUTE_SPEAKER}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.telecom.CallAudioState int getRoute()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.telecom.CallAudioState.ROUTE_EARPIECE, android.telecom.CallAudioState.ROUTE_BLUETOOTH, android.telecom.CallAudioState.ROUTE_WIRED_HEADSET, android.telecom.CallAudioState.ROUTE_SPEAKER}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.telecom.CallAudioState int getSupportedRouteMask()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.telecom.CallAudioState.ROUTE_EARPIECE, android.telecom.CallAudioState.ROUTE_BLUETOOTH, android.telecom.CallAudioState.ROUTE_WIRED_HEADSET, android.telecom.CallAudioState.ROUTE_SPEAKER}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.telecom.CallControl void answer(int, java.util.concurrent.Executor, android.os.OutcomeReceiver&lt;java.lang.Void,android.telecom.CallException&gt;) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.telecom.CallAttributes.AUDIO_CALL, android.telecom.CallAttributes.VIDEO_CALL, android.telecom.CallAttributes.MESSAGING}" />
+    </annotation>
+  </item>
+  <item name="android.telecom.CallControl void requestVideoState(int, java.util.concurrent.Executor, android.os.OutcomeReceiver&lt;java.lang.Void,android.telecom.CallException&gt;) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.telecom.CallAttributes.AUDIO_CALL, android.telecom.CallAttributes.VIDEO_CALL, android.telecom.CallAttributes.MESSAGING}" />
+    </annotation>
+  </item>
+  <item name="android.telecom.CallControlCallback void onAnswer(int, java.util.function.Consumer&lt;java.lang.Boolean&gt;) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.telecom.CallAttributes.AUDIO_CALL, android.telecom.CallAttributes.VIDEO_CALL, android.telecom.CallAttributes.MESSAGING}" />
+    </annotation>
+  </item>
+  <item name="android.telecom.CallEndpoint CallEndpoint(java.lang.CharSequence, int, android.os.ParcelUuid) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.telecom.CallEndpoint.TYPE_UNKNOWN, android.telecom.CallEndpoint.TYPE_EARPIECE, android.telecom.CallEndpoint.TYPE_BLUETOOTH, android.telecom.CallEndpoint.TYPE_WIRED_HEADSET, android.telecom.CallEndpoint.TYPE_SPEAKER, android.telecom.CallEndpoint.TYPE_STREAMING}" />
+    </annotation>
+  </item>
+  <item name="android.telecom.CallEndpoint int getEndpointType()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.telecom.CallEndpoint.TYPE_UNKNOWN, android.telecom.CallEndpoint.TYPE_EARPIECE, android.telecom.CallEndpoint.TYPE_BLUETOOTH, android.telecom.CallEndpoint.TYPE_WIRED_HEADSET, android.telecom.CallEndpoint.TYPE_SPEAKER, android.telecom.CallEndpoint.TYPE_STREAMING}" />
+    </annotation>
+  </item>
+  <item name="android.telecom.CallEndpointException CallEndpointException(java.lang.String, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.telecom.CallEndpointException.ERROR_ENDPOINT_DOES_NOT_EXIST, android.telecom.CallEndpointException.ERROR_REQUEST_TIME_OUT, android.telecom.CallEndpointException.ERROR_ANOTHER_REQUEST, android.telecom.CallEndpointException.ERROR_UNSPECIFIED}" />
+    </annotation>
+  </item>
+  <item name="android.telecom.CallEndpointException int getCode()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.telecom.CallEndpointException.ERROR_ENDPOINT_DOES_NOT_EXIST, android.telecom.CallEndpointException.ERROR_REQUEST_TIME_OUT, android.telecom.CallEndpointException.ERROR_ANOTHER_REQUEST, android.telecom.CallEndpointException.ERROR_UNSPECIFIED}" />
+    </annotation>
+  </item>
+  <item name="android.telecom.CallEventCallback void onCallStreamingFailed(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{}" />
+    </annotation>
+  </item>
+  <item name="android.telecom.CallEventCallback void onVideoStateChanged(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.telecom.CallAttributes.AUDIO_CALL, android.telecom.CallAttributes.VIDEO_CALL, android.telecom.CallAttributes.MESSAGING}" />
+    </annotation>
+  </item>
+  <item name="android.telecom.CallException CallException(java.lang.String, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.telecom.CallException.CODE_ERROR_UNKNOWN, android.telecom.CallException.CODE_CANNOT_HOLD_CURRENT_ACTIVE_CALL, android.telecom.CallException.CODE_CALL_IS_NOT_BEING_TRACKED, android.telecom.CallException.CODE_CALL_CANNOT_BE_SET_TO_ACTIVE, android.telecom.CallException.CODE_CALL_NOT_PERMITTED_AT_PRESENT_TIME, android.telecom.CallException.CODE_OPERATION_TIMED_OUT}" />
+    </annotation>
+  </item>
+  <item name="android.telecom.CallException int getCode()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.telecom.CallException.CODE_ERROR_UNKNOWN, android.telecom.CallException.CODE_CANNOT_HOLD_CURRENT_ACTIVE_CALL, android.telecom.CallException.CODE_CALL_IS_NOT_BEING_TRACKED, android.telecom.CallException.CODE_CALL_CANNOT_BE_SET_TO_ACTIVE, android.telecom.CallException.CODE_CALL_NOT_PERMITTED_AT_PRESENT_TIME, android.telecom.CallException.CODE_OPERATION_TIMED_OUT}" />
+    </annotation>
+  </item>
+  <item name="android.telecom.CallScreeningService.CallResponse int getCallComposerAttachmentsToShow()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.telecom.CallScreeningService.CallResponse.CALL_COMPOSER_ATTACHMENT_PICTURE, android.telecom.CallScreeningService.CallResponse.CALL_COMPOSER_ATTACHMENT_LOCATION, android.telecom.CallScreeningService.CallResponse.CALL_COMPOSER_ATTACHMENT_SUBJECT, android.telecom.CallScreeningService.CallResponse.CALL_COMPOSER_ATTACHMENT_PRIORITY}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.telecom.CallScreeningService.CallResponse.Builder android.telecom.CallScreeningService.CallResponse.Builder setCallComposerAttachmentsToShow(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.telecom.CallScreeningService.CallResponse.CALL_COMPOSER_ATTACHMENT_PICTURE, android.telecom.CallScreeningService.CallResponse.CALL_COMPOSER_ATTACHMENT_LOCATION, android.telecom.CallScreeningService.CallResponse.CALL_COMPOSER_ATTACHMENT_SUBJECT, android.telecom.CallScreeningService.CallResponse.CALL_COMPOSER_ATTACHMENT_PRIORITY}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.telecom.Conference long getConnectionTime()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.telecom.Conference void onAnswer(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.telecom.VideoProfile.STATE_AUDIO_ONLY, android.telecom.VideoProfile.STATE_TX_ENABLED, android.telecom.VideoProfile.STATE_RX_ENABLED, android.telecom.VideoProfile.STATE_BIDIRECTIONAL, android.telecom.VideoProfile.STATE_PAUSED}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.telecom.Conference void setConnectionTime(long) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.telecom.Connection EXTRA_AUDIO_CODEC">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.telecom.Connection.AUDIO_CODEC_NONE, android.telecom.Connection.AUDIO_CODEC_AMR, android.telecom.Connection.AUDIO_CODEC_AMR_WB, android.telecom.Connection.AUDIO_CODEC_QCELP13K, android.telecom.Connection.AUDIO_CODEC_EVRC, android.telecom.Connection.AUDIO_CODEC_EVRC_B, android.telecom.Connection.AUDIO_CODEC_EVRC_WB, android.telecom.Connection.AUDIO_CODEC_EVRC_NW, android.telecom.Connection.AUDIO_CODEC_GSM_EFR, android.telecom.Connection.AUDIO_CODEC_GSM_FR, android.telecom.Connection.AUDIO_CODEC_GSM_HR, android.telecom.Connection.AUDIO_CODEC_G711U, android.telecom.Connection.AUDIO_CODEC_G723, android.telecom.Connection.AUDIO_CODEC_G711A, android.telecom.Connection.AUDIO_CODEC_G722, android.telecom.Connection.AUDIO_CODEC_G711AB, android.telecom.Connection.AUDIO_CODEC_G729, android.telecom.Connection.AUDIO_CODEC_EVS_NB, android.telecom.Connection.AUDIO_CODEC_EVS_SWB, android.telecom.Connection.AUDIO_CODEC_EVS_FB}" />
+    </annotation>
+  </item>
+  <item name="android.telecom.Connection int getAudioProcessingUseCase()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.telecom.Call.AUDIO_PROCESSING_USE_CASE_UNKNOWN, android.telecom.Call.AUDIO_PROCESSING_USE_CASE_VOICEMAIL, android.telecom.Call.AUDIO_PROCESSING_USE_CASE_CALL_SCREENING, android.telecom.Call.AUDIO_PROCESSING_USE_CASE_ASK_TO_HOLD}" />
+    </annotation>
+  </item>
+  <item name="android.telecom.Connection int getCallerNumberVerificationStatus()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.telecom.Connection.VERIFICATION_STATUS_NOT_VERIFIED, android.telecom.Connection.VERIFICATION_STATUS_PASSED, android.telecom.Connection.VERIFICATION_STATUS_FAILED}" />
+    </annotation>
+  </item>
+  <item name="android.telecom.Connection int getVideoState()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.telecom.VideoProfile.STATE_AUDIO_ONLY, android.telecom.VideoProfile.STATE_TX_ENABLED, android.telecom.VideoProfile.STATE_RX_ENABLED, android.telecom.VideoProfile.STATE_BIDIRECTIONAL, android.telecom.VideoProfile.STATE_PAUSED}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.telecom.Connection void onReject(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.telecom.Call.REJECT_REASON_DECLINED, android.telecom.Call.REJECT_REASON_UNWANTED}" />
+    </annotation>
+  </item>
+  <item name="android.telecom.Connection void queryLocationForEmergency(long, java.lang.String, java.util.concurrent.Executor, android.os.OutcomeReceiver&lt;android.location.Location,android.telecom.QueryLocationException&gt;) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="100L" />
+      <val name="to" val="5000L" />
+    </annotation>
+  </item>
+  <item name="android.telecom.Connection void setAudioProcessing(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.telecom.Call.AUDIO_PROCESSING_USE_CASE_UNKNOWN, android.telecom.Call.AUDIO_PROCESSING_USE_CASE_VOICEMAIL, android.telecom.Call.AUDIO_PROCESSING_USE_CASE_CALL_SCREENING, android.telecom.Call.AUDIO_PROCESSING_USE_CASE_ASK_TO_HOLD}" />
+    </annotation>
+  </item>
+  <item name="android.telecom.Connection void setCallerNumberVerificationStatus(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.telecom.Connection.VERIFICATION_STATUS_NOT_VERIFIED, android.telecom.Connection.VERIFICATION_STATUS_PASSED, android.telecom.Connection.VERIFICATION_STATUS_FAILED}" />
+    </annotation>
+  </item>
+  <item name="android.telecom.ConnectionService void onHandoverFailed(android.telecom.ConnectionRequest, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.telecom.Call.Callback.HANDOVER_FAILURE_DEST_APP_REJECTED, android.telecom.Call.Callback.HANDOVER_FAILURE_NOT_SUPPORTED, android.telecom.Call.Callback.HANDOVER_FAILURE_USER_REJECTED, android.telecom.Call.Callback.HANDOVER_FAILURE_ONGOING_EMERGENCY_CALL, android.telecom.Call.Callback.HANDOVER_FAILURE_UNKNOWN}" />
+    </annotation>
+  </item>
+  <item name="android.telecom.DisconnectCause DisconnectCause(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.telecom.DisconnectCause.UNKNOWN, android.telecom.DisconnectCause.ERROR, android.telecom.DisconnectCause.LOCAL, android.telecom.DisconnectCause.REMOTE, android.telecom.DisconnectCause.CANCELED, android.telecom.DisconnectCause.MISSED, android.telecom.DisconnectCause.REJECTED, android.telecom.DisconnectCause.BUSY, android.telecom.DisconnectCause.RESTRICTED, android.telecom.DisconnectCause.OTHER, android.telecom.DisconnectCause.CONNECTION_MANAGER_NOT_SUPPORTED, android.telecom.DisconnectCause.ANSWERED_ELSEWHERE, android.telecom.DisconnectCause.CALL_PULLED}" />
+    </annotation>
+  </item>
+  <item name="android.telecom.DisconnectCause DisconnectCause(int, java.lang.CharSequence, java.lang.CharSequence, java.lang.String) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.telecom.DisconnectCause.UNKNOWN, android.telecom.DisconnectCause.ERROR, android.telecom.DisconnectCause.LOCAL, android.telecom.DisconnectCause.REMOTE, android.telecom.DisconnectCause.CANCELED, android.telecom.DisconnectCause.MISSED, android.telecom.DisconnectCause.REJECTED, android.telecom.DisconnectCause.BUSY, android.telecom.DisconnectCause.RESTRICTED, android.telecom.DisconnectCause.OTHER, android.telecom.DisconnectCause.CONNECTION_MANAGER_NOT_SUPPORTED, android.telecom.DisconnectCause.ANSWERED_ELSEWHERE, android.telecom.DisconnectCause.CALL_PULLED}" />
+    </annotation>
+  </item>
+  <item name="android.telecom.DisconnectCause DisconnectCause(int, java.lang.CharSequence, java.lang.CharSequence, java.lang.String, int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.telecom.DisconnectCause.UNKNOWN, android.telecom.DisconnectCause.ERROR, android.telecom.DisconnectCause.LOCAL, android.telecom.DisconnectCause.REMOTE, android.telecom.DisconnectCause.CANCELED, android.telecom.DisconnectCause.MISSED, android.telecom.DisconnectCause.REJECTED, android.telecom.DisconnectCause.BUSY, android.telecom.DisconnectCause.RESTRICTED, android.telecom.DisconnectCause.OTHER, android.telecom.DisconnectCause.CONNECTION_MANAGER_NOT_SUPPORTED, android.telecom.DisconnectCause.ANSWERED_ELSEWHERE, android.telecom.DisconnectCause.CALL_PULLED}" />
+    </annotation>
+  </item>
+  <item name="android.telecom.DisconnectCause DisconnectCause(int, java.lang.String) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.telecom.DisconnectCause.UNKNOWN, android.telecom.DisconnectCause.ERROR, android.telecom.DisconnectCause.LOCAL, android.telecom.DisconnectCause.REMOTE, android.telecom.DisconnectCause.CANCELED, android.telecom.DisconnectCause.MISSED, android.telecom.DisconnectCause.REJECTED, android.telecom.DisconnectCause.BUSY, android.telecom.DisconnectCause.RESTRICTED, android.telecom.DisconnectCause.OTHER, android.telecom.DisconnectCause.CONNECTION_MANAGER_NOT_SUPPORTED, android.telecom.DisconnectCause.ANSWERED_ELSEWHERE, android.telecom.DisconnectCause.CALL_PULLED}" />
+    </annotation>
+  </item>
+  <item name="android.telecom.DisconnectCause int getCode()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.telecom.DisconnectCause.UNKNOWN, android.telecom.DisconnectCause.ERROR, android.telecom.DisconnectCause.LOCAL, android.telecom.DisconnectCause.REMOTE, android.telecom.DisconnectCause.CANCELED, android.telecom.DisconnectCause.MISSED, android.telecom.DisconnectCause.REJECTED, android.telecom.DisconnectCause.BUSY, android.telecom.DisconnectCause.RESTRICTED, android.telecom.DisconnectCause.OTHER, android.telecom.DisconnectCause.CONNECTION_MANAGER_NOT_SUPPORTED, android.telecom.DisconnectCause.ANSWERED_ELSEWHERE, android.telecom.DisconnectCause.CALL_PULLED}" />
+    </annotation>
+  </item>
+  <item name="android.telecom.PhoneAccountSuggestion PhoneAccountSuggestion(android.telecom.PhoneAccountHandle, int, boolean) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.telecom.PhoneAccountSuggestion.REASON_NONE, android.telecom.PhoneAccountSuggestion.REASON_INTRA_CARRIER, android.telecom.PhoneAccountSuggestion.REASON_FREQUENT, android.telecom.PhoneAccountSuggestion.REASON_USER_SET, android.telecom.PhoneAccountSuggestion.REASON_OTHER}" />
+    </annotation>
+  </item>
+  <item name="android.telecom.PhoneAccountSuggestion int getReason()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.telecom.PhoneAccountSuggestion.REASON_NONE, android.telecom.PhoneAccountSuggestion.REASON_INTRA_CARRIER, android.telecom.PhoneAccountSuggestion.REASON_FREQUENT, android.telecom.PhoneAccountSuggestion.REASON_USER_SET, android.telecom.PhoneAccountSuggestion.REASON_OTHER}" />
+    </annotation>
+  </item>
+  <item name="android.telecom.QueryLocationException QueryLocationException(java.lang.String, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.telecom.QueryLocationException.ERROR_REQUEST_TIME_OUT, android.telecom.QueryLocationException.ERROR_PREVIOUS_REQUEST_EXISTS, android.telecom.QueryLocationException.ERROR_NOT_PERMITTED, android.telecom.QueryLocationException.ERROR_NOT_ALLOWED_FOR_NON_EMERGENCY_CONNECTIONS, android.telecom.QueryLocationException.ERROR_SERVICE_UNAVAILABLE, android.telecom.QueryLocationException.ERROR_UNSPECIFIED}" />
+    </annotation>
+  </item>
+  <item name="android.telecom.QueryLocationException QueryLocationException(java.lang.String, int, java.lang.Throwable) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.telecom.QueryLocationException.ERROR_REQUEST_TIME_OUT, android.telecom.QueryLocationException.ERROR_PREVIOUS_REQUEST_EXISTS, android.telecom.QueryLocationException.ERROR_NOT_PERMITTED, android.telecom.QueryLocationException.ERROR_NOT_ALLOWED_FOR_NON_EMERGENCY_CONNECTIONS, android.telecom.QueryLocationException.ERROR_SERVICE_UNAVAILABLE, android.telecom.QueryLocationException.ERROR_UNSPECIFIED}" />
+    </annotation>
+  </item>
+  <item name="android.telecom.QueryLocationException int getCode()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.telecom.QueryLocationException.ERROR_REQUEST_TIME_OUT, android.telecom.QueryLocationException.ERROR_PREVIOUS_REQUEST_EXISTS, android.telecom.QueryLocationException.ERROR_NOT_PERMITTED, android.telecom.QueryLocationException.ERROR_NOT_ALLOWED_FOR_NON_EMERGENCY_CONNECTIONS, android.telecom.QueryLocationException.ERROR_SERVICE_UNAVAILABLE, android.telecom.QueryLocationException.ERROR_UNSPECIFIED}" />
+    </annotation>
+  </item>
+  <item name="android.telecom.TelecomManager android.net.Uri getAdnUriForPhoneAccount(android.telecom.PhoneAccountHandle)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.MODIFY_PHONE_STATE&quot;" />
+    </annotation>
+  </item>
+  <item name="android.telecom.TelecomManager android.telecom.PhoneAccountHandle getDefaultOutgoingPhoneAccount(java.lang.String)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.READ_PHONE_STATE&quot;" />
+    </annotation>
+  </item>
+  <item name="android.telecom.TelecomManager android.telecom.PhoneAccountHandle getUserSelectedOutgoingPhoneAccount()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.READ_PHONE_STATE&quot;" />
+    </annotation>
+  </item>
+  <item name="android.telecom.TelecomManager boolean endCall()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.ANSWER_PHONE_CALLS&quot;" />
+    </annotation>
+  </item>
+  <item name="android.telecom.TelecomManager boolean handleMmi(java.lang.String)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.MODIFY_PHONE_STATE&quot;" />
+    </annotation>
+  </item>
+  <item name="android.telecom.TelecomManager boolean handleMmi(java.lang.String, android.telecom.PhoneAccountHandle)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.MODIFY_PHONE_STATE&quot;" />
+    </annotation>
+  </item>
+  <item name="android.telecom.TelecomManager boolean isInCall()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.READ_PHONE_STATE&quot;" />
+    </annotation>
+  </item>
+  <item name="android.telecom.TelecomManager boolean isInExternalCall()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.READ_PHONE_STATE&quot;" />
+    </annotation>
+  </item>
+  <item name="android.telecom.TelecomManager boolean isInManagedCall()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.READ_PHONE_STATE&quot;" />
+    </annotation>
+  </item>
+  <item name="android.telecom.TelecomManager boolean isTtySupported()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="anyOf" val="{&quot;android.permission.READ_PRIVILEGED_PHONE_STATE&quot;, &quot;android.permission.READ_PHONE_STATE&quot;}" />
+    </annotation>
+  </item>
+  <item name="android.telecom.TelecomManager boolean isVoiceMailNumber(android.telecom.PhoneAccountHandle, java.lang.String)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.READ_PHONE_STATE&quot;" />
+    </annotation>
+  </item>
+  <item name="android.telecom.TelecomManager java.lang.String getLine1Number(android.telecom.PhoneAccountHandle)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="anyOf" val="{&quot;android.permission.READ_PHONE_STATE&quot;, &quot;android.permission.READ_SMS&quot;, &quot;android.permission.READ_PHONE_NUMBERS&quot;}" />
+      <val name="conditional" val="true" />
+    </annotation>
+  </item>
+  <item name="android.telecom.TelecomManager java.lang.String getVoiceMailNumber(android.telecom.PhoneAccountHandle)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.READ_PHONE_STATE&quot;" />
+    </annotation>
+  </item>
+  <item name="android.telecom.TelecomManager java.util.List&lt;android.telecom.PhoneAccountHandle&gt; getCallCapablePhoneAccounts()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.READ_PHONE_STATE&quot;" />
+    </annotation>
+  </item>
+  <item name="android.telecom.TelecomManager java.util.List&lt;android.telecom.PhoneAccountHandle&gt; getOwnSelfManagedPhoneAccounts()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.MANAGE_OWN_CALLS&quot;" />
+    </annotation>
+  </item>
+  <item name="android.telecom.TelecomManager java.util.List&lt;android.telecom.PhoneAccountHandle&gt; getSelfManagedPhoneAccounts()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.READ_PHONE_STATE&quot;" />
+    </annotation>
+  </item>
+  <item name="android.telecom.TelecomManager void acceptHandover(android.net.Uri, int, android.telecom.PhoneAccountHandle) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.telecom.VideoProfile.STATE_AUDIO_ONLY, android.telecom.VideoProfile.STATE_TX_ENABLED, android.telecom.VideoProfile.STATE_RX_ENABLED, android.telecom.VideoProfile.STATE_BIDIRECTIONAL, android.telecom.VideoProfile.STATE_PAUSED}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.telecom.TelecomManager void acceptRingingCall()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="anyOf" val="{&quot;android.permission.ANSWER_PHONE_CALLS&quot;, &quot;android.permission.MODIFY_PHONE_STATE&quot;}" />
+    </annotation>
+  </item>
+  <item name="android.telecom.TelecomManager void acceptRingingCall(int)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="anyOf" val="{&quot;android.permission.ANSWER_PHONE_CALLS&quot;, &quot;android.permission.MODIFY_PHONE_STATE&quot;}" />
+    </annotation>
+  </item>
+  <item name="android.telecom.TelecomManager void addCall(android.telecom.CallAttributes, java.util.concurrent.Executor, android.os.OutcomeReceiver&lt;android.telecom.CallControl,android.telecom.CallException&gt;, android.telecom.CallControlCallback, android.telecom.CallEventCallback)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.MANAGE_OWN_CALLS&quot;" />
+    </annotation>
+  </item>
+  <item name="android.telecom.TelecomManager void cancelMissedCallsNotification()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.MODIFY_PHONE_STATE&quot;" />
+    </annotation>
+  </item>
+  <item name="android.telecom.TelecomManager void placeCall(android.net.Uri, android.os.Bundle)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="anyOf" val="{&quot;android.permission.CALL_PHONE&quot;, &quot;android.permission.MANAGE_OWN_CALLS&quot;}" />
+    </annotation>
+  </item>
+  <item name="android.telecom.TelecomManager void showInCallScreen(boolean)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.READ_PHONE_STATE&quot;" />
+    </annotation>
+  </item>
+  <item name="android.telecom.TelecomManager void silenceRinger()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.MODIFY_PHONE_STATE&quot;" />
+    </annotation>
+  </item>
+  <item name="android.telecom.TelecomManager void startConference(java.util.List&lt;android.net.Uri&gt;, android.os.Bundle)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.CALL_PHONE&quot;" />
+    </annotation>
+  </item>
+  <item name="android.telecom.VideoProfile VideoProfile(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.telecom.VideoProfile.STATE_AUDIO_ONLY, android.telecom.VideoProfile.STATE_TX_ENABLED, android.telecom.VideoProfile.STATE_RX_ENABLED, android.telecom.VideoProfile.STATE_BIDIRECTIONAL, android.telecom.VideoProfile.STATE_PAUSED}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.telecom.VideoProfile VideoProfile(int, int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.telecom.VideoProfile.STATE_AUDIO_ONLY, android.telecom.VideoProfile.STATE_TX_ENABLED, android.telecom.VideoProfile.STATE_RX_ENABLED, android.telecom.VideoProfile.STATE_BIDIRECTIONAL, android.telecom.VideoProfile.STATE_PAUSED}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.telecom.VideoProfile VideoProfile(int, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.telecom.VideoProfile.QUALITY_HIGH, android.telecom.VideoProfile.QUALITY_MEDIUM, android.telecom.VideoProfile.QUALITY_LOW, android.telecom.VideoProfile.QUALITY_DEFAULT}" />
+    </annotation>
+  </item>
+  <item name="android.telecom.VideoProfile boolean isAudioOnly(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.telecom.VideoProfile.STATE_AUDIO_ONLY, android.telecom.VideoProfile.STATE_TX_ENABLED, android.telecom.VideoProfile.STATE_RX_ENABLED, android.telecom.VideoProfile.STATE_BIDIRECTIONAL, android.telecom.VideoProfile.STATE_PAUSED}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.telecom.VideoProfile boolean isBidirectional(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.telecom.VideoProfile.STATE_AUDIO_ONLY, android.telecom.VideoProfile.STATE_TX_ENABLED, android.telecom.VideoProfile.STATE_RX_ENABLED, android.telecom.VideoProfile.STATE_BIDIRECTIONAL, android.telecom.VideoProfile.STATE_PAUSED}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.telecom.VideoProfile boolean isPaused(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.telecom.VideoProfile.STATE_AUDIO_ONLY, android.telecom.VideoProfile.STATE_TX_ENABLED, android.telecom.VideoProfile.STATE_RX_ENABLED, android.telecom.VideoProfile.STATE_BIDIRECTIONAL, android.telecom.VideoProfile.STATE_PAUSED}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.telecom.VideoProfile boolean isReceptionEnabled(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.telecom.VideoProfile.STATE_AUDIO_ONLY, android.telecom.VideoProfile.STATE_TX_ENABLED, android.telecom.VideoProfile.STATE_RX_ENABLED, android.telecom.VideoProfile.STATE_BIDIRECTIONAL, android.telecom.VideoProfile.STATE_PAUSED}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.telecom.VideoProfile boolean isTransmissionEnabled(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.telecom.VideoProfile.STATE_AUDIO_ONLY, android.telecom.VideoProfile.STATE_TX_ENABLED, android.telecom.VideoProfile.STATE_RX_ENABLED, android.telecom.VideoProfile.STATE_BIDIRECTIONAL, android.telecom.VideoProfile.STATE_PAUSED}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.telecom.VideoProfile boolean isVideo(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.telecom.VideoProfile.STATE_AUDIO_ONLY, android.telecom.VideoProfile.STATE_TX_ENABLED, android.telecom.VideoProfile.STATE_RX_ENABLED, android.telecom.VideoProfile.STATE_BIDIRECTIONAL, android.telecom.VideoProfile.STATE_PAUSED}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.telecom.VideoProfile int getQuality()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.telecom.VideoProfile.QUALITY_HIGH, android.telecom.VideoProfile.QUALITY_MEDIUM, android.telecom.VideoProfile.QUALITY_LOW, android.telecom.VideoProfile.QUALITY_DEFAULT}" />
+    </annotation>
+  </item>
+  <item name="android.telecom.VideoProfile int getVideoState()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.telecom.VideoProfile.STATE_AUDIO_ONLY, android.telecom.VideoProfile.STATE_TX_ENABLED, android.telecom.VideoProfile.STATE_RX_ENABLED, android.telecom.VideoProfile.STATE_BIDIRECTIONAL, android.telecom.VideoProfile.STATE_PAUSED}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.telecom.VideoProfile java.lang.String videoStateToString(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.telecom.VideoProfile.STATE_AUDIO_ONLY, android.telecom.VideoProfile.STATE_TX_ENABLED, android.telecom.VideoProfile.STATE_RX_ENABLED, android.telecom.VideoProfile.STATE_BIDIRECTIONAL, android.telecom.VideoProfile.STATE_PAUSED}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.telecom.VideoProfile.CameraCapabilities CameraCapabilities(int, int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.telecom.VideoProfile.CameraCapabilities CameraCapabilities(int, int) 1">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.telecom.VideoProfile.CameraCapabilities CameraCapabilities(int, int, boolean, float) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.telecom.VideoProfile.CameraCapabilities CameraCapabilities(int, int, boolean, float) 1">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.telecom.VideoProfile.CameraCapabilities CameraCapabilities(int, int, boolean, float) 3">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="1.0" />
+    </annotation>
+  </item>
+</root>
+

@@ -1,0 +1,1527 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+  <item name="android.graphics.Bitmap android.graphics.Bitmap createBitmap(android.util.DisplayMetrics, int[], int, int, android.graphics.Bitmap.Config) 1">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.graphics.Bitmap android.graphics.Bitmap createBitmap(android.util.DisplayMetrics, int[], int, int, int, int, android.graphics.Bitmap.Config) 1">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.graphics.Bitmap android.graphics.Bitmap createBitmap(int[], int, int, android.graphics.Bitmap.Config) 0">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.graphics.Bitmap android.graphics.Bitmap createBitmap(int[], int, int, int, int, android.graphics.Bitmap.Config) 0">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.graphics.Bitmap android.graphics.Bitmap extractAlpha()">
+    <annotation name="androidx.annotation.CheckResult"/>
+  </item>
+  <item name="android.graphics.Bitmap android.graphics.Bitmap extractAlpha(android.graphics.Paint, int[])">
+    <annotation name="androidx.annotation.CheckResult"/>
+  </item>
+  <item name="android.graphics.Bitmap boolean compress(android.graphics.Bitmap.CompressFormat, int, java.io.OutputStream)">
+    <annotation name="androidx.annotation.WorkerThread"/>
+  </item>
+  <item name="android.graphics.Bitmap boolean sameAs(android.graphics.Bitmap)">
+    <annotation name="androidx.annotation.WorkerThread"/>
+  </item>
+  <item name="android.graphics.Bitmap int getPixel(int, int)">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.graphics.Bitmap void eraseColor(int) 0">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.graphics.Bitmap void eraseColor(long) 0">
+    <annotation name="androidx.annotation.ColorLong"/>
+  </item>
+  <item name="android.graphics.Bitmap void getPixels(int[], int, int, int, int, int, int) 0">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.graphics.Bitmap void setPixel(int, int, int) 2">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.graphics.Bitmap void setPixels(int[], int, int, int, int, int, int) 0">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.graphics.BitmapShader int getFilterMode()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.graphics.BitmapShader.FILTER_MODE_DEFAULT, android.graphics.BitmapShader.FILTER_MODE_NEAREST, android.graphics.BitmapShader.FILTER_MODE_LINEAR}" />
+    </annotation>
+  </item>
+  <item name="android.graphics.BitmapShader void setFilterMode(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.graphics.BitmapShader.FILTER_MODE_DEFAULT, android.graphics.BitmapShader.FILTER_MODE_NEAREST, android.graphics.BitmapShader.FILTER_MODE_LINEAR}" />
+    </annotation>
+  </item>
+  <item name="android.graphics.BitmapShader void setMaxAnisotropy(int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="1L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.BlendModeColorFilter BlendModeColorFilter(int, android.graphics.BlendMode) 0">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.graphics.BlendModeColorFilter int getColor()">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.graphics.Canvas int saveLayer(android.graphics.RectF, android.graphics.Paint, int) 2">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="android.graphics.Canvas.ALL_SAVE_FLAG" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Canvas int saveLayer(float, float, float, float, android.graphics.Paint, int) 5">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="android.graphics.Canvas.ALL_SAVE_FLAG" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Canvas int saveLayerAlpha(android.graphics.RectF, int, int) 2">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="android.graphics.Canvas.ALL_SAVE_FLAG" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Canvas int saveLayerAlpha(float, float, float, float, int, int) 5">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="android.graphics.Canvas.ALL_SAVE_FLAG" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Canvas void drawColor(int) 0">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.graphics.Canvas void drawColor(int, android.graphics.BlendMode) 0">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.graphics.Canvas void drawColor(int, android.graphics.PorterDuff.Mode) 0">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.graphics.Canvas void drawColor(long) 0">
+    <annotation name="androidx.annotation.ColorLong"/>
+  </item>
+  <item name="android.graphics.Canvas void drawColor(long, android.graphics.BlendMode) 0">
+    <annotation name="androidx.annotation.ColorLong"/>
+  </item>
+  <item name="android.graphics.Canvas void drawGlyphs(int[], int, float[], int, int, android.graphics.fonts.Font, android.graphics.Paint) 1">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Canvas void drawGlyphs(int[], int, float[], int, int, android.graphics.fonts.Font, android.graphics.Paint) 3">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Canvas void drawGlyphs(int[], int, float[], int, int, android.graphics.fonts.Font, android.graphics.Paint) 4">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Canvas void drawLines(float[], android.graphics.Paint) 0">
+    <annotation name="androidx.annotation.Size">
+      <val name="multiple" val="4L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Canvas void drawLines(float[], int, int, android.graphics.Paint) 0">
+    <annotation name="androidx.annotation.Size">
+      <val name="multiple" val="4L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Canvas void drawPoints(float[], android.graphics.Paint) 0">
+    <annotation name="androidx.annotation.Size">
+      <val name="multiple" val="2L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Canvas void drawPoints(float[], int, int, android.graphics.Paint) 0">
+    <annotation name="androidx.annotation.Size">
+      <val name="multiple" val="2L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Canvas void drawPosText(char[], int, int, float[], android.graphics.Paint) 3">
+    <annotation name="androidx.annotation.Size">
+      <val name="multiple" val="2L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Canvas void drawPosText(java.lang.String, float[], android.graphics.Paint) 1">
+    <annotation name="androidx.annotation.Size">
+      <val name="multiple" val="2L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Color">
+    <annotation name="androidx.annotation.AnyThread"/>
+  </item>
+  <item name="android.graphics.Color BLACK">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.graphics.Color BLUE">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.graphics.Color CYAN">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.graphics.Color DKGRAY">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.graphics.Color GRAY">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.graphics.Color GREEN">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.graphics.Color LTGRAY">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.graphics.Color MAGENTA">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.graphics.Color RED">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.graphics.Color TRANSPARENT">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.graphics.Color WHITE">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.graphics.Color YELLOW">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.graphics.Color android.graphics.Color valueOf(float[], android.graphics.ColorSpace) 0">
+    <annotation name="androidx.annotation.Size">
+      <val name="max" val="5L" />
+      <val name="min" val="4L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Color android.graphics.Color valueOf(int) 0">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.graphics.Color android.graphics.Color valueOf(long) 0">
+    <annotation name="androidx.annotation.ColorLong"/>
+  </item>
+  <item name="android.graphics.Color android.graphics.ColorSpace colorSpace(long) 0">
+    <annotation name="androidx.annotation.ColorLong"/>
+  </item>
+  <item name="android.graphics.Color boolean isInColorSpace(long, android.graphics.ColorSpace) 0">
+    <annotation name="androidx.annotation.ColorLong"/>
+  </item>
+  <item name="android.graphics.Color boolean isSrgb(long) 0">
+    <annotation name="androidx.annotation.ColorLong"/>
+  </item>
+  <item name="android.graphics.Color boolean isWideGamut(long) 0">
+    <annotation name="androidx.annotation.ColorLong"/>
+  </item>
+  <item name="android.graphics.Color float alpha(long) 0">
+    <annotation name="androidx.annotation.ColorLong"/>
+  </item>
+  <item name="android.graphics.Color float blue(long) 0">
+    <annotation name="androidx.annotation.ColorLong"/>
+  </item>
+  <item name="android.graphics.Color float getComponent(int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+      <val name="to" val="4L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Color float green(long) 0">
+    <annotation name="androidx.annotation.ColorLong"/>
+  </item>
+  <item name="android.graphics.Color float luminance(int) 0">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.graphics.Color float luminance(long) 0">
+    <annotation name="androidx.annotation.ColorLong"/>
+  </item>
+  <item name="android.graphics.Color float red(long) 0">
+    <annotation name="androidx.annotation.ColorLong"/>
+  </item>
+  <item name="android.graphics.Color float[] getComponents()">
+    <annotation name="androidx.annotation.Size">
+      <val name="max" val="5L" />
+      <val name="min" val="4L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Color float[] getComponents(float[])">
+    <annotation name="androidx.annotation.Size">
+      <val name="min" val="4L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Color float[] getComponents(float[]) 0">
+    <annotation name="androidx.annotation.Size">
+      <val name="min" val="4L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Color int HSVToColor(float[])">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.graphics.Color int HSVToColor(float[]) 0">
+    <annotation name="androidx.annotation.Size">
+      <val name="value" val="3L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Color int HSVToColor(int, float[])">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.graphics.Color int HSVToColor(int, float[]) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+      <val name="to" val="255L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Color int HSVToColor(int, float[]) 1">
+    <annotation name="androidx.annotation.Size">
+      <val name="value" val="3L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Color int alpha(int)">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+      <val name="to" val="255L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Color int argb(float, float, float, float)">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.graphics.Color int argb(int, int, int, int)">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.graphics.Color int argb(int, int, int, int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+      <val name="to" val="255L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Color int argb(int, int, int, int) 1">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+      <val name="to" val="255L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Color int argb(int, int, int, int) 2">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+      <val name="to" val="255L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Color int argb(int, int, int, int) 3">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+      <val name="to" val="255L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Color int blue(int)">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+      <val name="to" val="255L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Color int getComponentCount()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="4L" />
+      <val name="to" val="5L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Color int green(int)">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+      <val name="to" val="255L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Color int parseColor(java.lang.String)">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.graphics.Color int parseColor(java.lang.String) 0">
+    <annotation name="androidx.annotation.Size">
+      <val name="min" val="1L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Color int red(int)">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+      <val name="to" val="255L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Color int rgb(float, float, float)">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.graphics.Color int rgb(int, int, int)">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.graphics.Color int rgb(int, int, int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+      <val name="to" val="255L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Color int rgb(int, int, int) 1">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+      <val name="to" val="255L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Color int rgb(int, int, int) 2">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+      <val name="to" val="255L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Color int toArgb()">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.graphics.Color int toArgb(long)">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.graphics.Color int toArgb(long) 0">
+    <annotation name="androidx.annotation.ColorLong"/>
+  </item>
+  <item name="android.graphics.Color long convert(float, float, float, float, android.graphics.ColorSpace, android.graphics.ColorSpace)">
+    <annotation name="androidx.annotation.ColorLong"/>
+  </item>
+  <item name="android.graphics.Color long convert(float, float, float, float, android.graphics.ColorSpace.Connector)">
+    <annotation name="androidx.annotation.ColorLong"/>
+  </item>
+  <item name="android.graphics.Color long convert(int, android.graphics.ColorSpace)">
+    <annotation name="androidx.annotation.ColorLong"/>
+  </item>
+  <item name="android.graphics.Color long convert(int, android.graphics.ColorSpace) 0">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.graphics.Color long convert(long, android.graphics.ColorSpace)">
+    <annotation name="androidx.annotation.ColorLong"/>
+  </item>
+  <item name="android.graphics.Color long convert(long, android.graphics.ColorSpace) 0">
+    <annotation name="androidx.annotation.ColorLong"/>
+  </item>
+  <item name="android.graphics.Color long convert(long, android.graphics.ColorSpace.Connector)">
+    <annotation name="androidx.annotation.ColorLong"/>
+  </item>
+  <item name="android.graphics.Color long convert(long, android.graphics.ColorSpace.Connector) 0">
+    <annotation name="androidx.annotation.ColorLong"/>
+  </item>
+  <item name="android.graphics.Color long pack()">
+    <annotation name="androidx.annotation.ColorLong"/>
+  </item>
+  <item name="android.graphics.Color long pack(float, float, float)">
+    <annotation name="androidx.annotation.ColorLong"/>
+  </item>
+  <item name="android.graphics.Color long pack(float, float, float, float)">
+    <annotation name="androidx.annotation.ColorLong"/>
+  </item>
+  <item name="android.graphics.Color long pack(float, float, float, float, android.graphics.ColorSpace)">
+    <annotation name="androidx.annotation.ColorLong"/>
+  </item>
+  <item name="android.graphics.Color long pack(int)">
+    <annotation name="androidx.annotation.ColorLong"/>
+  </item>
+  <item name="android.graphics.Color long pack(int) 0">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.graphics.Color void RGBToHSV(int, int, int, float[]) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+      <val name="to" val="255L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Color void RGBToHSV(int, int, int, float[]) 1">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+      <val name="to" val="255L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Color void RGBToHSV(int, int, int, float[]) 2">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+      <val name="to" val="255L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Color void RGBToHSV(int, int, int, float[]) 3">
+    <annotation name="androidx.annotation.Size">
+      <val name="value" val="3L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Color void colorToHSV(int, float[]) 0">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.graphics.Color void colorToHSV(int, float[]) 1">
+    <annotation name="androidx.annotation.Size">
+      <val name="value" val="3L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.ColorSpace">
+    <annotation name="androidx.annotation.AnyThread"/>
+  </item>
+  <item name="android.graphics.ColorSpace android.graphics.ColorSpace adapt(android.graphics.ColorSpace, float[]) 1">
+    <annotation name="androidx.annotation.Size">
+      <val name="max" val="3L" />
+      <val name="min" val="2L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.ColorSpace android.graphics.ColorSpace adapt(android.graphics.ColorSpace, float[], android.graphics.ColorSpace.Adaptation) 1">
+    <annotation name="androidx.annotation.Size">
+      <val name="max" val="3L" />
+      <val name="min" val="2L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.ColorSpace android.graphics.ColorSpace getFromDataSpace(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.hardware.DataSpace.DATASPACE_UNKNOWN, android.hardware.DataSpace.DATASPACE_SCRGB_LINEAR, android.hardware.DataSpace.DATASPACE_SRGB, android.hardware.DataSpace.DATASPACE_SCRGB, android.hardware.DataSpace.DATASPACE_DISPLAY_P3, android.hardware.DataSpace.DATASPACE_BT2020_HLG, android.hardware.DataSpace.DATASPACE_BT2020_PQ, android.hardware.DataSpace.DATASPACE_ADOBE_RGB, android.hardware.DataSpace.DATASPACE_JFIF, android.hardware.DataSpace.DATASPACE_BT601_625, android.hardware.DataSpace.DATASPACE_BT601_525, android.hardware.DataSpace.DATASPACE_BT2020, android.hardware.DataSpace.DATASPACE_BT709, android.hardware.DataSpace.DATASPACE_DCI_P3, android.hardware.DataSpace.DATASPACE_SRGB_LINEAR}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.graphics.ColorSpace android.graphics.ColorSpace match(float[], android.graphics.ColorSpace.Rgb.TransferParameters) 0">
+    <annotation name="androidx.annotation.Size">
+      <val name="value" val="9L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.ColorSpace float getMaxValue(int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+      <val name="to" val="3L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.ColorSpace float getMinValue(int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+      <val name="to" val="3L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.ColorSpace float[] cctToXyz(int)">
+    <annotation name="androidx.annotation.Size">
+      <val name="value" val="3L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.ColorSpace float[] cctToXyz(int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="1L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.ColorSpace float[] chromaticAdaptation(android.graphics.ColorSpace.Adaptation, float[], float[])">
+    <annotation name="androidx.annotation.Size">
+      <val name="value" val="9L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.ColorSpace float[] chromaticAdaptation(android.graphics.ColorSpace.Adaptation, float[], float[]) 1">
+    <annotation name="androidx.annotation.Size">
+      <val name="max" val="3L" />
+      <val name="min" val="2L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.ColorSpace float[] chromaticAdaptation(android.graphics.ColorSpace.Adaptation, float[], float[]) 2">
+    <annotation name="androidx.annotation.Size">
+      <val name="max" val="3L" />
+      <val name="min" val="2L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.ColorSpace float[] fromXyz(float, float, float)">
+    <annotation name="androidx.annotation.Size">
+      <val name="min" val="3L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.ColorSpace float[] fromXyz(float[])">
+    <annotation name="androidx.annotation.Size">
+      <val name="min" val="3L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.ColorSpace float[] fromXyz(float[]) 0">
+    <annotation name="androidx.annotation.Size">
+      <val name="min" val="3L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.ColorSpace float[] toXyz(float, float, float)">
+    <annotation name="androidx.annotation.Size">
+      <val name="value" val="3L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.ColorSpace float[] toXyz(float[])">
+    <annotation name="androidx.annotation.Size">
+      <val name="min" val="3L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.ColorSpace float[] toXyz(float[]) 0">
+    <annotation name="androidx.annotation.Size">
+      <val name="min" val="3L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.ColorSpace int getComponentCount()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="1L" />
+      <val name="to" val="4L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.ColorSpace int getDataSpace()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.hardware.DataSpace.DATASPACE_UNKNOWN, android.hardware.DataSpace.DATASPACE_SCRGB_LINEAR, android.hardware.DataSpace.DATASPACE_SRGB, android.hardware.DataSpace.DATASPACE_SCRGB, android.hardware.DataSpace.DATASPACE_DISPLAY_P3, android.hardware.DataSpace.DATASPACE_BT2020_HLG, android.hardware.DataSpace.DATASPACE_BT2020_PQ, android.hardware.DataSpace.DATASPACE_ADOBE_RGB, android.hardware.DataSpace.DATASPACE_JFIF, android.hardware.DataSpace.DATASPACE_BT601_625, android.hardware.DataSpace.DATASPACE_BT601_525, android.hardware.DataSpace.DATASPACE_BT2020, android.hardware.DataSpace.DATASPACE_BT709, android.hardware.DataSpace.DATASPACE_DCI_P3, android.hardware.DataSpace.DATASPACE_SRGB_LINEAR}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.graphics.ColorSpace int getId()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="-1L" />
+      <val name="to" val="63L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.ColorSpace.Connector">
+    <annotation name="androidx.annotation.AnyThread"/>
+  </item>
+  <item name="android.graphics.ColorSpace.Connector float[] transform(float, float, float)">
+    <annotation name="androidx.annotation.Size">
+      <val name="value" val="3L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.ColorSpace.Connector float[] transform(float[])">
+    <annotation name="androidx.annotation.Size">
+      <val name="min" val="3L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.ColorSpace.Connector float[] transform(float[]) 0">
+    <annotation name="androidx.annotation.Size">
+      <val name="min" val="3L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.ColorSpace.Model int getComponentCount()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="1L" />
+      <val name="to" val="4L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.ColorSpace.Rgb">
+    <annotation name="androidx.annotation.AnyThread"/>
+  </item>
+  <item name="android.graphics.ColorSpace.Rgb Rgb(java.lang.String, float[], android.graphics.ColorSpace.Rgb.TransferParameters) 0">
+    <annotation name="androidx.annotation.Size">
+      <val name="min" val="1L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.ColorSpace.Rgb Rgb(java.lang.String, float[], android.graphics.ColorSpace.Rgb.TransferParameters) 1">
+    <annotation name="androidx.annotation.Size">
+      <val name="value" val="9L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.ColorSpace.Rgb Rgb(java.lang.String, float[], double) 0">
+    <annotation name="androidx.annotation.Size">
+      <val name="min" val="1L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.ColorSpace.Rgb Rgb(java.lang.String, float[], double) 1">
+    <annotation name="androidx.annotation.Size">
+      <val name="value" val="9L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.ColorSpace.Rgb Rgb(java.lang.String, float[], float[], android.graphics.ColorSpace.Rgb.TransferParameters) 0">
+    <annotation name="androidx.annotation.Size">
+      <val name="min" val="1L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.ColorSpace.Rgb Rgb(java.lang.String, float[], float[], android.graphics.ColorSpace.Rgb.TransferParameters) 1">
+    <annotation name="androidx.annotation.Size">
+      <val name="max" val="9L" />
+      <val name="min" val="6L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.ColorSpace.Rgb Rgb(java.lang.String, float[], float[], android.graphics.ColorSpace.Rgb.TransferParameters) 2">
+    <annotation name="androidx.annotation.Size">
+      <val name="max" val="3L" />
+      <val name="min" val="2L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.ColorSpace.Rgb Rgb(java.lang.String, float[], float[], double) 0">
+    <annotation name="androidx.annotation.Size">
+      <val name="min" val="1L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.ColorSpace.Rgb Rgb(java.lang.String, float[], float[], double) 1">
+    <annotation name="androidx.annotation.Size">
+      <val name="max" val="9L" />
+      <val name="min" val="6L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.ColorSpace.Rgb Rgb(java.lang.String, float[], float[], double) 2">
+    <annotation name="androidx.annotation.Size">
+      <val name="max" val="3L" />
+      <val name="min" val="2L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.ColorSpace.Rgb Rgb(java.lang.String, float[], float[], java.util.function.DoubleUnaryOperator, java.util.function.DoubleUnaryOperator, float, float) 0">
+    <annotation name="androidx.annotation.Size">
+      <val name="min" val="1L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.ColorSpace.Rgb Rgb(java.lang.String, float[], float[], java.util.function.DoubleUnaryOperator, java.util.function.DoubleUnaryOperator, float, float) 1">
+    <annotation name="androidx.annotation.Size">
+      <val name="max" val="9L" />
+      <val name="min" val="6L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.ColorSpace.Rgb Rgb(java.lang.String, float[], float[], java.util.function.DoubleUnaryOperator, java.util.function.DoubleUnaryOperator, float, float) 2">
+    <annotation name="androidx.annotation.Size">
+      <val name="max" val="3L" />
+      <val name="min" val="2L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.ColorSpace.Rgb Rgb(java.lang.String, float[], java.util.function.DoubleUnaryOperator, java.util.function.DoubleUnaryOperator) 0">
+    <annotation name="androidx.annotation.Size">
+      <val name="min" val="1L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.ColorSpace.Rgb Rgb(java.lang.String, float[], java.util.function.DoubleUnaryOperator, java.util.function.DoubleUnaryOperator) 1">
+    <annotation name="androidx.annotation.Size">
+      <val name="value" val="9L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.ColorSpace.Rgb float[] fromLinear(float, float, float)">
+    <annotation name="androidx.annotation.Size">
+      <val name="value" val="3L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.ColorSpace.Rgb float[] fromLinear(float[])">
+    <annotation name="androidx.annotation.Size">
+      <val name="min" val="3L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.ColorSpace.Rgb float[] fromLinear(float[]) 0">
+    <annotation name="androidx.annotation.Size">
+      <val name="min" val="3L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.ColorSpace.Rgb float[] fromXyz(float[])">
+    <annotation name="androidx.annotation.Size">
+      <val name="min" val="3L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.ColorSpace.Rgb float[] fromXyz(float[]) 0">
+    <annotation name="androidx.annotation.Size">
+      <val name="min" val="3L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.ColorSpace.Rgb float[] getInverseTransform()">
+    <annotation name="androidx.annotation.Size">
+      <val name="value" val="9L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.ColorSpace.Rgb float[] getInverseTransform(float[])">
+    <annotation name="androidx.annotation.Size">
+      <val name="min" val="9L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.ColorSpace.Rgb float[] getInverseTransform(float[]) 0">
+    <annotation name="androidx.annotation.Size">
+      <val name="min" val="9L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.ColorSpace.Rgb float[] getPrimaries()">
+    <annotation name="androidx.annotation.Size">
+      <val name="value" val="6L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.ColorSpace.Rgb float[] getPrimaries(float[])">
+    <annotation name="androidx.annotation.Size">
+      <val name="min" val="6L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.ColorSpace.Rgb float[] getPrimaries(float[]) 0">
+    <annotation name="androidx.annotation.Size">
+      <val name="min" val="6L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.ColorSpace.Rgb float[] getTransform()">
+    <annotation name="androidx.annotation.Size">
+      <val name="value" val="9L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.ColorSpace.Rgb float[] getTransform(float[])">
+    <annotation name="androidx.annotation.Size">
+      <val name="min" val="9L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.ColorSpace.Rgb float[] getTransform(float[]) 0">
+    <annotation name="androidx.annotation.Size">
+      <val name="min" val="9L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.ColorSpace.Rgb float[] getWhitePoint()">
+    <annotation name="androidx.annotation.Size">
+      <val name="value" val="2L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.ColorSpace.Rgb float[] getWhitePoint(float[])">
+    <annotation name="androidx.annotation.Size">
+      <val name="min" val="2L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.ColorSpace.Rgb float[] getWhitePoint(float[]) 0">
+    <annotation name="androidx.annotation.Size">
+      <val name="min" val="2L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.ColorSpace.Rgb float[] toLinear(float, float, float)">
+    <annotation name="androidx.annotation.Size">
+      <val name="value" val="3L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.ColorSpace.Rgb float[] toLinear(float[])">
+    <annotation name="androidx.annotation.Size">
+      <val name="min" val="3L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.ColorSpace.Rgb float[] toLinear(float[]) 0">
+    <annotation name="androidx.annotation.Size">
+      <val name="min" val="3L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.ColorSpace.Rgb float[] toXyz(float[])">
+    <annotation name="androidx.annotation.Size">
+      <val name="min" val="3L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.ColorSpace.Rgb float[] toXyz(float[]) 0">
+    <annotation name="androidx.annotation.Size">
+      <val name="min" val="3L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Gainmap int getGainmapDirection()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.graphics.Gainmap.GAINMAP_DIRECTION_SDR_TO_HDR, android.graphics.Gainmap.GAINMAP_DIRECTION_HDR_TO_SDR}" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Gainmap void setDisplayRatioForFullHdr(float) 0">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="1.0" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Gainmap void setGainmapDirection(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.graphics.Gainmap.GAINMAP_DIRECTION_SDR_TO_HDR, android.graphics.Gainmap.GAINMAP_DIRECTION_HDR_TO_SDR}" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Gainmap void setMinDisplayRatioForHdrTransition(float) 0">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="1.0" />
+    </annotation>
+  </item>
+  <item name="android.graphics.HardwareBufferRenderer void setLightSourceAlpha(float, float) 0">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+      <val name="to" val="1.0" />
+    </annotation>
+  </item>
+  <item name="android.graphics.HardwareBufferRenderer void setLightSourceAlpha(float, float) 1">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+      <val name="to" val="1.0" />
+    </annotation>
+  </item>
+  <item name="android.graphics.HardwareBufferRenderer void setLightSourceGeometry(float, float, float, float) 2">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+    </annotation>
+  </item>
+  <item name="android.graphics.HardwareBufferRenderer void setLightSourceGeometry(float, float, float, float) 3">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+    </annotation>
+  </item>
+  <item name="android.graphics.HardwareBufferRenderer.RenderRequest android.graphics.HardwareBufferRenderer.RenderRequest setBufferTransform(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.SurfaceControl.BUFFER_TRANSFORM_IDENTITY, android.view.SurfaceControl.BUFFER_TRANSFORM_MIRROR_HORIZONTAL, android.view.SurfaceControl.BUFFER_TRANSFORM_MIRROR_VERTICAL, android.view.SurfaceControl.BUFFER_TRANSFORM_ROTATE_90, android.view.SurfaceControl.BUFFER_TRANSFORM_ROTATE_180, android.view.SurfaceControl.BUFFER_TRANSFORM_ROTATE_270, android.view.SurfaceControl.BUFFER_TRANSFORM_MIRROR_HORIZONTAL_ROTATE_90, android.view.SurfaceControl.BUFFER_TRANSFORM_MIRROR_VERTICAL_ROTATE_90}" />
+    </annotation>
+  </item>
+  <item name="android.graphics.HardwareBufferRenderer.RenderResult int getStatus()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.graphics.HardwareBufferRenderer.RenderResult.SUCCESS, android.graphics.HardwareBufferRenderer.RenderResult.ERROR_UNKNOWN}" />
+    </annotation>
+  </item>
+  <item name="android.graphics.HardwareRenderer void setLightSourceAlpha(float, float) 0">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+      <val name="to" val="1.0" />
+    </annotation>
+  </item>
+  <item name="android.graphics.HardwareRenderer void setLightSourceAlpha(float, float) 1">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+      <val name="to" val="1.0" />
+    </annotation>
+  </item>
+  <item name="android.graphics.HardwareRenderer.FrameRenderRequest int syncAndDraw()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.graphics.HardwareRenderer.SYNC_OK, android.graphics.HardwareRenderer.SYNC_REDRAW_REQUESTED, android.graphics.HardwareRenderer.SYNC_LOST_SURFACE_REWARD_IF_FOUND, android.graphics.HardwareRenderer.SYNC_CONTEXT_IS_STOPPED, android.graphics.HardwareRenderer.SYNC_FRAME_DROPPED}" />
+    </annotation>
+  </item>
+  <item name="android.graphics.ImageDecoder android.graphics.Bitmap decodeBitmap(android.graphics.ImageDecoder.Source)">
+    <annotation name="androidx.annotation.WorkerThread"/>
+  </item>
+  <item name="android.graphics.ImageDecoder android.graphics.Bitmap decodeBitmap(android.graphics.ImageDecoder.Source, android.graphics.ImageDecoder.OnHeaderDecodedListener)">
+    <annotation name="androidx.annotation.WorkerThread"/>
+  </item>
+  <item name="android.graphics.ImageDecoder android.graphics.ImageDecoder.Source createSource(android.content.ContentResolver, android.net.Uri)">
+    <annotation name="androidx.annotation.AnyThread"/>
+  </item>
+  <item name="android.graphics.ImageDecoder android.graphics.ImageDecoder.Source createSource(android.content.res.AssetManager, java.lang.String)">
+    <annotation name="androidx.annotation.AnyThread"/>
+  </item>
+  <item name="android.graphics.ImageDecoder android.graphics.ImageDecoder.Source createSource(android.content.res.Resources, int)">
+    <annotation name="androidx.annotation.AnyThread"/>
+  </item>
+  <item name="android.graphics.ImageDecoder android.graphics.ImageDecoder.Source createSource(byte[])">
+    <annotation name="androidx.annotation.AnyThread"/>
+  </item>
+  <item name="android.graphics.ImageDecoder android.graphics.ImageDecoder.Source createSource(byte[], int, int)">
+    <annotation name="androidx.annotation.AnyThread"/>
+  </item>
+  <item name="android.graphics.ImageDecoder android.graphics.ImageDecoder.Source createSource(java.io.File)">
+    <annotation name="androidx.annotation.AnyThread"/>
+  </item>
+  <item name="android.graphics.ImageDecoder android.graphics.ImageDecoder.Source createSource(java.nio.ByteBuffer)">
+    <annotation name="androidx.annotation.AnyThread"/>
+  </item>
+  <item name="android.graphics.ImageDecoder android.graphics.ImageDecoder.Source createSource(java.util.concurrent.Callable&lt;android.content.res.AssetFileDescriptor&gt;)">
+    <annotation name="androidx.annotation.AnyThread"/>
+  </item>
+  <item name="android.graphics.ImageDecoder android.graphics.drawable.Drawable decodeDrawable(android.graphics.ImageDecoder.Source)">
+    <annotation name="androidx.annotation.WorkerThread"/>
+  </item>
+  <item name="android.graphics.ImageDecoder android.graphics.drawable.Drawable decodeDrawable(android.graphics.ImageDecoder.Source, android.graphics.ImageDecoder.OnHeaderDecodedListener)">
+    <annotation name="androidx.annotation.WorkerThread"/>
+  </item>
+  <item name="android.graphics.ImageDecoder int getAllocator()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.graphics.ImageDecoder.ALLOCATOR_DEFAULT, android.graphics.ImageDecoder.ALLOCATOR_SOFTWARE, android.graphics.ImageDecoder.ALLOCATOR_SHARED_MEMORY, android.graphics.ImageDecoder.ALLOCATOR_HARDWARE}" />
+    </annotation>
+  </item>
+  <item name="android.graphics.ImageDecoder int getMemorySizePolicy()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.graphics.ImageDecoder.MEMORY_POLICY_DEFAULT, android.graphics.ImageDecoder.MEMORY_POLICY_LOW_RAM}" />
+    </annotation>
+  </item>
+  <item name="android.graphics.ImageDecoder void setAllocator(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.graphics.ImageDecoder.ALLOCATOR_DEFAULT, android.graphics.ImageDecoder.ALLOCATOR_SOFTWARE, android.graphics.ImageDecoder.ALLOCATOR_SHARED_MEMORY, android.graphics.ImageDecoder.ALLOCATOR_HARDWARE}" />
+    </annotation>
+  </item>
+  <item name="android.graphics.ImageDecoder void setMemorySizePolicy(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.graphics.ImageDecoder.MEMORY_POLICY_DEFAULT, android.graphics.ImageDecoder.MEMORY_POLICY_LOW_RAM}" />
+    </annotation>
+  </item>
+  <item name="android.graphics.ImageDecoder void setTargetSampleSize(int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="1L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.ImageDecoder void setTargetSize(int, int) 0">
+    <annotation name="androidx.annotation.Px"/>
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="1L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.ImageDecoder void setTargetSize(int, int) 1">
+    <annotation name="androidx.annotation.Px"/>
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="1L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.ImageDecoder.DecodeException int getError()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.graphics.ImageDecoder.DecodeException.SOURCE_EXCEPTION, android.graphics.ImageDecoder.DecodeException.SOURCE_INCOMPLETE, android.graphics.ImageDecoder.DecodeException.SOURCE_MALFORMED_DATA}" />
+    </annotation>
+  </item>
+  <item name="android.graphics.LightingColorFilter LightingColorFilter(int, int) 0">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.graphics.LightingColorFilter LightingColorFilter(int, int) 1">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.graphics.LightingColorFilter int getColorAdd()">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.graphics.LightingColorFilter int getColorMultiply()">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.graphics.LinearGradient LinearGradient(float, float, float, float, int, int, android.graphics.Shader.TileMode) 4">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.graphics.LinearGradient LinearGradient(float, float, float, float, int, int, android.graphics.Shader.TileMode) 5">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.graphics.LinearGradient LinearGradient(float, float, float, float, int[], float[], android.graphics.Shader.TileMode) 4">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.graphics.LinearGradient LinearGradient(float, float, float, float, long, long, android.graphics.Shader.TileMode) 4">
+    <annotation name="androidx.annotation.ColorLong"/>
+  </item>
+  <item name="android.graphics.LinearGradient LinearGradient(float, float, float, float, long, long, android.graphics.Shader.TileMode) 5">
+    <annotation name="androidx.annotation.ColorLong"/>
+  </item>
+  <item name="android.graphics.LinearGradient LinearGradient(float, float, float, float, long[], float[], android.graphics.Shader.TileMode) 4">
+    <annotation name="androidx.annotation.ColorLong"/>
+  </item>
+  <item name="android.graphics.Matrix44 float get(int, int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+      <val name="to" val="3L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Matrix44 float get(int, int) 1">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+      <val name="to" val="3L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Matrix44 void set(int, int, float) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+      <val name="to" val="3L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Matrix44 void set(int, int, float) 1">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+      <val name="to" val="3L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Mesh Mesh(android.graphics.MeshSpecification, int, java.nio.Buffer, int, android.graphics.RectF) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.graphics.Mesh.TRIANGLES, android.graphics.Mesh.TRIANGLE_STRIP}" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Mesh Mesh(android.graphics.MeshSpecification, int, java.nio.Buffer, int, java.nio.ShortBuffer, android.graphics.RectF) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.graphics.Mesh.TRIANGLES, android.graphics.Mesh.TRIANGLE_STRIP}" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Mesh void setColorUniform(java.lang.String, int) 1">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.graphics.Mesh void setColorUniform(java.lang.String, long) 1">
+    <annotation name="androidx.annotation.ColorLong"/>
+  </item>
+  <item name="android.graphics.MeshSpecification android.graphics.MeshSpecification make(android.graphics.MeshSpecification.Attribute[], int, android.graphics.MeshSpecification.Varying[], java.lang.String, java.lang.String) 0">
+    <annotation name="androidx.annotation.Size">
+      <val name="max" val="8L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.MeshSpecification android.graphics.MeshSpecification make(android.graphics.MeshSpecification.Attribute[], int, android.graphics.MeshSpecification.Varying[], java.lang.String, java.lang.String) 1">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="1L" />
+      <val name="to" val="1024L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.MeshSpecification android.graphics.MeshSpecification make(android.graphics.MeshSpecification.Attribute[], int, android.graphics.MeshSpecification.Varying[], java.lang.String, java.lang.String) 2">
+    <annotation name="androidx.annotation.Size">
+      <val name="max" val="6L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.MeshSpecification android.graphics.MeshSpecification make(android.graphics.MeshSpecification.Attribute[], int, android.graphics.MeshSpecification.Varying[], java.lang.String, java.lang.String, android.graphics.ColorSpace) 0">
+    <annotation name="androidx.annotation.Size">
+      <val name="max" val="8L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.MeshSpecification android.graphics.MeshSpecification make(android.graphics.MeshSpecification.Attribute[], int, android.graphics.MeshSpecification.Varying[], java.lang.String, java.lang.String, android.graphics.ColorSpace) 1">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="1L" />
+      <val name="to" val="1024L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.MeshSpecification android.graphics.MeshSpecification make(android.graphics.MeshSpecification.Attribute[], int, android.graphics.MeshSpecification.Varying[], java.lang.String, java.lang.String, android.graphics.ColorSpace) 2">
+    <annotation name="androidx.annotation.Size">
+      <val name="max" val="6L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.MeshSpecification android.graphics.MeshSpecification make(android.graphics.MeshSpecification.Attribute[], int, android.graphics.MeshSpecification.Varying[], java.lang.String, java.lang.String, android.graphics.ColorSpace, int) 0">
+    <annotation name="androidx.annotation.Size">
+      <val name="max" val="8L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.MeshSpecification android.graphics.MeshSpecification make(android.graphics.MeshSpecification.Attribute[], int, android.graphics.MeshSpecification.Varying[], java.lang.String, java.lang.String, android.graphics.ColorSpace, int) 1">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="1L" />
+      <val name="to" val="1024L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.MeshSpecification android.graphics.MeshSpecification make(android.graphics.MeshSpecification.Attribute[], int, android.graphics.MeshSpecification.Varying[], java.lang.String, java.lang.String, android.graphics.ColorSpace, int) 2">
+    <annotation name="androidx.annotation.Size">
+      <val name="max" val="6L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.MeshSpecification android.graphics.MeshSpecification make(android.graphics.MeshSpecification.Attribute[], int, android.graphics.MeshSpecification.Varying[], java.lang.String, java.lang.String, android.graphics.ColorSpace, int) 6">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.graphics.MeshSpecification.ALPHA_TYPE_UNKNOWN, android.graphics.MeshSpecification.ALPHA_TYPE_OPAQUE, android.graphics.MeshSpecification.ALPHA_TYPE_PREMULTIPLIED, android.graphics.MeshSpecification.ALPHA_TYPE_UNPREMULTIPLIED}" />
+    </annotation>
+  </item>
+  <item name="android.graphics.MeshSpecification.Attribute Attribute(int, int, java.lang.String) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.graphics.MeshSpecification.TYPE_FLOAT, android.graphics.MeshSpecification.TYPE_FLOAT2, android.graphics.MeshSpecification.TYPE_FLOAT3, android.graphics.MeshSpecification.TYPE_FLOAT4, android.graphics.MeshSpecification.TYPE_UBYTE4}" />
+    </annotation>
+  </item>
+  <item name="android.graphics.MeshSpecification.Attribute int getType()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.graphics.MeshSpecification.TYPE_FLOAT, android.graphics.MeshSpecification.TYPE_FLOAT2, android.graphics.MeshSpecification.TYPE_FLOAT3, android.graphics.MeshSpecification.TYPE_FLOAT4, android.graphics.MeshSpecification.TYPE_UBYTE4}" />
+    </annotation>
+  </item>
+  <item name="android.graphics.MeshSpecification.Varying Varying(int, java.lang.String) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.graphics.MeshSpecification.TYPE_FLOAT, android.graphics.MeshSpecification.TYPE_FLOAT2, android.graphics.MeshSpecification.TYPE_FLOAT3, android.graphics.MeshSpecification.TYPE_FLOAT4, android.graphics.MeshSpecification.TYPE_UBYTE4}" />
+    </annotation>
+  </item>
+  <item name="android.graphics.MeshSpecification.Varying int getType()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.graphics.MeshSpecification.TYPE_FLOAT, android.graphics.MeshSpecification.TYPE_FLOAT2, android.graphics.MeshSpecification.TYPE_FLOAT3, android.graphics.MeshSpecification.TYPE_FLOAT4, android.graphics.MeshSpecification.TYPE_UBYTE4}" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Outline void setAlpha(float) 0">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+      <val name="to" val="1.0" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Paint android.os.LocaleList getTextLocales()">
+    <annotation name="androidx.annotation.Size">
+      <val name="min" val="1L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Paint float getStrikeThruPosition()">
+    <annotation name="androidx.annotation.Px"/>
+  </item>
+  <item name="android.graphics.Paint float getStrikeThruThickness()">
+    <annotation name="androidx.annotation.Px"/>
+  </item>
+  <item name="android.graphics.Paint float getTextRunAdvances(char[], int, int, int, int, boolean, float[], int) 1">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Paint float getTextRunAdvances(char[], int, int, int, int, boolean, float[], int) 2">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Paint float getTextRunAdvances(char[], int, int, int, int, boolean, float[], int) 3">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Paint float getTextRunAdvances(char[], int, int, int, int, boolean, float[], int) 4">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Paint float getTextRunAdvances(char[], int, int, int, int, boolean, float[], int) 7">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Paint float getUnderlinePosition()">
+    <annotation name="androidx.annotation.Px"/>
+  </item>
+  <item name="android.graphics.Paint float getUnderlineThickness()">
+    <annotation name="androidx.annotation.Px"/>
+  </item>
+  <item name="android.graphics.Paint float getWordSpacing()">
+    <annotation name="androidx.annotation.Px"/>
+  </item>
+  <item name="android.graphics.Paint int getColor()">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.graphics.Paint int getEndHyphenEdit()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.graphics.Paint.END_HYPHEN_EDIT_NO_EDIT, android.graphics.Paint.END_HYPHEN_EDIT_REPLACE_WITH_HYPHEN, android.graphics.Paint.END_HYPHEN_EDIT_INSERT_HYPHEN, android.graphics.Paint.END_HYPHEN_EDIT_INSERT_ARMENIAN_HYPHEN, android.graphics.Paint.END_HYPHEN_EDIT_INSERT_MAQAF, android.graphics.Paint.END_HYPHEN_EDIT_INSERT_UCAS_HYPHEN, android.graphics.Paint.END_HYPHEN_EDIT_INSERT_ZWJ_AND_HYPHEN}" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Paint int getFlags()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.graphics.Paint.ANTI_ALIAS_FLAG, android.graphics.Paint.FILTER_BITMAP_FLAG, android.graphics.Paint.DITHER_FLAG, android.graphics.Paint.UNDERLINE_TEXT_FLAG, android.graphics.Paint.STRIKE_THRU_TEXT_FLAG, android.graphics.Paint.FAKE_BOLD_TEXT_FLAG, android.graphics.Paint.LINEAR_TEXT_FLAG, android.graphics.Paint.SUBPIXEL_TEXT_FLAG, android.graphics.Paint.EMBEDDED_BITMAP_TEXT_FLAG, android.graphics.Paint.TEXT_RUN_FLAG_LEFT_EDGE, android.graphics.Paint.TEXT_RUN_FLAG_RIGHT_EDGE}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Paint int getShadowLayerColor()">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.graphics.Paint int getStartHyphenEdit()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.graphics.Paint.START_HYPHEN_EDIT_NO_EDIT, android.graphics.Paint.START_HYPHEN_EDIT_INSERT_HYPHEN, android.graphics.Paint.START_HYPHEN_EDIT_INSERT_ZWJ}" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Paint int getTextRunCursor(char[], int, int, boolean, int, int) 1">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Paint int getTextRunCursor(char[], int, int, boolean, int, int) 2">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Paint int getTextRunCursor(char[], int, int, boolean, int, int) 4">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Paint int getTextRunCursor(char[], int, int, boolean, int, int) 5">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.graphics.Paint.CURSOR_AFTER, android.graphics.Paint.CURSOR_AT_OR_AFTER, android.graphics.Paint.CURSOR_BEFORE, android.graphics.Paint.CURSOR_AT_OR_BEFORE}" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Paint int getTextRunCursor(java.lang.CharSequence, int, int, boolean, int, int) 1">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Paint int getTextRunCursor(java.lang.CharSequence, int, int, boolean, int, int) 2">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Paint int getTextRunCursor(java.lang.CharSequence, int, int, boolean, int, int) 4">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Paint int getTextRunCursor(java.lang.CharSequence, int, int, boolean, int, int) 5">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.graphics.Paint.CURSOR_AFTER, android.graphics.Paint.CURSOR_AT_OR_AFTER, android.graphics.Paint.CURSOR_BEFORE, android.graphics.Paint.CURSOR_AT_OR_BEFORE}" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Paint long getColorLong()">
+    <annotation name="androidx.annotation.ColorLong"/>
+  </item>
+  <item name="android.graphics.Paint long getShadowLayerColorLong()">
+    <annotation name="androidx.annotation.ColorLong"/>
+  </item>
+  <item name="android.graphics.Paint void getFontMetricsInt(char[], int, int, int, int, boolean, android.graphics.Paint.FontMetricsInt) 1">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Paint void getFontMetricsInt(char[], int, int, int, int, boolean, android.graphics.Paint.FontMetricsInt) 2">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Paint void getFontMetricsInt(char[], int, int, int, int, boolean, android.graphics.Paint.FontMetricsInt) 3">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Paint void getFontMetricsInt(char[], int, int, int, int, boolean, android.graphics.Paint.FontMetricsInt) 4">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Paint void getFontMetricsInt(java.lang.CharSequence, int, int, int, int, boolean, android.graphics.Paint.FontMetricsInt) 1">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Paint void getFontMetricsInt(java.lang.CharSequence, int, int, int, int, boolean, android.graphics.Paint.FontMetricsInt) 2">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Paint void getFontMetricsInt(java.lang.CharSequence, int, int, int, int, boolean, android.graphics.Paint.FontMetricsInt) 3">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Paint void getFontMetricsInt(java.lang.CharSequence, int, int, int, int, boolean, android.graphics.Paint.FontMetricsInt) 4">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Paint void setColor(int) 0">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.graphics.Paint void setColor(long) 0">
+    <annotation name="androidx.annotation.ColorLong"/>
+  </item>
+  <item name="android.graphics.Paint void setEndHyphenEdit(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.graphics.Paint.END_HYPHEN_EDIT_NO_EDIT, android.graphics.Paint.END_HYPHEN_EDIT_REPLACE_WITH_HYPHEN, android.graphics.Paint.END_HYPHEN_EDIT_INSERT_HYPHEN, android.graphics.Paint.END_HYPHEN_EDIT_INSERT_ARMENIAN_HYPHEN, android.graphics.Paint.END_HYPHEN_EDIT_INSERT_MAQAF, android.graphics.Paint.END_HYPHEN_EDIT_INSERT_UCAS_HYPHEN, android.graphics.Paint.END_HYPHEN_EDIT_INSERT_ZWJ_AND_HYPHEN}" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Paint void setFlags(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.graphics.Paint.ANTI_ALIAS_FLAG, android.graphics.Paint.FILTER_BITMAP_FLAG, android.graphics.Paint.DITHER_FLAG, android.graphics.Paint.UNDERLINE_TEXT_FLAG, android.graphics.Paint.STRIKE_THRU_TEXT_FLAG, android.graphics.Paint.FAKE_BOLD_TEXT_FLAG, android.graphics.Paint.LINEAR_TEXT_FLAG, android.graphics.Paint.SUBPIXEL_TEXT_FLAG, android.graphics.Paint.EMBEDDED_BITMAP_TEXT_FLAG, android.graphics.Paint.TEXT_RUN_FLAG_LEFT_EDGE, android.graphics.Paint.TEXT_RUN_FLAG_RIGHT_EDGE}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Paint void setShadowLayer(float, float, float, int) 3">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.graphics.Paint void setShadowLayer(float, float, float, long) 3">
+    <annotation name="androidx.annotation.ColorLong"/>
+  </item>
+  <item name="android.graphics.Paint void setStartHyphenEdit(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.graphics.Paint.START_HYPHEN_EDIT_NO_EDIT, android.graphics.Paint.START_HYPHEN_EDIT_INSERT_HYPHEN, android.graphics.Paint.START_HYPHEN_EDIT_INSERT_ZWJ}" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Paint void setTextLocales(android.os.LocaleList) 0">
+    <annotation name="androidx.annotation.Size">
+      <val name="min" val="1L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Paint void setWordSpacing(float) 0">
+    <annotation name="androidx.annotation.Px"/>
+  </item>
+  <item name="android.graphics.Path float[] approximate(float)">
+    <annotation name="androidx.annotation.Size">
+      <val name="min" val="6L" />
+      <val name="multiple" val="3L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Path float[] approximate(float) 0">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+    </annotation>
+  </item>
+  <item name="android.graphics.PathIterator int next(float[], int)">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.graphics.PathIterator.VERB_MOVE, android.graphics.PathIterator.VERB_LINE, android.graphics.PathIterator.VERB_QUAD, android.graphics.PathIterator.VERB_CONIC, android.graphics.PathIterator.VERB_CUBIC, android.graphics.PathIterator.VERB_CLOSE, android.graphics.PathIterator.VERB_DONE}" />
+    </annotation>
+  </item>
+  <item name="android.graphics.PathIterator int peek()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.graphics.PathIterator.VERB_MOVE, android.graphics.PathIterator.VERB_LINE, android.graphics.PathIterator.VERB_QUAD, android.graphics.PathIterator.VERB_CONIC, android.graphics.PathIterator.VERB_CUBIC, android.graphics.PathIterator.VERB_CLOSE, android.graphics.PathIterator.VERB_DONE}" />
+    </annotation>
+  </item>
+  <item name="android.graphics.PathIterator.Segment int getVerb()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.graphics.PathIterator.VERB_MOVE, android.graphics.PathIterator.VERB_LINE, android.graphics.PathIterator.VERB_QUAD, android.graphics.PathIterator.VERB_CONIC, android.graphics.PathIterator.VERB_CUBIC, android.graphics.PathIterator.VERB_CLOSE, android.graphics.PathIterator.VERB_DONE}" />
+    </annotation>
+  </item>
+  <item name="android.graphics.PixelFormat boolean formatHasAlpha(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.graphics.PixelFormat.RGBA_8888, android.graphics.PixelFormat.RGBX_8888, android.graphics.PixelFormat.RGBA_F16, android.graphics.PixelFormat.RGBA_1010102, android.graphics.PixelFormat.RGB_888, android.graphics.PixelFormat.RGB_565}" />
+    </annotation>
+  </item>
+  <item name="android.graphics.PixelFormat void getPixelFormatInfo(int, android.graphics.PixelFormat) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.graphics.PixelFormat.RGBA_8888, android.graphics.PixelFormat.RGBX_8888, android.graphics.PixelFormat.RGBA_F16, android.graphics.PixelFormat.RGBA_1010102, android.graphics.PixelFormat.RGB_888, android.graphics.PixelFormat.RGB_565}" />
+    </annotation>
+  </item>
+  <item name="android.graphics.PorterDuffColorFilter PorterDuffColorFilter(int, android.graphics.PorterDuff.Mode) 0">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.graphics.PostProcessor int onPostProcess(android.graphics.Canvas)">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.graphics.PixelFormat.UNKNOWN, android.graphics.PixelFormat.TRANSLUCENT, android.graphics.PixelFormat.TRANSPARENT, android.graphics.PixelFormat.OPAQUE}" />
+    </annotation>
+  </item>
+  <item name="android.graphics.RadialGradient RadialGradient(float, float, float, float, float, float, long[], float[], android.graphics.Shader.TileMode) 2">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+    </annotation>
+  </item>
+  <item name="android.graphics.RadialGradient RadialGradient(float, float, float, float, float, float, long[], float[], android.graphics.Shader.TileMode) 5">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+      <val name="fromInclusive" val="false" />
+    </annotation>
+  </item>
+  <item name="android.graphics.RadialGradient RadialGradient(float, float, float, float, float, float, long[], float[], android.graphics.Shader.TileMode) 6">
+    <annotation name="androidx.annotation.ColorLong"/>
+  </item>
+  <item name="android.graphics.RadialGradient RadialGradient(float, float, float, int, int, android.graphics.Shader.TileMode) 3">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.graphics.RadialGradient RadialGradient(float, float, float, int, int, android.graphics.Shader.TileMode) 4">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.graphics.RadialGradient RadialGradient(float, float, float, int[], float[], android.graphics.Shader.TileMode) 3">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.graphics.RadialGradient RadialGradient(float, float, float, long, long, android.graphics.Shader.TileMode) 3">
+    <annotation name="androidx.annotation.ColorLong"/>
+  </item>
+  <item name="android.graphics.RadialGradient RadialGradient(float, float, float, long, long, android.graphics.Shader.TileMode) 4">
+    <annotation name="androidx.annotation.ColorLong"/>
+  </item>
+  <item name="android.graphics.RadialGradient RadialGradient(float, float, float, long[], float[], android.graphics.Shader.TileMode) 3">
+    <annotation name="androidx.annotation.ColorLong"/>
+  </item>
+  <item name="android.graphics.RecordingCanvas void drawColor(int) 0">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.graphics.RecordingCanvas void drawColor(int, android.graphics.BlendMode) 0">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.graphics.RecordingCanvas void drawColor(int, android.graphics.PorterDuff.Mode) 0">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.graphics.RecordingCanvas void drawColor(long, android.graphics.BlendMode) 0">
+    <annotation name="androidx.annotation.ColorLong"/>
+  </item>
+  <item name="android.graphics.RecordingCanvas void drawGlyphs(int[], int, float[], int, int, android.graphics.fonts.Font, android.graphics.Paint) 1">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.RecordingCanvas void drawGlyphs(int[], int, float[], int, int, android.graphics.fonts.Font, android.graphics.Paint) 3">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.RecordingCanvas void drawGlyphs(int[], int, float[], int, int, android.graphics.fonts.Font, android.graphics.Paint) 4">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.RecordingCanvas void drawLines(float[], android.graphics.Paint) 0">
+    <annotation name="androidx.annotation.Size">
+      <val name="multiple" val="4L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.RecordingCanvas void drawLines(float[], int, int, android.graphics.Paint) 0">
+    <annotation name="androidx.annotation.Size">
+      <val name="multiple" val="4L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.RecordingCanvas void drawPoints(float[], android.graphics.Paint) 0">
+    <annotation name="androidx.annotation.Size">
+      <val name="multiple" val="2L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.RecordingCanvas void drawPoints(float[], int, int, android.graphics.Paint) 0">
+    <annotation name="androidx.annotation.Size">
+      <val name="multiple" val="2L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.RecordingCanvas void drawPosText(char[], int, int, float[], android.graphics.Paint) 3">
+    <annotation name="androidx.annotation.Size">
+      <val name="multiple" val="2L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.RecordingCanvas void drawPosText(java.lang.String, float[], android.graphics.Paint) 1">
+    <annotation name="androidx.annotation.Size">
+      <val name="multiple" val="2L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Rect boolean intersect(android.graphics.Rect)">
+    <annotation name="androidx.annotation.CheckResult"/>
+  </item>
+  <item name="android.graphics.Rect boolean intersect(int, int, int, int)">
+    <annotation name="androidx.annotation.CheckResult"/>
+  </item>
+  <item name="android.graphics.Rect boolean setIntersect(android.graphics.Rect, android.graphics.Rect)">
+    <annotation name="androidx.annotation.CheckResult"/>
+  </item>
+  <item name="android.graphics.RenderNode boolean setAmbientShadowColor(int) 0">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.graphics.RenderNode boolean setCameraDistance(float) 0">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+      <val name="to" val="3.4028234663852886E38" />
+    </annotation>
+  </item>
+  <item name="android.graphics.RenderNode boolean setSpotShadowColor(int) 0">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.graphics.RenderNode float getCameraDistance()">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+      <val name="to" val="3.4028234663852886E38" />
+    </annotation>
+  </item>
+  <item name="android.graphics.RenderNode int getAmbientShadowColor()">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.graphics.RenderNode int getSpotShadowColor()">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.graphics.RuntimeColorFilter void setColorUniform(java.lang.String, int) 1">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.graphics.RuntimeColorFilter void setColorUniform(java.lang.String, long) 1">
+    <annotation name="androidx.annotation.ColorLong"/>
+  </item>
+  <item name="android.graphics.RuntimeShader RuntimeShader(java.lang.String) 0">
+    <annotation name="org.intellij.lang.annotations.Language">
+      <val name="value" val="&quot;AGSL&quot;" />
+    </annotation>
+  </item>
+  <item name="android.graphics.RuntimeShader void setColorUniform(java.lang.String, int) 1">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.graphics.RuntimeShader void setColorUniform(java.lang.String, long) 1">
+    <annotation name="androidx.annotation.ColorLong"/>
+  </item>
+  <item name="android.graphics.RuntimeXfermode void setColorUniform(java.lang.String, int) 1">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.graphics.RuntimeXfermode void setColorUniform(java.lang.String, long) 1">
+    <annotation name="androidx.annotation.ColorLong"/>
+  </item>
+  <item name="android.graphics.SurfaceTexture int getDataSpace()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.hardware.DataSpace.DATASPACE_DEPTH, android.hardware.DataSpace.DATASPACE_DYNAMIC_DEPTH, android.hardware.DataSpace.DATASPACE_HEIF, android.hardware.DataSpace.DATASPACE_HEIF_ULTRAHDR, android.hardware.DataSpace.DATASPACE_JPEG_R, android.hardware.DataSpace.DATASPACE_UNKNOWN, android.hardware.DataSpace.DATASPACE_SCRGB_LINEAR, android.hardware.DataSpace.DATASPACE_SRGB, android.hardware.DataSpace.DATASPACE_SCRGB, android.hardware.DataSpace.DATASPACE_DISPLAY_P3, android.hardware.DataSpace.DATASPACE_BT2020_HLG, android.hardware.DataSpace.DATASPACE_BT2020_PQ, android.hardware.DataSpace.DATASPACE_ADOBE_RGB, android.hardware.DataSpace.DATASPACE_JFIF, android.hardware.DataSpace.DATASPACE_BT601_625, android.hardware.DataSpace.DATASPACE_BT601_525, android.hardware.DataSpace.DATASPACE_BT2020, android.hardware.DataSpace.DATASPACE_BT709, android.hardware.DataSpace.DATASPACE_DCI_P3, android.hardware.DataSpace.DATASPACE_SRGB_LINEAR, android.hardware.DataSpace.DATASPACE_DISPLAY_BT2020}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.graphics.SweepGradient SweepGradient(float, float, int, int) 2">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.graphics.SweepGradient SweepGradient(float, float, int, int) 3">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.graphics.SweepGradient SweepGradient(float, float, int[], float[]) 2">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.graphics.SweepGradient SweepGradient(float, float, long, long) 2">
+    <annotation name="androidx.annotation.ColorLong"/>
+  </item>
+  <item name="android.graphics.SweepGradient SweepGradient(float, float, long, long) 3">
+    <annotation name="androidx.annotation.ColorLong"/>
+  </item>
+  <item name="android.graphics.SweepGradient SweepGradient(float, float, long[], float[]) 2">
+    <annotation name="androidx.annotation.ColorLong"/>
+  </item>
+  <item name="android.graphics.Typeface android.graphics.Typeface create(android.graphics.Typeface, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.graphics.Typeface.NORMAL, android.graphics.Typeface.BOLD, android.graphics.Typeface.ITALIC, android.graphics.Typeface.BOLD_ITALIC}" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Typeface android.graphics.Typeface create(android.graphics.Typeface, int, boolean) 1">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="1L" />
+      <val name="to" val="1000L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Typeface android.graphics.Typeface create(java.lang.String, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.graphics.Typeface.NORMAL, android.graphics.Typeface.BOLD, android.graphics.Typeface.ITALIC, android.graphics.Typeface.BOLD_ITALIC}" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Typeface android.graphics.Typeface defaultFromStyle(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.graphics.Typeface.NORMAL, android.graphics.Typeface.BOLD, android.graphics.Typeface.ITALIC, android.graphics.Typeface.BOLD_ITALIC}" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Typeface int getStyle()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.graphics.Typeface.NORMAL, android.graphics.Typeface.BOLD, android.graphics.Typeface.ITALIC, android.graphics.Typeface.BOLD_ITALIC}" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Typeface int getWeight()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+      <val name="to" val="1000L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Typeface.Builder android.graphics.Typeface.Builder setTtcIndex(int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Typeface.Builder android.graphics.Typeface.Builder setWeight(int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="1L" />
+      <val name="to" val="1000L" />
+    </annotation>
+  </item>
+  <item name="android.graphics.Typeface.CustomFallbackBuilder int getMaxCustomFallbackCount()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="64L" />
+    </annotation>
+  </item>
+</root>
+

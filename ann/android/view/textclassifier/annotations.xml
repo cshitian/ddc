@@ -1,0 +1,327 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+  <item name="android.view.textclassifier.ConversationAction float getConfidenceScore()">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+      <val name="to" val="1.0" />
+    </annotation>
+  </item>
+  <item name="android.view.textclassifier.ConversationAction java.lang.String getType()">
+    <annotation name="androidx.annotation.StringDef">
+      <val name="value" val="{android.view.textclassifier.ConversationAction.TYPE_VIEW_CALENDAR, android.view.textclassifier.ConversationAction.TYPE_VIEW_MAP, android.view.textclassifier.ConversationAction.TYPE_TRACK_FLIGHT, android.view.textclassifier.ConversationAction.TYPE_OPEN_URL, android.view.textclassifier.ConversationAction.TYPE_SEND_SMS, android.view.textclassifier.ConversationAction.TYPE_CALL_PHONE, android.view.textclassifier.ConversationAction.TYPE_SEND_EMAIL, android.view.textclassifier.ConversationAction.TYPE_TEXT_REPLY, android.view.textclassifier.ConversationAction.TYPE_CREATE_REMINDER, android.view.textclassifier.ConversationAction.TYPE_SHARE_LOCATION}" />
+    </annotation>
+  </item>
+  <item name="android.view.textclassifier.ConversationAction.Builder Builder(java.lang.String) 0">
+    <annotation name="androidx.annotation.StringDef">
+      <val name="value" val="{android.view.textclassifier.ConversationAction.TYPE_VIEW_CALENDAR, android.view.textclassifier.ConversationAction.TYPE_VIEW_MAP, android.view.textclassifier.ConversationAction.TYPE_TRACK_FLIGHT, android.view.textclassifier.ConversationAction.TYPE_OPEN_URL, android.view.textclassifier.ConversationAction.TYPE_SEND_SMS, android.view.textclassifier.ConversationAction.TYPE_CALL_PHONE, android.view.textclassifier.ConversationAction.TYPE_SEND_EMAIL, android.view.textclassifier.ConversationAction.TYPE_TEXT_REPLY, android.view.textclassifier.ConversationAction.TYPE_CREATE_REMINDER, android.view.textclassifier.ConversationAction.TYPE_SHARE_LOCATION}" />
+    </annotation>
+  </item>
+  <item name="android.view.textclassifier.ConversationAction.Builder android.view.textclassifier.ConversationAction.Builder setConfidenceScore(float) 0">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+      <val name="to" val="1.0" />
+    </annotation>
+  </item>
+  <item name="android.view.textclassifier.ConversationActions.Request int getMaxSuggestions()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="-1L" />
+    </annotation>
+  </item>
+  <item name="android.view.textclassifier.ConversationActions.Request java.util.List&lt;java.lang.String&gt; getHints()">
+    <annotation name="androidx.annotation.StringDef">
+      <val name="value" val="{android.view.textclassifier.ConversationActions.Request.HINT_FOR_NOTIFICATION, android.view.textclassifier.ConversationActions.Request.HINT_FOR_IN_APP}" />
+    </annotation>
+  </item>
+  <item name="android.view.textclassifier.ConversationActions.Request.Builder android.view.textclassifier.ConversationActions.Request.Builder setHints(java.util.List&lt;java.lang.String&gt;) 0">
+    <annotation name="androidx.annotation.StringDef">
+      <val name="value" val="{android.view.textclassifier.ConversationActions.Request.HINT_FOR_NOTIFICATION, android.view.textclassifier.ConversationActions.Request.HINT_FOR_IN_APP}" />
+    </annotation>
+  </item>
+  <item name="android.view.textclassifier.ConversationActions.Request.Builder android.view.textclassifier.ConversationActions.Request.Builder setMaxSuggestions(int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="-1L" />
+    </annotation>
+  </item>
+  <item name="android.view.textclassifier.SelectionEvent android.view.textclassifier.SelectionEvent createSelectionActionEvent(int, int, int) 2">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.textclassifier.SelectionEvent.ACTION_OVERTYPE, android.view.textclassifier.SelectionEvent.ACTION_COPY, android.view.textclassifier.SelectionEvent.ACTION_PASTE, android.view.textclassifier.SelectionEvent.ACTION_CUT, android.view.textclassifier.SelectionEvent.ACTION_SHARE, android.view.textclassifier.SelectionEvent.ACTION_SMART_SHARE, android.view.textclassifier.SelectionEvent.ACTION_DRAG, android.view.textclassifier.SelectionEvent.ACTION_ABANDON, android.view.textclassifier.SelectionEvent.ACTION_OTHER, android.view.textclassifier.SelectionEvent.ACTION_SELECT_ALL, android.view.textclassifier.SelectionEvent.ACTION_RESET}" />
+    </annotation>
+  </item>
+  <item name="android.view.textclassifier.SelectionEvent android.view.textclassifier.SelectionEvent createSelectionActionEvent(int, int, int, android.view.textclassifier.TextClassification) 2">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.textclassifier.SelectionEvent.ACTION_OVERTYPE, android.view.textclassifier.SelectionEvent.ACTION_COPY, android.view.textclassifier.SelectionEvent.ACTION_PASTE, android.view.textclassifier.SelectionEvent.ACTION_CUT, android.view.textclassifier.SelectionEvent.ACTION_SHARE, android.view.textclassifier.SelectionEvent.ACTION_SMART_SHARE, android.view.textclassifier.SelectionEvent.ACTION_DRAG, android.view.textclassifier.SelectionEvent.ACTION_ABANDON, android.view.textclassifier.SelectionEvent.ACTION_OTHER, android.view.textclassifier.SelectionEvent.ACTION_SELECT_ALL, android.view.textclassifier.SelectionEvent.ACTION_RESET}" />
+    </annotation>
+  </item>
+  <item name="android.view.textclassifier.SelectionEvent android.view.textclassifier.SelectionEvent createSelectionStartedEvent(int, int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.textclassifier.SelectionEvent.INVOCATION_MANUAL, android.view.textclassifier.SelectionEvent.INVOCATION_LINK, android.view.textclassifier.SelectionEvent.INVOCATION_UNKNOWN}" />
+    </annotation>
+  </item>
+  <item name="android.view.textclassifier.SelectionEvent boolean isTerminal(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.textclassifier.SelectionEvent.ACTION_OVERTYPE, android.view.textclassifier.SelectionEvent.ACTION_COPY, android.view.textclassifier.SelectionEvent.ACTION_PASTE, android.view.textclassifier.SelectionEvent.ACTION_CUT, android.view.textclassifier.SelectionEvent.ACTION_SHARE, android.view.textclassifier.SelectionEvent.ACTION_SMART_SHARE, android.view.textclassifier.SelectionEvent.ACTION_DRAG, android.view.textclassifier.SelectionEvent.ACTION_ABANDON, android.view.textclassifier.SelectionEvent.ACTION_OTHER, android.view.textclassifier.SelectionEvent.ACTION_SELECT_ALL, android.view.textclassifier.SelectionEvent.ACTION_RESET, android.view.textclassifier.SelectionEvent.EVENT_SELECTION_STARTED, android.view.textclassifier.SelectionEvent.EVENT_SELECTION_MODIFIED, android.view.textclassifier.SelectionEvent.EVENT_SMART_SELECTION_SINGLE, android.view.textclassifier.SelectionEvent.EVENT_SMART_SELECTION_MULTI, android.view.textclassifier.SelectionEvent.EVENT_AUTO_SELECTION}" />
+    </annotation>
+  </item>
+  <item name="android.view.textclassifier.SelectionEvent int getEventType()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.textclassifier.SelectionEvent.ACTION_OVERTYPE, android.view.textclassifier.SelectionEvent.ACTION_COPY, android.view.textclassifier.SelectionEvent.ACTION_PASTE, android.view.textclassifier.SelectionEvent.ACTION_CUT, android.view.textclassifier.SelectionEvent.ACTION_SHARE, android.view.textclassifier.SelectionEvent.ACTION_SMART_SHARE, android.view.textclassifier.SelectionEvent.ACTION_DRAG, android.view.textclassifier.SelectionEvent.ACTION_ABANDON, android.view.textclassifier.SelectionEvent.ACTION_OTHER, android.view.textclassifier.SelectionEvent.ACTION_SELECT_ALL, android.view.textclassifier.SelectionEvent.ACTION_RESET, android.view.textclassifier.SelectionEvent.EVENT_SELECTION_STARTED, android.view.textclassifier.SelectionEvent.EVENT_SELECTION_MODIFIED, android.view.textclassifier.SelectionEvent.EVENT_SMART_SELECTION_SINGLE, android.view.textclassifier.SelectionEvent.EVENT_SMART_SELECTION_MULTI, android.view.textclassifier.SelectionEvent.EVENT_AUTO_SELECTION}" />
+    </annotation>
+  </item>
+  <item name="android.view.textclassifier.SelectionEvent int getInvocationMethod()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.textclassifier.SelectionEvent.INVOCATION_MANUAL, android.view.textclassifier.SelectionEvent.INVOCATION_LINK, android.view.textclassifier.SelectionEvent.INVOCATION_UNKNOWN}" />
+    </annotation>
+  </item>
+  <item name="android.view.textclassifier.SelectionEvent java.lang.String getEntityType()">
+    <annotation name="androidx.annotation.StringDef">
+      <val name="value" val="{android.view.textclassifier.TextClassifier.TYPE_UNKNOWN, android.view.textclassifier.TextClassifier.TYPE_OTHER, android.view.textclassifier.TextClassifier.TYPE_EMAIL, android.view.textclassifier.TextClassifier.TYPE_PHONE, android.view.textclassifier.TextClassifier.TYPE_ADDRESS, android.view.textclassifier.TextClassifier.TYPE_URL, android.view.textclassifier.TextClassifier.TYPE_DATE, android.view.textclassifier.TextClassifier.TYPE_DATE_TIME, android.view.textclassifier.TextClassifier.TYPE_FLIGHT_NUMBER, android.view.textclassifier.TextClassifier.TYPE_OTP, android.view.textclassifier.TextClassifier.TYPE_SMS_RETRIEVER_OTP, android.view.textclassifier.TextClassifier.TYPE_SMS_WEB_OTP}" />
+    </annotation>
+  </item>
+  <item name="android.view.textclassifier.SelectionEvent java.lang.String getWidgetType()">
+    <annotation name="androidx.annotation.StringDef">
+      <val name="value" val="{android.view.textclassifier.TextClassifier.WIDGET_TYPE_TEXTVIEW, android.view.textclassifier.TextClassifier.WIDGET_TYPE_EDITTEXT, android.view.textclassifier.TextClassifier.WIDGET_TYPE_UNSELECTABLE_TEXTVIEW, android.view.textclassifier.TextClassifier.WIDGET_TYPE_WEBVIEW, android.view.textclassifier.TextClassifier.WIDGET_TYPE_EDIT_WEBVIEW, android.view.textclassifier.TextClassifier.WIDGET_TYPE_CUSTOM_TEXTVIEW, android.view.textclassifier.TextClassifier.WIDGET_TYPE_CUSTOM_EDITTEXT, android.view.textclassifier.TextClassifier.WIDGET_TYPE_CUSTOM_UNSELECTABLE_TEXTVIEW, android.view.textclassifier.TextClassifier.WIDGET_TYPE_NOTIFICATION, android.view.textclassifier.TextClassifier.WIDGET_TYPE_CLIPBOARD, android.view.textclassifier.TextClassifier.WIDGET_TYPE_UNKNOWN}" />
+    </annotation>
+  </item>
+  <item name="android.view.textclassifier.TextClassification float getConfidenceScore(java.lang.String)">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+      <val name="to" val="1.0" />
+    </annotation>
+  </item>
+  <item name="android.view.textclassifier.TextClassification float getConfidenceScore(java.lang.String) 0">
+    <annotation name="androidx.annotation.StringDef">
+      <val name="value" val="{android.view.textclassifier.TextClassifier.TYPE_UNKNOWN, android.view.textclassifier.TextClassifier.TYPE_OTHER, android.view.textclassifier.TextClassifier.TYPE_EMAIL, android.view.textclassifier.TextClassifier.TYPE_PHONE, android.view.textclassifier.TextClassifier.TYPE_ADDRESS, android.view.textclassifier.TextClassifier.TYPE_URL, android.view.textclassifier.TextClassifier.TYPE_DATE, android.view.textclassifier.TextClassifier.TYPE_DATE_TIME, android.view.textclassifier.TextClassifier.TYPE_FLIGHT_NUMBER, android.view.textclassifier.TextClassifier.TYPE_OTP, android.view.textclassifier.TextClassifier.TYPE_SMS_RETRIEVER_OTP, android.view.textclassifier.TextClassifier.TYPE_SMS_WEB_OTP}" />
+    </annotation>
+  </item>
+  <item name="android.view.textclassifier.TextClassification int getEntityCount()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.view.textclassifier.TextClassification java.lang.String getEntity(int)">
+    <annotation name="androidx.annotation.StringDef">
+      <val name="value" val="{android.view.textclassifier.TextClassifier.TYPE_UNKNOWN, android.view.textclassifier.TextClassifier.TYPE_OTHER, android.view.textclassifier.TextClassifier.TYPE_EMAIL, android.view.textclassifier.TextClassifier.TYPE_PHONE, android.view.textclassifier.TextClassifier.TYPE_ADDRESS, android.view.textclassifier.TextClassifier.TYPE_URL, android.view.textclassifier.TextClassifier.TYPE_DATE, android.view.textclassifier.TextClassifier.TYPE_DATE_TIME, android.view.textclassifier.TextClassifier.TYPE_FLIGHT_NUMBER, android.view.textclassifier.TextClassifier.TYPE_OTP, android.view.textclassifier.TextClassifier.TYPE_SMS_RETRIEVER_OTP, android.view.textclassifier.TextClassifier.TYPE_SMS_WEB_OTP}" />
+    </annotation>
+  </item>
+  <item name="android.view.textclassifier.TextClassification.Builder android.view.textclassifier.TextClassification.Builder setEntityType(java.lang.String, float) 0">
+    <annotation name="androidx.annotation.StringDef">
+      <val name="value" val="{android.view.textclassifier.TextClassifier.TYPE_UNKNOWN, android.view.textclassifier.TextClassifier.TYPE_OTHER, android.view.textclassifier.TextClassifier.TYPE_EMAIL, android.view.textclassifier.TextClassifier.TYPE_PHONE, android.view.textclassifier.TextClassifier.TYPE_ADDRESS, android.view.textclassifier.TextClassifier.TYPE_URL, android.view.textclassifier.TextClassifier.TYPE_DATE, android.view.textclassifier.TextClassifier.TYPE_DATE_TIME, android.view.textclassifier.TextClassifier.TYPE_FLIGHT_NUMBER, android.view.textclassifier.TextClassifier.TYPE_OTP, android.view.textclassifier.TextClassifier.TYPE_SMS_RETRIEVER_OTP, android.view.textclassifier.TextClassifier.TYPE_SMS_WEB_OTP}" />
+    </annotation>
+  </item>
+  <item name="android.view.textclassifier.TextClassification.Builder android.view.textclassifier.TextClassification.Builder setEntityType(java.lang.String, float) 1">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+      <val name="to" val="1.0" />
+    </annotation>
+  </item>
+  <item name="android.view.textclassifier.TextClassification.Request int getEndIndex()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.view.textclassifier.TextClassification.Request int getStartIndex()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.view.textclassifier.TextClassification.Request.Builder Builder(java.lang.CharSequence, int, int) 1">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.view.textclassifier.TextClassification.Request.Builder Builder(java.lang.CharSequence, int, int) 2">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.view.textclassifier.TextClassificationContext java.lang.String getWidgetType()">
+    <annotation name="androidx.annotation.StringDef">
+      <val name="value" val="{android.view.textclassifier.TextClassifier.WIDGET_TYPE_TEXTVIEW, android.view.textclassifier.TextClassifier.WIDGET_TYPE_EDITTEXT, android.view.textclassifier.TextClassifier.WIDGET_TYPE_UNSELECTABLE_TEXTVIEW, android.view.textclassifier.TextClassifier.WIDGET_TYPE_WEBVIEW, android.view.textclassifier.TextClassifier.WIDGET_TYPE_EDIT_WEBVIEW, android.view.textclassifier.TextClassifier.WIDGET_TYPE_CUSTOM_TEXTVIEW, android.view.textclassifier.TextClassifier.WIDGET_TYPE_CUSTOM_EDITTEXT, android.view.textclassifier.TextClassifier.WIDGET_TYPE_CUSTOM_UNSELECTABLE_TEXTVIEW, android.view.textclassifier.TextClassifier.WIDGET_TYPE_NOTIFICATION, android.view.textclassifier.TextClassifier.WIDGET_TYPE_CLIPBOARD, android.view.textclassifier.TextClassifier.WIDGET_TYPE_UNKNOWN}" />
+    </annotation>
+  </item>
+  <item name="android.view.textclassifier.TextClassificationContext.Builder Builder(java.lang.String, java.lang.String) 1">
+    <annotation name="androidx.annotation.StringDef">
+      <val name="value" val="{android.view.textclassifier.TextClassifier.WIDGET_TYPE_TEXTVIEW, android.view.textclassifier.TextClassifier.WIDGET_TYPE_EDITTEXT, android.view.textclassifier.TextClassifier.WIDGET_TYPE_UNSELECTABLE_TEXTVIEW, android.view.textclassifier.TextClassifier.WIDGET_TYPE_WEBVIEW, android.view.textclassifier.TextClassifier.WIDGET_TYPE_EDIT_WEBVIEW, android.view.textclassifier.TextClassifier.WIDGET_TYPE_CUSTOM_TEXTVIEW, android.view.textclassifier.TextClassifier.WIDGET_TYPE_CUSTOM_EDITTEXT, android.view.textclassifier.TextClassifier.WIDGET_TYPE_CUSTOM_UNSELECTABLE_TEXTVIEW, android.view.textclassifier.TextClassifier.WIDGET_TYPE_NOTIFICATION, android.view.textclassifier.TextClassifier.WIDGET_TYPE_CLIPBOARD, android.view.textclassifier.TextClassifier.WIDGET_TYPE_UNKNOWN}" />
+    </annotation>
+  </item>
+  <item name="android.view.textclassifier.TextClassifier android.view.textclassifier.ConversationActions suggestConversationActions(android.view.textclassifier.ConversationActions.Request)">
+    <annotation name="androidx.annotation.WorkerThread"/>
+  </item>
+  <item name="android.view.textclassifier.TextClassifier android.view.textclassifier.TextClassification classifyText(android.view.textclassifier.TextClassification.Request)">
+    <annotation name="androidx.annotation.WorkerThread"/>
+  </item>
+  <item name="android.view.textclassifier.TextClassifier android.view.textclassifier.TextClassification classifyText(java.lang.CharSequence, int, int, android.os.LocaleList)">
+    <annotation name="androidx.annotation.WorkerThread"/>
+  </item>
+  <item name="android.view.textclassifier.TextClassifier android.view.textclassifier.TextClassification classifyText(java.lang.CharSequence, int, int, android.os.LocaleList) 1">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.view.textclassifier.TextClassifier android.view.textclassifier.TextClassification classifyText(java.lang.CharSequence, int, int, android.os.LocaleList) 2">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.view.textclassifier.TextClassifier android.view.textclassifier.TextLanguage detectLanguage(android.view.textclassifier.TextLanguage.Request)">
+    <annotation name="androidx.annotation.WorkerThread"/>
+  </item>
+  <item name="android.view.textclassifier.TextClassifier android.view.textclassifier.TextLinks generateLinks(android.view.textclassifier.TextLinks.Request)">
+    <annotation name="androidx.annotation.WorkerThread"/>
+  </item>
+  <item name="android.view.textclassifier.TextClassifier android.view.textclassifier.TextSelection suggestSelection(android.view.textclassifier.TextSelection.Request)">
+    <annotation name="androidx.annotation.WorkerThread"/>
+  </item>
+  <item name="android.view.textclassifier.TextClassifier android.view.textclassifier.TextSelection suggestSelection(java.lang.CharSequence, int, int, android.os.LocaleList)">
+    <annotation name="androidx.annotation.WorkerThread"/>
+  </item>
+  <item name="android.view.textclassifier.TextClassifier android.view.textclassifier.TextSelection suggestSelection(java.lang.CharSequence, int, int, android.os.LocaleList) 1">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.view.textclassifier.TextClassifier android.view.textclassifier.TextSelection suggestSelection(java.lang.CharSequence, int, int, android.os.LocaleList) 2">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.view.textclassifier.TextClassifier int getMaxGenerateLinksTextLength()">
+    <annotation name="androidx.annotation.WorkerThread"/>
+  </item>
+  <item name="android.view.textclassifier.TextClassifierEvent int getEventCategory()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.textclassifier.TextClassifierEvent.CATEGORY_SELECTION, android.view.textclassifier.TextClassifierEvent.CATEGORY_LINKIFY, android.view.textclassifier.TextClassifierEvent.CATEGORY_CONVERSATION_ACTIONS, android.view.textclassifier.TextClassifierEvent.CATEGORY_LANGUAGE_DETECTION}" />
+    </annotation>
+  </item>
+  <item name="android.view.textclassifier.TextClassifierEvent int getEventType()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.textclassifier.TextClassifierEvent.TYPE_SELECTION_STARTED, android.view.textclassifier.TextClassifierEvent.TYPE_SELECTION_MODIFIED, android.view.textclassifier.TextClassifierEvent.TYPE_SMART_SELECTION_SINGLE, android.view.textclassifier.TextClassifierEvent.TYPE_SMART_SELECTION_MULTI, android.view.textclassifier.TextClassifierEvent.TYPE_AUTO_SELECTION, android.view.textclassifier.TextClassifierEvent.TYPE_ACTIONS_SHOWN, android.view.textclassifier.TextClassifierEvent.TYPE_LINK_CLICKED, android.view.textclassifier.TextClassifierEvent.TYPE_OVERTYPE, android.view.textclassifier.TextClassifierEvent.TYPE_COPY_ACTION, android.view.textclassifier.TextClassifierEvent.TYPE_PASTE_ACTION, android.view.textclassifier.TextClassifierEvent.TYPE_CUT_ACTION, android.view.textclassifier.TextClassifierEvent.TYPE_SHARE_ACTION, android.view.textclassifier.TextClassifierEvent.TYPE_SMART_ACTION, android.view.textclassifier.TextClassifierEvent.TYPE_SELECTION_DRAG, android.view.textclassifier.TextClassifierEvent.TYPE_SELECTION_DESTROYED, android.view.textclassifier.TextClassifierEvent.TYPE_OTHER_ACTION, android.view.textclassifier.TextClassifierEvent.TYPE_SELECT_ALL, android.view.textclassifier.TextClassifierEvent.TYPE_SELECTION_RESET, android.view.textclassifier.TextClassifierEvent.TYPE_MANUAL_REPLY, android.view.textclassifier.TextClassifierEvent.TYPE_ACTIONS_GENERATED, android.view.textclassifier.TextClassifierEvent.TYPE_LINKS_GENERATED}" />
+    </annotation>
+  </item>
+  <item name="android.view.textclassifier.TextClassifierEvent.ConversationActionsEvent.Builder Builder(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.textclassifier.TextClassifierEvent.TYPE_SELECTION_STARTED, android.view.textclassifier.TextClassifierEvent.TYPE_SELECTION_MODIFIED, android.view.textclassifier.TextClassifierEvent.TYPE_SMART_SELECTION_SINGLE, android.view.textclassifier.TextClassifierEvent.TYPE_SMART_SELECTION_MULTI, android.view.textclassifier.TextClassifierEvent.TYPE_AUTO_SELECTION, android.view.textclassifier.TextClassifierEvent.TYPE_ACTIONS_SHOWN, android.view.textclassifier.TextClassifierEvent.TYPE_LINK_CLICKED, android.view.textclassifier.TextClassifierEvent.TYPE_OVERTYPE, android.view.textclassifier.TextClassifierEvent.TYPE_COPY_ACTION, android.view.textclassifier.TextClassifierEvent.TYPE_PASTE_ACTION, android.view.textclassifier.TextClassifierEvent.TYPE_CUT_ACTION, android.view.textclassifier.TextClassifierEvent.TYPE_SHARE_ACTION, android.view.textclassifier.TextClassifierEvent.TYPE_SMART_ACTION, android.view.textclassifier.TextClassifierEvent.TYPE_SELECTION_DRAG, android.view.textclassifier.TextClassifierEvent.TYPE_SELECTION_DESTROYED, android.view.textclassifier.TextClassifierEvent.TYPE_OTHER_ACTION, android.view.textclassifier.TextClassifierEvent.TYPE_SELECT_ALL, android.view.textclassifier.TextClassifierEvent.TYPE_SELECTION_RESET, android.view.textclassifier.TextClassifierEvent.TYPE_MANUAL_REPLY, android.view.textclassifier.TextClassifierEvent.TYPE_ACTIONS_GENERATED, android.view.textclassifier.TextClassifierEvent.TYPE_LINKS_GENERATED}" />
+    </annotation>
+  </item>
+  <item name="android.view.textclassifier.TextClassifierEvent.LanguageDetectionEvent.Builder Builder(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.textclassifier.TextClassifierEvent.TYPE_SELECTION_STARTED, android.view.textclassifier.TextClassifierEvent.TYPE_SELECTION_MODIFIED, android.view.textclassifier.TextClassifierEvent.TYPE_SMART_SELECTION_SINGLE, android.view.textclassifier.TextClassifierEvent.TYPE_SMART_SELECTION_MULTI, android.view.textclassifier.TextClassifierEvent.TYPE_AUTO_SELECTION, android.view.textclassifier.TextClassifierEvent.TYPE_ACTIONS_SHOWN, android.view.textclassifier.TextClassifierEvent.TYPE_LINK_CLICKED, android.view.textclassifier.TextClassifierEvent.TYPE_OVERTYPE, android.view.textclassifier.TextClassifierEvent.TYPE_COPY_ACTION, android.view.textclassifier.TextClassifierEvent.TYPE_PASTE_ACTION, android.view.textclassifier.TextClassifierEvent.TYPE_CUT_ACTION, android.view.textclassifier.TextClassifierEvent.TYPE_SHARE_ACTION, android.view.textclassifier.TextClassifierEvent.TYPE_SMART_ACTION, android.view.textclassifier.TextClassifierEvent.TYPE_SELECTION_DRAG, android.view.textclassifier.TextClassifierEvent.TYPE_SELECTION_DESTROYED, android.view.textclassifier.TextClassifierEvent.TYPE_OTHER_ACTION, android.view.textclassifier.TextClassifierEvent.TYPE_SELECT_ALL, android.view.textclassifier.TextClassifierEvent.TYPE_SELECTION_RESET, android.view.textclassifier.TextClassifierEvent.TYPE_MANUAL_REPLY, android.view.textclassifier.TextClassifierEvent.TYPE_ACTIONS_GENERATED, android.view.textclassifier.TextClassifierEvent.TYPE_LINKS_GENERATED}" />
+    </annotation>
+  </item>
+  <item name="android.view.textclassifier.TextClassifierEvent.TextLinkifyEvent.Builder Builder(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.textclassifier.TextClassifierEvent.TYPE_SELECTION_STARTED, android.view.textclassifier.TextClassifierEvent.TYPE_SELECTION_MODIFIED, android.view.textclassifier.TextClassifierEvent.TYPE_SMART_SELECTION_SINGLE, android.view.textclassifier.TextClassifierEvent.TYPE_SMART_SELECTION_MULTI, android.view.textclassifier.TextClassifierEvent.TYPE_AUTO_SELECTION, android.view.textclassifier.TextClassifierEvent.TYPE_ACTIONS_SHOWN, android.view.textclassifier.TextClassifierEvent.TYPE_LINK_CLICKED, android.view.textclassifier.TextClassifierEvent.TYPE_OVERTYPE, android.view.textclassifier.TextClassifierEvent.TYPE_COPY_ACTION, android.view.textclassifier.TextClassifierEvent.TYPE_PASTE_ACTION, android.view.textclassifier.TextClassifierEvent.TYPE_CUT_ACTION, android.view.textclassifier.TextClassifierEvent.TYPE_SHARE_ACTION, android.view.textclassifier.TextClassifierEvent.TYPE_SMART_ACTION, android.view.textclassifier.TextClassifierEvent.TYPE_SELECTION_DRAG, android.view.textclassifier.TextClassifierEvent.TYPE_SELECTION_DESTROYED, android.view.textclassifier.TextClassifierEvent.TYPE_OTHER_ACTION, android.view.textclassifier.TextClassifierEvent.TYPE_SELECT_ALL, android.view.textclassifier.TextClassifierEvent.TYPE_SELECTION_RESET, android.view.textclassifier.TextClassifierEvent.TYPE_MANUAL_REPLY, android.view.textclassifier.TextClassifierEvent.TYPE_ACTIONS_GENERATED, android.view.textclassifier.TextClassifierEvent.TYPE_LINKS_GENERATED}" />
+    </annotation>
+  </item>
+  <item name="android.view.textclassifier.TextClassifierEvent.TextSelectionEvent.Builder Builder(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.textclassifier.TextClassifierEvent.TYPE_SELECTION_STARTED, android.view.textclassifier.TextClassifierEvent.TYPE_SELECTION_MODIFIED, android.view.textclassifier.TextClassifierEvent.TYPE_SMART_SELECTION_SINGLE, android.view.textclassifier.TextClassifierEvent.TYPE_SMART_SELECTION_MULTI, android.view.textclassifier.TextClassifierEvent.TYPE_AUTO_SELECTION, android.view.textclassifier.TextClassifierEvent.TYPE_ACTIONS_SHOWN, android.view.textclassifier.TextClassifierEvent.TYPE_LINK_CLICKED, android.view.textclassifier.TextClassifierEvent.TYPE_OVERTYPE, android.view.textclassifier.TextClassifierEvent.TYPE_COPY_ACTION, android.view.textclassifier.TextClassifierEvent.TYPE_PASTE_ACTION, android.view.textclassifier.TextClassifierEvent.TYPE_CUT_ACTION, android.view.textclassifier.TextClassifierEvent.TYPE_SHARE_ACTION, android.view.textclassifier.TextClassifierEvent.TYPE_SMART_ACTION, android.view.textclassifier.TextClassifierEvent.TYPE_SELECTION_DRAG, android.view.textclassifier.TextClassifierEvent.TYPE_SELECTION_DESTROYED, android.view.textclassifier.TextClassifierEvent.TYPE_OTHER_ACTION, android.view.textclassifier.TextClassifierEvent.TYPE_SELECT_ALL, android.view.textclassifier.TextClassifierEvent.TYPE_SELECTION_RESET, android.view.textclassifier.TextClassifierEvent.TYPE_MANUAL_REPLY, android.view.textclassifier.TextClassifierEvent.TYPE_ACTIONS_GENERATED, android.view.textclassifier.TextClassifierEvent.TYPE_LINKS_GENERATED}" />
+    </annotation>
+  </item>
+  <item name="android.view.textclassifier.TextLanguage float getConfidenceScore(android.icu.util.ULocale)">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+      <val name="to" val="1.0" />
+    </annotation>
+  </item>
+  <item name="android.view.textclassifier.TextLanguage int getLocaleHypothesisCount()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.view.textclassifier.TextLanguage.Builder android.view.textclassifier.TextLanguage.Builder putLocale(android.icu.util.ULocale, float) 1">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+      <val name="to" val="1.0" />
+    </annotation>
+  </item>
+  <item name="android.view.textclassifier.TextLinks int apply(android.text.Spannable, int, java.util.function.Function&lt;android.view.textclassifier.TextLinks.TextLink,android.view.textclassifier.TextLinks.TextLinkSpan&gt;)">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.textclassifier.TextLinks.STATUS_LINKS_APPLIED, android.view.textclassifier.TextLinks.STATUS_NO_LINKS_FOUND, android.view.textclassifier.TextLinks.STATUS_NO_LINKS_APPLIED, android.view.textclassifier.TextLinks.STATUS_DIFFERENT_TEXT, android.view.textclassifier.TextLinks.STATUS_UNSUPPORTED_CHARACTER}" />
+    </annotation>
+  </item>
+  <item name="android.view.textclassifier.TextLinks int apply(android.text.Spannable, int, java.util.function.Function&lt;android.view.textclassifier.TextLinks.TextLink,android.view.textclassifier.TextLinks.TextLinkSpan&gt;) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.textclassifier.TextLinks.APPLY_STRATEGY_IGNORE, android.view.textclassifier.TextLinks.APPLY_STRATEGY_REPLACE}" />
+    </annotation>
+  </item>
+  <item name="android.view.textclassifier.TextLinks.TextLink float getConfidenceScore(java.lang.String)">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+      <val name="to" val="1.0" />
+    </annotation>
+  </item>
+  <item name="android.view.textclassifier.TextLinks.TextLink float getConfidenceScore(java.lang.String) 0">
+    <annotation name="androidx.annotation.StringDef">
+      <val name="value" val="{android.view.textclassifier.TextClassifier.TYPE_UNKNOWN, android.view.textclassifier.TextClassifier.TYPE_OTHER, android.view.textclassifier.TextClassifier.TYPE_EMAIL, android.view.textclassifier.TextClassifier.TYPE_PHONE, android.view.textclassifier.TextClassifier.TYPE_ADDRESS, android.view.textclassifier.TextClassifier.TYPE_URL, android.view.textclassifier.TextClassifier.TYPE_DATE, android.view.textclassifier.TextClassifier.TYPE_DATE_TIME, android.view.textclassifier.TextClassifier.TYPE_FLIGHT_NUMBER, android.view.textclassifier.TextClassifier.TYPE_OTP, android.view.textclassifier.TextClassifier.TYPE_SMS_RETRIEVER_OTP, android.view.textclassifier.TextClassifier.TYPE_SMS_WEB_OTP}" />
+    </annotation>
+  </item>
+  <item name="android.view.textclassifier.TextLinks.TextLink java.lang.String getEntity(int)">
+    <annotation name="androidx.annotation.StringDef">
+      <val name="value" val="{android.view.textclassifier.TextClassifier.TYPE_UNKNOWN, android.view.textclassifier.TextClassifier.TYPE_OTHER, android.view.textclassifier.TextClassifier.TYPE_EMAIL, android.view.textclassifier.TextClassifier.TYPE_PHONE, android.view.textclassifier.TextClassifier.TYPE_ADDRESS, android.view.textclassifier.TextClassifier.TYPE_URL, android.view.textclassifier.TextClassifier.TYPE_DATE, android.view.textclassifier.TextClassifier.TYPE_DATE_TIME, android.view.textclassifier.TextClassifier.TYPE_FLIGHT_NUMBER, android.view.textclassifier.TextClassifier.TYPE_OTP, android.view.textclassifier.TextClassifier.TYPE_SMS_RETRIEVER_OTP, android.view.textclassifier.TextClassifier.TYPE_SMS_WEB_OTP}" />
+    </annotation>
+  </item>
+  <item name="android.view.textclassifier.TextSelection float getConfidenceScore(java.lang.String)">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+      <val name="to" val="1.0" />
+    </annotation>
+  </item>
+  <item name="android.view.textclassifier.TextSelection float getConfidenceScore(java.lang.String) 0">
+    <annotation name="androidx.annotation.StringDef">
+      <val name="value" val="{android.view.textclassifier.TextClassifier.TYPE_UNKNOWN, android.view.textclassifier.TextClassifier.TYPE_OTHER, android.view.textclassifier.TextClassifier.TYPE_EMAIL, android.view.textclassifier.TextClassifier.TYPE_PHONE, android.view.textclassifier.TextClassifier.TYPE_ADDRESS, android.view.textclassifier.TextClassifier.TYPE_URL, android.view.textclassifier.TextClassifier.TYPE_DATE, android.view.textclassifier.TextClassifier.TYPE_DATE_TIME, android.view.textclassifier.TextClassifier.TYPE_FLIGHT_NUMBER, android.view.textclassifier.TextClassifier.TYPE_OTP, android.view.textclassifier.TextClassifier.TYPE_SMS_RETRIEVER_OTP, android.view.textclassifier.TextClassifier.TYPE_SMS_WEB_OTP}" />
+    </annotation>
+  </item>
+  <item name="android.view.textclassifier.TextSelection int getEntityCount()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.view.textclassifier.TextSelection java.lang.String getEntity(int)">
+    <annotation name="androidx.annotation.StringDef">
+      <val name="value" val="{android.view.textclassifier.TextClassifier.TYPE_UNKNOWN, android.view.textclassifier.TextClassifier.TYPE_OTHER, android.view.textclassifier.TextClassifier.TYPE_EMAIL, android.view.textclassifier.TextClassifier.TYPE_PHONE, android.view.textclassifier.TextClassifier.TYPE_ADDRESS, android.view.textclassifier.TextClassifier.TYPE_URL, android.view.textclassifier.TextClassifier.TYPE_DATE, android.view.textclassifier.TextClassifier.TYPE_DATE_TIME, android.view.textclassifier.TextClassifier.TYPE_FLIGHT_NUMBER, android.view.textclassifier.TextClassifier.TYPE_OTP, android.view.textclassifier.TextClassifier.TYPE_SMS_RETRIEVER_OTP, android.view.textclassifier.TextClassifier.TYPE_SMS_WEB_OTP}" />
+    </annotation>
+  </item>
+  <item name="android.view.textclassifier.TextSelection.Builder Builder(int, int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.view.textclassifier.TextSelection.Builder Builder(int, int) 1">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.view.textclassifier.TextSelection.Builder android.view.textclassifier.TextSelection.Builder setEntityType(java.lang.String, float) 0">
+    <annotation name="androidx.annotation.StringDef">
+      <val name="value" val="{android.view.textclassifier.TextClassifier.TYPE_UNKNOWN, android.view.textclassifier.TextClassifier.TYPE_OTHER, android.view.textclassifier.TextClassifier.TYPE_EMAIL, android.view.textclassifier.TextClassifier.TYPE_PHONE, android.view.textclassifier.TextClassifier.TYPE_ADDRESS, android.view.textclassifier.TextClassifier.TYPE_URL, android.view.textclassifier.TextClassifier.TYPE_DATE, android.view.textclassifier.TextClassifier.TYPE_DATE_TIME, android.view.textclassifier.TextClassifier.TYPE_FLIGHT_NUMBER, android.view.textclassifier.TextClassifier.TYPE_OTP, android.view.textclassifier.TextClassifier.TYPE_SMS_RETRIEVER_OTP, android.view.textclassifier.TextClassifier.TYPE_SMS_WEB_OTP}" />
+    </annotation>
+  </item>
+  <item name="android.view.textclassifier.TextSelection.Builder android.view.textclassifier.TextSelection.Builder setEntityType(java.lang.String, float) 1">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="0.0" />
+      <val name="to" val="1.0" />
+    </annotation>
+  </item>
+  <item name="android.view.textclassifier.TextSelection.Request int getEndIndex()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.view.textclassifier.TextSelection.Request int getStartIndex()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.view.textclassifier.TextSelection.Request.Builder Builder(java.lang.CharSequence, int, int) 1">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.view.textclassifier.TextSelection.Request.Builder Builder(java.lang.CharSequence, int, int) 2">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+</root>
+

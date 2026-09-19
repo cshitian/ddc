@@ -1,0 +1,50 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<root>
+  <item name="android.security.FileIntegrityManager">
+    <annotation name="androidx.annotation.RestrictedForEnvironment">
+      <val name="environments" val="&quot;SDK Runtime&quot;" />
+      <val name="from" val="34" />
+    </annotation>
+  </item>
+  <item name="android.security.FileIntegrityManager boolean isAppSourceCertificateTrusted(java.security.cert.X509Certificate)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="anyOf" val="{&quot;android.permission.INSTALL_PACKAGES&quot;, &quot;android.permission.REQUEST_INSTALL_PACKAGES&quot;}" />
+    </annotation>
+  </item>
+  <item name="android.security.KeyChain android.security.AppUriAuthenticationPolicy getCredentialManagementAppPolicy(android.content.Context)">
+    <annotation name="androidx.annotation.WorkerThread" />
+  </item>
+  <item name="android.security.KeyChain boolean isCredentialManagementApp(android.content.Context)">
+    <annotation name="androidx.annotation.WorkerThread" />
+  </item>
+  <item name="android.security.KeyChain boolean removeCredentialManagementApp(android.content.Context)">
+    <annotation name="androidx.annotation.WorkerThread" />
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.MANAGE_CREDENTIAL_MANAGEMENT_APP&quot;" />
+      <val name="conditional" val="true" />
+    </annotation>
+  </item>
+  <item name="android.security.KeyChain java.security.PrivateKey getPrivateKey(android.content.Context, java.lang.String)">
+    <annotation name="androidx.annotation.WorkerThread" />
+  </item>
+  <item name="android.security.KeyChain java.security.cert.X509Certificate[] getCertificateChain(android.content.Context, java.lang.String)">
+    <annotation name="androidx.annotation.WorkerThread" />
+  </item>
+  <item name="android.security.KeyStoreException int getNumericErrorCode()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.security.KeyStoreException.ERROR_OTHER, android.security.KeyStoreException.ERROR_USER_AUTHENTICATION_REQUIRED, android.security.KeyStoreException.ERROR_KEYSTORE_UNINITIALIZED, android.security.KeyStoreException.ERROR_INTERNAL_SYSTEM_ERROR, android.security.KeyStoreException.ERROR_PERMISSION_DENIED, android.security.KeyStoreException.ERROR_KEY_DOES_NOT_EXIST, android.security.KeyStoreException.ERROR_KEY_CORRUPTED, android.security.KeyStoreException.ERROR_ID_ATTESTATION_FAILURE, android.security.KeyStoreException.ERROR_ATTESTATION_CHALLENGE_TOO_LARGE, android.security.KeyStoreException.ERROR_KEYMINT_FAILURE, android.security.KeyStoreException.ERROR_KEYSTORE_FAILURE, android.security.KeyStoreException.ERROR_UNIMPLEMENTED, android.security.KeyStoreException.ERROR_INCORRECT_USAGE, android.security.KeyStoreException.ERROR_KEY_NOT_TEMPORALLY_VALID, android.security.KeyStoreException.ERROR_KEY_OPERATION_EXPIRED, android.security.KeyStoreException.ERROR_ATTESTATION_KEYS_UNAVAILABLE, android.security.KeyStoreException.ERROR_TOO_MANY_KEYS}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.security.KeyStoreException int getRetryPolicy()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.security.KeyStoreException.RETRY_NEVER, android.security.KeyStoreException.RETRY_WITH_EXPONENTIAL_BACKOFF, android.security.KeyStoreException.RETRY_WHEN_CONNECTIVITY_AVAILABLE, android.security.KeyStoreException.RETRY_AFTER_NEXT_REBOOT}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+<item name="android.security.NetworkSecurityPolicy int getDomainEncryptionMode(java.lang.String)">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.security.NetworkSecurityPolicy.DOMAIN_ENCRYPTION_MODE_UNKNOWN, android.security.NetworkSecurityPolicy.DOMAIN_ENCRYPTION_MODE_DISABLED, android.security.NetworkSecurityPolicy.DOMAIN_ENCRYPTION_MODE_OPPORTUNISTIC, android.security.NetworkSecurityPolicy.DOMAIN_ENCRYPTION_MODE_ENABLED}" />
+    </annotation>
+  </item>
+</root>

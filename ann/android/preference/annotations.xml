@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+  <item name="android.preference.DialogPreference void onBindDialogView(android.view.View)">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.preference.DialogPreference void setDialogIcon(int) 0">
+    <annotation name="androidx.annotation.DrawableRes"/>
+  </item>
+  <item name="android.preference.DialogPreference void setNegativeButtonText(int) 0">
+    <annotation name="androidx.annotation.StringRes"/>
+  </item>
+  <item name="android.preference.DialogPreference void setPositiveButtonText(int) 0">
+    <annotation name="androidx.annotation.StringRes"/>
+  </item>
+  <item name="android.preference.ListPreference void setEntries(int) 0">
+    <annotation name="androidx.annotation.ArrayRes"/>
+  </item>
+  <item name="android.preference.ListPreference void setEntryValues(int) 0">
+    <annotation name="androidx.annotation.ArrayRes"/>
+  </item>
+  <item name="android.preference.MultiSelectListPreference void setEntries(int) 0">
+    <annotation name="androidx.annotation.ArrayRes"/>
+  </item>
+  <item name="android.preference.MultiSelectListPreference void setEntryValues(int) 0">
+    <annotation name="androidx.annotation.ArrayRes"/>
+  </item>
+  <item name="android.preference.Preference android.view.View onCreateView(android.view.ViewGroup)">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.preference.Preference int getLayoutResource()">
+    <annotation name="androidx.annotation.LayoutRes"/>
+  </item>
+  <item name="android.preference.Preference int getTitleRes()">
+    <annotation name="androidx.annotation.StringRes"/>
+  </item>
+  <item name="android.preference.Preference int getWidgetLayoutResource()">
+    <annotation name="androidx.annotation.LayoutRes"/>
+  </item>
+  <item name="android.preference.Preference void onBindView(android.view.View)">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.preference.Preference void onPrepareForRemoval()">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.preference.Preference void setIcon(int) 0">
+    <annotation name="androidx.annotation.DrawableRes"/>
+  </item>
+  <item name="android.preference.Preference void setLayoutResource(int) 0">
+    <annotation name="androidx.annotation.LayoutRes"/>
+  </item>
+  <item name="android.preference.Preference void setRecycleEnabled(boolean)">
+    <annotation name="androidx.annotation.CallSuper"/>
+  </item>
+  <item name="android.preference.Preference void setSummary(int) 0">
+    <annotation name="androidx.annotation.StringRes"/>
+  </item>
+  <item name="android.preference.Preference void setTitle(int) 0">
+    <annotation name="androidx.annotation.StringRes"/>
+  </item>
+  <item name="android.preference.Preference void setWidgetLayoutResource(int) 0">
+    <annotation name="androidx.annotation.LayoutRes"/>
+  </item>
+  <item name="android.preference.PreferenceActivity android.content.Intent onBuildStartFragmentIntent(java.lang.String, android.os.Bundle, int, int) 2">
+    <annotation name="androidx.annotation.StringRes"/>
+  </item>
+  <item name="android.preference.PreferenceActivity void loadHeadersFromResource(int, java.util.List&lt;android.preference.PreferenceActivity.Header&gt;) 0">
+    <annotation name="androidx.annotation.XmlRes"/>
+  </item>
+  <item name="android.preference.PreferenceActivity void startPreferencePanel(java.lang.String, android.os.Bundle, int, java.lang.CharSequence, android.app.Fragment, int) 2">
+    <annotation name="androidx.annotation.StringRes"/>
+  </item>
+  <item name="android.preference.PreferenceActivity void startWithFragment(java.lang.String, android.os.Bundle, android.app.Fragment, int, int, int) 4">
+    <annotation name="androidx.annotation.StringRes"/>
+  </item>
+  <item name="android.preference.PreferenceActivity void startWithFragment(java.lang.String, android.os.Bundle, android.app.Fragment, int, int, int) 5">
+    <annotation name="androidx.annotation.StringRes"/>
+  </item>
+  <item name="android.preference.PreferenceActivity.Header breadCrumbShortTitleRes">
+    <annotation name="androidx.annotation.StringRes"/>
+  </item>
+  <item name="android.preference.PreferenceActivity.Header breadCrumbTitleRes">
+    <annotation name="androidx.annotation.StringRes"/>
+  </item>
+  <item name="android.preference.PreferenceActivity.Header summaryRes">
+    <annotation name="androidx.annotation.StringRes"/>
+  </item>
+  <item name="android.preference.PreferenceActivity.Header titleRes">
+    <annotation name="androidx.annotation.StringRes"/>
+  </item>
+  <item name="android.preference.PreferenceFragment void addPreferencesFromResource(int) 0">
+    <annotation name="androidx.annotation.XmlRes"/>
+  </item>
+  <item name="android.preference.PreferenceManager void setDefaultValues(android.content.Context, int, boolean) 1">
+    <annotation name="androidx.annotation.XmlRes"/>
+  </item>
+  <item name="android.preference.SwitchPreference void setSwitchTextOff(int) 0">
+    <annotation name="androidx.annotation.StringRes"/>
+  </item>
+  <item name="android.preference.SwitchPreference void setSwitchTextOn(int) 0">
+    <annotation name="androidx.annotation.StringRes"/>
+  </item>
+  <item name="android.preference.TwoStatePreference void setSummaryOff(int) 0">
+    <annotation name="androidx.annotation.StringRes"/>
+  </item>
+  <item name="android.preference.TwoStatePreference void setSummaryOn(int) 0">
+    <annotation name="androidx.annotation.StringRes"/>
+  </item>
+</root>
+

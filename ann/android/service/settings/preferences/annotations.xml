@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+  <item name="android.service.settings.preferences.GetValueResult int getResultCode()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.service.settings.preferences.GetValueResult.RESULT_OK, android.service.settings.preferences.GetValueResult.RESULT_UNSUPPORTED, android.service.settings.preferences.GetValueResult.RESULT_UNAVAILABLE, android.service.settings.preferences.GetValueResult.RESULT_REQUIRE_APP_PERMISSION, android.service.settings.preferences.GetValueResult.RESULT_DISALLOW, android.service.settings.preferences.GetValueResult.RESULT_INVALID_REQUEST, android.service.settings.preferences.GetValueResult.RESULT_INTERNAL_ERROR}" />
+    </annotation>
+  </item>
+  <item name="android.service.settings.preferences.GetValueResult.Builder Builder(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.service.settings.preferences.GetValueResult.RESULT_OK, android.service.settings.preferences.GetValueResult.RESULT_UNSUPPORTED, android.service.settings.preferences.GetValueResult.RESULT_UNAVAILABLE, android.service.settings.preferences.GetValueResult.RESULT_REQUIRE_APP_PERMISSION, android.service.settings.preferences.GetValueResult.RESULT_DISALLOW, android.service.settings.preferences.GetValueResult.RESULT_INVALID_REQUEST, android.service.settings.preferences.GetValueResult.RESULT_INTERNAL_ERROR}" />
+    </annotation>
+  </item>
+  <item name="android.service.settings.preferences.MetadataResult int getResultCode()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.service.settings.preferences.MetadataResult.RESULT_OK, android.service.settings.preferences.MetadataResult.RESULT_UNSUPPORTED, android.service.settings.preferences.MetadataResult.RESULT_INTERNAL_ERROR}" />
+    </annotation>
+  </item>
+  <item name="android.service.settings.preferences.MetadataResult.Builder Builder(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.service.settings.preferences.MetadataResult.RESULT_OK, android.service.settings.preferences.MetadataResult.RESULT_UNSUPPORTED, android.service.settings.preferences.MetadataResult.RESULT_INTERNAL_ERROR}" />
+    </annotation>
+  </item>
+  <item name="android.service.settings.preferences.SetValueResult int getResultCode()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.service.settings.preferences.SetValueResult.RESULT_OK, android.service.settings.preferences.SetValueResult.RESULT_UNSUPPORTED, android.service.settings.preferences.SetValueResult.RESULT_DISABLED, android.service.settings.preferences.SetValueResult.RESULT_RESTRICTED, android.service.settings.preferences.SetValueResult.RESULT_UNAVAILABLE, android.service.settings.preferences.SetValueResult.RESULT_REQUIRE_APP_PERMISSION, android.service.settings.preferences.SetValueResult.RESULT_REQUIRE_USER_CONSENT, android.service.settings.preferences.SetValueResult.RESULT_DISALLOW, android.service.settings.preferences.SetValueResult.RESULT_INVALID_REQUEST, android.service.settings.preferences.SetValueResult.RESULT_INTERNAL_ERROR}" />
+    </annotation>
+  </item>
+  <item name="android.service.settings.preferences.SetValueResult.Builder Builder(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.service.settings.preferences.SetValueResult.RESULT_OK, android.service.settings.preferences.SetValueResult.RESULT_UNSUPPORTED, android.service.settings.preferences.SetValueResult.RESULT_DISABLED, android.service.settings.preferences.SetValueResult.RESULT_RESTRICTED, android.service.settings.preferences.SetValueResult.RESULT_UNAVAILABLE, android.service.settings.preferences.SetValueResult.RESULT_REQUIRE_APP_PERMISSION, android.service.settings.preferences.SetValueResult.RESULT_REQUIRE_USER_CONSENT, android.service.settings.preferences.SetValueResult.RESULT_DISALLOW, android.service.settings.preferences.SetValueResult.RESULT_INVALID_REQUEST, android.service.settings.preferences.SetValueResult.RESULT_INTERNAL_ERROR}" />
+    </annotation>
+  </item>
+  <item name="android.service.settings.preferences.SettingsPreferenceMetadata int getWriteSensitivity()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.service.settings.preferences.SettingsPreferenceMetadata.NO_SENSITIVITY, android.service.settings.preferences.SettingsPreferenceMetadata.EXPECT_POST_CONFIRMATION, android.service.settings.preferences.SettingsPreferenceMetadata.DEEPLINK_ONLY, android.service.settings.preferences.SettingsPreferenceMetadata.NO_DIRECT_ACCESS}" />
+    </annotation>
+  </item>
+  <item name="android.service.settings.preferences.SettingsPreferenceMetadata.Builder android.service.settings.preferences.SettingsPreferenceMetadata.Builder setWriteSensitivity(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.service.settings.preferences.SettingsPreferenceMetadata.NO_SENSITIVITY, android.service.settings.preferences.SettingsPreferenceMetadata.EXPECT_POST_CONFIRMATION, android.service.settings.preferences.SettingsPreferenceMetadata.DEEPLINK_ONLY, android.service.settings.preferences.SettingsPreferenceMetadata.NO_DIRECT_ACCESS}" />
+    </annotation>
+  </item>
+  <item name="android.service.settings.preferences.SettingsPreferenceValue int getType()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.service.settings.preferences.SettingsPreferenceValue.TYPE_BOOLEAN, android.service.settings.preferences.SettingsPreferenceValue.TYPE_LONG, android.service.settings.preferences.SettingsPreferenceValue.TYPE_DOUBLE, android.service.settings.preferences.SettingsPreferenceValue.TYPE_STRING, android.service.settings.preferences.SettingsPreferenceValue.TYPE_INT}" />
+    </annotation>
+  </item>
+  <item name="android.service.settings.preferences.SettingsPreferenceValue.Builder Builder(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.service.settings.preferences.SettingsPreferenceValue.TYPE_BOOLEAN, android.service.settings.preferences.SettingsPreferenceValue.TYPE_LONG, android.service.settings.preferences.SettingsPreferenceValue.TYPE_DOUBLE, android.service.settings.preferences.SettingsPreferenceValue.TYPE_STRING, android.service.settings.preferences.SettingsPreferenceValue.TYPE_INT}" />
+    </annotation>
+  </item>
+</root>
+

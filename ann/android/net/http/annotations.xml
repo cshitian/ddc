@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+  <item name="android.net.http.BidirectionalStream int getPriority()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.http.BidirectionalStream.STREAM_PRIORITY_IDLE, android.net.http.BidirectionalStream.STREAM_PRIORITY_LOWEST, android.net.http.BidirectionalStream.STREAM_PRIORITY_LOW, android.net.http.BidirectionalStream.STREAM_PRIORITY_MEDIUM, android.net.http.BidirectionalStream.STREAM_PRIORITY_HIGHEST}" />
+    </annotation>
+  </item>
+  <item name="android.net.http.BidirectionalStream.Builder android.net.http.BidirectionalStream.Builder setPriority(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.http.BidirectionalStream.STREAM_PRIORITY_IDLE, android.net.http.BidirectionalStream.STREAM_PRIORITY_LOWEST, android.net.http.BidirectionalStream.STREAM_PRIORITY_LOW, android.net.http.BidirectionalStream.STREAM_PRIORITY_MEDIUM, android.net.http.BidirectionalStream.STREAM_PRIORITY_HIGHEST}" />
+    </annotation>
+  </item>
+  <item name="android.net.http.ConnectionMigrationOptions int getAllowNonDefaultNetworkUsage()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.http.ConnectionMigrationOptions.MIGRATION_OPTION_UNSPECIFIED, android.net.http.ConnectionMigrationOptions.MIGRATION_OPTION_ENABLED, android.net.http.ConnectionMigrationOptions.MIGRATION_OPTION_DISABLED}" />
+      <val name="flag" val="false" />
+    </annotation>
+  </item>
+  <item name="android.net.http.ConnectionMigrationOptions int getDefaultNetworkMigration()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.http.ConnectionMigrationOptions.MIGRATION_OPTION_UNSPECIFIED, android.net.http.ConnectionMigrationOptions.MIGRATION_OPTION_ENABLED, android.net.http.ConnectionMigrationOptions.MIGRATION_OPTION_DISABLED}" />
+      <val name="flag" val="false" />
+    </annotation>
+  </item>
+  <item name="android.net.http.ConnectionMigrationOptions int getPathDegradationMigration()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.http.ConnectionMigrationOptions.MIGRATION_OPTION_UNSPECIFIED, android.net.http.ConnectionMigrationOptions.MIGRATION_OPTION_ENABLED, android.net.http.ConnectionMigrationOptions.MIGRATION_OPTION_DISABLED}" />
+      <val name="flag" val="false" />
+    </annotation>
+  </item>
+  <item name="android.net.http.ConnectionMigrationOptions.Builder android.net.http.ConnectionMigrationOptions.Builder setAllowNonDefaultNetworkUsage(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.http.ConnectionMigrationOptions.MIGRATION_OPTION_UNSPECIFIED, android.net.http.ConnectionMigrationOptions.MIGRATION_OPTION_ENABLED, android.net.http.ConnectionMigrationOptions.MIGRATION_OPTION_DISABLED}" />
+      <val name="flag" val="false" />
+    </annotation>
+  </item>
+  <item name="android.net.http.ConnectionMigrationOptions.Builder android.net.http.ConnectionMigrationOptions.Builder setDefaultNetworkMigration(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.http.ConnectionMigrationOptions.MIGRATION_OPTION_UNSPECIFIED, android.net.http.ConnectionMigrationOptions.MIGRATION_OPTION_ENABLED, android.net.http.ConnectionMigrationOptions.MIGRATION_OPTION_DISABLED}" />
+      <val name="flag" val="false" />
+    </annotation>
+  </item>
+  <item name="android.net.http.ConnectionMigrationOptions.Builder android.net.http.ConnectionMigrationOptions.Builder setPathDegradationMigration(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.http.ConnectionMigrationOptions.MIGRATION_OPTION_UNSPECIFIED, android.net.http.ConnectionMigrationOptions.MIGRATION_OPTION_ENABLED, android.net.http.ConnectionMigrationOptions.MIGRATION_OPTION_DISABLED}" />
+      <val name="flag" val="false" />
+    </annotation>
+  </item>
+  <item name="android.net.http.DnsOptions int getPersistHostCache()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.http.DnsOptions.DNS_OPTION_UNSPECIFIED, android.net.http.DnsOptions.DNS_OPTION_ENABLED, android.net.http.DnsOptions.DNS_OPTION_DISABLED}" />
+      <val name="flag" val="false" />
+    </annotation>
+  </item>
+  <item name="android.net.http.DnsOptions int getPreestablishConnectionsToStaleDnsResults()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.http.DnsOptions.DNS_OPTION_UNSPECIFIED, android.net.http.DnsOptions.DNS_OPTION_ENABLED, android.net.http.DnsOptions.DNS_OPTION_DISABLED}" />
+      <val name="flag" val="false" />
+    </annotation>
+  </item>
+  <item name="android.net.http.DnsOptions int getStaleDns()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.http.DnsOptions.DNS_OPTION_UNSPECIFIED, android.net.http.DnsOptions.DNS_OPTION_ENABLED, android.net.http.DnsOptions.DNS_OPTION_DISABLED}" />
+      <val name="flag" val="false" />
+    </annotation>
+  </item>
+  <item name="android.net.http.DnsOptions int getUseHttpStackDnsResolver()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.http.DnsOptions.DNS_OPTION_UNSPECIFIED, android.net.http.DnsOptions.DNS_OPTION_ENABLED, android.net.http.DnsOptions.DNS_OPTION_DISABLED}" />
+      <val name="flag" val="false" />
+    </annotation>
+  </item>
+  <item name="android.net.http.DnsOptions.Builder android.net.http.DnsOptions.Builder setPersistHostCache(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.http.DnsOptions.DNS_OPTION_UNSPECIFIED, android.net.http.DnsOptions.DNS_OPTION_ENABLED, android.net.http.DnsOptions.DNS_OPTION_DISABLED}" />
+      <val name="flag" val="false" />
+    </annotation>
+  </item>
+  <item name="android.net.http.DnsOptions.Builder android.net.http.DnsOptions.Builder setPreestablishConnectionsToStaleDnsResults(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.http.DnsOptions.DNS_OPTION_UNSPECIFIED, android.net.http.DnsOptions.DNS_OPTION_ENABLED, android.net.http.DnsOptions.DNS_OPTION_DISABLED}" />
+      <val name="flag" val="false" />
+    </annotation>
+  </item>
+  <item name="android.net.http.DnsOptions.Builder android.net.http.DnsOptions.Builder setStaleDns(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.http.DnsOptions.DNS_OPTION_UNSPECIFIED, android.net.http.DnsOptions.DNS_OPTION_ENABLED, android.net.http.DnsOptions.DNS_OPTION_DISABLED}" />
+      <val name="flag" val="false" />
+    </annotation>
+  </item>
+  <item name="android.net.http.DnsOptions.Builder android.net.http.DnsOptions.Builder setUseHttpStackDnsResolver(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.http.DnsOptions.DNS_OPTION_UNSPECIFIED, android.net.http.DnsOptions.DNS_OPTION_ENABLED, android.net.http.DnsOptions.DNS_OPTION_DISABLED}" />
+      <val name="flag" val="false" />
+    </annotation>
+  </item>
+  <item name="android.net.http.DnsOptions.StaleDnsOptions int getAllowCrossNetworkUsage()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.http.DnsOptions.DNS_OPTION_UNSPECIFIED, android.net.http.DnsOptions.DNS_OPTION_ENABLED, android.net.http.DnsOptions.DNS_OPTION_DISABLED}" />
+      <val name="flag" val="false" />
+    </annotation>
+  </item>
+  <item name="android.net.http.DnsOptions.StaleDnsOptions int getUseStaleOnNameNotResolved()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.http.DnsOptions.DNS_OPTION_UNSPECIFIED, android.net.http.DnsOptions.DNS_OPTION_ENABLED, android.net.http.DnsOptions.DNS_OPTION_DISABLED}" />
+      <val name="flag" val="false" />
+    </annotation>
+  </item>
+  <item name="android.net.http.DnsOptions.StaleDnsOptions.Builder android.net.http.DnsOptions.StaleDnsOptions.Builder setAllowCrossNetworkUsage(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.http.DnsOptions.DNS_OPTION_UNSPECIFIED, android.net.http.DnsOptions.DNS_OPTION_ENABLED, android.net.http.DnsOptions.DNS_OPTION_DISABLED}" />
+      <val name="flag" val="false" />
+    </annotation>
+  </item>
+  <item name="android.net.http.DnsOptions.StaleDnsOptions.Builder android.net.http.DnsOptions.StaleDnsOptions.Builder setUseStaleOnNameNotResolved(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.http.DnsOptions.DNS_OPTION_UNSPECIFIED, android.net.http.DnsOptions.DNS_OPTION_ENABLED, android.net.http.DnsOptions.DNS_OPTION_DISABLED}" />
+      <val name="flag" val="false" />
+    </annotation>
+  </item>
+  <item name="android.net.http.Proxy android.net.http.Proxy createHttpProxy(int, java.lang.String, int, java.util.concurrent.Executor, android.net.http.Proxy.HttpConnectCallback) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.http.Proxy.SCHEME_HTTP, android.net.http.Proxy.SCHEME_HTTPS}" />
+    </annotation>
+  </item>
+  <item name="android.net.http.Proxy android.net.http.Proxy createHttpProxy(int, java.lang.String, int, java.util.concurrent.Executor, android.net.http.Proxy.HttpConnectCallback) 2">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+      <val name="to" val="65535L" />
+    </annotation>
+  </item>
+  <item name="android.net.http.Proxy.HttpConnectCallback int onResponseReceived(java.util.List&lt;android.util.Pair&lt;java.lang.String,java.lang.String&gt;&gt;, int)">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.http.Proxy.HttpConnectCallback.RESPONSE_ACTION_CLOSE, android.net.http.Proxy.HttpConnectCallback.RESPONSE_ACTION_PROCEED}" />
+    </annotation>
+  </item>
+  <item name="android.net.http.ProxyOptions android.net.http.ProxyOptions fromProxyList(java.util.List&lt;android.net.http.Proxy&gt;, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.http.ProxyOptions.ALL_PROXIES_FAILED_BEHAVIOR_DISALLOW_DIRECT, android.net.http.ProxyOptions.ALL_PROXIES_FAILED_BEHAVIOR_ALLOW_DIRECT}" />
+    </annotation>
+  </item>
+  <item name="android.net.http.UrlRequest.StatusListener void onStatus(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.http.UrlRequest.Status.INVALID, android.net.http.UrlRequest.Status.IDLE, android.net.http.UrlRequest.Status.WAITING_FOR_STALLED_SOCKET_POOL, android.net.http.UrlRequest.Status.WAITING_FOR_AVAILABLE_SOCKET, android.net.http.UrlRequest.Status.WAITING_FOR_DELEGATE, android.net.http.UrlRequest.Status.WAITING_FOR_CACHE, android.net.http.UrlRequest.Status.DOWNLOADING_PAC_FILE, android.net.http.UrlRequest.Status.RESOLVING_PROXY_FOR_URL, android.net.http.UrlRequest.Status.RESOLVING_PROXY_FOR_URL, android.net.http.UrlRequest.Status.RESOLVING_HOST_IN_PAC_FILE, android.net.http.UrlRequest.Status.ESTABLISHING_PROXY_TUNNEL, android.net.http.UrlRequest.Status.RESOLVING_HOST, android.net.http.UrlRequest.Status.CONNECTING, android.net.http.UrlRequest.Status.SSL_HANDSHAKE, android.net.http.UrlRequest.Status.SENDING_REQUEST, android.net.http.UrlRequest.Status.WAITING_FOR_RESPONSE, android.net.http.UrlRequest.Status.READING_RESPONSE}" />
+    </annotation>
+  </item>
+</root>
+

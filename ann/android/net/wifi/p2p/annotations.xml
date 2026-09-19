@@ -1,0 +1,365 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+  <item name="android.net.wifi.p2p.WifiP2pConfig groupOwnerIntent">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+      <val name="to" val="15L" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.p2p.WifiP2pConfig int getGroupClientIpProvisioningMode()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.wifi.p2p.WifiP2pConfig.GROUP_CLIENT_IP_PROVISIONING_MODE_IPV4_DHCP, android.net.wifi.p2p.WifiP2pConfig.GROUP_CLIENT_IP_PROVISIONING_MODE_IPV6_LINK_LOCAL}" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.p2p.WifiP2pConfig int getGroupOwnerBand()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.wifi.p2p.WifiP2pConfig.GROUP_OWNER_BAND_AUTO, android.net.wifi.p2p.WifiP2pConfig.GROUP_OWNER_BAND_2GHZ, android.net.wifi.p2p.WifiP2pConfig.GROUP_OWNER_BAND_5GHZ, android.net.wifi.p2p.WifiP2pConfig.GROUP_OWNER_BAND_6GHZ}" />
+      <val name="flag" val="false" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.p2p.WifiP2pConfig int getGroupOwnerVersion()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.wifi.p2p.WifiP2pConfig.P2P_VERSION_1, android.net.wifi.p2p.WifiP2pConfig.P2P_VERSION_2}" />
+      <val name="flag" val="false" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.p2p.WifiP2pConfig int getPccModeConnectionType()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.wifi.p2p.WifiP2pConfig.PCC_MODE_CONNECTION_TYPE_LEGACY_ONLY, android.net.wifi.p2p.WifiP2pConfig.PCC_MODE_CONNECTION_TYPE_LEGACY_OR_R2, android.net.wifi.p2p.WifiP2pConfig.PCC_MODE_CONNECTION_TYPE_R2_ONLY}" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.p2p.WifiP2pConfig void setGroupOwnerVersion(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.wifi.p2p.WifiP2pConfig.P2P_VERSION_1, android.net.wifi.p2p.WifiP2pConfig.P2P_VERSION_2}" />
+      <val name="flag" val="false" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.p2p.WifiP2pConfig.Builder android.net.wifi.p2p.WifiP2pConfig.Builder setGroupClientIpProvisioningMode(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.wifi.p2p.WifiP2pConfig.GROUP_CLIENT_IP_PROVISIONING_MODE_IPV4_DHCP, android.net.wifi.p2p.WifiP2pConfig.GROUP_CLIENT_IP_PROVISIONING_MODE_IPV6_LINK_LOCAL}" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.p2p.WifiP2pConfig.Builder android.net.wifi.p2p.WifiP2pConfig.Builder setGroupOperatingBand(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.wifi.p2p.WifiP2pConfig.GROUP_OWNER_BAND_AUTO, android.net.wifi.p2p.WifiP2pConfig.GROUP_OWNER_BAND_2GHZ, android.net.wifi.p2p.WifiP2pConfig.GROUP_OWNER_BAND_5GHZ, android.net.wifi.p2p.WifiP2pConfig.GROUP_OWNER_BAND_6GHZ}" />
+      <val name="flag" val="false" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.p2p.WifiP2pConfig.Builder android.net.wifi.p2p.WifiP2pConfig.Builder setPccModeConnectionType(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.wifi.p2p.WifiP2pConfig.PCC_MODE_CONNECTION_TYPE_LEGACY_ONLY, android.net.wifi.p2p.WifiP2pConfig.PCC_MODE_CONNECTION_TYPE_LEGACY_OR_R2, android.net.wifi.p2p.WifiP2pConfig.PCC_MODE_CONNECTION_TYPE_R2_ONLY}" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.p2p.WifiP2pConnectionInfo int getChannelWidth()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.wifi.ScanResult.CHANNEL_WIDTH_20MHZ, android.net.wifi.ScanResult.CHANNEL_WIDTH_40MHZ, android.net.wifi.ScanResult.CHANNEL_WIDTH_80MHZ, android.net.wifi.ScanResult.CHANNEL_WIDTH_160MHZ, android.net.wifi.ScanResult.CHANNEL_WIDTH_80MHZ_PLUS_MHZ, android.net.wifi.ScanResult.CHANNEL_WIDTH_320MHZ}" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.p2p.WifiP2pConnectionInfo int getRxNss()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+      <val name="to" val="4L" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.p2p.WifiP2pConnectionInfo int getTxNss()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+      <val name="to" val="4L" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.p2p.WifiP2pConnectionInfo int getWifiStandard()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.wifi.ScanResult.WIFI_STANDARD_UNKNOWN, android.net.wifi.ScanResult.WIFI_STANDARD_LEGACY, android.net.wifi.ScanResult.WIFI_STANDARD_11N, android.net.wifi.ScanResult.WIFI_STANDARD_11AC, android.net.wifi.ScanResult.WIFI_STANDARD_11AX, android.net.wifi.ScanResult.WIFI_STANDARD_11AD, android.net.wifi.ScanResult.WIFI_STANDARD_11BE}" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.p2p.WifiP2pDiscoveryConfig int getScanType()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.wifi.p2p.WifiP2pManager.WIFI_P2P_SCAN_FULL, android.net.wifi.p2p.WifiP2pManager.WIFI_P2P_SCAN_SOCIAL, android.net.wifi.p2p.WifiP2pManager.WIFI_P2P_SCAN_SINGLE_FREQ}" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.p2p.WifiP2pDiscoveryConfig.Builder Builder(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.wifi.p2p.WifiP2pManager.WIFI_P2P_SCAN_FULL, android.net.wifi.p2p.WifiP2pManager.WIFI_P2P_SCAN_SOCIAL, android.net.wifi.p2p.WifiP2pManager.WIFI_P2P_SCAN_SINGLE_FREQ}" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.p2p.WifiP2pDiscoveryConfig.Builder android.net.wifi.p2p.WifiP2pDiscoveryConfig.Builder setFrequencyMhz(int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.p2p.WifiP2pGroup int getSecurityType()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.wifi.p2p.WifiP2pGroup.SECURITY_TYPE_UNKNOWN, android.net.wifi.p2p.WifiP2pGroup.SECURITY_TYPE_WPA2_PSK, android.net.wifi.p2p.WifiP2pGroup.SECURITY_TYPE_WPA3_COMPATIBILITY, android.net.wifi.p2p.WifiP2pGroup.SECURITY_TYPE_WPA3_SAE}" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.p2p.WifiP2pManager">
+    <annotation name="androidx.annotation.RestrictedForEnvironment">
+      <val name="environments" val="&quot;SDK Runtime&quot;" />
+      <val name="from" val="34" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.p2p.WifiP2pManager void addExternalApprover(android.net.wifi.p2p.WifiP2pManager.Channel, android.net.MacAddress, android.net.wifi.p2p.WifiP2pManager.ExternalApproverRequestListener)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.MANAGE_WIFI_NETWORK_SELECTION&quot;" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.p2p.WifiP2pManager void addLocalService(android.net.wifi.p2p.WifiP2pManager.Channel, android.net.wifi.p2p.nsd.WifiP2pServiceInfo, android.net.wifi.p2p.WifiP2pManager.ActionListener)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="allOf" val="{&quot;android.permission.NEARBY_WIFI_DEVICES&quot;, &quot;android.permission.ACCESS_FINE_LOCATION&quot;}" />
+      <val name="conditional" val="true" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.p2p.WifiP2pManager void connect(android.net.wifi.p2p.WifiP2pManager.Channel, android.net.wifi.p2p.WifiP2pConfig, android.net.wifi.p2p.WifiP2pManager.ActionListener)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="allOf" val="{&quot;android.permission.NEARBY_WIFI_DEVICES&quot;, &quot;android.permission.ACCESS_FINE_LOCATION&quot;}" />
+      <val name="conditional" val="true" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.p2p.WifiP2pManager void createGroup(android.net.wifi.p2p.WifiP2pManager.Channel, android.net.wifi.p2p.WifiP2pConfig, android.net.wifi.p2p.WifiP2pManager.ActionListener)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="allOf" val="{&quot;android.permission.NEARBY_WIFI_DEVICES&quot;, &quot;android.permission.ACCESS_FINE_LOCATION&quot;}" />
+      <val name="conditional" val="true" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.p2p.WifiP2pManager void createGroup(android.net.wifi.p2p.WifiP2pManager.Channel, android.net.wifi.p2p.WifiP2pManager.ActionListener)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="allOf" val="{&quot;android.permission.NEARBY_WIFI_DEVICES&quot;, &quot;android.permission.ACCESS_FINE_LOCATION&quot;}" />
+      <val name="conditional" val="true" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.p2p.WifiP2pManager void discoverPeers(android.net.wifi.p2p.WifiP2pManager.Channel, android.net.wifi.p2p.WifiP2pManager.ActionListener)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="allOf" val="{&quot;android.permission.NEARBY_WIFI_DEVICES&quot;, &quot;android.permission.ACCESS_FINE_LOCATION&quot;}" />
+      <val name="conditional" val="true" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.p2p.WifiP2pManager void discoverPeersOnSocialChannels(android.net.wifi.p2p.WifiP2pManager.Channel, android.net.wifi.p2p.WifiP2pManager.ActionListener)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="allOf" val="{&quot;android.permission.NEARBY_WIFI_DEVICES&quot;, &quot;android.permission.ACCESS_FINE_LOCATION&quot;}" />
+      <val name="conditional" val="true" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.p2p.WifiP2pManager void discoverPeersOnSpecificFrequency(android.net.wifi.p2p.WifiP2pManager.Channel, int, android.net.wifi.p2p.WifiP2pManager.ActionListener)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="allOf" val="{&quot;android.permission.NEARBY_WIFI_DEVICES&quot;, &quot;android.permission.ACCESS_FINE_LOCATION&quot;}" />
+      <val name="conditional" val="true" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.p2p.WifiP2pManager void discoverServices(android.net.wifi.p2p.WifiP2pManager.Channel, android.net.wifi.p2p.WifiP2pManager.ActionListener)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="allOf" val="{&quot;android.permission.NEARBY_WIFI_DEVICES&quot;, &quot;android.permission.ACCESS_FINE_LOCATION&quot;}" />
+      <val name="conditional" val="true" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.p2p.WifiP2pManager void discoverUsdBasedServices(android.net.wifi.p2p.WifiP2pManager.Channel, android.net.wifi.p2p.WifiP2pUsdBasedServiceDiscoveryConfig, android.net.wifi.p2p.WifiP2pManager.ActionListener)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="allOf" val="{&quot;android.permission.NEARBY_WIFI_DEVICES&quot;, &quot;android.permission.ACCESS_FINE_LOCATION&quot;}" />
+      <val name="conditional" val="true" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.p2p.WifiP2pManager void getListenState(android.net.wifi.p2p.WifiP2pManager.Channel, java.util.concurrent.Executor, java.util.function.Consumer&lt;java.lang.Integer&gt;)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="allOf" val="{&quot;android.permission.NEARBY_WIFI_DEVICES&quot;, &quot;android.permission.ACCESS_FINE_LOCATION&quot;}" />
+      <val name="conditional" val="true" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.p2p.WifiP2pManager void registerWifiP2pListener(java.util.concurrent.Executor, android.net.wifi.p2p.WifiP2pManager.WifiP2pListener)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="allOf" val="{&quot;android.permission.NEARBY_WIFI_DEVICES&quot;, &quot;android.permission.ACCESS_WIFI_STATE&quot;}" />
+      <val name="conditional" val="true" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.p2p.WifiP2pManager void removeExternalApprover(android.net.wifi.p2p.WifiP2pManager.Channel, android.net.MacAddress, android.net.wifi.p2p.WifiP2pManager.ActionListener)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.MANAGE_WIFI_NETWORK_SELECTION&quot;" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.p2p.WifiP2pManager void requestDeviceInfo(android.net.wifi.p2p.WifiP2pManager.Channel, android.net.wifi.p2p.WifiP2pManager.DeviceInfoListener)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="allOf" val="{&quot;android.permission.NEARBY_WIFI_DEVICES&quot;, &quot;android.permission.ACCESS_FINE_LOCATION&quot;}" />
+      <val name="conditional" val="true" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.p2p.WifiP2pManager void requestDirInfo(android.net.wifi.p2p.WifiP2pManager.Channel, java.util.concurrent.Executor, android.os.OutcomeReceiver&lt;android.net.wifi.p2p.WifiP2pDirInfo,java.lang.Exception&gt;)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="allOf" val="{&quot;android.permission.NEARBY_WIFI_DEVICES&quot;, &quot;android.permission.ACCESS_FINE_LOCATION&quot;}" />
+      <val name="conditional" val="true" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.p2p.WifiP2pManager void requestGroupInfo(android.net.wifi.p2p.WifiP2pManager.Channel, android.net.wifi.p2p.WifiP2pManager.GroupInfoListener)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="allOf" val="{&quot;android.permission.NEARBY_WIFI_DEVICES&quot;, &quot;android.permission.ACCESS_FINE_LOCATION&quot;}" />
+      <val name="conditional" val="true" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.p2p.WifiP2pManager void requestPeers(android.net.wifi.p2p.WifiP2pManager.Channel, android.net.wifi.p2p.WifiP2pManager.PeerListListener)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="allOf" val="{&quot;android.permission.NEARBY_WIFI_DEVICES&quot;, &quot;android.permission.ACCESS_FINE_LOCATION&quot;}" />
+      <val name="conditional" val="true" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.p2p.WifiP2pManager void setConnectionRequestResult(android.net.wifi.p2p.WifiP2pManager.Channel, android.net.MacAddress, int, android.net.wifi.p2p.WifiP2pManager.ActionListener)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.MANAGE_WIFI_NETWORK_SELECTION&quot;" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.p2p.WifiP2pManager void setConnectionRequestResult(android.net.wifi.p2p.WifiP2pManager.Channel, android.net.MacAddress, int, android.net.wifi.p2p.WifiP2pManager.ActionListener) 2">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.wifi.p2p.WifiP2pManager.CONNECTION_REQUEST_ACCEPT, android.net.wifi.p2p.WifiP2pManager.CONNECTION_REQUEST_REJECT, android.net.wifi.p2p.WifiP2pManager.CONNECTION_REQUEST_DEFER_TO_SERVICE, android.net.wifi.p2p.WifiP2pManager.CONNECTION_REQUEST_DEFER_SHOW_PIN_TO_SERVICE, android.net.wifi.p2p.WifiP2pManager.CONNECTION_REQUEST_DEFER_SHOW_PASSWORD_TO_SERVICE}" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.p2p.WifiP2pManager void setConnectionRequestResult(android.net.wifi.p2p.WifiP2pManager.Channel, android.net.MacAddress, int, java.lang.String, android.net.wifi.p2p.WifiP2pManager.ActionListener)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.MANAGE_WIFI_NETWORK_SELECTION&quot;" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.p2p.WifiP2pManager void setConnectionRequestResult(android.net.wifi.p2p.WifiP2pManager.Channel, android.net.MacAddress, int, java.lang.String, android.net.wifi.p2p.WifiP2pManager.ActionListener) 2">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.wifi.p2p.WifiP2pManager.CONNECTION_REQUEST_ACCEPT, android.net.wifi.p2p.WifiP2pManager.CONNECTION_REQUEST_REJECT, android.net.wifi.p2p.WifiP2pManager.CONNECTION_REQUEST_DEFER_TO_SERVICE, android.net.wifi.p2p.WifiP2pManager.CONNECTION_REQUEST_DEFER_SHOW_PIN_TO_SERVICE, android.net.wifi.p2p.WifiP2pManager.CONNECTION_REQUEST_DEFER_SHOW_PASSWORD_TO_SERVICE}" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.p2p.WifiP2pManager void setVendorElements(android.net.wifi.p2p.WifiP2pManager.Channel, java.util.List&lt;android.net.wifi.ScanResult.InformationElement&gt;, android.net.wifi.p2p.WifiP2pManager.ActionListener)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="allOf" val="{&quot;android.permission.NEARBY_WIFI_DEVICES&quot;, &quot;android.permission.OVERRIDE_WIFI_CONFIG&quot;}" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.p2p.WifiP2pManager void setWfdInfo(android.net.wifi.p2p.WifiP2pManager.Channel, android.net.wifi.p2p.WifiP2pWfdInfo, android.net.wifi.p2p.WifiP2pManager.ActionListener)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.CONFIGURE_WIFI_DISPLAY&quot;" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.p2p.WifiP2pManager void startListening(android.net.wifi.p2p.WifiP2pManager.Channel, android.net.wifi.p2p.WifiP2pManager.ActionListener)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="allOf" val="{&quot;android.permission.NEARBY_WIFI_DEVICES&quot;, &quot;android.permission.ACCESS_FINE_LOCATION&quot;}" />
+      <val name="conditional" val="true" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.p2p.WifiP2pManager void startPeerDiscovery(android.net.wifi.p2p.WifiP2pManager.Channel, android.net.wifi.p2p.WifiP2pDiscoveryConfig, android.net.wifi.p2p.WifiP2pManager.ActionListener)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="allOf" val="{&quot;android.permission.NEARBY_WIFI_DEVICES&quot;, &quot;android.permission.ACCESS_FINE_LOCATION&quot;}" />
+      <val name="conditional" val="true" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.p2p.WifiP2pManager void startUsdBasedLocalServiceAdvertisement(android.net.wifi.p2p.WifiP2pManager.Channel, android.net.wifi.p2p.nsd.WifiP2pServiceInfo, android.net.wifi.p2p.WifiP2pUsdBasedLocalServiceAdvertisementConfig, android.net.wifi.p2p.WifiP2pManager.ActionListener)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="allOf" val="{&quot;android.permission.NEARBY_WIFI_DEVICES&quot;, &quot;android.permission.ACCESS_FINE_LOCATION&quot;}" />
+      <val name="conditional" val="true" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.p2p.WifiP2pManager void validateDirInfo(android.net.wifi.p2p.WifiP2pManager.Channel, android.net.wifi.p2p.WifiP2pDirInfo, java.util.concurrent.Executor, android.os.OutcomeReceiver&lt;java.lang.Boolean,java.lang.Exception&gt;)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="allOf" val="{&quot;android.permission.NEARBY_WIFI_DEVICES&quot;, &quot;android.permission.ACCESS_FINE_LOCATION&quot;}" />
+      <val name="conditional" val="true" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.p2p.WifiP2pManager.DiscoveryStateListener void onDiscoveryStateAvailable(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.wifi.p2p.WifiP2pManager.WIFI_P2P_DISCOVERY_STOPPED, android.net.wifi.p2p.WifiP2pManager.WIFI_P2P_DISCOVERY_STARTED}" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.p2p.WifiP2pManager.ExternalApproverRequestListener void onConnectionRequested(int, android.net.wifi.p2p.WifiP2pConfig, android.net.wifi.p2p.WifiP2pDevice) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.wifi.p2p.WifiP2pManager.ExternalApproverRequestListener.REQUEST_TYPE_NEGOTIATION, android.net.wifi.p2p.WifiP2pManager.ExternalApproverRequestListener.REQUEST_TYPE_INVITATION, android.net.wifi.p2p.WifiP2pManager.ExternalApproverRequestListener.REQUEST_TYPE_JOIN}" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.p2p.WifiP2pManager.ExternalApproverRequestListener void onDetached(android.net.MacAddress, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.wifi.p2p.WifiP2pManager.ExternalApproverRequestListener.APPROVER_DETACH_REASON_REMOVE, android.net.wifi.p2p.WifiP2pManager.ExternalApproverRequestListener.APPROVER_DETACH_REASON_FAILURE, android.net.wifi.p2p.WifiP2pManager.ExternalApproverRequestListener.APPROVER_DETACH_REASON_REPLACE, android.net.wifi.p2p.WifiP2pManager.ExternalApproverRequestListener.APPROVER_DETACH_REASON_CLOSE}" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.p2p.WifiP2pManager.P2pStateListener void onP2pStateAvailable(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.wifi.p2p.WifiP2pManager.WIFI_P2P_STATE_DISABLED, android.net.wifi.p2p.WifiP2pManager.WIFI_P2P_STATE_ENABLED}" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.p2p.WifiP2pManager.WifiP2pListener void onDiscoveryStateChanged(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.wifi.p2p.WifiP2pManager.WIFI_P2P_DISCOVERY_STOPPED, android.net.wifi.p2p.WifiP2pManager.WIFI_P2P_DISCOVERY_STARTED}" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.p2p.WifiP2pManager.WifiP2pListener void onGroupCreationFailed(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.wifi.p2p.WifiP2pManager.GROUP_CREATION_FAILURE_REASON_CONNECTION_CANCELLED, android.net.wifi.p2p.WifiP2pManager.GROUP_CREATION_FAILURE_REASON_TIMED_OUT, android.net.wifi.p2p.WifiP2pManager.GROUP_CREATION_FAILURE_REASON_USER_REJECTED, android.net.wifi.p2p.WifiP2pManager.GROUP_CREATION_FAILURE_REASON_PROVISION_DISCOVERY_FAILED, android.net.wifi.p2p.WifiP2pManager.GROUP_CREATION_FAILURE_REASON_GROUP_REMOVED, android.net.wifi.p2p.WifiP2pManager.GROUP_CREATION_FAILURE_REASON_INVITATION_FAILED}" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.p2p.WifiP2pManager.WifiP2pListener void onListenStateChanged(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.wifi.p2p.WifiP2pManager.WIFI_P2P_LISTEN_STOPPED, android.net.wifi.p2p.WifiP2pManager.WIFI_P2P_LISTEN_STARTED}" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.p2p.WifiP2pManager.WifiP2pListener void onP2pStateChanged(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.wifi.p2p.WifiP2pManager.WIFI_P2P_STATE_DISABLED, android.net.wifi.p2p.WifiP2pManager.WIFI_P2P_STATE_ENABLED}" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.p2p.WifiP2pPairingBootstrappingConfig WifiP2pPairingBootstrappingConfig(int, java.lang.String) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.wifi.p2p.WifiP2pPairingBootstrappingConfig.PAIRING_BOOTSTRAPPING_METHOD_OPPORTUNISTIC, android.net.wifi.p2p.WifiP2pPairingBootstrappingConfig.PAIRING_BOOTSTRAPPING_METHOD_DISPLAY_PINCODE, android.net.wifi.p2p.WifiP2pPairingBootstrappingConfig.PAIRING_BOOTSTRAPPING_METHOD_DISPLAY_PASSPHRASE, android.net.wifi.p2p.WifiP2pPairingBootstrappingConfig.PAIRING_BOOTSTRAPPING_METHOD_KEYPAD_PINCODE, android.net.wifi.p2p.WifiP2pPairingBootstrappingConfig.PAIRING_BOOTSTRAPPING_METHOD_KEYPAD_PASSPHRASE, android.net.wifi.p2p.WifiP2pPairingBootstrappingConfig.PAIRING_BOOTSTRAPPING_METHOD_OUT_OF_BAND}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.p2p.WifiP2pPairingBootstrappingConfig int getPairingBootstrappingMethod()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.wifi.p2p.WifiP2pPairingBootstrappingConfig.PAIRING_BOOTSTRAPPING_METHOD_OPPORTUNISTIC, android.net.wifi.p2p.WifiP2pPairingBootstrappingConfig.PAIRING_BOOTSTRAPPING_METHOD_DISPLAY_PINCODE, android.net.wifi.p2p.WifiP2pPairingBootstrappingConfig.PAIRING_BOOTSTRAPPING_METHOD_DISPLAY_PASSPHRASE, android.net.wifi.p2p.WifiP2pPairingBootstrappingConfig.PAIRING_BOOTSTRAPPING_METHOD_KEYPAD_PINCODE, android.net.wifi.p2p.WifiP2pPairingBootstrappingConfig.PAIRING_BOOTSTRAPPING_METHOD_KEYPAD_PASSPHRASE, android.net.wifi.p2p.WifiP2pPairingBootstrappingConfig.PAIRING_BOOTSTRAPPING_METHOD_OUT_OF_BAND}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.p2p.WifiP2pUsdBasedLocalServiceAdvertisementConfig int getFrequencyMhz()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.p2p.WifiP2pUsdBasedLocalServiceAdvertisementConfig.Builder android.net.wifi.p2p.WifiP2pUsdBasedLocalServiceAdvertisementConfig.Builder setFrequencyMhz(int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="1L" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.p2p.WifiP2pUsdBasedServiceDiscoveryConfig int getBand()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.wifi.ScanResult.UNSPECIFIED, android.net.wifi.ScanResult.WIFI_BAND_24_GHZ, android.net.wifi.ScanResult.WIFI_BAND_5_GHZ, android.net.wifi.ScanResult.WIFI_BAND_6_GHZ, android.net.wifi.ScanResult.WIFI_BAND_60_GHZ}" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.p2p.WifiP2pWfdInfo boolean setDeviceType(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.wifi.p2p.WifiP2pWfdInfo.DEVICE_TYPE_WFD_SOURCE, android.net.wifi.p2p.WifiP2pWfdInfo.DEVICE_TYPE_PRIMARY_SINK, android.net.wifi.p2p.WifiP2pWfdInfo.DEVICE_TYPE_SECONDARY_SINK, android.net.wifi.p2p.WifiP2pWfdInfo.DEVICE_TYPE_SOURCE_OR_PRIMARY_SINK}" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.p2p.WifiP2pWfdInfo boolean setR2DeviceType(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.wifi.p2p.WifiP2pWfdInfo.DEVICE_TYPE_WFD_SOURCE, android.net.wifi.p2p.WifiP2pWfdInfo.DEVICE_TYPE_PRIMARY_SINK, android.net.wifi.p2p.WifiP2pWfdInfo.DEVICE_TYPE_SECONDARY_SINK, android.net.wifi.p2p.WifiP2pWfdInfo.DEVICE_TYPE_SOURCE_OR_PRIMARY_SINK}" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.p2p.WifiP2pWfdInfo int getDeviceInfo()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.wifi.p2p.WifiP2pWfdInfo.DEVICE_INFO_DEVICE_TYPE_MASK, android.net.wifi.p2p.WifiP2pWfdInfo.DEVICE_INFO_COUPLED_SINK_SUPPORT_AT_SOURCE, android.net.wifi.p2p.WifiP2pWfdInfo.DEVICE_INFO_COUPLED_SINK_SUPPORT_AT_SINK, android.net.wifi.p2p.WifiP2pWfdInfo.DEVICE_INFO_SESSION_AVAILABLE_MASK, android.net.wifi.p2p.WifiP2pWfdInfo.DEVICE_INFO_WFD_SERVICE_DISCOVERY_SUPPORT, android.net.wifi.p2p.WifiP2pWfdInfo.DEVICE_INFO_PREFERRED_CONNECTIVITY_MASK, android.net.wifi.p2p.WifiP2pWfdInfo.DEVICE_INFO_CONTENT_PROTECTION_SUPPORT, android.net.wifi.p2p.WifiP2pWfdInfo.DEVICE_INFO_TIME_SYNCHRONIZATION_SUPPORT, android.net.wifi.p2p.WifiP2pWfdInfo.DEVICE_INFO_AUDIO_UNSUPPORTED_AT_PRIMARY_SINK, android.net.wifi.p2p.WifiP2pWfdInfo.DEVICE_INFO_AUDIO_ONLY_SUPPORT_AT_SOURCE, android.net.wifi.p2p.WifiP2pWfdInfo.DEVICE_INFO_TDLS_PERSISTENT_GROUP, android.net.wifi.p2p.WifiP2pWfdInfo.DEVICE_INFO_TDLS_PERSISTENT_GROUP_REINVOKE}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.p2p.WifiP2pWfdInfo int getDeviceType()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.wifi.p2p.WifiP2pWfdInfo.DEVICE_TYPE_WFD_SOURCE, android.net.wifi.p2p.WifiP2pWfdInfo.DEVICE_TYPE_PRIMARY_SINK, android.net.wifi.p2p.WifiP2pWfdInfo.DEVICE_TYPE_SECONDARY_SINK, android.net.wifi.p2p.WifiP2pWfdInfo.DEVICE_TYPE_SOURCE_OR_PRIMARY_SINK}" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.p2p.WifiP2pWfdInfo int getR2DeviceInfo()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="android.net.wifi.p2p.WifiP2pWfdInfo.DEVICE_INFO_DEVICE_TYPE_MASK" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.p2p.WifiP2pWfdInfo int getR2DeviceType()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.wifi.p2p.WifiP2pWfdInfo.DEVICE_TYPE_WFD_SOURCE, android.net.wifi.p2p.WifiP2pWfdInfo.DEVICE_TYPE_PRIMARY_SINK, android.net.wifi.p2p.WifiP2pWfdInfo.DEVICE_TYPE_SECONDARY_SINK, android.net.wifi.p2p.WifiP2pWfdInfo.DEVICE_TYPE_SOURCE_OR_PRIMARY_SINK}" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.p2p.WifiP2pWfdInfo void setControlPort(int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.net.wifi.p2p.WifiP2pWfdInfo void setMaxThroughput(int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+</root>
+

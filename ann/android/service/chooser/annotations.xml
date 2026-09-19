@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+  <item name="android.service.chooser.ChooserResult int getType()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.service.chooser.ChooserResult.CHOOSER_RESULT_UNKNOWN, android.service.chooser.ChooserResult.CHOOSER_RESULT_SELECTED_COMPONENT, android.service.chooser.ChooserResult.CHOOSER_RESULT_COPY, android.service.chooser.ChooserResult.CHOOSER_RESULT_EDIT}" />
+    </annotation>
+  </item>
+  <item name="android.service.chooser.ChooserSession int getState()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.service.chooser.ChooserSession.STATE_INITIALIZED, android.service.chooser.ChooserSession.STATE_STARTED, android.service.chooser.ChooserSession.STATE_CLOSED}" />
+    </annotation>
+  </item>
+  <item name="android.service.chooser.ChooserSession.StateListener void onStateChanged(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.service.chooser.ChooserSession.STATE_INITIALIZED, android.service.chooser.ChooserSession.STATE_STARTED, android.service.chooser.ChooserSession.STATE_CLOSED}" />
+    </annotation>
+  </item>
+</root>
+

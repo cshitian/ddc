@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+  <item name="android.ranging.ble.BleSpecificData double getDelaySpreadMeters()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.ranging.ble.BleSpecificData int getRemoteTxPowerDbm()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="-127L" />
+      <val name="to" val="127L" />
+    </annotation>
+  </item>
+</root>
+

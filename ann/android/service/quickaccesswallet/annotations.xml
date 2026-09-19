@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+  <item name="android.service.quickaccesswallet.WalletCard int getCardType()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.service.quickaccesswallet.WalletCard.CARD_TYPE_UNKNOWN, android.service.quickaccesswallet.WalletCard.CARD_TYPE_PAYMENT, android.service.quickaccesswallet.WalletCard.CARD_TYPE_NON_PAYMENT}" />
+    </annotation>
+  </item>
+  <item name="android.service.quickaccesswallet.WalletCard.Builder Builder(java.lang.String, int, android.graphics.drawable.Icon, java.lang.CharSequence, android.app.PendingIntent) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.service.quickaccesswallet.WalletCard.CARD_TYPE_UNKNOWN, android.service.quickaccesswallet.WalletCard.CARD_TYPE_PAYMENT, android.service.quickaccesswallet.WalletCard.CARD_TYPE_NON_PAYMENT}" />
+    </annotation>
+  </item>
+  <item name="android.service.quickaccesswallet.WalletServiceEvent WalletServiceEvent(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="android.service.quickaccesswallet.WalletServiceEvent.TYPE_NFC_PAYMENT_STARTED" />
+    </annotation>
+  </item>
+  <item name="android.service.quickaccesswallet.WalletServiceEvent int getEventType()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="android.service.quickaccesswallet.WalletServiceEvent.TYPE_NFC_PAYMENT_STARTED" />
+    </annotation>
+  </item>
+</root>
+

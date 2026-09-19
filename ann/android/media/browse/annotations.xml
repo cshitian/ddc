@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+  <item name="android.media.browse.MediaBrowser.MediaItem MediaItem(android.media.MediaDescription, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.browse.MediaBrowser.MediaItem.FLAG_BROWSABLE, android.media.browse.MediaBrowser.MediaItem.FLAG_PLAYABLE}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.media.browse.MediaBrowser.MediaItem int getFlags()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.media.browse.MediaBrowser.MediaItem.FLAG_BROWSABLE, android.media.browse.MediaBrowser.MediaItem.FLAG_PLAYABLE}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+</root>
+

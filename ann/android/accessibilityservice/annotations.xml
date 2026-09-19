@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+  <item name="android.accessibilityservice.AccessibilityGestureEvent int getGestureId()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.accessibilityservice.AccessibilityService.GESTURE_UNKNOWN, android.accessibilityservice.AccessibilityService.GESTURE_2_FINGER_SINGLE_TAP, android.accessibilityservice.AccessibilityService.GESTURE_2_FINGER_DOUBLE_TAP, android.accessibilityservice.AccessibilityService.GESTURE_2_FINGER_DOUBLE_TAP_AND_HOLD, android.accessibilityservice.AccessibilityService.GESTURE_2_FINGER_TRIPLE_TAP, android.accessibilityservice.AccessibilityService.GESTURE_2_FINGER_TRIPLE_TAP_AND_HOLD, android.accessibilityservice.AccessibilityService.GESTURE_3_FINGER_SINGLE_TAP, android.accessibilityservice.AccessibilityService.GESTURE_3_FINGER_SINGLE_TAP_AND_HOLD, android.accessibilityservice.AccessibilityService.GESTURE_3_FINGER_DOUBLE_TAP, android.accessibilityservice.AccessibilityService.GESTURE_3_FINGER_DOUBLE_TAP_AND_HOLD, android.accessibilityservice.AccessibilityService.GESTURE_3_FINGER_TRIPLE_TAP, android.accessibilityservice.AccessibilityService.GESTURE_3_FINGER_TRIPLE_TAP_AND_HOLD, android.accessibilityservice.AccessibilityService.GESTURE_DOUBLE_TAP, android.accessibilityservice.AccessibilityService.GESTURE_DOUBLE_TAP_AND_HOLD, android.accessibilityservice.AccessibilityService.GESTURE_SWIPE_UP, android.accessibilityservice.AccessibilityService.GESTURE_SWIPE_UP_AND_LEFT, android.accessibilityservice.AccessibilityService.GESTURE_SWIPE_UP_AND_DOWN, android.accessibilityservice.AccessibilityService.GESTURE_SWIPE_UP_AND_RIGHT, android.accessibilityservice.AccessibilityService.GESTURE_SWIPE_DOWN, android.accessibilityservice.AccessibilityService.GESTURE_SWIPE_DOWN_AND_LEFT, android.accessibilityservice.AccessibilityService.GESTURE_SWIPE_DOWN_AND_UP, android.accessibilityservice.AccessibilityService.GESTURE_SWIPE_DOWN_AND_RIGHT, android.accessibilityservice.AccessibilityService.GESTURE_SWIPE_LEFT, android.accessibilityservice.AccessibilityService.GESTURE_SWIPE_LEFT_AND_UP, android.accessibilityservice.AccessibilityService.GESTURE_SWIPE_LEFT_AND_RIGHT, android.accessibilityservice.AccessibilityService.GESTURE_SWIPE_LEFT_AND_DOWN, android.accessibilityservice.AccessibilityService.GESTURE_SWIPE_RIGHT, android.accessibilityservice.AccessibilityService.GESTURE_SWIPE_RIGHT_AND_UP, android.accessibilityservice.AccessibilityService.GESTURE_SWIPE_RIGHT_AND_LEFT, android.accessibilityservice.AccessibilityService.GESTURE_SWIPE_RIGHT_AND_DOWN, android.accessibilityservice.AccessibilityService.GESTURE_2_FINGER_SWIPE_DOWN, android.accessibilityservice.AccessibilityService.GESTURE_2_FINGER_SWIPE_LEFT, android.accessibilityservice.AccessibilityService.GESTURE_2_FINGER_SWIPE_RIGHT, android.accessibilityservice.AccessibilityService.GESTURE_2_FINGER_SWIPE_UP, android.accessibilityservice.AccessibilityService.GESTURE_3_FINGER_SWIPE_DOWN, android.accessibilityservice.AccessibilityService.GESTURE_3_FINGER_SWIPE_LEFT, android.accessibilityservice.AccessibilityService.GESTURE_3_FINGER_SWIPE_RIGHT, android.accessibilityservice.AccessibilityService.GESTURE_3_FINGER_SWIPE_UP, android.accessibilityservice.AccessibilityService.GESTURE_4_FINGER_DOUBLE_TAP, android.accessibilityservice.AccessibilityService.GESTURE_4_FINGER_DOUBLE_TAP_AND_HOLD, android.accessibilityservice.AccessibilityService.GESTURE_4_FINGER_SINGLE_TAP, android.accessibilityservice.AccessibilityService.GESTURE_4_FINGER_SWIPE_DOWN, android.accessibilityservice.AccessibilityService.GESTURE_4_FINGER_SWIPE_LEFT, android.accessibilityservice.AccessibilityService.GESTURE_4_FINGER_SWIPE_RIGHT, android.accessibilityservice.AccessibilityService.GESTURE_4_FINGER_SWIPE_UP, android.accessibilityservice.AccessibilityService.GESTURE_4_FINGER_TRIPLE_TAP}" />
+    </annotation>
+  </item>
+  <item name="android.accessibilityservice.AccessibilityService android.accessibilityservice.FingerprintGestureController getFingerprintGestureController()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.USE_FINGERPRINT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.accessibilityservice.AccessibilityService android.view.accessibility.AccessibilityNodeInfo getRootInActiveWindow(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.accessibility.AccessibilityNodeInfo.FLAG_PREFETCH_ANCESTORS, android.view.accessibility.AccessibilityNodeInfo.FLAG_PREFETCH_SIBLINGS, android.view.accessibility.AccessibilityNodeInfo.FLAG_PREFETCH_DESCENDANTS_HYBRID, android.view.accessibility.AccessibilityNodeInfo.FLAG_PREFETCH_DESCENDANTS_DEPTH_FIRST, android.view.accessibility.AccessibilityNodeInfo.FLAG_PREFETCH_DESCENDANTS_BREADTH_FIRST, android.view.accessibility.AccessibilityNodeInfo.FLAG_PREFETCH_UNINTERRUPTIBLE}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.accessibilityservice.AccessibilityService java.lang.Object getSystemService(java.lang.String) 0">
+    <annotation name="androidx.annotation.StringDef">
+      <val name="value" val="{android.content.Context.POWER_SERVICE, android.content.Context.WINDOW_SERVICE, android.content.Context.LAYOUT_INFLATER_SERVICE, android.content.Context.ACCOUNT_SERVICE, android.content.Context.ACTIVITY_SERVICE, android.content.Context.ALARM_SERVICE, android.content.Context.NOTIFICATION_SERVICE, android.content.Context.ACCESSIBILITY_SERVICE, android.content.Context.CAPTIONING_SERVICE, android.content.Context.KEYGUARD_SERVICE, android.content.Context.LOCATION_SERVICE, android.content.Context.HEALTHCONNECT_SERVICE, android.content.Context.SEARCH_SERVICE, android.content.Context.SENSOR_SERVICE, android.content.Context.STORAGE_SERVICE, android.content.Context.STORAGE_STATS_SERVICE, android.content.Context.WALLPAPER_SERVICE, android.content.Context.VIBRATOR_MANAGER_SERVICE, android.content.Context.VIBRATOR_SERVICE, android.content.Context.CONNECTIVITY_SERVICE, android.content.Context.TETHERING_SERVICE, android.content.Context.IPSEC_SERVICE, android.content.Context.VPN_MANAGEMENT_SERVICE, android.content.Context.NETWORK_STATS_SERVICE, android.content.Context.WIFI_SERVICE, android.content.Context.WIFI_AWARE_SERVICE, android.content.Context.WIFI_P2P_SERVICE, android.content.Context.WIFI_RTT_RANGING_SERVICE, android.content.Context.NSD_SERVICE, android.content.Context.AUDIO_SERVICE, android.content.Context.BIOMETRIC_SERVICE, android.content.Context.MEDIA_ROUTER_SERVICE, android.content.Context.TELEPHONY_SERVICE, android.content.Context.TELEPHONY_SUBSCRIPTION_SERVICE, android.content.Context.TELEPHONY_PHONE_NUMBER_SERVICE, android.content.Context.CARRIER_CONFIG_SERVICE, android.content.Context.EUICC_SERVICE, android.content.Context.TELECOM_SERVICE, android.content.Context.CLIPBOARD_SERVICE, android.content.Context.INPUT_METHOD_SERVICE, android.content.Context.TEXT_SERVICES_MANAGER_SERVICE, android.content.Context.TEXT_CLASSIFICATION_SERVICE, android.content.Context.APPWIDGET_SERVICE, android.content.Context.DROPBOX_SERVICE, android.content.Context.DEVICE_POLICY_SERVICE, android.content.Context.UI_MODE_SERVICE, android.content.Context.DOWNLOAD_SERVICE, android.content.Context.NFC_SERVICE, android.content.Context.BLUETOOTH_SERVICE, android.content.Context.USB_SERVICE, android.content.Context.LAUNCHER_APPS_SERVICE, android.content.Context.SERIAL_SERVICE, android.content.Context.INPUT_SERVICE, android.content.Context.DISPLAY_SERVICE, android.content.Context.USER_SERVICE, android.content.Context.RESTRICTIONS_SERVICE, android.content.Context.APP_OPS_SERVICE, android.content.Context.ROLE_SERVICE, android.content.Context.CAMERA_SERVICE, android.content.Context.PRINT_SERVICE, android.content.Context.CONSUMER_IR_SERVICE, android.content.Context.TV_INTERACTIVE_APP_SERVICE, android.content.Context.TV_INPUT_SERVICE, android.content.Context.USAGE_STATS_SERVICE, android.content.Context.MEDIA_SESSION_SERVICE, android.content.Context.MEDIA_COMMUNICATION_SERVICE, android.content.Context.BATTERY_SERVICE, android.content.Context.JOB_SCHEDULER_SERVICE, android.content.Context.PERSISTENT_DATA_BLOCK_SERVICE, android.content.Context.MEDIA_PROJECTION_SERVICE, android.content.Context.MIDI_SERVICE, android.content.Context.HARDWARE_PROPERTIES_SERVICE, android.content.Context.SHORTCUT_SERVICE, android.content.Context.SYSTEM_HEALTH_SERVICE, android.content.Context.COMPANION_DEVICE_SERVICE, android.content.Context.VIRTUAL_DEVICE_SERVICE, android.content.Context.CROSS_PROFILE_APPS_SERVICE, android.content.Context.LOCALE_SERVICE, android.content.Context.MEDIA_METRICS_SERVICE, android.content.Context.DISPLAY_HASH_SERVICE, android.content.Context.CREDENTIAL_SERVICE, android.content.Context.DEVICE_LOCK_SERVICE, android.content.Context.GRAMMATICAL_INFLECTION_SERVICE, android.content.Context.SECURITY_STATE_SERVICE, android.content.Context.CONTACT_KEYS_SERVICE, android.content.Context.MEDIA_QUALITY_SERVICE, android.content.Context.ADVANCED_PROTECTION_SERVICE, android.content.Context.NPU_SERVICE, android.content.Context.WEB_APP_SERVICE}" />
+    </annotation>
+  </item>
+  <item name="android.accessibilityservice.AccessibilityService void setAccessibilityFocusAppearance(int, int) 1">
+    <annotation name="androidx.annotation.ColorInt"/>
+  </item>
+  <item name="android.accessibilityservice.AccessibilityService.SoftKeyboardController boolean setShowMode(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.accessibilityservice.AccessibilityService.SHOW_MODE_AUTO, android.accessibilityservice.AccessibilityService.SHOW_MODE_HIDDEN, android.accessibilityservice.AccessibilityService.SHOW_MODE_IGNORE_HARD_KEYBOARD}" />
+    </annotation>
+  </item>
+  <item name="android.accessibilityservice.AccessibilityService.SoftKeyboardController int getShowMode()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.accessibilityservice.AccessibilityService.SHOW_MODE_AUTO, android.accessibilityservice.AccessibilityService.SHOW_MODE_HIDDEN, android.accessibilityservice.AccessibilityService.SHOW_MODE_IGNORE_HARD_KEYBOARD}" />
+    </annotation>
+  </item>
+  <item name="android.accessibilityservice.AccessibilityService.SoftKeyboardController int setInputMethodEnabled(java.lang.String, boolean)">
+    <annotation name="androidx.annotation.CheckResult"/>
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.accessibilityservice.AccessibilityService.SoftKeyboardController.ENABLE_IME_SUCCESS, android.accessibilityservice.AccessibilityService.SoftKeyboardController.ENABLE_IME_FAIL_BY_ADMIN, android.accessibilityservice.AccessibilityService.SoftKeyboardController.ENABLE_IME_FAIL_UNKNOWN}" />
+    </annotation>
+  </item>
+  <item name="android.accessibilityservice.AccessibilityService.SoftKeyboardController.OnShowModeChangedListener void onShowModeChanged(android.accessibilityservice.AccessibilityService.SoftKeyboardController, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.accessibilityservice.AccessibilityService.SHOW_MODE_AUTO, android.accessibilityservice.AccessibilityService.SHOW_MODE_HIDDEN, android.accessibilityservice.AccessibilityService.SHOW_MODE_IGNORE_HARD_KEYBOARD}" />
+    </annotation>
+  </item>
+  <item name="android.accessibilityservice.AccessibilityService.TakeScreenshotCallback void onFailure(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.accessibilityservice.AccessibilityService.ERROR_TAKE_SCREENSHOT_INTERNAL_ERROR, android.accessibilityservice.AccessibilityService.ERROR_TAKE_SCREENSHOT_NO_ACCESSIBILITY_ACCESS, android.accessibilityservice.AccessibilityService.ERROR_TAKE_SCREENSHOT_INTERVAL_TIME_SHORT, android.accessibilityservice.AccessibilityService.ERROR_TAKE_SCREENSHOT_INVALID_DISPLAY, android.accessibilityservice.AccessibilityService.ERROR_TAKE_SCREENSHOT_INVALID_WINDOW}" />
+    </annotation>
+  </item>
+  <item name="android.accessibilityservice.AccessibilityServiceInfo feedbackType">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.accessibilityservice.AccessibilityServiceInfo.FEEDBACK_AUDIBLE, android.accessibilityservice.AccessibilityServiceInfo.FEEDBACK_GENERIC, android.accessibilityservice.AccessibilityServiceInfo.FEEDBACK_HAPTIC, android.accessibilityservice.AccessibilityServiceInfo.FEEDBACK_SPOKEN, android.accessibilityservice.AccessibilityServiceInfo.FEEDBACK_VISUAL, android.accessibilityservice.AccessibilityServiceInfo.FEEDBACK_BRAILLE}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.accessibilityservice.AccessibilityServiceInfo int getMotionEventSources()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.InputDevice.SOURCE_MOUSE, android.view.InputDevice.SOURCE_STYLUS, android.view.InputDevice.SOURCE_BLUETOOTH_STYLUS, android.view.InputDevice.SOURCE_TRACKBALL, android.view.InputDevice.SOURCE_MOUSE_RELATIVE, android.view.InputDevice.SOURCE_TOUCHPAD, android.view.InputDevice.SOURCE_TOUCH_NAVIGATION, android.view.InputDevice.SOURCE_ROTARY_ENCODER, android.view.InputDevice.SOURCE_JOYSTICK, android.view.InputDevice.SOURCE_SENSOR, android.view.InputDevice.SOURCE_TOUCHSCREEN}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.accessibilityservice.AccessibilityServiceInfo void setInteractiveUiTimeoutMillis(int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.accessibilityservice.AccessibilityServiceInfo void setMotionEventSources(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.view.InputDevice.SOURCE_MOUSE, android.view.InputDevice.SOURCE_STYLUS, android.view.InputDevice.SOURCE_BLUETOOTH_STYLUS, android.view.InputDevice.SOURCE_TRACKBALL, android.view.InputDevice.SOURCE_MOUSE_RELATIVE, android.view.InputDevice.SOURCE_TOUCHPAD, android.view.InputDevice.SOURCE_TOUCH_NAVIGATION, android.view.InputDevice.SOURCE_ROTARY_ENCODER, android.view.InputDevice.SOURCE_JOYSTICK, android.view.InputDevice.SOURCE_SENSOR, android.view.InputDevice.SOURCE_TOUCHSCREEN}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.accessibilityservice.AccessibilityServiceInfo void setNonInteractiveUiTimeoutMillis(int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.accessibilityservice.BrailleDisplayController void connect(android.bluetooth.BluetoothDevice, android.accessibilityservice.BrailleDisplayController.BrailleDisplayCallback)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.accessibilityservice.BrailleDisplayController void connect(android.bluetooth.BluetoothDevice, java.util.concurrent.Executor, android.accessibilityservice.BrailleDisplayController.BrailleDisplayCallback)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.BLUETOOTH_CONNECT&quot;" />
+    </annotation>
+  </item>
+  <item name="android.accessibilityservice.BrailleDisplayController.BrailleDisplayCallback void onConnectionFailed(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.accessibilityservice.BrailleDisplayController.BrailleDisplayCallback.FLAG_ERROR_CANNOT_ACCESS, android.accessibilityservice.BrailleDisplayController.BrailleDisplayCallback.FLAG_ERROR_BRAILLE_DISPLAY_NOT_FOUND}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.accessibilityservice.GestureDescription android.accessibilityservice.GestureDescription.StrokeDescription getStroke(int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.accessibilityservice.GestureDescription.StrokeDescription StrokeDescription(android.graphics.Path, long, long) 1">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.accessibilityservice.GestureDescription.StrokeDescription StrokeDescription(android.graphics.Path, long, long) 2">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.accessibilityservice.GestureDescription.StrokeDescription StrokeDescription(android.graphics.Path, long, long, boolean) 1">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.accessibilityservice.GestureDescription.StrokeDescription StrokeDescription(android.graphics.Path, long, long, boolean) 2">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.accessibilityservice.InputMethod.AccessibilityInputConnection android.view.inputmethod.SurroundingText getSurroundingText(int, int, int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.accessibilityservice.InputMethod.AccessibilityInputConnection android.view.inputmethod.SurroundingText getSurroundingText(int, int, int) 1">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="0L" />
+    </annotation>
+  </item>
+  <item name="android.accessibilityservice.InputMethod.AccessibilityInputConnection android.view.inputmethod.SurroundingText getSurroundingText(int, int, int) 2">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="android.view.inputmethod.InputConnection.GET_TEXT_WITH_STYLES" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+  <item name="android.accessibilityservice.MagnificationConfig.Builder android.accessibilityservice.MagnificationConfig.Builder setMode(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.accessibilityservice.MagnificationConfig.MAGNIFICATION_MODE_DEFAULT, android.accessibilityservice.MagnificationConfig.MAGNIFICATION_MODE_FULLSCREEN, android.accessibilityservice.MagnificationConfig.MAGNIFICATION_MODE_WINDOW}" />
+    </annotation>
+  </item>
+  <item name="android.accessibilityservice.MagnificationConfig.Builder android.accessibilityservice.MagnificationConfig.Builder setScale(float) 0">
+    <annotation name="androidx.annotation.FloatRange">
+      <val name="from" val="1.0" />
+      <val name="to" val="8.0" />
+    </annotation>
+  </item>
+  <item name="android.accessibilityservice.TouchInteractionController.Callback void onStateChanged(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.accessibilityservice.TouchInteractionController.STATE_CLEAR, android.accessibilityservice.TouchInteractionController.STATE_TOUCH_INTERACTING, android.accessibilityservice.TouchInteractionController.STATE_TOUCH_EXPLORING, android.accessibilityservice.TouchInteractionController.STATE_DRAGGING, android.accessibilityservice.TouchInteractionController.STATE_DELEGATING}" />
+    </annotation>
+  </item>
+</root>
+

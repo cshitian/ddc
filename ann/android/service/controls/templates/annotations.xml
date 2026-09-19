@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+  <item name="android.service.controls.templates.ControlTemplate TYPE_ERROR">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.service.controls.templates.ControlTemplate.TYPE_ERROR, android.service.controls.templates.ControlTemplate.TYPE_NO_TEMPLATE, android.service.controls.templates.ControlTemplate.TYPE_TOGGLE, android.service.controls.templates.ControlTemplate.TYPE_RANGE, android.service.controls.templates.ControlTemplate.TYPE_THUMBNAIL, android.service.controls.templates.ControlTemplate.TYPE_TOGGLE_RANGE, android.service.controls.templates.ControlTemplate.TYPE_TEMPERATURE, android.service.controls.templates.ControlTemplate.TYPE_STATELESS}" />
+    </annotation>
+  </item>
+  <item name="android.service.controls.templates.ControlTemplate TYPE_NO_TEMPLATE">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.service.controls.templates.ControlTemplate.TYPE_ERROR, android.service.controls.templates.ControlTemplate.TYPE_NO_TEMPLATE, android.service.controls.templates.ControlTemplate.TYPE_TOGGLE, android.service.controls.templates.ControlTemplate.TYPE_RANGE, android.service.controls.templates.ControlTemplate.TYPE_THUMBNAIL, android.service.controls.templates.ControlTemplate.TYPE_TOGGLE_RANGE, android.service.controls.templates.ControlTemplate.TYPE_TEMPERATURE, android.service.controls.templates.ControlTemplate.TYPE_STATELESS}" />
+    </annotation>
+  </item>
+  <item name="android.service.controls.templates.ControlTemplate TYPE_RANGE">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.service.controls.templates.ControlTemplate.TYPE_ERROR, android.service.controls.templates.ControlTemplate.TYPE_NO_TEMPLATE, android.service.controls.templates.ControlTemplate.TYPE_TOGGLE, android.service.controls.templates.ControlTemplate.TYPE_RANGE, android.service.controls.templates.ControlTemplate.TYPE_THUMBNAIL, android.service.controls.templates.ControlTemplate.TYPE_TOGGLE_RANGE, android.service.controls.templates.ControlTemplate.TYPE_TEMPERATURE, android.service.controls.templates.ControlTemplate.TYPE_STATELESS}" />
+    </annotation>
+  </item>
+  <item name="android.service.controls.templates.ControlTemplate TYPE_STATELESS">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.service.controls.templates.ControlTemplate.TYPE_ERROR, android.service.controls.templates.ControlTemplate.TYPE_NO_TEMPLATE, android.service.controls.templates.ControlTemplate.TYPE_TOGGLE, android.service.controls.templates.ControlTemplate.TYPE_RANGE, android.service.controls.templates.ControlTemplate.TYPE_THUMBNAIL, android.service.controls.templates.ControlTemplate.TYPE_TOGGLE_RANGE, android.service.controls.templates.ControlTemplate.TYPE_TEMPERATURE, android.service.controls.templates.ControlTemplate.TYPE_STATELESS}" />
+    </annotation>
+  </item>
+  <item name="android.service.controls.templates.ControlTemplate TYPE_TEMPERATURE">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.service.controls.templates.ControlTemplate.TYPE_ERROR, android.service.controls.templates.ControlTemplate.TYPE_NO_TEMPLATE, android.service.controls.templates.ControlTemplate.TYPE_TOGGLE, android.service.controls.templates.ControlTemplate.TYPE_RANGE, android.service.controls.templates.ControlTemplate.TYPE_THUMBNAIL, android.service.controls.templates.ControlTemplate.TYPE_TOGGLE_RANGE, android.service.controls.templates.ControlTemplate.TYPE_TEMPERATURE, android.service.controls.templates.ControlTemplate.TYPE_STATELESS}" />
+    </annotation>
+  </item>
+  <item name="android.service.controls.templates.ControlTemplate TYPE_THUMBNAIL">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.service.controls.templates.ControlTemplate.TYPE_ERROR, android.service.controls.templates.ControlTemplate.TYPE_NO_TEMPLATE, android.service.controls.templates.ControlTemplate.TYPE_TOGGLE, android.service.controls.templates.ControlTemplate.TYPE_RANGE, android.service.controls.templates.ControlTemplate.TYPE_THUMBNAIL, android.service.controls.templates.ControlTemplate.TYPE_TOGGLE_RANGE, android.service.controls.templates.ControlTemplate.TYPE_TEMPERATURE, android.service.controls.templates.ControlTemplate.TYPE_STATELESS}" />
+    </annotation>
+  </item>
+  <item name="android.service.controls.templates.ControlTemplate TYPE_TOGGLE">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.service.controls.templates.ControlTemplate.TYPE_ERROR, android.service.controls.templates.ControlTemplate.TYPE_NO_TEMPLATE, android.service.controls.templates.ControlTemplate.TYPE_TOGGLE, android.service.controls.templates.ControlTemplate.TYPE_RANGE, android.service.controls.templates.ControlTemplate.TYPE_THUMBNAIL, android.service.controls.templates.ControlTemplate.TYPE_TOGGLE_RANGE, android.service.controls.templates.ControlTemplate.TYPE_TEMPERATURE, android.service.controls.templates.ControlTemplate.TYPE_STATELESS}" />
+    </annotation>
+  </item>
+  <item name="android.service.controls.templates.ControlTemplate TYPE_TOGGLE_RANGE">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.service.controls.templates.ControlTemplate.TYPE_ERROR, android.service.controls.templates.ControlTemplate.TYPE_NO_TEMPLATE, android.service.controls.templates.ControlTemplate.TYPE_TOGGLE, android.service.controls.templates.ControlTemplate.TYPE_RANGE, android.service.controls.templates.ControlTemplate.TYPE_THUMBNAIL, android.service.controls.templates.ControlTemplate.TYPE_TOGGLE_RANGE, android.service.controls.templates.ControlTemplate.TYPE_TEMPERATURE, android.service.controls.templates.ControlTemplate.TYPE_STATELESS}" />
+    </annotation>
+  </item>
+  <item name="android.service.controls.templates.ControlTemplate int getTemplateType()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.service.controls.templates.ControlTemplate.TYPE_ERROR, android.service.controls.templates.ControlTemplate.TYPE_NO_TEMPLATE, android.service.controls.templates.ControlTemplate.TYPE_TOGGLE, android.service.controls.templates.ControlTemplate.TYPE_RANGE, android.service.controls.templates.ControlTemplate.TYPE_THUMBNAIL, android.service.controls.templates.ControlTemplate.TYPE_TOGGLE_RANGE, android.service.controls.templates.ControlTemplate.TYPE_TEMPERATURE, android.service.controls.templates.ControlTemplate.TYPE_STATELESS}" />
+    </annotation>
+  </item>
+  <item name="android.service.controls.templates.TemperatureControlTemplate MODE_COOL">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.service.controls.templates.TemperatureControlTemplate.MODE_UNKNOWN, android.service.controls.templates.TemperatureControlTemplate.MODE_OFF, android.service.controls.templates.TemperatureControlTemplate.MODE_HEAT, android.service.controls.templates.TemperatureControlTemplate.MODE_COOL, android.service.controls.templates.TemperatureControlTemplate.MODE_HEAT_COOL, android.service.controls.templates.TemperatureControlTemplate.MODE_ECO}" />
+    </annotation>
+  </item>
+  <item name="android.service.controls.templates.TemperatureControlTemplate MODE_ECO">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.service.controls.templates.TemperatureControlTemplate.MODE_UNKNOWN, android.service.controls.templates.TemperatureControlTemplate.MODE_OFF, android.service.controls.templates.TemperatureControlTemplate.MODE_HEAT, android.service.controls.templates.TemperatureControlTemplate.MODE_COOL, android.service.controls.templates.TemperatureControlTemplate.MODE_HEAT_COOL, android.service.controls.templates.TemperatureControlTemplate.MODE_ECO}" />
+    </annotation>
+  </item>
+  <item name="android.service.controls.templates.TemperatureControlTemplate MODE_HEAT">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.service.controls.templates.TemperatureControlTemplate.MODE_UNKNOWN, android.service.controls.templates.TemperatureControlTemplate.MODE_OFF, android.service.controls.templates.TemperatureControlTemplate.MODE_HEAT, android.service.controls.templates.TemperatureControlTemplate.MODE_COOL, android.service.controls.templates.TemperatureControlTemplate.MODE_HEAT_COOL, android.service.controls.templates.TemperatureControlTemplate.MODE_ECO}" />
+    </annotation>
+  </item>
+  <item name="android.service.controls.templates.TemperatureControlTemplate MODE_HEAT_COOL">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.service.controls.templates.TemperatureControlTemplate.MODE_UNKNOWN, android.service.controls.templates.TemperatureControlTemplate.MODE_OFF, android.service.controls.templates.TemperatureControlTemplate.MODE_HEAT, android.service.controls.templates.TemperatureControlTemplate.MODE_COOL, android.service.controls.templates.TemperatureControlTemplate.MODE_HEAT_COOL, android.service.controls.templates.TemperatureControlTemplate.MODE_ECO}" />
+    </annotation>
+  </item>
+  <item name="android.service.controls.templates.TemperatureControlTemplate MODE_OFF">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.service.controls.templates.TemperatureControlTemplate.MODE_UNKNOWN, android.service.controls.templates.TemperatureControlTemplate.MODE_OFF, android.service.controls.templates.TemperatureControlTemplate.MODE_HEAT, android.service.controls.templates.TemperatureControlTemplate.MODE_COOL, android.service.controls.templates.TemperatureControlTemplate.MODE_HEAT_COOL, android.service.controls.templates.TemperatureControlTemplate.MODE_ECO}" />
+    </annotation>
+  </item>
+  <item name="android.service.controls.templates.TemperatureControlTemplate MODE_UNKNOWN">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.service.controls.templates.TemperatureControlTemplate.MODE_UNKNOWN, android.service.controls.templates.TemperatureControlTemplate.MODE_OFF, android.service.controls.templates.TemperatureControlTemplate.MODE_HEAT, android.service.controls.templates.TemperatureControlTemplate.MODE_COOL, android.service.controls.templates.TemperatureControlTemplate.MODE_HEAT_COOL, android.service.controls.templates.TemperatureControlTemplate.MODE_ECO}" />
+    </annotation>
+  </item>
+  <item name="android.service.controls.templates.TemperatureControlTemplate TemperatureControlTemplate(java.lang.String, android.service.controls.templates.ControlTemplate, int, int, int) 2">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.service.controls.templates.TemperatureControlTemplate.MODE_UNKNOWN, android.service.controls.templates.TemperatureControlTemplate.MODE_OFF, android.service.controls.templates.TemperatureControlTemplate.MODE_HEAT, android.service.controls.templates.TemperatureControlTemplate.MODE_COOL, android.service.controls.templates.TemperatureControlTemplate.MODE_HEAT_COOL, android.service.controls.templates.TemperatureControlTemplate.MODE_ECO}" />
+    </annotation>
+  </item>
+  <item name="android.service.controls.templates.TemperatureControlTemplate TemperatureControlTemplate(java.lang.String, android.service.controls.templates.ControlTemplate, int, int, int) 3">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.service.controls.templates.TemperatureControlTemplate.MODE_UNKNOWN, android.service.controls.templates.TemperatureControlTemplate.MODE_OFF, android.service.controls.templates.TemperatureControlTemplate.MODE_HEAT, android.service.controls.templates.TemperatureControlTemplate.MODE_COOL, android.service.controls.templates.TemperatureControlTemplate.MODE_HEAT_COOL, android.service.controls.templates.TemperatureControlTemplate.MODE_ECO}" />
+    </annotation>
+  </item>
+  <item name="android.service.controls.templates.TemperatureControlTemplate TemperatureControlTemplate(java.lang.String, android.service.controls.templates.ControlTemplate, int, int, int) 4">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.service.controls.templates.TemperatureControlTemplate.FLAG_MODE_OFF, android.service.controls.templates.TemperatureControlTemplate.FLAG_MODE_HEAT, android.service.controls.templates.TemperatureControlTemplate.FLAG_MODE_COOL, android.service.controls.templates.TemperatureControlTemplate.FLAG_MODE_HEAT_COOL, android.service.controls.templates.TemperatureControlTemplate.FLAG_MODE_ECO}" />
+      <val name="flag" val="true" />
+    </annotation>
+  </item>
+</root>
+

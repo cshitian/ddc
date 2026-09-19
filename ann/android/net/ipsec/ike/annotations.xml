@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+  <item name="android.net.ipsec.ike.ChildSaProposal.Builder android.net.ipsec.ike.ChildSaProposal.Builder addDhGroup(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.ipsec.ike.SaProposal.DH_GROUP_NONE, android.net.ipsec.ike.SaProposal.DH_GROUP_1024_BIT_MODP, android.net.ipsec.ike.SaProposal.DH_GROUP_1536_BIT_MODP, android.net.ipsec.ike.SaProposal.DH_GROUP_2048_BIT_MODP, android.net.ipsec.ike.SaProposal.DH_GROUP_3072_BIT_MODP, android.net.ipsec.ike.SaProposal.DH_GROUP_4096_BIT_MODP, android.net.ipsec.ike.SaProposal.DH_GROUP_CURVE_25519}" />
+    </annotation>
+  </item>
+  <item name="android.net.ipsec.ike.ChildSaProposal.Builder android.net.ipsec.ike.ChildSaProposal.Builder addEncryptionAlgorithm(int, int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.ipsec.ike.SaProposal.ENCRYPTION_ALGORITHM_3DES, android.net.ipsec.ike.SaProposal.ENCRYPTION_ALGORITHM_AES_CBC, android.net.ipsec.ike.SaProposal.ENCRYPTION_ALGORITHM_AES_CTR, android.net.ipsec.ike.SaProposal.ENCRYPTION_ALGORITHM_AES_GCM_8, android.net.ipsec.ike.SaProposal.ENCRYPTION_ALGORITHM_AES_GCM_12, android.net.ipsec.ike.SaProposal.ENCRYPTION_ALGORITHM_AES_GCM_16, android.net.ipsec.ike.SaProposal.ENCRYPTION_ALGORITHM_CHACHA20_POLY1305}" />
+    </annotation>
+  </item>
+  <item name="android.net.ipsec.ike.ChildSaProposal.Builder android.net.ipsec.ike.ChildSaProposal.Builder addIntegrityAlgorithm(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.ipsec.ike.SaProposal.INTEGRITY_ALGORITHM_NONE, android.net.ipsec.ike.SaProposal.INTEGRITY_ALGORITHM_HMAC_SHA1_96, android.net.ipsec.ike.SaProposal.INTEGRITY_ALGORITHM_AES_XCBC_96, android.net.ipsec.ike.SaProposal.INTEGRITY_ALGORITHM_AES_CMAC_96, android.net.ipsec.ike.SaProposal.INTEGRITY_ALGORITHM_HMAC_SHA2_256_128, android.net.ipsec.ike.SaProposal.INTEGRITY_ALGORITHM_HMAC_SHA2_384_192, android.net.ipsec.ike.SaProposal.INTEGRITY_ALGORITHM_HMAC_SHA2_512_256}" />
+    </annotation>
+  </item>
+  <item name="android.net.ipsec.ike.ChildSessionCallback void onIpSecTransformCreated(android.net.IpSecTransform, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.IpSecManager.DIRECTION_IN, android.net.IpSecManager.DIRECTION_OUT}" />
+    </annotation>
+  </item>
+  <item name="android.net.ipsec.ike.ChildSessionCallback void onIpSecTransformDeleted(android.net.IpSecTransform, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.IpSecManager.DIRECTION_IN, android.net.IpSecManager.DIRECTION_OUT}" />
+    </annotation>
+  </item>
+  <item name="android.net.ipsec.ike.ChildSessionParams int getHardLifetimeSeconds()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="300L" />
+      <val name="to" val="14400L" />
+    </annotation>
+  </item>
+  <item name="android.net.ipsec.ike.ChildSessionParams int getSoftLifetimeSeconds()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="120L" />
+      <val name="to" val="14400L" />
+    </annotation>
+  </item>
+  <item name="android.net.ipsec.ike.IkeSaProposal.Builder android.net.ipsec.ike.IkeSaProposal.Builder addDhGroup(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.ipsec.ike.SaProposal.DH_GROUP_NONE, android.net.ipsec.ike.SaProposal.DH_GROUP_1024_BIT_MODP, android.net.ipsec.ike.SaProposal.DH_GROUP_1536_BIT_MODP, android.net.ipsec.ike.SaProposal.DH_GROUP_2048_BIT_MODP, android.net.ipsec.ike.SaProposal.DH_GROUP_3072_BIT_MODP, android.net.ipsec.ike.SaProposal.DH_GROUP_4096_BIT_MODP, android.net.ipsec.ike.SaProposal.DH_GROUP_CURVE_25519}" />
+    </annotation>
+  </item>
+  <item name="android.net.ipsec.ike.IkeSaProposal.Builder android.net.ipsec.ike.IkeSaProposal.Builder addEncryptionAlgorithm(int, int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.ipsec.ike.SaProposal.ENCRYPTION_ALGORITHM_3DES, android.net.ipsec.ike.SaProposal.ENCRYPTION_ALGORITHM_AES_CBC, android.net.ipsec.ike.SaProposal.ENCRYPTION_ALGORITHM_AES_CTR, android.net.ipsec.ike.SaProposal.ENCRYPTION_ALGORITHM_AES_GCM_8, android.net.ipsec.ike.SaProposal.ENCRYPTION_ALGORITHM_AES_GCM_12, android.net.ipsec.ike.SaProposal.ENCRYPTION_ALGORITHM_AES_GCM_16, android.net.ipsec.ike.SaProposal.ENCRYPTION_ALGORITHM_CHACHA20_POLY1305}" />
+    </annotation>
+  </item>
+  <item name="android.net.ipsec.ike.IkeSaProposal.Builder android.net.ipsec.ike.IkeSaProposal.Builder addIntegrityAlgorithm(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.ipsec.ike.SaProposal.INTEGRITY_ALGORITHM_NONE, android.net.ipsec.ike.SaProposal.INTEGRITY_ALGORITHM_HMAC_SHA1_96, android.net.ipsec.ike.SaProposal.INTEGRITY_ALGORITHM_AES_XCBC_96, android.net.ipsec.ike.SaProposal.INTEGRITY_ALGORITHM_AES_CMAC_96, android.net.ipsec.ike.SaProposal.INTEGRITY_ALGORITHM_HMAC_SHA2_256_128, android.net.ipsec.ike.SaProposal.INTEGRITY_ALGORITHM_HMAC_SHA2_384_192, android.net.ipsec.ike.SaProposal.INTEGRITY_ALGORITHM_HMAC_SHA2_512_256}" />
+    </annotation>
+  </item>
+  <item name="android.net.ipsec.ike.IkeSaProposal.Builder android.net.ipsec.ike.IkeSaProposal.Builder addPseudorandomFunction(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.ipsec.ike.SaProposal.PSEUDORANDOM_FUNCTION_HMAC_SHA1, android.net.ipsec.ike.SaProposal.PSEUDORANDOM_FUNCTION_AES128_XCBC, android.net.ipsec.ike.SaProposal.PSEUDORANDOM_FUNCTION_SHA2_256, android.net.ipsec.ike.SaProposal.PSEUDORANDOM_FUNCTION_SHA2_384, android.net.ipsec.ike.SaProposal.PSEUDORANDOM_FUNCTION_SHA2_512, android.net.ipsec.ike.SaProposal.PSEUDORANDOM_FUNCTION_AES128_CMAC}" />
+    </annotation>
+  </item>
+  <item name="android.net.ipsec.ike.IkeSessionConfiguration boolean isIkeExtensionEnabled(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.ipsec.ike.IkeSessionConfiguration.EXTENSION_TYPE_FRAGMENTATION, android.net.ipsec.ike.IkeSessionConfiguration.EXTENSION_TYPE_MOBIKE}" />
+    </annotation>
+  </item>
+  <item name="android.net.ipsec.ike.IkeSessionConfiguration.Builder android.net.ipsec.ike.IkeSessionConfiguration.Builder addIkeExtension(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.ipsec.ike.IkeSessionConfiguration.EXTENSION_TYPE_FRAGMENTATION, android.net.ipsec.ike.IkeSessionConfiguration.EXTENSION_TYPE_MOBIKE}" />
+    </annotation>
+  </item>
+  <item name="android.net.ipsec.ike.IkeSessionParams boolean hasIkeOption(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.ipsec.ike.IkeSessionParams.IKE_OPTION_ACCEPT_ANY_REMOTE_ID, android.net.ipsec.ike.IkeSessionParams.IKE_OPTION_EAP_ONLY_AUTH, android.net.ipsec.ike.IkeSessionParams.IKE_OPTION_MOBIKE, android.net.ipsec.ike.IkeSessionParams.IKE_OPTION_FORCE_PORT_4500, android.net.ipsec.ike.IkeSessionParams.IKE_OPTION_INITIAL_CONTACT}" />
+    </annotation>
+  </item>
+  <item name="android.net.ipsec.ike.IkeSessionParams int getDpdDelaySeconds()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="20L" />
+    </annotation>
+  </item>
+  <item name="android.net.ipsec.ike.IkeSessionParams int getHardLifetimeSeconds()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="300L" />
+      <val name="to" val="86400L" />
+    </annotation>
+  </item>
+  <item name="android.net.ipsec.ike.IkeSessionParams int getNattKeepAliveDelaySeconds()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="10L" />
+      <val name="to" val="3600L" />
+    </annotation>
+  </item>
+  <item name="android.net.ipsec.ike.IkeSessionParams int getSoftLifetimeSeconds()">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="120L" />
+      <val name="to" val="86400L" />
+    </annotation>
+  </item>
+  <item name="android.net.ipsec.ike.IkeSessionParams java.util.Set&lt;java.lang.Integer&gt; getIkeOptions()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.ipsec.ike.IkeSessionParams.IKE_OPTION_ACCEPT_ANY_REMOTE_ID, android.net.ipsec.ike.IkeSessionParams.IKE_OPTION_EAP_ONLY_AUTH, android.net.ipsec.ike.IkeSessionParams.IKE_OPTION_MOBIKE, android.net.ipsec.ike.IkeSessionParams.IKE_OPTION_FORCE_PORT_4500, android.net.ipsec.ike.IkeSessionParams.IKE_OPTION_INITIAL_CONTACT}" />
+    </annotation>
+  </item>
+  <item name="android.net.ipsec.ike.IkeSessionParams.Builder android.net.ipsec.ike.IkeSessionParams.Builder addIkeOption(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.ipsec.ike.IkeSessionParams.IKE_OPTION_ACCEPT_ANY_REMOTE_ID, android.net.ipsec.ike.IkeSessionParams.IKE_OPTION_EAP_ONLY_AUTH, android.net.ipsec.ike.IkeSessionParams.IKE_OPTION_MOBIKE, android.net.ipsec.ike.IkeSessionParams.IKE_OPTION_FORCE_PORT_4500, android.net.ipsec.ike.IkeSessionParams.IKE_OPTION_INITIAL_CONTACT}" />
+    </annotation>
+  </item>
+  <item name="android.net.ipsec.ike.IkeSessionParams.Builder android.net.ipsec.ike.IkeSessionParams.Builder removeIkeOption(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.net.ipsec.ike.IkeSessionParams.IKE_OPTION_ACCEPT_ANY_REMOTE_ID, android.net.ipsec.ike.IkeSessionParams.IKE_OPTION_EAP_ONLY_AUTH, android.net.ipsec.ike.IkeSessionParams.IKE_OPTION_MOBIKE, android.net.ipsec.ike.IkeSessionParams.IKE_OPTION_FORCE_PORT_4500, android.net.ipsec.ike.IkeSessionParams.IKE_OPTION_INITIAL_CONTACT}" />
+    </annotation>
+  </item>
+  <item name="android.net.ipsec.ike.IkeSessionParams.Builder android.net.ipsec.ike.IkeSessionParams.Builder setDpdDelaySeconds(int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="20L" />
+    </annotation>
+  </item>
+  <item name="android.net.ipsec.ike.IkeSessionParams.Builder android.net.ipsec.ike.IkeSessionParams.Builder setLifetimeSeconds(int, int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="300L" />
+      <val name="to" val="86400L" />
+    </annotation>
+  </item>
+  <item name="android.net.ipsec.ike.IkeSessionParams.Builder android.net.ipsec.ike.IkeSessionParams.Builder setLifetimeSeconds(int, int) 1">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="120L" />
+      <val name="to" val="86400L" />
+    </annotation>
+  </item>
+  <item name="android.net.ipsec.ike.IkeSessionParams.Builder android.net.ipsec.ike.IkeSessionParams.Builder setNattKeepAliveDelaySeconds(int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="10L" />
+      <val name="to" val="3600L" />
+    </annotation>
+  </item>
+  <item name="android.net.ipsec.ike.TransportModeChildSessionParams.Builder android.net.ipsec.ike.TransportModeChildSessionParams.Builder setLifetimeSeconds(int, int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="300L" />
+      <val name="to" val="14400L" />
+    </annotation>
+  </item>
+  <item name="android.net.ipsec.ike.TransportModeChildSessionParams.Builder android.net.ipsec.ike.TransportModeChildSessionParams.Builder setLifetimeSeconds(int, int) 1">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="120L" />
+      <val name="to" val="14400L" />
+    </annotation>
+  </item>
+  <item name="android.net.ipsec.ike.TunnelModeChildSessionParams.Builder android.net.ipsec.ike.TunnelModeChildSessionParams.Builder setLifetimeSeconds(int, int) 0">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="300L" />
+      <val name="to" val="14400L" />
+    </annotation>
+  </item>
+  <item name="android.net.ipsec.ike.TunnelModeChildSessionParams.Builder android.net.ipsec.ike.TunnelModeChildSessionParams.Builder setLifetimeSeconds(int, int) 1">
+    <annotation name="androidx.annotation.IntRange">
+      <val name="from" val="120L" />
+      <val name="to" val="14400L" />
+    </annotation>
+  </item>
+</root>
+

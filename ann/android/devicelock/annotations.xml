@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+  <item name="android.devicelock.DeviceId int getType()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{android.devicelock.DeviceId.DEVICE_ID_TYPE_IMEI, android.devicelock.DeviceId.DEVICE_ID_TYPE_MEID, android.devicelock.DeviceId.DEVICE_ID_TYPE_SERIAL_NUMBER}" />
+    </annotation>
+  </item>
+  <item name="android.devicelock.DeviceLockManager void clearDeviceRestrictions(java.util.concurrent.Executor, android.os.OutcomeReceiver&lt;java.lang.Void,java.lang.Exception&gt;)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.MANAGE_DEVICE_LOCK_STATE&quot;" />
+    </annotation>
+  </item>
+  <item name="android.devicelock.DeviceLockManager void getDeviceId(java.util.concurrent.Executor, android.os.OutcomeReceiver&lt;android.devicelock.DeviceId,java.lang.Exception&gt;)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.MANAGE_DEVICE_LOCK_STATE&quot;" />
+    </annotation>
+  </item>
+  <item name="android.devicelock.DeviceLockManager void isDeviceLocked(java.util.concurrent.Executor, android.os.OutcomeReceiver&lt;java.lang.Boolean,java.lang.Exception&gt;)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.MANAGE_DEVICE_LOCK_STATE&quot;" />
+    </annotation>
+  </item>
+  <item name="android.devicelock.DeviceLockManager void lockDevice(java.util.concurrent.Executor, android.os.OutcomeReceiver&lt;java.lang.Void,java.lang.Exception&gt;)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.MANAGE_DEVICE_LOCK_STATE&quot;" />
+    </annotation>
+  </item>
+  <item name="android.devicelock.DeviceLockManager void notifyKioskSetupFinished(java.util.concurrent.Executor, android.os.OutcomeReceiver&lt;java.lang.Void,java.lang.Exception&gt;)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.MANAGE_DEVICE_LOCK_STATE&quot;" />
+    </annotation>
+  </item>
+  <item name="android.devicelock.DeviceLockManager void unlockDevice(java.util.concurrent.Executor, android.os.OutcomeReceiver&lt;java.lang.Void,java.lang.Exception&gt;)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.MANAGE_DEVICE_LOCK_STATE&quot;" />
+    </annotation>
+  </item>
+</root>
+
