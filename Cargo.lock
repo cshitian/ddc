@@ -50,7 +50,7 @@ dependencies = [
 
 [[package]]
 name = "ddc-cli"
-version = "0.1.0"
+version = "0.1.2"
 dependencies = [
  "anyhow",
  "ddc-dec",
@@ -63,7 +63,7 @@ dependencies = [
 
 [[package]]
 name = "ddc-dec"
-version = "0.1.0"
+version = "0.1.2"
 dependencies = [
  "anyhow",
  "ddc-dex",
@@ -72,7 +72,7 @@ dependencies = [
 
 [[package]]
 name = "ddc-dex"
-version = "0.1.0"
+version = "0.2.0"
 
 [[package]]
 name = "find-msvc-tools"
