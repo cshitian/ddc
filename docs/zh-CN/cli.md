@@ -86,13 +86,13 @@ DDC_LANG=en ddc -V        # zh 区域下强制英文
 
 ### 先摸清全貌
 
-- **`ddc appinfo <apk>`** —— 一条命令拿全上下文：应用名（manifest 里的
-  `@0x…` 引用经最小 resources.arsc 解析还原，字面值直出）、包名、
-  `版本名 (版本号)`、自定义 Application 类、启动 Activity、`uses-sdk`
-  上下界、dex/类/方法统计、文件大小与 MD5。label 查找与 manifest
-  一样遵循容器 base 优先规则。
-- **`ddc info <输入>`** —— 每个 dex 镜像一行：版本、类/方法/字段/字符串
-  计数，外加合计行。
+- **`ddc info <输入>`** —— 一条命令看全貌。先是上下文头（有 manifest
+  时）：应用名（`@0x…` 引用经最小 resources.arsc 解析还原，字面值
+  直出）、包名、`版本名 (版本号)`、自定义 Application 类、启动
+  Activity、`uses-sdk` 上下界、文件大小与 MD5（label 查找与 manifest
+  一样遵循容器 base 优先规则）。随后是逐 dex 表：每个镜像一行的
+  版本、类/方法/字段/字符串计数，外加合计行。裸 `.dex` 输入没有
+  manifest，跳过头部只打印表格。
 - **`ddc listclasses <输入> [模式]`** —— 类名（内部 `com/foo/Bar` 形式）；
   模式为大小写不敏感的子串。
 - **`ddc manifest <apk> [--component C] [-o FILE]`** —— 把二进制

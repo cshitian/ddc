@@ -95,10 +95,9 @@ fn print_help_en() {
     println!("image set, and most take -o to write results to a file.");
     println!();
     println!("  Get oriented:");
-    println!("    ddc appinfo <apk>                   the whole context: label (arsc-resolved),");
-    println!("                                        package, version, launcher, sdk, dex");
-    println!("                                        totals, size, md5");
-    println!("    ddc info <input>                    per-dex version/class/method counts");
+    println!("    ddc info <input>                    app context (label via resources.arsc,");
+    println!("                                        package, version, launcher, sdk, size,");
+    println!("                                        md5) + per-dex class/method counts");
     println!("    ddc listclasses <input> [pattern]   class names, fuzzy filter");
     println!("    ddc manifest <apk> [--component C]  AndroidManifest.xml → text XML");
     println!("                                        (--component launcher|activity|");
@@ -205,10 +204,9 @@ fn print_help_zh() {
     println!("缩小镜像范围，多数支持 -o 把结果写入文件。");
     println!();
     println!("  先摸清全貌：");
-    println!("    ddc appinfo <apk>                   一次拿全上下文：应用名（arsc 解析）、");
-    println!("                                        包名、版本、启动类、SDK、dex 统计、");
-    println!("                                        大小、md5");
-    println!("    ddc info <输入>                     每镜像版本/类/方法计数");
+    println!("    ddc info <输入>                     App 上下文（应用名走 resources.arsc");
+    println!("                                        解析、包名、版本、启动类、SDK、");
+    println!("                                        大小、md5）+ 每镜像类/方法计数");
     println!("    ddc listclasses <输入> [模式]       类名清单，可模糊过滤");
     println!("    ddc manifest <apk> [--component C]  AndroidManifest.xml → 文本 XML");
     println!("                                        （--component launcher|activity|");
@@ -314,7 +312,6 @@ fn is_subcommand(word: &str) -> bool {
             | "findrefs"
             | "manifest"
             | "info"
-            | "appinfo"
             | "strings"
             | "members"
             | "hierarchy"
@@ -335,7 +332,6 @@ fn run_subcommand(cmd: &str, args: &[String]) -> Result<()> {
     match cmd {
         "manifest" => cmd_manifest(args, t0),
         "info" => cmd_info(args, t0),
-        "appinfo" => cmd_appinfo(args),
         "listclasses" => cmd_listclasses(args, t0),
         "getclass" => cmd_getclass(args, t0),
         "findrefs" => cmd_findrefs(args, t0),
@@ -362,78 +358,6 @@ fn sub_input(args: &[String], cmd: &str) -> Result<PathBuf> {
         .find(|a| !a.starts_with('-'))
         .map(PathBuf::from)
         .with_context(|| format!("{cmd} needs an input file"))
-}
-
-// ---- appinfo -----------------------------------------------------------------
-
-/// One command, the whole context: label (resolved through
-/// resources.arsc when the manifest carries an `@0x…` ref), package,
-/// version, launcher, sdk bounds, dex/class/method totals, size and md5.
-fn cmd_appinfo(args: &[String]) -> Result<()> {
-    let input = sub_input(args, "appinfo")?;
-    let facts = manifest::facts_for(&input)?;
-    // The label: a literal, or an arsc ref; unresolvable refs stay raw —
-    // still more informative than dropping the line.
-    let label = facts
-        .label
-        .as_deref()
-        .map(|l| arsc::resolve_string_ref(&input, l).unwrap_or_else(|| l.to_string()));
-    let files = expand_inputs(std::slice::from_ref(&input))?;
-    let parsed = parse_images(collect_images(&files)?)?;
-    let classes: usize = parsed.iter().map(|(_, d)| d.class_defs.len()).sum();
-    let methods: usize = parsed.iter().map(|(_, d)| d.method_count()).sum();
-    let size = std::fs::metadata(&input)?.len();
-    let md5 = md5_hex(&input)?;
-
-    let row = |k: &str, v: String| println!("{:<12}{}", k, v);
-    row(
-        bi!("label", "应用名"),
-        label.unwrap_or_else(|| bi!("-", "无").to_string()),
-    );
-    row(bi!("package", "包名"), facts.package.clone());
-    row(
-        bi!("version", "版本"),
-        match (&facts.version_name, &facts.version_code) {
-            (Some(n), Some(c)) => format!("{n} ({c})"),
-            (Some(n), None) => n.clone(),
-            (None, Some(c)) => format!("({c})"),
-            (None, None) => bi!("-", "无").to_string(),
-        },
-    );
-    if let Some(app) = &facts.application {
-        row(bi!("application", "应用类"), app.clone());
-    }
-    row(
-        bi!("launcher", "启动类"),
-        facts.launcher.clone().unwrap_or_else(|| bi!("-", "无").to_string()),
-    );
-    row(
-        bi!("sdk", "SDK"),
-        match (&facts.min_sdk, &facts.target_sdk) {
-            (Some(m), Some(t)) => format!("{m}–{t}"),
-            (Some(m), None) => format!("min {m}"),
-            (None, Some(t)) => format!("target {t}"),
-            (None, None) => bi!("-", "无").to_string(),
-        },
-    );
-    row(
-        bi!("dex", "dex"),
-        bif!(
-            "{0} image(s), {1} classes, {2} methods",
-            "{0} 个镜像，{1} 个类，{2} 个方法";
-            parsed.len(), classes, methods
-        ),
-    );
-    row(
-        bi!("size", "大小"),
-        bif!(
-            "{0} ({1} bytes)",
-            "{0}（{1} 字节）";
-            fmt_bytes(size), size
-        ),
-    );
-    row("md5", md5);
-    Ok(())
 }
 
 /// `142.9 MB` style human size.
@@ -585,6 +509,64 @@ fn cmd_manifest(args: &[String], t0: std::time::Instant) -> Result<()> {
 
 fn cmd_info(args: &[String], _t0: std::time::Instant) -> Result<()> {
     let input = sub_input(args, "info")?;
+    // Context header — best effort: only when a manifest exists (an APK
+    // or container; a bare .dex/jar drops straight to the table). The
+    // label resolves `@0x…` refs through resources.arsc.
+    if let Ok(facts) = manifest::facts_for(&input) {
+        let label = facts
+            .label
+            .as_deref()
+            .map(|l| arsc::resolve_string_ref(&input, l).unwrap_or_else(|| l.to_string()));
+        let row = |k: &str, v: String| println!("{:<12}{}", k, v);
+        row(
+            bi!("label", "应用名"),
+            label.unwrap_or_else(|| bi!("-", "无").to_string()),
+        );
+        row(bi!("package", "包名"), facts.package.clone());
+        row(
+            bi!("version", "版本"),
+            match (&facts.version_name, &facts.version_code) {
+                (Some(n), Some(c)) => format!("{n} ({c})"),
+                (Some(n), None) => n.clone(),
+                (None, Some(c)) => format!("({c})"),
+                (None, None) => bi!("-", "无").to_string(),
+            },
+        );
+        if let Some(app) = &facts.application {
+            row(bi!("application", "应用类"), app.clone());
+        }
+        row(
+            bi!("launcher", "启动类"),
+            facts
+                .launcher
+                .clone()
+                .unwrap_or_else(|| bi!("-", "无").to_string()),
+        );
+        row(
+            bi!("sdk", "SDK"),
+            match (&facts.min_sdk, &facts.target_sdk) {
+                (Some(m), Some(t)) => format!("{m}–{t}"),
+                (Some(m), None) => format!("min {m}"),
+                (None, Some(t)) => format!("target {t}"),
+                (None, None) => bi!("-", "无").to_string(),
+            },
+        );
+    }
+    if input.is_file() {
+        let size = std::fs::metadata(&input)?.len();
+        println!(
+            "{:<12}{}",
+            bi!("size", "大小"),
+            bif!(
+                "{0} ({1} bytes)",
+                "{0}（{1} 字节）";
+                fmt_bytes(size),
+                size
+            )
+        );
+        println!("{:<12}{}", "md5", md5_hex(&input)?);
+    }
+    println!();
     let files = expand_inputs(&[input])?;
     let parsed = parse_images(collect_images(&files)?)?;
     let mut total_classes = 0usize;

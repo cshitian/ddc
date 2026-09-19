@@ -96,14 +96,15 @@ clean (timing prints only with `-o`).
 
 ### Get oriented
 
-- **`ddc appinfo <apk>`** — the whole context in one command: app label
-  (an `@0x…` manifest ref is resolved through a minimal resources.arsc
-  walk — literals print as-is), package, `versionName (versionCode)`,
-  custom Application class, launcher activity, `uses-sdk` bounds,
-  dex/class/method totals, file size and MD5. The label lookup mirrors
-  the manifest's base-first container rule.
-- **`ddc info <input>`** — one row per dex image: version, class,
-  method, field, string counts, plus a total row.
+- **`ddc info <input>`** — one command, the whole picture. A context
+  header first (when a manifest exists): app label — an `@0x…` ref is
+  resolved through a minimal resources.arsc walk, literals print
+  as-is — package, `versionName (versionCode)`, custom Application
+  class, launcher activity, `uses-sdk` bounds, file size and MD5 (the
+  label lookup mirrors the manifest's base-first container rule). Then
+  the per-dex table: one row per image with version, class, method,
+  field, string counts, plus a total row. Bare `.dex` inputs skip the
+  header (no manifest) and print the table only.
 - **`ddc listclasses <input> [pattern]`** — class names (internal
   `com/foo/Bar` form); pattern is a case-insensitive substring.
 - **`ddc manifest <apk> [--component C] [-o FILE]`** — decodes the

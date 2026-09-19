@@ -70,8 +70,8 @@ ddc app.apk                          # 全量反编译 → app-out/
 ddc app.apk -c com.example.Foo       # 单类输出到 stdout
 ddc app.apk -o - | less              # 全部输出到 stdout
 
-ddc appinfo app.apk                  # 一次拿全上下文：应用名、包名、
-                                      # 版本、启动类、SDK、统计、md5
+ddc info app.apk                      # App 上下文（应用名、包名、版本、
+                                      # md5）+ 每镜像计数
 ddc mainactivity app.apk             # 入口：包名 + 启动 Activity
 ddc findrefs app.apk string token    # 每个 const-string "token" 引用点
 ddc getmethod app.apk Foo.toString   # 单方法，含全部重载
