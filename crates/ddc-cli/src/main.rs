@@ -85,9 +85,9 @@ fn print_help_en() {
     println!("  -t, --threads <n>     parallel workers (default: CPU count;");
     println!("                        stdout output forces one thread for pool order)");
     println!("  --no-comments         omit the provenance header");
-    println!("  --symbols <dir>        SDK platform dir (android.jar + data/");
-    println!("                        annotations.zip): render IntDef constants as");
-    println!("                        names — setVisibility(8) → View.GONE");
+    println!("  --symbols <dir>        render IntDef constants as names (built-in");
+    println!("                        by default; this rebuilds from an SDK platform");
+    println!("                        dir: android.jar + data/annotations.zip)");
     println!("  -v, --verbose         per-dex stats and slow classes on stderr");
     println!("  -h, --help            print this help");
     println!("  -V, --version         print name, version and homepage");
@@ -296,11 +296,14 @@ fn main() {
         eprintln!("ddc: {e:?}");
         std::process::exit(2);
     }
-    // --symbols is consumed here for the WHOLE invocation; strip the
-    // pair so neither the full-run option loop nor the subcommand
-    // positional parsing sees it again.
-    if let Some(i) = args.iter().position(|a| a == "--symbols") {
-        args.drain(i..(i + 2).min(args.len()));
+    // --symbols (and the generation-only --symbols-out) are consumed
+    // here for the WHOLE invocation; strip the pairs so neither the
+    // full-run option loop nor the subcommand positional parsing sees
+    // them again.
+    for flag in ["--symbols", "--symbols-out"] {
+        if let Some(i) = args.iter().position(|a| a == flag) {
+            args.drain(i..(i + 2).min(args.len()));
+        }
     }
     // Leading subcommand word (unless an actual path shadows it) routes
     // to the metadata fast paths: query the artifact as a database
@@ -334,41 +337,80 @@ fn main() {
 /// (metadata looked up in `<parent>/data/annotations.zip`). Scanned
 /// once here — every path (full run and subcommands) flows through
 /// main().
+/// Built-in platform symbol table (deflated; see
+/// scripts/gen-platform-symbols.sh).
+static BUILTIN_SYMBOLS: &[u8] = include_bytes!("platform_symbols.bin.gz");
+
 fn load_symbols_from_args(args: &[String]) -> Result<()> {
     let Some(idx) = args.iter().position(|a| a == "--symbols") else {
+        // Built-in default (android-37, see scripts/gen-platform-symbols.sh):
+        // 1350 IntDef domains as a deflated 83KB blob. Installed at every
+        // startup — the table is consulted only when a literal matches a
+        // platform call site, so the cost is one 750KB deserialize.
+        let raw = inflate(BUILTIN_SYMBOLS)?;
+        if let Some(syms) = ddc_dec::platform::PlatformSymbols::deserialize(&raw) {
+            ddc_dec::platform::set_symbols(syms);
+        }
         return Ok(());
     };
-    let path = args
+    // Generation mode (scripts/gen-platform-symbols.sh): build the
+    // table from this platform and write the embedded-format blob.
+    if let Some(out) = args
+        .iter()
+        .position(|a| a == "--symbols-out")
+        .and_then(|i| args.get(i + 1))
+    {
+        let platform = args
+            .get(idx + 1)
+            .context("--symbols-out needs --symbols <platform-dir>")?;
+        let syms = build_symbols(Path::new(platform))?;
+        std::fs::write(out, syms.serialize())?;
+        eprintln!(
+            "{}",
+            bif!(
+                "ddc: wrote {0} ({1} domains, {2} bytes)",
+                "ddc：已写出 {0}（{1} 个域，{2} 字节）";
+                out, syms.domain_count(), syms.serialize().len()
+            )
+        );
+        return Ok(());
+    }
+    let platform = args
         .get(idx + 1)
         .context("--symbols needs a path (the SDK platform directory, e.g. ~/Library/Android/sdk/platforms/android-37.0)")?;
-    let t0 = std::time::Instant::now();
-    let (jar, zip) = if std::fs::metadata(path)?.is_dir() {
-        let jar = PathBuf::from(path).join("android.jar");
-        let zip = PathBuf::from(path).join("data").join("annotations.zip");
-        anyhow::ensure!(jar.is_file(), "--symbols: {} has no android.jar", path);
+    let syms = build_symbols(Path::new(platform))?;
+    ddc_dec::platform::set_symbols(syms);
+    Ok(())
+}
+
+/// android.jar constants + data/annotations.zip domains → the symbol
+/// table. The caller decides whether to install or serialize it.
+fn build_symbols(path: &Path) -> Result<ddc_dec::platform::PlatformSymbols> {
+    let (jar, zip) = if path.is_dir() {
+        let jar = path.join("android.jar");
+        let zip = path.join("data").join("annotations.zip");
+        anyhow::ensure!(jar.is_file(), "--symbols: {} has no android.jar", path.display());
         (jar, Some(zip))
     } else {
-        let jar = PathBuf::from(path);
         anyhow::ensure!(
-            jar.file_name().and_then(|n| n.to_str()) == Some("android.jar"),
-            "--symbols: expected the platform directory or an android.jar, got {path}"
+            path.file_name().and_then(|n| n.to_str()) == Some("android.jar"),
+            "--symbols: expected the platform directory or an android.jar, got {}",
+            path.display()
         );
-        let zip = jar.parent().and_then(|p| p.parent()).map(|p| p.join("data").join("annotations.zip"));
-        (jar, zip)
+        let zip = path.parent().and_then(|p| p.parent()).map(|p| p.join("data").join("annotations.zip"));
+        (path.to_path_buf(), zip)
     };
     // ---- constants out of every .class in android.jar ----
     let src = inputs::map_source(&jar)?;
     let bytes = src.bytes();
     let mut constants: std::collections::HashMap<(String, String), i64> =
         std::collections::HashMap::new();
-    let mut class_count = 0usize;
     for e in zip_entries(bytes)? {
         if !e.name.ends_with(".class") {
             continue;
         }
         if let Ok(raw) = manifest::entry_bytes(bytes, &e) {
-            if let Some((cons, _methods)) = ddc_dec::platform::classfile_constants(&raw) {
-                class_count += 1;
+            if let Some((cons, _)) = ddc_dec::platform::classfile_constants(&raw) {
                 constants.extend(cons);
             }
         }
@@ -387,18 +429,7 @@ fn load_symbols_from_args(args: &[String]) -> Result<()> {
         }
     }
     let refs: Vec<&[u8]> = xmls.iter().map(|v| v.as_slice()).collect();
-    let syms = ddc_dec::platform::PlatformSymbols::from_metadata(&refs, &constants);
-    let domains = syms.domain_count();
-    ddc_dec::platform::set_symbols(syms);
-    eprintln!(
-        "{}",
-        bif!(
-            "ddc: platform symbols: {0} domains, {1} constants from {2} classes ({3:.1}s)",
-            "ddc：平台符号：{0} 个常量域，{1} 个常量（{2} 个类，{3:.1}s）";
-            domains, constants.len(), class_count, t0.elapsed().as_secs_f32()
-        )
-    );
-    Ok(())
+    Ok(ddc_dec::platform::PlatformSymbols::from_metadata(&refs, &constants))
 }
 
 fn is_subcommand(word: &str) -> bool {

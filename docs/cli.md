@@ -180,16 +180,22 @@ clean (timing prints only with `-o`).
   `org.telegram.messenger`) it retries with the launcher class's
   package, which is where an app's own code clusters.
 
-## Platform symbols (`--symbols`)
+## Platform symbols
 
-`--symbols <sdk-platform-dir>` points at an Android SDK platform
-directory (e.g. `~/Library/Android/sdk/platforms/android-37.0` — needs
-`android.jar` and `data/annotations.zip`). ddc then renders IntDef/
-LongDef literal arguments as their constant names:
-`setVisibility(8)` → `android.view.View.GONE`, exact-domain matches
-only (combined flag values stay numeric). The flag loads once for the
-whole invocation — full decompile and subcommands alike; loading
-android.jar costs ~0.1s and prints its tally to stderr.
+ddc renders IntDef/LongDef literal arguments as their constant names
+out of the box (`setVisibility(8)` → `android.view.View.GONE`):
+a domain table derived from an SDK platform is embedded as an 83KB
+deflated blob (android-37; regenerate with
+`scripts/gen-platform-symbols.sh [platform-dir]` and commit). The
+table is exact-match — combined flag values stay numeric — and
+version-independent in effect: methods missing from the baked API
+level simply stay numeric. Startup cost is under 5ms.
+
+`--symbols <sdk-platform-dir>` (e.g.
+`~/Library/Android/sdk/platforms/android-37.0`, needs `android.jar`
+and `data/annotations.zip`) rebuilds the table from that platform for
+this invocation, overriding the built-in — full decompile and
+subcommands alike.
 
 ## Exit codes for subcommands
 

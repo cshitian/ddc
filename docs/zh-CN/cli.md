@@ -154,15 +154,19 @@ DDC_LANG=en ddc -V        # zh 区域下强制英文
   `org.telegram.messenger`）回退用 launcher 类所在的包，应用自身代码总
   聚簇在那里。
 
-## 平台符号（`--symbols`）
+## 平台符号
 
-`--symbols <SDK平台目录>` 指向 Android SDK 的平台目录（如
+ddc 开箱即用地把 IntDef/LongDef 字面量实参按常量名渲染
+（`setVisibility(8)` → `android.view.View.GONE`）：从 SDK 平台派生
+的域表以 83KB deflate 块内嵌（android-37；用
+`scripts/gen-platform-symbols.sh [平台目录]` 重新生成并提交）。
+表是精确匹配的——组合 flag 值保持数字；对 API 版本不敏感：不在
+内嵌级别里的方法保持数字。启动成本低于 5ms。
+
+`--symbols <SDK平台目录>`（如
 `~/Library/Android/sdk/platforms/android-37.0`，需含 `android.jar`
-和 `data/annotations.zip`）。ddc 会把 IntDef/LongDef 字面量实参按
-常量名渲染：`setVisibility(8)` → `android.view.View.GONE`——仅精确
-命中域成员（组合的 flag 值保持数字）。该参数对整次调用加载一次，
-全量反编译与子命令同样生效；解析 android.jar 约 0.1 秒，统计行打
-到 stderr。
+和 `data/annotations.zip`）对该次调用按此平台重建表并覆盖内置
+——全量反编译与子命令同样生效。
 
 ## 子命令的退出码
 

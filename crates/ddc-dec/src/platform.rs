@@ -46,25 +46,28 @@ pub struct PlatformSymbols {
 
 static SYMBOLS: OnceLock<PlatformSymbols> = OnceLock::new();
 
-/// Install the symbols for this run (from the driver, before workers
+/// Install the symbol table for this run (the driver installs the
+/// built-in default or an explicit `--symbols` build, before workers
 /// start — same pattern as the case-rename registry).
 pub fn set_symbols(s: PlatformSymbols) {
     let _ = SYMBOLS.set(s);
 }
 
-/// Whether symbols are installed (the pass gates on this).
+/// The active table, if any.
+fn active() -> Option<&'static PlatformSymbols> {
+    SYMBOLS.get().filter(|s| !s.domains.is_empty())
+}
+
+/// Whether a symbol table is available (explicit or built-in).
 pub fn installed() -> bool {
-    SYMBOLS.get().is_some_and(|s| !s.domains.is_empty())
+    active().is_some()
 }
 
 /// The named constant for a call argument, when the platform knows the
 /// parameter's domain and the literal matches exactly one member.
 /// Rendered dotted-and-qualified (the output has no imports).
 pub fn named_constant(cls: &str, name: &str, desc: &str, arg: usize, value: i64) -> Option<String> {
-    let syms = SYMBOLS.get()?;
-    if syms.domains.is_empty() {
-        return None;
-    }
+    let syms = active()?;
     let per_arg = syms.domains.get(&(cls.to_string(), name.to_string(), desc.to_string()))?;
     let domain = per_arg.get(arg).or_else(|| per_arg.first()).cloned().flatten()?;
     let (owner, field, _) = domain.exact(value)?;
@@ -115,6 +118,96 @@ impl PlatformSymbols {
     pub fn domain_count(&self) -> usize {
         self.domains.values().filter(|v| v.iter().any(|d| d.is_some())).count()
     }
+
+    /// Compact self-contained serialization (count-prefixed strings,
+    /// little-endian). The derived domain table is all the pass needs —
+    /// the android.jar constants map was only build input.
+    pub fn serialize(&self) -> Vec<u8> {
+        use std::collections::BTreeMap;
+        let ordered: BTreeMap<_, _> = self.domains.iter().collect(); // deterministic
+        let mut out = Vec::new();
+        out.extend_from_slice(&(ordered.len() as u32).to_le_bytes());
+        for ((cls, name, desc), per_arg) in ordered {
+            put_str(&mut out, cls);
+            put_str(&mut out, name);
+            put_str(&mut out, desc);
+            out.push(per_arg.len() as u8);
+            for d in per_arg {
+                match d {
+                    Some(d) => {
+                        out.push(1);
+                        out.extend_from_slice(&(d.members.len() as u16).to_le_bytes());
+                        for (owner, field, value) in &d.members {
+                            put_str(&mut out, owner);
+                            put_str(&mut out, field);
+                            out.extend_from_slice(&value.to_le_bytes());
+                        }
+                    }
+                    None => out.push(0),
+                }
+            }
+        }
+        out
+    }
+
+    pub fn deserialize(bytes: &[u8]) -> Option<Self> {
+        let mut p = 0usize;
+        let rd_u32 = |p: &mut usize| -> Option<u32> {
+            let v = u32::from_le_bytes(bytes.get(*p..*p + 4)?.try_into().ok()?);
+            *p += 4;
+            Some(v)
+        };
+        let rd_u16 = |p: &mut usize| -> Option<u16> {
+            let v = u16::from_le_bytes(bytes.get(*p..*p + 2)?.try_into().ok()?);
+            *p += 2;
+            Some(v)
+        };
+        let rd_i64 = |p: &mut usize| -> Option<i64> {
+            let v = i64::from_le_bytes(bytes.get(*p..*p + 8)?.try_into().ok()?);
+            *p += 8;
+            Some(v)
+        };
+        let get_str = |p: &mut usize| -> Option<String> {
+            let len = rd_u16(p)? as usize;
+            let s = String::from_utf8(bytes.get(*p..*p + len)?.to_vec()).ok()?;
+            *p += len;
+            Some(s)
+        };
+        let count = rd_u32(&mut p)? as usize;
+        let mut domains = HashMap::with_capacity(count);
+        for _ in 0..count {
+            let cls = get_str(&mut p)?;
+            let name = get_str(&mut p)?;
+            let desc = get_str(&mut p)?;
+            let n = *bytes.get(p)?;
+            p += 1;
+            let mut per_arg = Vec::with_capacity(n as usize);
+            for _ in 0..n {
+                if *bytes.get(p)? == 1 {
+                    p += 1;
+                    let mc = rd_u16(&mut p)? as usize;
+                    let mut members = Vec::with_capacity(mc);
+                    for _ in 0..mc {
+                        let owner = get_str(&mut p)?;
+                        let field = get_str(&mut p)?;
+                        let value = rd_i64(&mut p)?;
+                        members.push((owner, field, value));
+                    }
+                    per_arg.push(Some(ConstantDomain { members }));
+                } else {
+                    p += 1;
+                    per_arg.push(None);
+                }
+            }
+            domains.insert((cls, name, desc), per_arg);
+        }
+        Some(Self { domains })
+    }
+}
+
+fn put_str(out: &mut Vec<u8>, s: &str) {
+    out.extend_from_slice(&(s.len() as u16).to_le_bytes());
+    out.extend_from_slice(s.as_bytes());
 }
 
 /// Java source type → dex descriptor fragment (`int` → `I`,
@@ -400,6 +493,23 @@ mod tests {
         // Unknown methods and wrong descriptors stay numeric.
         assert!(named_constant("android/view/View", "setAlpha", "(F)V", 0, 0).is_none());
         assert!(named_constant("android/view/View", "setVisibility", "(J)V", 0, 0).is_none());
+    }
+
+    #[test]
+    fn serialize_roundtrip() {
+        let mut constants: HashMap<(String, String), i64> = HashMap::new();
+        for (c, f, v) in [
+            ("android/view/View", "VISIBLE", 0i64),
+            ("android/view/View", "GONE", 8),
+        ] {
+            constants.insert((c.to_string(), f.to_string()), v);
+        }
+        let syms = PlatformSymbols::from_metadata(&[XML], &constants);
+        let blob = syms.serialize();
+        let back = PlatformSymbols::deserialize(&blob).expect("roundtrip");
+        assert_eq!(back.domain_count(), syms.domain_count());
+        // A truncated blob must not panic — parse fails cleanly.
+        assert!(PlatformSymbols::deserialize(&blob[..blob.len() / 2]).is_none());
     }
 
     #[test]
