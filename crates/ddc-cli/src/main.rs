@@ -13,6 +13,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use anyhow::{bail, Context, Result};
 
+mod arsc;
 mod axml;
 mod browse;
 mod findrefs;
@@ -94,6 +95,9 @@ fn print_help_en() {
     println!("image set, and most take -o to write results to a file.");
     println!();
     println!("  Get oriented:");
+    println!("    ddc appinfo <apk>                   the whole context: label (arsc-resolved),");
+    println!("                                        package, version, launcher, sdk, dex");
+    println!("                                        totals, size, md5");
     println!("    ddc info <input>                    per-dex version/class/method counts");
     println!("    ddc listclasses <input> [pattern]   class names, fuzzy filter");
     println!("    ddc manifest <apk> [--component C]  AndroidManifest.xml → text XML");
@@ -201,6 +205,9 @@ fn print_help_zh() {
     println!("缩小镜像范围，多数支持 -o 把结果写入文件。");
     println!();
     println!("  先摸清全貌：");
+    println!("    ddc appinfo <apk>                   一次拿全上下文：应用名（arsc 解析）、");
+    println!("                                        包名、版本、启动类、SDK、dex 统计、");
+    println!("                                        大小、md5");
     println!("    ddc info <输入>                     每镜像版本/类/方法计数");
     println!("    ddc listclasses <输入> [模式]       类名清单，可模糊过滤");
     println!("    ddc manifest <apk> [--component C]  AndroidManifest.xml → 文本 XML");
@@ -307,6 +314,7 @@ fn is_subcommand(word: &str) -> bool {
             | "findrefs"
             | "manifest"
             | "info"
+            | "appinfo"
             | "strings"
             | "members"
             | "hierarchy"
@@ -327,6 +335,7 @@ fn run_subcommand(cmd: &str, args: &[String]) -> Result<()> {
     match cmd {
         "manifest" => cmd_manifest(args, t0),
         "info" => cmd_info(args, t0),
+        "appinfo" => cmd_appinfo(args),
         "listclasses" => cmd_listclasses(args, t0),
         "getclass" => cmd_getclass(args, t0),
         "findrefs" => cmd_findrefs(args, t0),
@@ -353,6 +362,165 @@ fn sub_input(args: &[String], cmd: &str) -> Result<PathBuf> {
         .find(|a| !a.starts_with('-'))
         .map(PathBuf::from)
         .with_context(|| format!("{cmd} needs an input file"))
+}
+
+// ---- appinfo -----------------------------------------------------------------
+
+/// One command, the whole context: label (resolved through
+/// resources.arsc when the manifest carries an `@0x…` ref), package,
+/// version, launcher, sdk bounds, dex/class/method totals, size and md5.
+fn cmd_appinfo(args: &[String]) -> Result<()> {
+    let input = sub_input(args, "appinfo")?;
+    let facts = manifest::facts_for(&input)?;
+    // The label: a literal, or an arsc ref; unresolvable refs stay raw —
+    // still more informative than dropping the line.
+    let label = facts
+        .label
+        .as_deref()
+        .map(|l| arsc::resolve_string_ref(&input, l).unwrap_or_else(|| l.to_string()));
+    let files = expand_inputs(std::slice::from_ref(&input))?;
+    let parsed = parse_images(collect_images(&files)?)?;
+    let classes: usize = parsed.iter().map(|(_, d)| d.class_defs.len()).sum();
+    let methods: usize = parsed.iter().map(|(_, d)| d.method_count()).sum();
+    let size = std::fs::metadata(&input)?.len();
+    let md5 = md5_hex(&input)?;
+
+    let row = |k: &str, v: String| println!("{:<12}{}", k, v);
+    row(
+        bi!("label", "应用名"),
+        label.unwrap_or_else(|| bi!("-", "无").to_string()),
+    );
+    row(bi!("package", "包名"), facts.package.clone());
+    row(
+        bi!("version", "版本"),
+        match (&facts.version_name, &facts.version_code) {
+            (Some(n), Some(c)) => format!("{n} ({c})"),
+            (Some(n), None) => n.clone(),
+            (None, Some(c)) => format!("({c})"),
+            (None, None) => bi!("-", "无").to_string(),
+        },
+    );
+    if let Some(app) = &facts.application {
+        row(bi!("application", "应用类"), app.clone());
+    }
+    row(
+        bi!("launcher", "启动类"),
+        facts.launcher.clone().unwrap_or_else(|| bi!("-", "无").to_string()),
+    );
+    row(
+        bi!("sdk", "SDK"),
+        match (&facts.min_sdk, &facts.target_sdk) {
+            (Some(m), Some(t)) => format!("{m}–{t}"),
+            (Some(m), None) => format!("min {m}"),
+            (None, Some(t)) => format!("target {t}"),
+            (None, None) => bi!("-", "无").to_string(),
+        },
+    );
+    row(
+        bi!("dex", "dex"),
+        bif!(
+            "{0} image(s), {1} classes, {2} methods",
+            "{0} 个镜像，{1} 个类，{2} 个方法";
+            parsed.len(), classes, methods
+        ),
+    );
+    row(
+        bi!("size", "大小"),
+        bif!(
+            "{0} ({1} bytes)",
+            "{0}（{1} 字节）";
+            fmt_bytes(size), size
+        ),
+    );
+    row("md5", md5);
+    Ok(())
+}
+
+/// `142.9 MB` style human size.
+fn fmt_bytes(n: u64) -> String {
+    if n >= 1024 * 1024 * 1024 {
+        format!("{:.1} GB", n as f64 / 1073741824.0)
+    } else if n >= 1024 * 1024 {
+        format!("{:.1} MB", n as f64 / 1048576.0)
+    } else if n >= 1024 {
+        format!("{:.1} KB", n as f64 / 1024.0)
+    } else {
+        format!("{n} B")
+    }
+}
+
+/// Compact MD5 (RFC 1321) for sample identification — one hash line, no
+/// crypto-crate dependency for it.
+fn md5_hex(path: &std::path::Path) -> Result<String> {
+    let src = inputs::map_source(path)?;
+    let data = src.bytes();
+    let mut state: [u32; 4] = [0x6745_2301, 0xefcd_ab89, 0x98ba_dcfe, 0x1032_5476];
+    let (full, rem) = data.as_chunks::<64>();
+    for b in full {
+        md5_block(&mut state, b);
+    }
+    let bitlen = (data.len() as u64).wrapping_mul(8);
+    let mut last = [0u8; 64];
+    last[..rem.len()].copy_from_slice(rem);
+    last[rem.len()] = 0x80;
+    if rem.len() < 56 {
+        last[56..64].copy_from_slice(&bitlen.to_le_bytes());
+        md5_block(&mut state, &last);
+    } else {
+        md5_block(&mut state, &last);
+        let mut extra = [0u8; 64];
+        extra[56..64].copy_from_slice(&bitlen.to_le_bytes());
+        md5_block(&mut state, &extra);
+    }
+    // MD5 words serialize little-endian: digest = concat(le_bytes(a..d)).
+    Ok(state
+        .iter()
+        .flat_map(|w| w.to_le_bytes())
+        .map(|b| format!("{b:02x}"))
+        .collect())
+}
+
+fn md5_block(state: &mut [u32; 4], block: &[u8; 64]) {
+    const K: [u32; 64] = [
+        0xd76aa478, 0xe8c7b756, 0x242070db, 0xc1bdceee, 0xf57c0faf, 0x4787c62a, 0xa8304613,
+        0xfd469501, 0x698098d8, 0x8b44f7af, 0xffff5bb1, 0x895cd7be, 0x6b901122, 0xfd987193,
+        0xa679438e, 0x49b40821, 0xf61e2562, 0xc040b340, 0x265e5a51, 0xe9b6c7aa, 0xd62f105d,
+        0x02441453, 0xd8a1e681, 0xe7d3fbc8, 0x21e1cde6, 0xc33707d6, 0xf4d50d87, 0x455a14ed,
+        0xa9e3e905, 0xfcefa3f8, 0x676f02d9, 0x8d2a4c8a, 0xfffa3942, 0x8771f681, 0x6d9d6122,
+        0xfde5380c, 0xa4beea44, 0x4bdecfa9, 0xf6bb4b60, 0xbebfbc70, 0x289b7ec6, 0xeaa127fa,
+        0xd4ef3085, 0x04881d05, 0xd9d4d039, 0xe6db99e5, 0x1fa27cf8, 0xc4ac5665, 0xf4292244,
+        0x432aff97, 0xab9423a7, 0xfc93a039, 0x655b59c3, 0x8f0ccc92, 0xffeff47d, 0x85845dd1,
+        0x6fa87e4f, 0xfe2ce6e0, 0xa3014314, 0x4e0811a1, 0xf7537e82, 0xbd3af235, 0x2ad7d2bb,
+        0xeb86d391,
+    ];
+    const S: [u32; 64] = [
+        7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22, 5, 9, 14, 20, 5, 9, 14,
+        20, 5, 9, 14, 20, 5, 9, 14, 20, 4, 11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23, 4, 11,
+        16, 23, 6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21,
+    ];
+    let mut m = [0u32; 16];
+    for (i, w) in m.iter_mut().enumerate() {
+        *w = u32::from_le_bytes(block[i * 4..i * 4 + 4].try_into().unwrap());
+    }
+    let (mut a, mut b, mut c, mut d) = (state[0], state[1], state[2], state[3]);
+    for i in 0..64 {
+        let (f, g) = match i / 16 {
+            0 => ((b & c) | (!b & d), i),
+            1 => ((d & b) | (!d & c), (5 * i + 1) % 16),
+            2 => (b ^ c ^ d, (3 * i + 5) % 16),
+            _ => (c ^ (b | !d), (7 * i) % 16),
+        };
+        let tmp = d;
+        d = c;
+        c = b;
+        let sum = a.wrapping_add(f).wrapping_add(K[i]).wrapping_add(m[g]);
+        b = b.wrapping_add(sum.rotate_left(S[i]));
+        a = tmp;
+    }
+    state[0] = state[0].wrapping_add(a);
+    state[1] = state[1].wrapping_add(b);
+    state[2] = state[2].wrapping_add(c);
+    state[3] = state[3].wrapping_add(d);
 }
 
 // ---- manifest ---------------------------------------------------------------

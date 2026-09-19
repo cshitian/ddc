@@ -715,3 +715,19 @@ fn pkg_app_reports_unresolvable_package() {
         stderr(&o)
     );
 }
+
+#[test]
+fn appinfo_reports_context() {
+    let apk = apk_fixture("appinfo");
+    // DDC_LANG pins the locale (a zh shell would flip the row labels).
+    let o = run(ddc().arg("appinfo").arg(&apk).env("DDC_LANG", "en"));
+    assert!(o.status.success(), "{}", stderr(&o));
+    let out = stdout(&o);
+    assert!(out.contains("label       Reqable"), "{out}");
+    assert!(out.contains("package     com.reqable.android"), "{out}");
+    assert!(out.contains("version     3.2.23 (221)"), "{out}");
+    assert!(out.contains("launcher    "), "{out}");
+    assert!(out.contains("sdk         21–35"), "{out}");
+    assert!(out.contains("classes"), "{out}");
+    assert!(out.contains("md5         "), "{out}");
+}

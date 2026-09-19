@@ -92,6 +92,15 @@ pub(crate) struct ManifestFacts {
     pub application: Option<String>,
     /// The MAIN/LAUNCHER activity (or activity-alias target).
     pub launcher: Option<String>,
+    /// `versionName` / `versionCode` off the <manifest> element.
+    pub version_name: Option<String>,
+    pub version_code: Option<String>,
+    /// `label` of <application> — a literal, or an `@0x…` ref the caller
+    /// resolves through resources.arsc.
+    pub label: Option<String>,
+    /// `uses-sdk` bounds.
+    pub min_sdk: Option<String>,
+    pub target_sdk: Option<String>,
 }
 
 /// Line-level walk of the generated XML. The decoder emits one element per
@@ -116,8 +125,14 @@ pub(crate) fn parse_facts(xml: &str) -> ManifestFacts {
         };
         if t.starts_with("<manifest") {
             f.package = attr("package").unwrap_or_default();
+            f.version_name = f.version_name.or_else(|| attr("versionName"));
+            f.version_code = f.version_code.or_else(|| attr("versionCode"));
         } else if t.starts_with("<application") && f.application.is_none() {
             f.application = attr("name");
+            f.label = attr("label");
+        } else if t.starts_with("<uses-sdk") && f.min_sdk.is_none() {
+            f.min_sdk = attr("minSdkVersion");
+            f.target_sdk = attr("targetSdkVersion");
         } else if t.starts_with("<activity") || t.starts_with("<activity-alias") {
             cur_activity = attr("name");
             cur_alias_target = if t.starts_with("<activity-alias") {

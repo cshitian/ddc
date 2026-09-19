@@ -75,6 +75,8 @@ ddc app.apk                          # full decompile → app-out/
 ddc app.apk -c com.example.Foo       # one class to stdout
 ddc app.apk -o - | less              # everything to stdout
 
+ddc appinfo app.apk                  # the whole context: label, package,
+                                      # version, launcher, sdk, totals, md5
 ddc mainactivity app.apk             # entry point: package + launcher
 ddc findrefs app.apk string token    # every const-string "token" site
 ddc getmethod app.apk Foo.toString   # one method, all overloads

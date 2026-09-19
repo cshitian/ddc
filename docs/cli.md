@@ -96,6 +96,12 @@ clean (timing prints only with `-o`).
 
 ### Get oriented
 
+- **`ddc appinfo <apk>`** — the whole context in one command: app label
+  (an `@0x…` manifest ref is resolved through a minimal resources.arsc
+  walk — literals print as-is), package, `versionName (versionCode)`,
+  custom Application class, launcher activity, `uses-sdk` bounds,
+  dex/class/method totals, file size and MD5. The label lookup mirrors
+  the manifest's base-first container rule.
 - **`ddc info <input>`** — one row per dex image: version, class,
   method, field, string counts, plus a total row.
 - **`ddc listclasses <input> [pattern]`** — class names (internal
