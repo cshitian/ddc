@@ -27,7 +27,8 @@
 - **可读输出** —— jadx 式局部变量名（`str`、`getName() → name`、
   Kotlin `Intrinsics` 参数名）取代 `v12`；IntDef 魔法数字开箱即用
   按常量名渲染（`setVisibility(8)` → `View.GONE`；内置 android-37
-  域表，`--symbols` 可覆盖）。
+  域表，`--symbols` 可覆盖）；Kotlin 空检查噪声消除、synthetic
+  `access$NNN` 桥在调用点内联。
 - **可复现输出** —— 无时间戳，两次运行 diff 干净。
 - **中英双语 CLI** —— 按环境变量自动识别语言（`DDC_LANG=zh|en` 强制
   指定，回退英文）。

@@ -180,16 +180,40 @@ clean (timing prints only with `-o`).
   `org.telegram.messenger`) it retries with the launcher class's
   package, which is where an app's own code clusters.
 
+## Output quality passes
+
+Four passes clean the decompiled body, all on by default:
+
+- **jadx-style local names** — a synthetic `v12`/`p3` never survives
+  when a better name exists: a Kotlin
+  `Intrinsics.checkNotNullParameter(x, "name")` names `x` from the
+  message string (the compiler wrote the real parameter name into the
+  check); the single consistent defining call (`getFoo() → foo`,
+  `new File(…) → file`); jadx's type-alias table (`str/cls/it/…`)
+  with the lowercased class simple name as fallback. Collisions take
+  `2, 3, …`; debug-info names are never touched.
+- **Kotlin null-check elision** — statement-position
+  `Intrinsics.checkNotNull…` calls are runtime assertions; they are
+  dropped after the naming pass harvested their strings (lark:
+  59,106 → 9).
+- **Synthetic-accessor inlining** — `access$NNN` static bridges inline
+  at call sites when the body is an identity, a field getter, or a
+  method forwarder (the d8 APM trace wrappers around the core are
+  tolerated). Only STATIC+SYNTHETIC callees qualify. lark: 43% of
+  9,214 call sites.
+- **IntDef constant rendering** — see below.
+
 ## Platform symbols
 
 ddc renders IntDef/LongDef literal arguments as their constant names
-out of the box (`setVisibility(8)` → `android.view.View.GONE`):
-a domain table derived from an SDK platform is embedded as an 83KB
-deflated blob (android-37; regenerate with
-`scripts/gen-platform-symbols.sh [platform-dir]` and commit). The
-table is exact-match — combined flag values stay numeric — and
-version-independent in effect: methods missing from the baked API
-level simply stay numeric. Startup cost is under 5ms.
+out of the box (`setVisibility(8)` → `android.view.View.GONE`). The
+domain table (android-37) lives in the repo as a READABLE,
+diffable text file — `crates/ddc-cli/src/platform_symbols.txt`, one
+domain per line — which build.rs raw-DEFLATEs into the binary (72KB).
+Regenerate with `scripts/gen-platform-symbols.sh [platform-dir]` and
+commit the .txt. The table is exact-match — combined flag values stay
+numeric — and version-independent in effect: methods missing from the
+baked API level simply stay numeric. Startup cost is under 5ms.
 
 `--symbols <sdk-platform-dir>` (e.g.
 `~/Library/Android/sdk/platforms/android-37.0`, needs `android.jar`

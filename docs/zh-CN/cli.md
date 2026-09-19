@@ -154,12 +154,30 @@ DDC_LANG=en ddc -V        # zh 区域下强制英文
   `org.telegram.messenger`）回退用 launcher 类所在的包，应用自身代码总
   聚簇在那里。
 
+## 输出质量 pass
+
+四个 pass 默认全部开启：
+
+- **jadx 式局部命名** —— 合成名 `v12`/`p3` 永不存活：Kotlin
+  `Intrinsics.checkNotNullParameter(x, "name")` 用字符串命名 x
+  （编译器把真参数名写进了检查）；唯一定义调用（`getFoo() → foo`、
+  `new File(…) → file`）；jadx 的类型别名表（`str/cls/it/…`）+
+  小写类简名回退。碰撞取 `2、3、…`；debug 信息名永不覆盖。
+- **Kotlin 空检查消除** —— 语句位的 `Intrinsics.checkNotNull…` 是
+  运行时断言；命名 pass 收割字符串后删除（lark：59,106 → 9）。
+- **synthetic accessor 内联** —— `access$NNN` 静态桥在调用点内联
+  （identity/字段 getter/方法转发三种形状，d8 APM 埋点容忍）。
+  只碰 STATIC+SYNTHETIC。lark：9,214 个调用点的 43%。
+- **IntDef 常量渲染** —— 见下。
+
 ## 平台符号
 
 ddc 开箱即用地把 IntDef/LongDef 字面量实参按常量名渲染
-（`setVisibility(8)` → `android.view.View.GONE`）：从 SDK 平台派生
-的域表以 83KB deflate 块内嵌（android-37；用
-`scripts/gen-platform-symbols.sh [平台目录]` 重新生成并提交）。
+（`setVisibility(8)` → `android.view.View.GONE`）。域表
+（android-37）以**可读、可 diff 的文本**放在 repo 里——
+`crates/ddc-cli/src/platform_symbols.txt`，一行一域——build.rs
+把它 raw-DEFLATE 进二进制（72KB）。用
+`scripts/gen-platform-symbols.sh [平台目录]` 重新生成并提交 .txt。
 表是精确匹配的——组合 flag 值保持数字；对 API 版本不敏感：不在
 内嵌级别里的方法保持数字。启动成本低于 5ms。
 

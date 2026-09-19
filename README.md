@@ -32,7 +32,8 @@ parses cleanly.
   name`, Kotlin `Intrinsics` parameter strings) instead of `v12`;
   IntDef literals render as their constants out of the box
   (`setVisibility(8)` → `View.GONE`; a built-in android-37 domain
-  table, `--symbols` overrides).
+  table, `--symbols` overrides); Kotlin null-check noise is elided and
+  synthetic `access$NNN` bridges inline at their call sites.
 - **Reproducible output** — no timestamps; two runs diff cleanly.
 - **Bilingual CLI** — messages localize automatically
   (`DDC_LANG=zh|en` forces; English fallback).
