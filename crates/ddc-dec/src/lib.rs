@@ -73,9 +73,12 @@ pub struct PoolField {
 /// One method of a pooled class.
 #[derive(Debug, Clone)]
 pub struct PoolMethod {
-    pub name: String,
-    /// Method descriptor (`(ILjava/lang/String;)V`).
-    pub desc: String,
+    /// Shared with the dex string table (the idx IS the dedup key).
+    pub name: std::sync::Arc<str>,
+    /// Method descriptor, shared per proto (a dex's proto table is the
+    /// descriptor dedup layer — 1.9M methods on lark share ~1 proto
+    /// table's worth of unique descriptors).
+    pub desc: std::sync::Arc<str>,
     pub access: u32,
     pub code_off: u32,
     pub debug_info_off: u32,
@@ -163,13 +166,13 @@ impl PoolClass {
     /// Find a method by name + descriptor.
     pub fn find_method(&self, name: &str, desc: &str) -> Option<&PoolMethod> {
         self.all_methods()
-            .find(|m| m.name == name && m.desc == desc)
+            .find(|m| &*m.name == name && &*m.desc == desc)
     }
 
     /// Constructors `<init>` matching `arity` descriptor arguments.
     pub fn ctors_by_arity(&self, arity: usize) -> Vec<&PoolMethod> {
         self.all_methods()
-            .filter(|m| m.name == "<init>")
+            .filter(|m| &*m.name == "<init>")
             .filter(|m| {
                 m.parsed_desc()
                     .map(|d| d.args.len() == arity)
@@ -518,30 +521,13 @@ fn pool_class_of(dex: &DexFile, raw: &[u8], cd: &ClassDef, dex_idx: usize) -> Po
         .collect();
     let mk_method = |em: &ddc_dex::EncodedMethod| {
         let m = dex.method(em.method_idx);
-        let proto = dex.proto(m.proto_idx);
-        let params: Vec<&str> = dex
-            .proto_params(m.proto_idx)
-            .into_iter()
-            .map(|t| dex.type_name(t))
-            .collect();
-        let ret = dex.type_name(proto.return_type_idx);
-        // Pre-sized single allocation (params.join + format! allocated
-        // two intermediates per method — ~8M methods on lark).
-        let mut desc =
-            String::with_capacity(2 + ret.len() + params.iter().map(|p| p.len()).sum::<usize>());
-        desc.push('(');
-        for p in &params {
-            desc.push_str(p);
-        }
-        desc.push(')');
-        desc.push_str(ret);
         let (code_off, debug_info_off) = match dex.debug_info_off_at(em.code_off) {
             Some(d) => (em.code_off, d),
             None => (0, 0),
         };
         PoolMethod {
-            name: dex.string(m.name_idx).to_string(),
-            desc,
+            name: dex.string_arc(m.name_idx),
+            desc: dex.proto_desc(m.proto_idx),
             access: em.access_flags,
             code_off,
             debug_info_off,

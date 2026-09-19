@@ -86,10 +86,24 @@ pub struct DexFile {
     /// Set by `mark_released` from a shared (&) reference — the actual
     /// bytes drop immediately through the mutex.
     released: std::sync::atomic::AtomicBool,
-    strings: Vec<String>,
+    /// MUTF-8 string table as shared `Arc<str>` slices: pool-side
+    /// structures (PoolMethod names, resolved names) clone the Arc
+    /// instead of copying heap bytes per method — a dex string idx is
+    /// already the dedup key.
+    strings: Vec<std::sync::Arc<str>>,
     /// Type ids: descriptor string indices.
     types: Vec<u32>,
     protos: Vec<ProtoId>,
+    /// Parameter type-id lists per proto, resolved once at parse: the
+    /// invoke decode path used to re-read each `type_list` from the
+    /// image on EVERY call (`read_type_list` hit the `raw()` mutex per
+    /// u16 — a full lock cycle per parameter, per invoke, per method).
+    proto_tys: Vec<Box<[u32]>>,
+    /// Method-descriptor string per proto (`(ILjava/lang/String;)V`),
+    /// formatted once at parse: pool-side PoolMethod descs clone the Arc
+    /// instead of re-joining per method (a dex's proto table is the
+    /// descriptor dedup layer — methods share protos heavily).
+    proto_descs: Vec<std::sync::Arc<str>>,
     fields: Vec<FieldId>,
     methods: Vec<MethodId>,
     pub class_defs: Vec<ClassDef>,
@@ -184,7 +198,7 @@ impl DexFile {
                     .read_uleb128()
                     .and_then(|len| c.read_mutf8(c.pos, len))
                     .unwrap_or_default();
-                strings.push(s);
+                strings.push(std::sync::Arc::from(s));
             }
         }
 
@@ -211,6 +225,34 @@ impl DexFile {
                 });
             }
         }
+        // Resolve every proto's parameter list once, straight off the
+        // local image slice (no `raw()` mutex on this path at all).
+        let proto_tys: Vec<Box<[u32]>> = protos
+            .iter()
+            .map(|p| read_type_list_at(&data, p.parameters_off as usize))
+            .collect();
+        // Descriptor per proto, straight off the local tables.
+        let ty_name = |t: u32| -> &str {
+            match types.get(t as usize) {
+                Some(&si) => strings.get(si as usize).map(|s| &**s).unwrap_or(""),
+                None => "",
+            }
+        };
+        let proto_descs: Vec<std::sync::Arc<str>> = protos
+            .iter()
+            .zip(&proto_tys)
+            .map(|(p, tys)| {
+                let ret = ty_name(p.return_type_idx);
+                let mut d = String::with_capacity(2 + ret.len() + tys.len() * 12);
+                d.push('(');
+                for &t in tys.iter() {
+                    d.push_str(ty_name(t));
+                }
+                d.push(')');
+                d.push_str(ret);
+                std::sync::Arc::from(d)
+            })
+            .collect();
 
         // Field ids: 8 bytes each.
         let mut fields = Vec::with_capacity(field_ids_size);
@@ -273,6 +315,8 @@ impl DexFile {
             strings,
             types,
             protos,
+            proto_tys,
+            proto_descs,
             fields,
             methods,
             class_defs,
@@ -329,7 +373,7 @@ impl DexFile {
     pub fn string(&self, idx: u32) -> &str {
         self.strings
             .get(idx as usize)
-            .map(|s| s.as_str())
+            .map(|s| &**s)
             .unwrap_or("")
     }
 
@@ -372,30 +416,36 @@ impl DexFile {
     }
 
     /// Parameter type ids of a proto (empty for `(V)`).
-    pub fn proto_params(&self, idx: u32) -> Vec<u32> {
-        let off = self.proto(idx).parameters_off;
-        if off == 0 {
-            return Vec::new();
-        }
-        self.read_type_list(off).unwrap_or_default()
+    /// Shared clone of a table string (the pool's method names).
+    pub fn string_arc(&self, idx: u32) -> std::sync::Arc<str> {
+        self.strings
+            .get(idx as usize)
+            .cloned()
+            .unwrap_or_else(|| std::sync::Arc::from(""))
     }
 
+    /// Method descriptor of a proto as a shared clone.
+    pub fn proto_desc(&self, idx: u32) -> std::sync::Arc<str> {
+        self.proto_descs
+            .get(idx as usize)
+            .cloned()
+            .unwrap_or_else(|| std::sync::Arc::from("()V"))
+    }
+
+    /// Parameter type ids of a proto, resolved once at parse (shared
+    /// slice; the old per-call `type_list` re-read is gone).
+    pub fn proto_params(&self, idx: u32) -> &[u32] {
+        self.proto_tys
+            .get(idx as usize)
+            .map(|b| &**b)
+            .unwrap_or(&[])
+    }
+
+    /// `type_list` at `off` (interface lists): one `raw()` snapshot for
+    /// the whole walk — the shape below used to lock per u16 read.
     fn read_type_list(&self, off: u32) -> Option<Vec<u32>> {
-        let off = off as usize;
-        if off + 4 > self.raw().len() {
-            return None;
-        }
-        let size = u32::from_le_bytes(self.raw()[off..off + 4].try_into().unwrap()) as usize;
-        let mut out = Vec::with_capacity(size);
-        let mut p = off + 4;
-        for _ in 0..size {
-            if p + 2 > self.raw().len() {
-                break;
-            }
-            out.push(u16::from_le_bytes(self.raw()[p..p + 2].try_into().unwrap()) as u32);
-            p += 2;
-        }
-        Some(out)
+        let raw = self.raw();
+        Some(read_type_list_at(raw, off as usize).into())
     }
 
     pub fn field(&self, idx: u32) -> &FieldId {
@@ -700,6 +750,27 @@ impl std::fmt::Debug for DexFile {
             .field("class_defs", &self.class_defs.len())
             .finish()
     }
+}
+
+/// `type_list` at `off` straight off a byte slice: parse-time proto
+/// resolution and the interfaces read both go through here — one
+/// snapshot of the slice, no per-element locking. Reads past the end
+/// are truncated (the tolerant-sentinel rule for corrupt images).
+fn read_type_list_at(data: &[u8], off: usize) -> Box<[u32]> {
+    if off == 0 || off + 4 > data.len() {
+        return Vec::new().into_boxed_slice();
+    }
+    let size = u32::from_le_bytes(data[off..off + 4].try_into().unwrap()) as usize;
+    let mut p = off + 4;
+    let mut out = Vec::with_capacity(size);
+    for _ in 0..size {
+        if p + 2 > data.len() {
+            break;
+        }
+        out.push(u16::from_le_bytes(data[p..p + 2].try_into().unwrap()) as u32);
+        p += 2;
+    }
+    out.into_boxed_slice()
 }
 
 /// Sections 0x0007 (call_site_id) and 0x0008 (method_handle_id) from the

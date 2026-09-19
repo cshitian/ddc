@@ -71,7 +71,7 @@ pub struct MethodEnv<'a> {
     pub dex: &'a DexFile,
     pub code: &'a CodeItem,
     pub class_name: String,
-    pub method_name: String,
+    pub method_name: std::sync::Arc<str>,
     pub desc: MethodDescriptor,
     pub is_static: bool,
     /// Total code units — the CFG owns the insns stream, so the lifter reads
@@ -101,8 +101,8 @@ impl<'a> MethodEnv<'a> {
         let params: Vec<String> = self
             .dex
             .proto_params(m.proto_idx)
-            .into_iter()
-            .map(|t| self.dex.type_name(t).to_string())
+            .iter()
+            .map(|&t| self.dex.type_name(t).to_string())
             .collect();
         let ret = self.dex.type_name(proto.return_type_idx);
         let desc = format!("({}){}", params.join(""), ret);
@@ -283,12 +283,10 @@ fn compute_final_reads(ins: &[Insn]) -> std::collections::HashSet<(u32, u16)> {
             // Final read of the current generation: no other read before
             // the register's next write.
             let mut final_ = true;
-            for &(_, is_read2) in dedup.iter().skip(i + 1) {
+            if let Some(&(_, is_read2)) = dedup.get(i + 1) {
                 if is_read2 {
                     final_ = false;
-                    break;
                 }
-                break;
             }
             if final_ {
                 out.insert((pc, reg));
@@ -1074,8 +1072,8 @@ impl<'a> Lifter<'a> {
                         self.env
                             .dex
                             .proto_params(*proto_idx)
-                            .into_iter()
-                            .map(|t| self.env.dex.type_name(t))
+                            .iter()
+                            .map(|&t| self.env.dex.type_name(t))
                             .collect::<Vec<_>>()
                             .join(""),
                         self.env.dex.type_name(proto.return_type_idx)
@@ -1263,8 +1261,8 @@ impl<'a> Lifter<'a> {
             .env
             .dex
             .proto_params(cs.proto_idx)
-            .into_iter()
-            .map(|t| self.env.java_type(t))
+            .iter()
+            .map(|&t| self.env.java_type(t))
             .collect();
         let ret = self
             .env

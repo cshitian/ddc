@@ -370,8 +370,7 @@ fn largest_orders_by_insn_count() {
         .lines()
         .skip(1)
         .filter_map(|l| {
-            l.trim()
-                .split_whitespace()
+            l.split_whitespace()
                 .next()
                 .and_then(|n| n.parse().ok())
         })
@@ -477,9 +476,9 @@ fn pkg_decompiles_a_package_subtree() {
     );
 }
 
-fn walk(dir: &PathBuf) -> Vec<String> {
+fn walk(dir: &std::path::Path) -> Vec<String> {
     let mut out = Vec::new();
-    let mut stack = vec![dir.clone()];
+    let mut stack = vec![dir.to_path_buf()];
     while let Some(p) = stack.pop() {
         if let Ok(rd) = std::fs::read_dir(&p) {
             for e in rd.flatten() {

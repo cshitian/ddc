@@ -159,7 +159,7 @@ fn forward_cycle_terminates() {
             force_type: true,
         },
     ]);
-    let mut vt = VarTable::default();
+    let vt = VarTable::default();
     forward_single_use(&mut body, &vt);
     // The cycle must survive UN-inlined (both defs stay, no growth).
     let text = format!("{:?}", body);

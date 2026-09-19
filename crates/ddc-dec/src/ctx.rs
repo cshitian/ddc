@@ -227,7 +227,7 @@ impl<'a> Ctx for DexCtx<'a> {
 
     fn declares_method_named(&self, internal: &str, name: &str) -> bool {
         self.find_class(internal)
-            .map(|pc| pc.all_methods().any(|m| m.name == name))
+            .map(|pc| pc.all_methods().any(|m| &*m.name == name))
             .unwrap_or(false)
     }
 

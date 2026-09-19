@@ -248,7 +248,7 @@ fn emit_class_body(
     // Methods.
     let mut emitted_any = !class.static_fields.is_empty() || !class.instance_fields.is_empty();
     for m in class.all_methods() {
-        if m.name == "<clinit>" {
+        if &*m.name == "<clinit>" {
             continue; // rendered after the fields
         }
         let text = emit_method(pool, class, ctx, m, depth + 1)?;
@@ -266,7 +266,7 @@ fn emit_class_body(
     // the block entirely.
     let skip_clinit = class.is_interface();
     if let Some(clinit) = (!skip_clinit)
-        .then(|| class.all_methods().find(|m| m.name == "<clinit>"))
+        .then(|| class.all_methods().find(|m| &*m.name == "<clinit>"))
         .flatten()
     {
         if let Some(text) = emit_method(pool, class, ctx, clinit, depth + 1)? {
@@ -451,8 +451,8 @@ fn emit_method(
     } else if a & ACC_PROTECTED != 0 {
         sig.push_str("protected ");
     }
-    let is_clinit = m.name == "<clinit>";
-    let is_init = m.name == "<init>";
+    let is_clinit = &*m.name == "<clinit>";
+    let is_init = &*m.name == "<init>";
     if a & ACC_STATIC != 0 || is_clinit {
         sig.push_str("static ");
     }
