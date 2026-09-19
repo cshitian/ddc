@@ -20,7 +20,7 @@ RSS via `/usr/bin/time -l`:
 | Telegram | 62 MB | **8.00s** | 1301 MB |
 | WhatsApp | 139 MB | **9.0s** (99,276 files — case-variant class pairs all preserved) | 1240 MB |
 | weibo | 226 MB | **5.98s** | 1234 MB |
-| weixin | 268 MB | **9.7s** | 1404 MB |
+| weixin | 268 MB | **16.5s** | 1400 MB |
 | lark | 398 MB | **5.80s** | 1614 MB |
 | qq | 374 MB | **18.04s** | 2312 MB |
 

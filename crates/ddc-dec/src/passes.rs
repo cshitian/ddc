@@ -1438,8 +1438,9 @@ pub fn forward_single_use(s: &mut Stmt, _vt: &VarTable) {
     // the inlined VALUE must not reference a multi-assigned var (phi vars):
     // moving the read across the phi's reassignment would be a stale
     // capture (register rotations snapshot through temps for this reason).
-    let mut single = vec![false; n_vars];
-    for (v, single_v) in single.iter_mut().enumerate() {
+    let mut cand = vec![false; n_vars];
+    let mut edges: Vec<Vec<u32>> = vec![Vec::new(); n_vars];
+    for (v, cand_v) in cand.iter_mut().enumerate() {
         if assigns.get(v).copied().unwrap_or(0) != 1 || reads.get(v).copied().unwrap_or(0) != 1 {
             continue;
         }
@@ -1449,9 +1450,63 @@ pub fn forward_single_use(s: &mut Stmt, _vt: &VarTable) {
             if refs.iter().any(|r| assigns[*r as usize] > 1) {
                 continue;
             }
+            // Growth-graph edge set, built in the same walk: inlining v
+            // inserts a clone of its value, and every Local inside the
+            // clone is replaced in turn.
+            edges[v] = refs.into_iter().collect();
         }
-        *single_v = true;
+        *cand_v = true;
     }
+
+    // Cycle rejection on the growth graph. A def-reference cycle
+    // (v = f(w), w = g(v) — loop-carried register rotation reaching the
+    // pass as two mutually-referencing single-assign/single-read locals)
+    // re-introduces the other cycle Local at every replacement level, so
+    // deep_rewrite grows the tree one layer per level and never
+    // terminates: weixin's com/tencent/mm/plugin/appbrand/widget/input/b4
+    // exhausted a 64MB worker stack at ~300k recursion frames. Edges into
+    // non-candidates are harmless (they are never replaced, so growth
+    // dies there — and they carry no outgoing edges).
+    //
+    // Three-color DFS, iterative: a legit 60k-long single-use chain must
+    // not trade one stack overflow for another. A GRAY child closes a
+    // cycle; `bad[v]` (v on a cycle, or v's inlined closure grows into
+    // one) then taints the whole current path — everything on it reaches
+    // the cycle. Black verdicts memoize: a node whose subtree was proven
+    // clean cannot grow a cycle later.
+    let mut color = vec![0u8; n_vars]; // 0 white, 1 gray, 2 black
+    let mut bad = vec![false; n_vars];
+    for root in 0..n_vars {
+        if color[root] != 0 || edges[root].is_empty() {
+            continue;
+        }
+        color[root] = 1;
+        let mut stack: Vec<(usize, usize)> = vec![(root, 0)];
+        while let Some(top) = stack.last_mut() {
+            let v = top.0;
+            let i = top.1;
+            top.1 += 1;
+            if i < edges[v].len() {
+                let r = edges[v][i] as usize;
+                if color[r] == 1 {
+                    for &(pn, _) in &stack {
+                        bad[pn] = true;
+                    }
+                } else if color[r] == 0 {
+                    color[r] = 1;
+                    stack.push((r, 0));
+                } else if bad[r] {
+                    for &(pn, _) in &stack {
+                        bad[pn] = true;
+                    }
+                }
+            } else {
+                color[v] = 2;
+                stack.pop();
+            }
+        }
+    }
+    let single: Vec<bool> = (0..n_vars).map(|v| cand[v] && !bad[v]).collect();
     if !single.iter().any(|&b| b) {
         return;
     }

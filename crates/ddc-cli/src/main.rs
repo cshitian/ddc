@@ -1448,6 +1448,9 @@ fn run() -> Result<()> {
                             busy += iter_start.elapsed();
                             iter_start = std::time::Instant::now();
                             for name in chunk {
+                                if std::env::var_os("DDC_TRACE_CLASS").is_some() {
+                                    eprintln!("[trace-class] {name}");
+                                }
                                 let ct0 = std::time::Instant::now();
                                 let Some(pc) = pool_ref.get(name) else {
                                     continue;

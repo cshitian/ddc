@@ -642,23 +642,16 @@ impl<'a> Lifter<'a> {
         handler_types: &[Option<String>],
     ) -> BResult<(BlockResult, OutState)> {
         let payloads = &self.env.code.payloads;
-        // The generation-aware read analysis only matters when a
-        // New/NewArray view can be read non-finally — blocks without any
-        // allocation-producing instruction (the overwhelming majority)
-        // skip the event analysis entirely.
-        let has_alloc = ins.iter().any(|i| {
-            matches!(
-                i.kind,
-                InsnKind::NewInstance { .. }
-                    | InsnKind::NewArray { .. }
-                    | InsnKind::FilledNewArray { .. }
-            )
-        });
-        self.final_read = if has_alloc {
-            compute_final_reads(ins)
-        } else {
-            std::collections::HashSet::new()
-        };
+        // Block-scoped event analysis, unconditionally: `ins` is ONE
+        // BLOCK's slice, but the register generation a read belongs to
+        // spans blocks — a post-fold `New` view created in an earlier
+        // block is READ here, so gating on "this block has no
+        // new-instance/new-array" (d9bbb2a) silently flipped every such
+        // read from inline to materialize: cross-block `foo(new Bar())`
+        // nesting lost, statement counts inflated, and the changed var
+        // structure fed forward_single_use a def-reference cycle
+        // (weixin input/b4: ~300k recursion frames, 64MB stack abort).
+        self.final_read = compute_final_reads(ins);
         for ins in ins {
             self.cur_pc = ins.pc;
             match &ins.kind {
