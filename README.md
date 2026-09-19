@@ -148,3 +148,7 @@ cargo test    # 56 tests
 ## License
 
 [MIT](LICENSE) © ejfkdev
+
+<div align="center">
+<sub><a href="README.zh-CN.md"> 简体中文</a> · 友情链接 https://linux.do </sub>
+</div>
