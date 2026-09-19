@@ -79,8 +79,10 @@ fi
 published() {  # crate version → 0/1
   # The version-scoped REST endpoint (404 until the version is live).
   # NOT the sparse index: its paths 404 wholesale from some networks
-  # (serde included), which stalled the first v0.1.3 run.
-  curl -fsS -o /dev/null "https://crates.io/api/v1/crates/$1/$2" 2>/dev/null
+  # (serde included), and the REST endpoint 403s a bare curl UA —
+  # crates.io's policy wants a descriptive User-Agent.
+  curl -fsS -A "ddc-release-script (https://github.com/ejfkdev/ddc)" \
+    -o /dev/null "https://crates.io/api/v1/crates/$1/$2" 2>/dev/null
 }
 pub() {  # crate version
   if published "$1" "$2"; then
@@ -88,7 +90,15 @@ pub() {  # crate version
     return
   fi
   echo "==> publish $1 $2"
-  cargo publish -p "$1" --quiet
+  if ! out=$(cargo publish -p "$1" --quiet 2>&1); then
+    # Idempotent re-run: a version that raced out earlier is a success.
+    if [[ $out == *"already exists"* ]]; then
+      echo "==> crates.io: $1 $2 already published (absorbed)"
+    else
+      print -r -- "$out" >&2
+      exit 1
+    fi
+  fi
   typeset -i i=0
   until published "$1" "$2"; do
     (( i += 1 )); (( i > 40 )) && { echo "index wait timeout for $1" >&2; exit 1; }
