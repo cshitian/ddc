@@ -91,7 +91,13 @@ subcommand's output format and behavior — lives in
 ## Performance
 
 Seven real-world APKs, release build, 3-run averages
-(Apple Silicon, 6P+12E):
+(Apple Silicon, 6P+12E). The 39-APK validation corpus (4.08M
+decompiled files, per-APK wall time / peak RSS / javac parse gate) is
+in [docs/validation.md](docs/validation.md)
+([中文](docs/zh-CN/validation.md)).
+
+<details>
+<summary>Full decompile — 7 real-world APKs</summary>
 
 | APK | Size | Full decompile | Peak RSS |
 |---|---|---|---|
@@ -103,10 +109,15 @@ Seven real-world APKs, release build, 3-run averages
 | lark | 398 MB | **5.80s** | 1614 MB |
 | qq | 374 MB | **18.04s** | 2312 MB |
 
+</details>
+
 Query subcommands on the same APKs (cells: time / peak RSS;
 `strings -f <package> --with-locations`, `findrefs` on the package
 string and method `onCreate`, `hierarchy`/`disasm`/`getclass` on each
 app's launcher class):
+
+<details>
+<summary>Query subcommands — 13 commands × 7 APKs</summary>
 
 | Command | reqable | Telegram | WhatsApp | weibo | weixin | lark | qq |
 |---|---|---|---|---|---|---|---|
@@ -123,6 +134,8 @@ app's launcher class):
 | `hierarchy` | 0.01s / 20MB | 0.03s / 85MB | 0.05s / 205MB | 0.09s / 364MB | 0.10s / 399MB | 0.14s / 413MB | 0.18s / 524MB |
 | `disasm` | 0.01s / 20MB | 0.04s / 85MB | 0.06s / 218MB | 0.08s / 365MB | 0.10s / 371MB | 0.13s / 436MB | 0.18s / 518MB |
 | `getclass` | 0.02s / 33MB | 0.61s / 196MB | 0.09s / 310MB | 0.16s / 646MB | 0.23s / 792MB | 0.29s / 1078MB | 0.40s / 1356MB |
+
+</details>
 
 ## Documentation
 

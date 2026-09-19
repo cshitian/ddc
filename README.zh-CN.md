@@ -84,7 +84,14 @@ ddc pkg app.apk --app -o own/        # 只反编译 App 自身代码
 
 ## 性能
 
-七个真实 APK，release 构建，3 连测取平均（Apple Silicon 6P+12E）：
+七个真实 APK，release 构建，3 连测取平均（Apple Silicon 6P+12E）。
+39 个 APK 的验证语料（408 万个反编译文件，每个 APK 的墙钟 /
+峰值 RSS / javac 解析门）见
+[docs/zh-CN/validation.md](docs/zh-CN/validation.md)
+（[English](docs/validation.md)）。
+
+<details>
+<summary>全量反编译 —— 7 个真实 APK</summary>
 
 | APK | 大小 | 全量反编译 | 峰值 RSS |
 |---|---|---|---|
@@ -96,9 +103,14 @@ ddc pkg app.apk --app -o own/        # 只反编译 App 自身代码
 | lark | 398 MB | **5.80s** | 1614 MB |
 | qq | 374 MB | **18.04s** | 2312 MB |
 
+</details>
+
 同一批 APK 上的查询子命令（单元格：耗时 / 峰值 RSS；`strings -f <包名>
 --with-locations`，`findrefs` 查包名字符串与方法 `onCreate`，
 `hierarchy`/`disasm`/`getclass` 用各 App 启动类）：
+
+<details>
+<summary>查询子命令 —— 13 个命令 × 7 个 APK</summary>
 
 | 子命令 | reqable | Telegram | WhatsApp | weibo | weixin | lark | qq |
 |---|---|---|---|---|---|---|---|
@@ -115,6 +127,8 @@ ddc pkg app.apk --app -o own/        # 只反编译 App 自身代码
 | `hierarchy` | 0.01s / 20MB | 0.03s / 85MB | 0.05s / 205MB | 0.09s / 364MB | 0.10s / 399MB | 0.14s / 413MB | 0.18s / 524MB |
 | `disasm` | 0.01s / 20MB | 0.04s / 85MB | 0.06s / 218MB | 0.08s / 365MB | 0.10s / 371MB | 0.13s / 436MB | 0.18s / 518MB |
 | `getclass` | 0.02s / 33MB | 0.61s / 196MB | 0.09s / 310MB | 0.16s / 646MB | 0.23s / 792MB | 0.29s / 1078MB | 0.40s / 1356MB |
+
+</details>
 
 ## 文档
 
