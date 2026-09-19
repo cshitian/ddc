@@ -21,6 +21,7 @@ bin-dir = "{ bin }{ binary-ext }"
 pkg-fmt = "bin"
 
 [dependencies]
+libc = "0.2"  # SIGPIPE default disposition (pipe-aware CLIs)
 ddc-dex = { workspace = true }
 ddc-dec = { workspace = true }
 anyhow = { workspace = true }

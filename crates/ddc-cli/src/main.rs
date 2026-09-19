@@ -279,6 +279,15 @@ unsafe fn mimalloc_sys_collect() {
 }
 
 fn main() {
+    // `ddc ... | less` with the reader quitting closes the pipe: std
+    // ignores SIGPIPE, so println! panics with "failed printing to
+    // stdout: Broken pipe". Restore the default disposition — a quiet
+    // exit, like every other CLI. (zlib-ng-sys already pulls libc into
+    // the tree; this makes it a direct, one-line user.)
+    #[cfg(unix)]
+    unsafe {
+        libc::signal(libc::SIGPIPE, libc::SIG_DFL);
+    }
     let args: Vec<String> = std::env::args().skip(1).collect();
     // Leading subcommand word (unless an actual path shadows it) routes
     // to the metadata fast paths: query the artifact as a database
