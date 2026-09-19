@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<root>
-  <item name="android.view.displayhash.DisplayHashResultCallback void onDisplayHashError(int) 0">
-    <annotation name="androidx.annotation.IntDef">
-      <val name="value" val="{android.view.displayhash.DisplayHashResultCallback.DISPLAY_HASH_ERROR_UNKNOWN, android.view.displayhash.DisplayHashResultCallback.DISPLAY_HASH_ERROR_INVALID_BOUNDS, android.view.displayhash.DisplayHashResultCallback.DISPLAY_HASH_ERROR_MISSING_WINDOW, android.view.displayhash.DisplayHashResultCallback.DISPLAY_HASH_ERROR_NOT_VISIBLE_ON_SCREEN, android.view.displayhash.DisplayHashResultCallback.DISPLAY_HASH_ERROR_INVALID_HASH_ALGORITHM, android.view.displayhash.DisplayHashResultCallback.DISPLAY_HASH_ERROR_TOO_MANY_REQUESTS}" />
-    </annotation>
-  </item>
-</root>
-

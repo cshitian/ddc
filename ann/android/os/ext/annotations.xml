@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<root>
-  <item name="android.os.ext.SdkExtensions int getExtensionVersion(int) 0">
-    <annotation name="androidx.annotation.IntDef">
-      <val name="value" val="{android.os.Build.VERSION_CODES.R, android.os.Build.VERSION_CODES.S, android.os.Build.VERSION_CODES.TIRAMISU, android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE, android.os.Build.VERSION_CODES.VANILLA_ICE_CREAM, android.os.Build.VERSION_CODES.BAKLAVA, android.os.Build.VERSION_CODES.CINNAMON_BUN, android.os.ext.SdkExtensions.AD_SERVICES}" />
-    </annotation>
-  </item>
-</root>
-

@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<root>
-  <item name="android.location.altitude.AltitudeConverter void addMslAltitudeToLocation(android.content.Context, android.location.Location)">
-    <annotation name="androidx.annotation.WorkerThread"/>
-  </item>
-</root>
-
