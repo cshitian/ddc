@@ -123,6 +123,7 @@ ddc pkg app.apk --app -o own/        # 只反编译 App 自身代码
 | [子命令](docs/zh-CN/subcommands.md) | 渐进式分析完整参考（[EN](docs/subcommands.md)） |
 | [基准](docs/zh-CN/benchmarks.md) | 耗时/内存、方法论、与 ASC 对比（[EN](docs/benchmarks.md)） |
 | [性能工程](docs/zh-CN/optimization.md) | 5 分钟 → 6s：六轮优化与实测排除的捷径（[EN](docs/optimization.md)） |
+| [语料验证](docs/zh-CN/validation.md) | 39 个真实 APK、408 万文件全部 javac 解析零错误，含发现并修复的 bug 清单（[EN](docs/validation.md)） |
 
 ## 已知限制
 

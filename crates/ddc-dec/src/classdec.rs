@@ -148,7 +148,13 @@ fn emit_class_body(
     depth: usize,
 ) -> anyhow::Result<()> {
     let ind = indent(depth);
-    let (_, simple) = split_name(&class.name);
+    // The class's own header must use the RENAMED display name — the
+    // ctor path (is_init) already renames; a header declaring `class a`
+    // while the file/ctor say `a_2` leaves the ctor looking like a
+    // method with no return type (MinisApp's Y2.a vs y2.a package
+    // case-collision: 2,518 javac parse errors).
+    let cname = crate::apply_class_rename(&class.name);
+    let (_, simple) = split_name(&cname);
     // A class emitted as its OWN top-level file (depth 0) must declare a
     // flat `$` name — `class Outer.Inner` is not declarable at file
     // scope. An INLINE nested member (depth > 0) declares its own
@@ -156,7 +162,22 @@ fn emit_class_body(
     let simple = if depth == 0 {
         simple.to_string()
     } else {
-        simple.rsplit('$').next().unwrap_or(&simple).to_string()
+        // R8 names can END in `$`: an empty last `$`-segment would
+        // render `class  {` — keep the whole simple name.
+        let seg = simple.rsplit('$').next().unwrap_or(&simple);
+        if seg.is_empty() {
+            simple.to_string()
+        } else {
+            seg.to_string()
+        }
+    };
+    // A class NAMED `var`-style (taobao ships `tb.var`) cannot be
+    // declared — restricted contextual type names escape here and in
+    // the ctor, file name, and every type reference.
+    let simple = if is_restricted_type_name(&simple) {
+        format!("_{simple}")
+    } else {
+        simple
     };
     let is_iface = class.is_interface();
     let is_enum = class.is_enum();
@@ -509,10 +530,22 @@ fn emit_method(
             // emit_method's depth is the METHOD indent = class depth + 1:
             // own-file classes (depth 0 header → method depth 1) need the
             // flat `$` ctor name; inline nested members use their segment.
-            let name = if depth <= 1 {
+            let base = if depth <= 1 {
                 simple.to_string()
             } else {
-                simple.rsplit('$').next().unwrap_or(&simple).to_string()
+                // R8 names can END in `$` (`ThreadMsg$$$`): the last
+                // `$`-segment is empty — keep the whole simple name.
+                let seg = simple.rsplit('$').next().unwrap_or(&simple);
+                if seg.is_empty() {
+                    simple.to_string()
+                } else {
+                    seg.to_string()
+                }
+            };
+            let name = if is_restricted_type_name(&base) {
+                format!("_{base}")
+            } else {
+                base
             };
             sig.push_str(&java_ident(&name));
         } else {
@@ -542,7 +575,9 @@ fn emit_method(
                 sig.push_str(&type_name(pool, arg));
             }
             sig.push(' ');
-            sig.push_str(&name);
+            // Param names come from dex debug info — obfuscated apps
+            // name them `_` (reserved since Java 9) or after keywords.
+            sig.push_str(&java_ident(&name));
         }
         sig.push(')');
     }
@@ -636,6 +671,9 @@ fn indent(depth: usize) -> String {
 /// any other non-identifier character) is not legal Java. Deterministic
 /// mapping, applied identically at declaration and call sites.
 pub(crate) fn java_ident(name: &str) -> String {
+    if std::env::var_os("DDC_DBG_IDENT").is_some() {
+        eprintln!("[ident] {name:?}");
+    }
     let clean = name
         .chars()
         .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '$');
@@ -697,6 +735,10 @@ pub(crate) fn java_ident(name: &str) -> String {
             | "true"
             | "false"
             | "null"
+            // `_` is a reserved identifier since Java 9 (Alipay's
+            // instant-run fields are named `_`) — the `_<name>` mapping
+            // turns it into `__`, matching jdc-core's call sites.
+            | "_"
     );
     // A simple name may not START with a digit either (WhatsApp nests
     // `X/0Xx`): the declaration site and every reference (jdc-core's
@@ -707,7 +749,10 @@ pub(crate) fn java_ident(name: &str) -> String {
     } else if keyword || digit_start {
         format!("_{name}")
     } else {
-        name.chars()
+        // Non-ASCII single chars (Alipay names a field `支`) map to a
+        // lone `_` — itself reserved since Java 9. Escape it.
+        let mapped: String = name
+            .chars()
             .map(|c| {
                 if c.is_ascii_alphanumeric() || c == '_' || c == '$' {
                     c
@@ -715,7 +760,12 @@ pub(crate) fn java_ident(name: &str) -> String {
                     '_'
                 }
             })
-            .collect()
+            .collect();
+        if mapped == "_" {
+            "__".to_string()
+        } else {
+            mapped
+        }
     }
 }
 
@@ -820,7 +870,10 @@ pub(crate) fn sanitize_fq(dotted: &str) -> String {
     dotted
         .split('.')
         .map(|seg| {
-            if is_java_keyword_name(seg) || seg.chars().next().is_some_and(|c| c.is_ascii_digit()) {
+            if is_java_keyword_name(seg)
+                || is_restricted_type_name(seg)
+                || seg.chars().next().is_some_and(|c| c.is_ascii_digit())
+            {
                 format!("_{seg}")
             } else if seg
                 .chars()
@@ -828,7 +881,10 @@ pub(crate) fn sanitize_fq(dotted: &str) -> String {
             {
                 seg.to_string()
             } else {
-                seg.chars()
+                // Non-ASCII single chars (rimet nests classes named `ˆ`
+                // / `ァ`) map to a lone `_` — reserved since Java 9.
+                let mapped: String = seg
+                    .chars()
                     .map(|c| {
                         if c.is_ascii_alphanumeric() || c == '_' || c == '$' {
                             c
@@ -836,11 +892,23 @@ pub(crate) fn sanitize_fq(dotted: &str) -> String {
                             '_'
                         }
                     })
-                    .collect()
+                    .collect();
+                if mapped == "_" {
+                    "__".to_string()
+                } else {
+                    mapped
+                }
             }
         })
         .collect::<Vec<_>>()
         .join(".")
+}
+
+/// Restricted contextual TYPE names — legal as member/local names
+/// (rt.jar compiles `var` locals), illegal in class declarations and
+/// type references. Consulted only on CLASS-name paths.
+pub(crate) fn is_restricted_type_name(s: &str) -> bool {
+    matches!(s, "var" | "yield" | "record" | "sealed" | "permits")
 }
 
 fn is_java_keyword_name(s: &str) -> bool {
@@ -899,6 +967,10 @@ fn is_java_keyword_name(s: &str) -> bool {
             | "true"
             | "false"
             | "null"
+            // `_` is a reserved identifier since Java 9 (Alipay's
+            // instant-run fields are named `_`) — the `_<name>` mapping
+            // turns it into `__`, matching jdc-core's call sites.
+            | "_"
     )
 }
 

@@ -437,12 +437,30 @@ pub fn parse_images(images: Vec<Image>) -> Result<Vec<(String, DexFile)>> {
         ));
     }
     let mut out = Vec::with_capacity(handles.len());
+    let mut skipped: Vec<String> = Vec::new();
     for (name, h) in handles {
         let parsed = h
             .join()
             .map_err(|_| anyhow::anyhow!("parse thread panicked: {}", name))?
-            .map_err(|e| anyhow::anyhow!("parse {}: {}", name, e))?;
-        out.push(parsed);
+            .map_err(|e| anyhow::anyhow!("parse {}: {}", name, e));
+        match parsed {
+            Ok(p) => out.push(p),
+            Err(e) => {
+                // Packed apps ship dex-LIKE entries (uuyc's
+                // assets/39285EFA.dex is an encrypted blob with a .dex
+                // name): skip with a visible notice instead of failing
+                // the whole run over the real images.
+                eprintln!("ddc: skipping {} (not parsable: {:#})", name, e);
+                skipped.push(name);
+            }
+        }
+    }
+    if out.is_empty() {
+        anyhow::bail!(
+            "no parsable DEX image ({} image(s) skipped, e.g. {})",
+            skipped.len(),
+            skipped.first().map(|s| s.as_str()).unwrap_or("?")
+        );
     }
     Ok(out)
 }

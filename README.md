@@ -131,6 +131,7 @@ app's launcher class):
 | [Subcommands](docs/subcommands.md) | the progressive-analysis reference ([中文](docs/zh-CN/subcommands.md)) |
 | [Benchmarks](docs/benchmarks.md) | timings, memory, methodology, ASC comparison ([中文](docs/zh-CN/benchmarks.md)) |
 | [Performance engineering](docs/optimization.md) | 5min → 6s: six rounds, measured dead ends ([中文](docs/zh-CN/optimization.md)) |
+| [Corpus validation](docs/validation.md) | 39 real APKs, 4.08M files, javac parse-clean, bugs found & fixed ([中文](docs/zh-CN/validation.md)) |
 
 ## Known limitations
 

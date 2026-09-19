@@ -1883,6 +1883,8 @@ fn sanitize_file_seg(seg: &str) -> String {
             | "true"
             | "false"
             | "null"
+        | "_"
+        | "var" | "yield" | "record" | "sealed" | "permits"
     );
     let digit_start = seg.chars().next().is_some_and(|c| c.is_ascii_digit());
     if kw || digit_start {
