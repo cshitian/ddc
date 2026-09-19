@@ -506,8 +506,10 @@ pub fn decompile_method(
         }
         passes::forward_single_use(&mut body, &vt);
         passes::cleanup(&mut body);
+        passes::inline_accessors(&mut body, pool);
         passes::infer_types(&mut vt, &mut body, &desc.ret, &env);
         passes::apply_local_names(&mut vt, &body);
+        passes::remove_kotlin_checks(&mut body);
         passes::platform_constants(&mut body);
         passes::ensure_declared(&mut body, &vt);
         passes::strip_trailing_void_return(&mut body);
@@ -687,9 +689,11 @@ pub fn decompile_method(
     }
     passes::forward_single_use(&mut body, &vt);
     passes::cleanup(&mut body);
+    passes::inline_accessors(&mut body, pool);
     passes::infer_types(&mut vt, &mut body, &desc.ret, &env);
     passes::booleanize(&mut vt, &mut body);
     passes::apply_local_names(&mut vt, &body);
+    passes::remove_kotlin_checks(&mut body);
     passes::platform_constants(&mut body);
     passes::ensure_declared(&mut body, &vt);
     passes::strip_trailing_void_return(&mut body);

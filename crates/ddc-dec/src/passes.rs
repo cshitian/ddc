@@ -25,6 +25,9 @@ use jdc_core::types::{JavaType, MethodDescriptor};
 use jdc_core::var::VarTable;
 
 use crate::lift::MethodEnv;
+use crate::{access, desc_type, DexPool};
+use ddc_dex::insn::{Insn, InsnKind, InvokeKind};
+use jdc_core::types::parse_method_descriptor;
 
 // ---------------------------------------------------------------------------
 // Generic tree walking
@@ -2557,4 +2560,213 @@ fn type_to_desc(t: &jdc_core::types::JavaType, out: &mut String) {
             type_to_desc(inner, out);
         }
     }
+}
+
+/// Kotlin `Intrinsics` null-check elision (jadx's ProcessKotlinInternals):
+/// statement-position `checkNotNullParameter(p, "name")` /
+/// `checkParameterIsNotNull` / `checkNotNull…` calls are runtime
+/// assertions — drop them. The naming pass harvests the parameter
+/// strings FIRST, so run this after `apply_local_names`.
+pub fn remove_kotlin_checks(s: &mut Stmt) {
+    walk_mut_deep(s, &mut |st| {
+        let Stmt::Block(v) = st else { return };
+        v.retain(|x| !is_kotlin_check(x));
+    });
+}
+
+fn is_kotlin_check(s: &Stmt) -> bool {
+    let Stmt::ExprStmt(e) = s else { return false };
+    let Expr::Method { cls, name, .. } = e else { return false };
+    (cls == "kotlin/jvm/internal/Intrinsics" || cls == "kotlin/jvm/internal/IntrinsicsKt__Jdk7Kt")
+        && matches!(
+            name.as_str(),
+            "checkNotNullParameter"
+                | "checkParameterIsNotNull"
+                | "checkExpressionValueIsNotNull"
+                | "checkNotNullExpressionValue"
+                | "checkReturnedValueIsNotNull"
+                | "checkFieldIsNotNull"
+                | "checkNotNull"
+        )
+}
+
+// ---------------------------------------------------------------------------
+// Synthetic-accessor inlining (jadx's MarkMethodsForInline, the safe subset)
+// ---------------------------------------------------------------------------
+
+/// Inline `access$NNN`-style synthetic static bridges at their call
+/// sites: an identity (`return pN`), a getter (`iget pX, field;
+/// return vR`), or a method forwarder (`invoke; return`) — with the
+/// d8 APM trace wrappers (`MethodCollector.i/.o` const-only static
+/// calls) tolerated around the core. Only STATIC + SYNTHETIC callees
+/// qualify (compiler-generated bridges: no override semantics, no
+/// side effects beyond the forwarded operation).
+pub fn inline_accessors(s: &mut Stmt, pool: &DexPool) {
+    rewrite_exprs(s, &mut |e| {
+        let Expr::Method { cls, name, desc, args, is_static, .. } = e else { return };
+        if !*is_static || args.is_empty() {
+            return;
+        }
+        let Some(target) = pool.get(cls) else { return };
+        let desc_s = desc_to_string(desc);
+        let Some(m) = target.find_method(name, &desc_s) else { return };
+        if !(m.is_static() && m.access & access::ACC_SYNTHETIC != 0) {
+            return;
+        }
+        let Some(dex) = pool.dex(m.dex_idx) else { return };
+        let Some(code) = dex.code_at(m.code_off) else { return };
+        let insns: Vec<&Insn> =
+            code.insns.iter().filter(|i| !matches!(i.kind, InsnKind::Nop)).collect();
+        // Strip the APM trace wrappers (const-only invoke-static).
+        let core: Vec<&Insn> = insns
+            .iter()
+            .copied()
+            .filter(|i| !is_const_only_trace(&i.kind, &insns))
+            .collect();
+        match accessor_shape(&dex, &core, &code) {
+            Some(Shape::Identity(arg_i)) => {
+                if let Some(a) = args.get(arg_i) {
+                    *e = a.clone();
+                }
+            }
+            Some(Shape::FieldRead { arg, cls: field_cls, field, field_ty }) => {
+                if let Some(owner) = args.get(arg).cloned().map(Box::new) {
+                    let ty = TypeRef::J(desc_type(&field_ty));
+                    *e = Expr::Field { owner: Some(owner), cls: field_cls, name: field, ty, is_static: false };
+                }
+            }
+            Some(Shape::Forward { cls: tcls, name: tname, desc: tdesc, instance }) => {
+                *cls = tcls;
+                *name = tname;
+                *desc = tdesc;
+                if instance && !args.is_empty() {
+                    // The first param (the receiver) becomes the owner.
+                    let recv = args.remove(0);
+                    if let Expr::Method { owner, .. } = e {
+                        *owner = Some(Box::new(recv));
+                    }
+                }
+            }
+            None => {}
+        }
+    });
+}
+
+/// What an accessor body reduces to.
+enum Shape {
+    /// `return pN` — the call becomes argument N.
+    Identity(usize),
+    /// `iget vR, pX, field; return vR` — becomes `argN.field`.
+    FieldRead { arg: usize, cls: String, field: String, field_ty: String },
+    /// `invoke {pX, args…}, method@M; (move-result;)? return` —
+    /// becomes the forwarded call.
+    Forward { cls: String, name: String, desc: MethodDescriptor, instance: bool },
+}
+
+/// Resolve the IGet field's owner class, name and type descriptor.
+fn field_of(dex: &ddc_dex::DexFile, field_idx: u32) -> Option<(String, String, String)> {
+    let f = dex.field(field_idx);
+    Some((
+        dex.type_name(f.class_idx).to_string(),
+        dex.string(f.name_idx).to_string(),
+        dex.type_name(f.type_idx).to_string(),
+    ))
+}
+
+/// Map a register to a parameter index (static method: params occupy
+/// the LAST ins_size registers).
+fn param_index(code: &ddc_dex::CodeItem, reg: u16) -> Option<usize> {
+    let rs = code.registers_size as usize;
+    let ins = code.ins_size as usize;
+    let r = reg as usize;
+    let first = rs.checked_sub(ins)?;
+    (r >= first && r < rs).then(|| r - first)
+}
+
+fn accessor_shape(
+    dex: &ddc_dex::DexFile,
+    core: &[&Insn],
+    code: &ddc_dex::CodeItem,
+) -> Option<Shape> {
+    // Dead consts that fed the stripped trace wrappers remain in the
+    // core — skip them.
+    let core: &[&Insn] = match core.split_first() {
+        Some((first, rest)) if matches!(first.kind, InsnKind::Const { .. }) => rest,
+        _ => core,
+    };
+    let core: &[&Insn] = match core.split_last() {
+        Some((last, rest)) if matches!(last.kind, InsnKind::Const { .. }) => rest,
+        _ => core,
+    };
+    match core {
+        // return pN
+        [Insn { kind: InsnKind::Return { src }, .. }] => {
+            let idx = param_index(code, *src)?;
+            Some(Shape::Identity(idx))
+        }
+        // iget vR, pX, field; return vR
+        [
+            Insn { kind: InsnKind::IGet { dst, obj, field_idx }, .. },
+            Insn { kind: InsnKind::Return { src }, .. },
+        ] if dst == src => {
+            let arg = param_index(code, *obj)?;
+            let (cls, field, field_ty) = field_of(dex, *field_idx)?;
+            Some(Shape::FieldRead { arg, cls, field, field_ty })
+        }
+        // invoke {…}, method@M; (move-result; return)? — forwarder.
+        [Insn { kind: InsnKind::Invoke { method_idx, regs, kind, .. }, .. }, rest @ ..] if rest.len() <= 2 => {
+            // Only forward when every register is a param (no locals).
+            if !regs.iter().all(|r| param_index(code, *r).is_some()) || regs.is_empty() {
+                return None;
+            }
+            // Trailing must be move-result+return or return/void —
+            // anything else (e.g. trace calls) already filtered upstream.
+            if rest.len() == 2 {
+                let ok = matches!(rest[0].kind, InsnKind::MoveResult { .. })
+                    && matches!(rest[1].kind, InsnKind::Return { .. } | InsnKind::ReturnVoid);
+                if !ok {
+                    return None;
+                }
+            }
+            let mid = dex.method(*method_idx);
+            let cls = dex.type_name(mid.class_idx).to_string();
+            let name = dex.string(mid.name_idx).to_string();
+            let mut s = String::from("(");
+            for t in dex.proto_params(mid.proto_idx) {
+                s.push_str(dex.type_name(*t));
+            }
+            s.push(')');
+            s.push_str(dex.type_name(dex.proto(mid.proto_idx).return_type_idx));
+            let desc = parse_method_descriptor(&s)?;
+            Some(Shape::Forward { cls, name, desc, instance: !matches!(kind, InvokeKind::Static) })
+        }
+        _ => None,
+    }
+}
+
+
+/// A const-only invoke-static (the d8 APM `i(732046)` / `o(732046)`
+/// trace wrapper): every argument register is loaded by a Const (or a
+/// Const-into-move chain) in the SAME body. Scoped to synthetic
+/// accessors, so a genuinely side-effecting const call is never
+/// mistaken for a trace.
+fn is_const_only_trace(kind: &InsnKind, insns: &[&Insn]) -> bool {
+    let InsnKind::Invoke { kind, regs, .. } = kind else { return false };
+    if !matches!(kind, InvokeKind::Static) || regs.is_empty() {
+        return false;
+    }
+    regs.iter().all(|r| const_loaded(*r, insns, 0))
+}
+
+/// Const-loaded directly, or through a Move chain from a const-loaded
+/// register (the APM `const v0, id` → `invoke {v0}` shape).
+fn const_loaded(r: u16, insns: &[&Insn], depth: u8) -> bool {
+    if depth > 3 {
+        return false;
+    }
+    insns.iter().any(|i| match &i.kind {
+        InsnKind::Const { dst, .. } => *dst == r,
+        InsnKind::Move { dst, src } => *dst == r && const_loaded(*src, insns, depth + 1),
+        _ => false,
+    })
 }
