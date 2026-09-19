@@ -13,6 +13,7 @@ pub mod ctx;
 pub mod lift;
 pub mod method;
 pub mod passes;
+pub mod platform;
 
 use std::collections::HashMap;
 

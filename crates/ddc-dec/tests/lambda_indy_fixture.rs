@@ -52,15 +52,16 @@ fn lambda_and_methodref_render() {
         "lambda missing:\n{}",
         out
     );
-    // StringConcatFactory folded into `+`.
+    // StringConcatFactory folded into `+` (the String param carries its
+    // jadx-style name from apply_local_names).
     assert!(
-        out.contains("return \"hi \" + p0;") || out.contains("\"hi \" + p0"),
+        out.contains("\"hi \" + str"),
         "concat not folded:\n{}",
         out
     );
-    // The impl bodies stay correct.
+    // The impl bodies stay correct (Integer param → num).
     assert!(
-        out.contains("p0.intValue() * 2 + 1"),
+        out.contains("num.intValue() * 2 + 1"),
         "impl body wrong:\n{}",
         out
     );

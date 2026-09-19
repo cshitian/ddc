@@ -85,6 +85,9 @@ fn print_help_en() {
     println!("  -t, --threads <n>     parallel workers (default: CPU count;");
     println!("                        stdout output forces one thread for pool order)");
     println!("  --no-comments         omit the provenance header");
+    println!("  --symbols <dir>        SDK platform dir (android.jar + data/");
+    println!("                        annotations.zip): render IntDef constants as");
+    println!("                        names — setVisibility(8) → View.GONE");
     println!("  -v, --verbose         per-dex stats and slow classes on stderr");
     println!("  -h, --help            print this help");
     println!("  -V, --version         print name, version and homepage");
@@ -288,7 +291,17 @@ fn main() {
     unsafe {
         libc::signal(libc::SIGPIPE, libc::SIG_DFL);
     }
-    let args: Vec<String> = std::env::args().skip(1).collect();
+    let mut args: Vec<String> = std::env::args().skip(1).collect();
+    if let Err(e) = load_symbols_from_args(&args) {
+        eprintln!("ddc: {e:?}");
+        std::process::exit(2);
+    }
+    // --symbols is consumed here for the WHOLE invocation; strip the
+    // pair so neither the full-run option loop nor the subcommand
+    // positional parsing sees it again.
+    if let Some(i) = args.iter().position(|a| a == "--symbols") {
+        args.drain(i..(i + 2).min(args.len()));
+    }
     // Leading subcommand word (unless an actual path shadows it) routes
     // to the metadata fast paths: query the artifact as a database
     // instead of decompiling everything.
@@ -311,6 +324,81 @@ fn main() {
         print_help();
         std::process::exit(2);
     }
+}
+
+
+/// `--symbols <sdk-platform-dir>`: install the IntDef/LongDef constant
+/// database (android.jar constants + data/annotations.zip domains) that
+/// renders `setVisibility(8)` as `android.view.View.GONE`. Accepts the
+/// platform directory (`platforms/android-37.0`) or a bare android.jar
+/// (metadata looked up in `<parent>/data/annotations.zip`). Scanned
+/// once here — every path (full run and subcommands) flows through
+/// main().
+fn load_symbols_from_args(args: &[String]) -> Result<()> {
+    let Some(idx) = args.iter().position(|a| a == "--symbols") else {
+        return Ok(());
+    };
+    let path = args
+        .get(idx + 1)
+        .context("--symbols needs a path (the SDK platform directory, e.g. ~/Library/Android/sdk/platforms/android-37.0)")?;
+    let t0 = std::time::Instant::now();
+    let (jar, zip) = if std::fs::metadata(path)?.is_dir() {
+        let jar = PathBuf::from(path).join("android.jar");
+        let zip = PathBuf::from(path).join("data").join("annotations.zip");
+        anyhow::ensure!(jar.is_file(), "--symbols: {} has no android.jar", path);
+        (jar, Some(zip))
+    } else {
+        let jar = PathBuf::from(path);
+        anyhow::ensure!(
+            jar.file_name().and_then(|n| n.to_str()) == Some("android.jar"),
+            "--symbols: expected the platform directory or an android.jar, got {path}"
+        );
+        let zip = jar.parent().and_then(|p| p.parent()).map(|p| p.join("data").join("annotations.zip"));
+        (jar, zip)
+    };
+    // ---- constants out of every .class in android.jar ----
+    let src = inputs::map_source(&jar)?;
+    let bytes = src.bytes();
+    let mut constants: std::collections::HashMap<(String, String), i64> =
+        std::collections::HashMap::new();
+    let mut class_count = 0usize;
+    for e in zip_entries(bytes)? {
+        if !e.name.ends_with(".class") {
+            continue;
+        }
+        if let Ok(raw) = manifest::entry_bytes(bytes, &e) {
+            if let Some((cons, _methods)) = ddc_dec::platform::classfile_constants(&raw) {
+                class_count += 1;
+                constants.extend(cons);
+            }
+        }
+    }
+    // ---- domains out of annotations.zip ----
+    let mut xmls: Vec<Vec<u8>> = Vec::new();
+    if let Some(zip) = zip.filter(|z| z.is_file()) {
+        let zsrc = inputs::map_source(&zip)?;
+        let zbytes = zsrc.bytes();
+        for e in zip_entries(zbytes)? {
+            if e.name.ends_with("annotations.xml") {
+                if let Ok(raw) = manifest::entry_bytes(zbytes, &e) {
+                    xmls.push(raw);
+                }
+            }
+        }
+    }
+    let refs: Vec<&[u8]> = xmls.iter().map(|v| v.as_slice()).collect();
+    let syms = ddc_dec::platform::PlatformSymbols::from_metadata(&refs, &constants);
+    let domains = syms.domain_count();
+    ddc_dec::platform::set_symbols(syms);
+    eprintln!(
+        "{}",
+        bif!(
+            "ddc: platform symbols: {0} domains, {1} constants from {2} classes ({3:.1}s)",
+            "ddc：平台符号：{0} 个常量域，{1} 个常量（{2} 个类，{3:.1}s）";
+            domains, constants.len(), class_count, t0.elapsed().as_secs_f32()
+        )
+    );
+    Ok(())
 }
 
 fn is_subcommand(word: &str) -> bool {
@@ -1314,6 +1402,10 @@ fn run() -> Result<()> {
             "-c" | "--class" => only = Some(take_value!()),
             "-l" | "--list" => list = true,
             "--no-comments" => comments = false,
+            // consumed in main() for the whole invocation; skip here.
+            "--symbols" => {
+                let _ = take_value!();
+            }
             "-t" | "--threads" => {
                 workers = take_value!().parse().unwrap_or(4);
             }

@@ -18,6 +18,7 @@ use std::collections::HashSet;
 // one level at a time; collapsing the nested `if let`s into outer match
 // arms would trade per-arm clarity for lint silence.
 use jdc_core::ir::build::has_side_effects;
+use jdc_core::emit::is_java_keyword;
 use jdc_core::ir::expr::{AssignOp, BinOp, ConcatPart, ConstVal, Expr, TypeRef, UnOp};
 use jdc_core::ir::stmt::{CaseGroup, Catch, Stmt};
 use jdc_core::types::{JavaType, MethodDescriptor};
@@ -2254,3 +2255,306 @@ fn demote_dup_decls(s: &mut Stmt, seen: &mut HashSet<u32>, vt: &VarTable) {
 
 #[allow(dead_code)]
 fn unused(_: &Vec<CaseGroup>, _: &Catch) {}
+
+// ---------------------------------------------------------------------------
+// jadx-style local names (ApplyVariableNames + dexdec's port of it)
+// ---------------------------------------------------------------------------
+
+/// A synthetic `v12`/`p3` never survives when a better name exists.
+/// Priority: (1) a Kotlin `Intrinsics.checkNotNullParameter(x, "name")`
+/// names `x` from the message string (the string IS the parameter name);
+/// (2) the single defining call — `getFoo()` → `foo`, `isFinishing()` →
+/// `finishing`, `new File(…)` → `file`; (3) a type alias or the
+/// lowercased class simple name. Collisions take `2`, `3`, …; a var with
+/// two DISAGREEING defining calls stays unnamed (dexdec's
+/// RelationalNameInference rule). Debug-info names are never touched
+/// (`synthetic_name` gates the whole pass).
+pub fn apply_local_names(vt: &mut VarTable, body: &Stmt) {
+    use std::collections::{HashMap, HashSet};
+
+    // ---- proposals ------------------------------------------------------
+    // var → (name, source-priority); disagreeing call names are dropped.
+    let mut by_call: HashMap<u32, Vec<String>> = HashMap::new();
+    let mut by_intrinsics: HashMap<u32, String> = HashMap::new();
+
+    visit_all_exprs(body, &mut |e| {
+        if let Expr::Method { cls, name, args, .. } = e {
+            if (cls == "kotlin/jvm/internal/Intrinsics"
+                || cls == "kotlin/jvm/internal/IntrinsicsKt")
+                && matches!(name.as_str(), "checkNotNullParameter" | "checkParameterIsNotNull")
+                && args.len() == 2
+            {
+                if let (Expr::Local { var, .. }, Expr::Const(ConstVal::Str(s))) = (&args[0], &args[1])
+                {
+                    by_intrinsics
+                        .entry(*var)
+                        .or_insert_with(|| sanitize_name(s).unwrap_or_default());
+                }
+            }
+        }
+    });
+
+    walk_all(body, &mut |st| {
+        let (var, value) = match st {
+            Stmt::LocalDef { var, init: Some(e), .. } => (*var, e),
+            Stmt::ExprStmt(Expr::Assign { target, value, .. })
+                if matches!(&**target, Expr::Local { .. }) =>
+            {
+                let Expr::Local { var, .. } = &**target else { return };
+                (*var, value.as_ref())
+            }
+            _ => return,
+        };
+        if let Some(n) = defining_call_name(value) {
+            by_call.entry(var).or_default().push(n);
+        }
+    });
+
+    // ---- reservation + application --------------------------------------
+    let mut taken: HashSet<String> = vt
+        .vars
+        .iter()
+        .filter(|v| !v.synthetic_name)
+        .map(|v| v.name.clone())
+        .collect();
+    let claim = |taken: &mut HashSet<String>, want: &str| -> String {
+        if taken.insert(want.to_string()) {
+            return want.to_string();
+        }
+        for i in 2.. {
+            let cand = format!("{want}{i}");
+            if taken.insert(cand.clone()) {
+                return cand;
+            }
+        }
+        want.to_string()
+    };
+
+    for info in vt.vars.iter_mut() {
+        if !info.synthetic_name {
+            continue;
+        }
+        // (1) Intrinsics string — the Kotlin compiler wrote the real
+        // parameter name right into the check.
+        if let Some(n) = by_intrinsics.get(&info.id) {
+            if !n.is_empty() {
+                info.name = claim(&mut taken, n);
+                continue;
+            }
+        }
+        // (2) One consistent defining call.
+        if let Some(names) = by_call.get(&info.id) {
+            let unique: HashSet<&String> = names.iter().collect();
+            if unique.len() == 1 {
+                let n = unique.into_iter().next().unwrap();
+                if !is_java_keyword(n) {
+                    info.name = claim(&mut taken, n);
+                    continue;
+                }
+            }
+        }
+        // (3) Type alias, else the lowercased simple class name
+        // (jadx names a `Looper` local `looper`).
+        let want = type_alias(&info.ty).map(str::to_string).or_else(|| simple_type_name(&info.ty));
+        if let Some(n) = want {
+            info.name = claim(&mut taken, &n);
+        }
+    }
+}
+
+/// `com/android/.../Looper` → `looper` — the alias-table fallback.
+fn simple_type_name(ty: &TypeRef) -> Option<String> {
+    let TypeRef::J(JavaType::Object(n)) = ty else {
+        return None;
+    };
+    let simple = n.rsplit('/').next().unwrap_or(n);
+    let simple = simple.rsplit('$').next().unwrap_or(simple);
+    // Lowercase the first ALPHABETIC char — `$`/`_`-prefixed names
+    // (R8's `$$$_Thread`) must not survive capitalized.
+    let mut chars = simple.chars();
+    let mut out = String::with_capacity(simple.len());
+    let mut lowered = false;
+    for c in chars.by_ref() {
+        if c.is_ascii_alphabetic() && !lowered {
+            out.push(c.to_ascii_lowercase());
+            lowered = true;
+        } else {
+            out.push(c);
+        }
+        if lowered {
+            break;
+        }
+    }
+    out.extend(chars);
+    sanitize_name(&out)
+}
+
+/// `getFoo()` → `foo`, `isFinishing()` → `finishing`, `new File(…)` →
+/// `file`. The get/is prefixes only strip when the remainder starts
+/// uppercase (so `issues()` keeps its name).
+fn defining_call_name(e: &Expr) -> Option<String> {
+    match e {
+        Expr::Method { name, .. } => {
+            let base = name
+                .strip_prefix("get")
+                .or_else(|| name.strip_prefix("is"))
+                .filter(|rest| rest.chars().next().is_some_and(|c| c.is_ascii_uppercase()))
+                .unwrap_or(name);
+            let first = base.chars().next()?;
+            let mut out = String::with_capacity(base.len());
+            out.push(first.to_ascii_lowercase());
+            out.extend(base.chars().skip(1));
+            sanitize_name(&out)
+        }
+        Expr::New { cls, .. } => {
+            let simple = cls.rsplit('/').next().unwrap_or(cls);
+            let simple = simple.rsplit('$').next().unwrap_or(simple);
+            let first = simple.chars().next()?;
+            let mut out = String::with_capacity(simple.len());
+            out.push(first.to_ascii_lowercase());
+            out.extend(simple.chars().skip(1));
+            sanitize_name(&out)
+        }
+        _ => None,
+    }
+}
+
+/// Valid java identifier, not a keyword/restricted name, ≥2 chars.
+fn sanitize_name(s: &str) -> Option<String> {
+    let mut out = String::with_capacity(s.len());
+    for c in s.chars() {
+        if c.is_ascii_alphanumeric() || c == '_' || c == '$' {
+            out.push(c);
+        } else {
+            out.push('_');
+        }
+    }
+    if out.len() < 2
+        || out.chars().next().is_some_and(|c| c.is_ascii_digit())
+        || is_java_keyword(&out)
+    {
+        return None;
+    }
+    Some(out)
+}
+
+/// jadx's alias table for the common types, with the Android globals the
+/// corpus actually shows; anything else falls back in the caller.
+fn type_alias(ty: &TypeRef) -> Option<&'static str> {
+    let TypeRef::J(JavaType::Object(n)) = ty else {
+        return None;
+    };
+    Some(match n.as_str() {
+        "java/lang/String" | "kotlin/String" => "str",
+        "java/lang/Class" => "cls",
+        "java/lang/Throwable" => "th",
+        "java/lang/Object" | "kotlin/Any" => "obj",
+        "java/util/Iterator" | "kotlin/collections/Iterator" => "it",
+        "java/lang/Boolean" => "bool",
+        "java/lang/Integer" => "num",
+        "java/lang/Character" => "ch",
+        "java/lang/Byte" => "b",
+        "java/lang/Short" => "sh",
+        "java/lang/Float" => "f",
+        "java/lang/Double" => "d",
+        "java/lang/Long" => "i",
+        "java/lang/StringBuilder" => "sb",
+        "java/util/ArrayList" => "list",
+        "java/util/HashMap" => "map",
+        "android/content/Context" => "context",
+        "android/content/Intent" => "intent",
+        "android/os/Bundle" => "bundle",
+        "android/view/View" => "view",
+        "android/graphics/Bitmap" => "bitmap",
+        "android/view/ViewGroup" => "viewGroup",
+        _ => return None,
+    })
+}
+
+/// Every expression in the tree, statements included (read-only).
+fn visit_all_exprs<F: FnMut(&Expr)>(s: &Stmt, f: &mut F) {
+    walk_all(s, &mut |st| {
+        let exprs: Vec<&Expr> = match st {
+            Stmt::ExprStmt(Expr::Assign { target, value, .. }) => {
+                let mut v: Vec<&Expr> = vec![value];
+                if !matches!(&**target, Expr::Local { .. }) {
+                    v.push(target);
+                }
+                v
+            }
+            Stmt::ExprStmt(e) | Stmt::Throw(e) | Stmt::MonitorEnter(e) | Stmt::MonitorExit(e) => {
+                vec![e]
+            }
+            Stmt::Return(Some(e)) => vec![e],
+            Stmt::LocalDef { init: Some(e), .. } => vec![e],
+            Stmt::If { cond, .. } | Stmt::While { cond, .. } | Stmt::DoWhile { cond, .. } => {
+                vec![cond]
+            }
+            _ => Vec::new(),
+        };
+        for e in exprs {
+            visit_exprs(e, f);
+        }
+    });
+}
+
+/// IntDef/LongDef exact-match rendering: a literal argument to a
+/// platform method whose parameter carries a constant domain renders as
+/// the named constant (`setVisibility(8)` → `android.view.View.GONE`).
+/// Combined flag values and literals outside the domain stay numeric.
+pub fn platform_constants(body: &mut Stmt) {
+    if !crate::platform::installed() {
+        return;
+    }
+    rewrite_exprs(body, &mut |e| {
+        if let Expr::Method { cls, name, desc, args, .. } = e {
+            for a in args.iter_mut() {
+                let (value, is_long) = match a {
+                    Expr::Const(ConstVal::Int(v)) => (*v as i64, false),
+                    Expr::Const(ConstVal::Long(v)) => (*v, true),
+                    _ => continue,
+                };
+                if let Some(named) =
+                    crate::platform::named_constant(cls, name, &desc_to_string(desc), 0, value)
+                {
+                    let _ = is_long;
+                    *a = Expr::Raw(named);
+                }
+            }
+        }
+    });
+}
+
+/// MethodDescriptor → dex descriptor string (`(I)V`).
+fn desc_to_string(d: &jdc_core::types::MethodDescriptor) -> String {
+    let mut out = String::from("(");
+    for a in &d.args {
+        type_to_desc(a, &mut out);
+    }
+    out.push(')');
+    type_to_desc(&d.ret, &mut out);
+    out
+}
+
+fn type_to_desc(t: &jdc_core::types::JavaType, out: &mut String) {
+    match t {
+        JavaType::Void => out.push('V'),
+        JavaType::Boolean => out.push('Z'),
+        JavaType::Byte => out.push('B'),
+        JavaType::Char => out.push('C'),
+        JavaType::Short => out.push('S'),
+        JavaType::Int => out.push('I'),
+        JavaType::Float => out.push('F'),
+        JavaType::Long => out.push('J'),
+        JavaType::Double => out.push('D'),
+        JavaType::Object(n) => {
+            out.push('L');
+            out.push_str(n);
+            out.push(';');
+        }
+        JavaType::Array(inner) => {
+            out.push('[');
+            type_to_desc(inner, out);
+        }
+    }
+}

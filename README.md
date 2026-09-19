@@ -28,6 +28,10 @@ parses cleanly.
 - **DEX 035–041, complete** — multi-dex APKs, XAPK/APKS/APKM
   containers, invoke-custom; lambdas and string concats fold back into
   real Java (`(a) -> …`, `Cls::name`, `a + b`).
+- **Readable output** — jadx-style local names (`str`, `getName() →
+  name`, Kotlin `Intrinsics` parameter strings) instead of `v12`;
+  with `--symbols <sdk-platform-dir>`, IntDef literals render as their
+  constants (`setVisibility(8)` → `View.GONE`).
 - **Reproducible output** — no timestamps; two runs diff cleanly.
 - **Bilingual CLI** — messages localize automatically
   (`DDC_LANG=zh|en` forces; English fallback).

@@ -180,6 +180,17 @@ clean (timing prints only with `-o`).
   `org.telegram.messenger`) it retries with the launcher class's
   package, which is where an app's own code clusters.
 
+## Platform symbols (`--symbols`)
+
+`--symbols <sdk-platform-dir>` points at an Android SDK platform
+directory (e.g. `~/Library/Android/sdk/platforms/android-37.0` — needs
+`android.jar` and `data/annotations.zip`). ddc then renders IntDef/
+LongDef literal arguments as their constant names:
+`setVisibility(8)` → `android.view.View.GONE`, exact-domain matches
+only (combined flag values stay numeric). The flag loads once for the
+whole invocation — full decompile and subcommands alike; loading
+android.jar costs ~0.1s and prints its tally to stderr.
+
 ## Exit codes for subcommands
 
 Usage errors (missing arguments, unknown options, bad `--dex`) print the

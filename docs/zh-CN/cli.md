@@ -154,6 +154,16 @@ DDC_LANG=en ddc -V        # zh 区域下强制英文
   `org.telegram.messenger`）回退用 launcher 类所在的包，应用自身代码总
   聚簇在那里。
 
+## 平台符号（`--symbols`）
+
+`--symbols <SDK平台目录>` 指向 Android SDK 的平台目录（如
+`~/Library/Android/sdk/platforms/android-37.0`，需含 `android.jar`
+和 `data/annotations.zip`）。ddc 会把 IntDef/LongDef 字面量实参按
+常量名渲染：`setVisibility(8)` → `android.view.View.GONE`——仅精确
+命中域成员（组合的 flag 值保持数字）。该参数对整次调用加载一次，
+全量反编译与子命令同样生效；解析 android.jar 约 0.1 秒，统计行打
+到 stderr。
+
 ## 子命令的退出码
 
 用法错误（缺参数、未知选项、`--dex` 传错）先输出错误再输出完整帮助，

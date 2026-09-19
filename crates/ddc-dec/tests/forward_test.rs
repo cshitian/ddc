@@ -165,3 +165,104 @@ fn forward_cycle_terminates() {
     let text = format!("{:?}", body);
     assert!(text.contains("var: 2") && text.contains("var: 3"), "cycle defs lost: {text}");
 }
+
+#[test]
+fn local_names_follow_jadx_rules() {
+    use ddc_dec::passes::apply_local_names;
+    use jdc_core::ir::expr::{ConstVal, Expr, TypeRef};
+    use jdc_core::ir::stmt::Stmt;
+    use jdc_core::types::JavaType;
+    use jdc_core::var::VarTable;
+
+    let int = |v: u32| Box::new(Expr::Local { var: v, ty: TypeRef::J(JavaType::Int) });
+    let obj = |v: u32, cls: &str| {
+        Box::new(Expr::Local {
+            var: v,
+            ty: TypeRef::J(JavaType::Object(cls.into())),
+        })
+    };
+    let mk_call = |cls: &str, name: &str, args: Vec<Expr>| Expr::Method {
+        owner: None,
+        cls: cls.into(),
+        name: name.into(),
+        desc: jdc_core::types::MethodDescriptor {
+            args: vec![],
+            ret: JavaType::Object("java/lang/Object".into()),
+        },
+        args,
+        is_static: true,
+        is_interface: false,
+        is_special: false,
+        is_super: false,
+        is_dynamic: false,
+        type_args: vec![],
+    };
+    // v1: Intrinsics string wins; v2: getName() defining call; v3+0:
+    // String alias with a collision; v4: disagreement (two different
+    // calls) falls back to the Looper class name.
+    let body = Stmt::Block(vec![
+        Stmt::ExprStmt(mk_call(
+            "kotlin/jvm/internal/Intrinsics",
+            "checkNotNullParameter",
+            vec![(*obj(1, "java/lang/Object")).clone(), Expr::Const(ConstVal::Str("callback".into()))],
+        )),
+        Stmt::LocalDef {
+            var: 2,
+            init: Some(mk_call("com/x/Repo", "getName", vec![])),
+            is_final: false,
+            force_type: true,
+        },
+        Stmt::LocalDef {
+            var: 3,
+            init: Some(Expr::Const(ConstVal::Str("a".into()))),
+            is_final: false,
+            force_type: true,
+        },
+        Stmt::LocalDef {
+            var: 5,
+            init: Some(Expr::Const(ConstVal::Str("b".into()))),
+            is_final: false,
+            force_type: true,
+        },
+        Stmt::LocalDef {
+            var: 4,
+            init: Some(mk_call("android/os/Looper", "getMainLooper", vec![])),
+            is_final: false,
+            force_type: true,
+        },
+        Stmt::ExprStmt(Expr::Assign {
+            target: int(4),
+            value: mk_call("android/os/Looper", "getThread", vec![]).into(),
+            op: jdc_core::ir::expr::AssignOp::Plain,
+        }),
+    ]);
+    let mut vt = VarTable::default();
+    for (i, cls) in [
+        (0u32, "java/lang/Object"), // debug-named: untouched
+        (1, "java/lang/Object"),
+        (2, "java/lang/Object"),
+        (3, "java/lang/String"),
+        (4, "android/os/Looper"),
+        (5, "java/lang/String"),
+    ] {
+        let id = vt.vars.len() as u32;
+        vt.vars.push(jdc_core::var::VarInfo {
+            id,
+            slot: i as u16,
+            name: if i == 0 { "kept".into() } else { format!("v{}", id) },
+            ty: TypeRef::J(JavaType::Object(cls.into())),
+            is_param: i <= 1,
+            range_start: 0,
+            range_end: u16::MAX,
+            synthetic_name: i != 0,
+        });
+    }
+    apply_local_names(&mut vt, &body);
+    let name = |i: usize| vt.vars[i].name.clone();
+    assert_eq!(name(0), "kept", "debug name must survive");
+    assert_eq!(name(1), "callback", "Intrinsics string names the arg");
+    assert_eq!(name(2), "name", "getName() -> name");
+    assert_eq!(name(3), "str", "String -> str");
+    assert_eq!(name(4), "looper", "disagreeing calls fall back to the class name");
+    assert_eq!(name(5), "str2", "collision takes 2");
+}

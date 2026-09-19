@@ -24,6 +24,9 @@
 - **DEX 035–041 全版本** —— 多 dex APK、XAPK/APKS/APKM 容器、
   invoke-custom；lambda 与字符串拼接折叠回真 Java（`(a) -> …`、
   `Cls::name`、`a + b`）。
+- **可读输出** —— jadx 式局部变量名（`str`、`getName() → name`、
+  Kotlin `Intrinsics` 参数名）取代 `v12`；`--symbols <SDK平台目录>`
+  后 IntDef 魔法数字按常量名渲染（`setVisibility(8)` → `View.GONE`）。
 - **可复现输出** —— 无时间戳，两次运行 diff 干净。
 - **中英双语 CLI** —— 按环境变量自动识别语言（`DDC_LANG=zh|en` 强制
   指定，回退英文）。

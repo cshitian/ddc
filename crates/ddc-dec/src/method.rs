@@ -507,6 +507,8 @@ pub fn decompile_method(
         passes::forward_single_use(&mut body, &vt);
         passes::cleanup(&mut body);
         passes::infer_types(&mut vt, &mut body, &desc.ret, &env);
+        passes::apply_local_names(&mut vt, &body);
+        passes::platform_constants(&mut body);
         passes::ensure_declared(&mut body, &vt);
         passes::strip_trailing_void_return(&mut body);
         passes::cleanup(&mut body);
@@ -687,6 +689,8 @@ pub fn decompile_method(
     passes::cleanup(&mut body);
     passes::infer_types(&mut vt, &mut body, &desc.ret, &env);
     passes::booleanize(&mut vt, &mut body);
+    passes::apply_local_names(&mut vt, &body);
+    passes::platform_constants(&mut body);
     passes::ensure_declared(&mut body, &vt);
     passes::strip_trailing_void_return(&mut body);
     passes::cleanup(&mut body);
