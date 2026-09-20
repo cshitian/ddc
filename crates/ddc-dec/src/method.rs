@@ -737,6 +737,9 @@ pub fn decompile_method(
     if &*m.name == "<init>" {
         passes::fix_ctor_super_first(&mut body);
     }
+    if &*m.name == "<clinit>" {
+        passes::strip_clinit_returns(&mut body);
+    }
     passes::strip_trailing_void_return(&mut body);
     passes::cleanup(&mut body);
 

@@ -1247,7 +1247,13 @@ pub fn print_class_name(pool: &DexPool, internal: &str) -> String {
                 let prefix = &internal[..off + i];
                 let known = pool.get(prefix).is_some()
                     || jdc_core::rename::is_renamed_display(prefix)
-                    || !pool.has_dollar_prefix(prefix);
+                    // The FULL name is not a pool class: this `$` cannot
+                    // be a literal name (pool literal classes — an app's
+                    // own `View$OnUnhandledKeyEventListener` — keep their
+                    // `$` here AND at their declaration), so it can only
+                    // be an external framework nesting boundary
+                    // (`View$OnClickListener` → `.OnClickListener`).
+                    || !pool.get(internal).is_some();
                 // The `$` may only become a nesting dot when the tail
                 // segment STARTS a Java identifier: R8's desugared-
                 // library names carry `$` inside PACKAGE paths

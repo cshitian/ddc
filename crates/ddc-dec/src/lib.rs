@@ -214,7 +214,6 @@ pub struct DexPool {
     retire_armed: std::sync::atomic::AtomicBool,
     /// name → outer (computed once; `$` heuristic + dalvik annotations).
     outers: std::sync::OnceLock<HashMap<String, Option<String>>>,
-    dollar_ix: std::sync::OnceLock<Vec<String>>,
     /// outer → direct children (computed once).
     children: std::sync::OnceLock<HashMap<String, Vec<String>>>,
     /// Per-image hot-reference interning (parallel to `dexes`).
@@ -256,7 +255,6 @@ impl DexPool {
             order: Vec::new(),
             retire_counts: std::sync::Mutex::new(Vec::new()),
             outers: std::sync::OnceLock::new(),
-            dollar_ix: std::sync::OnceLock::new(),
             children: std::sync::OnceLock::new(),
             ref_caches: Vec::new(),
         }
@@ -332,28 +330,6 @@ impl DexPool {
     }
 
     /// The outer class of `name`, from the cached map (borrowed).
-    /// True when some pool class is named `prefix$…` (a LITERAL `$` in a
-    /// class name — R8 desugars `j$/util/...`, anonymous ids). Used by
-    /// print_class_name: a `$` boundary is a nesting dot only when the
-    /// left side is a known class AND no pool class carries that exact
-    /// `$`-literal prefix (`android/os/Parcelable$Creator` — the pool
-    /// has no `android/os/Parcelable$*` class, so Creator is a nested
-    /// type of an external framework class, not a literal name).
-    pub fn has_dollar_prefix(&self, prefix: &str) -> bool {
-        if self.dollar_ix.get().is_none() {
-            let mut sorted: Vec<String> = self.order.clone();
-            sorted.sort_unstable();
-            let _ = self.dollar_ix.set(sorted);
-        }
-        self.dollar_ix.get().is_some_and(|sorted| {
-            let needle = format!("{prefix}$");
-            match sorted.binary_search_by(|n| n.as_str().cmp(needle.as_str())) {
-                Ok(_) => true,
-                Err(pos) => pos < sorted.len() && sorted[pos].starts_with(&needle),
-            }
-        })
-    }
-
     pub fn outer_of(&self, name: &str) -> Option<&str> {
         self.outer_map().get(name).and_then(|o| o.as_deref())
     }

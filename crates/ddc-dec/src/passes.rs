@@ -847,10 +847,47 @@ pub fn count_localdefs(s: &Stmt, out: &mut usize) {
 /// Drop a trailing `return;` (d8's explicit return-void at method end).
 pub fn strip_trailing_void_return(s: &mut Stmt) {
     if let Stmt::Block(v) = s {
-        while let Some(Stmt::Return(None)) = v.last() {
-            v.pop();
+        loop {
+            match v.last_mut() {
+                Some(Stmt::Return(None)) => {
+                    v.pop();
+                }
+                // The structurer can close a region in a bare nested
+                // block; a `return;` at its tail is still a dangling
+                // statement (inside a static initializer it is illegal
+                // outright — clinit's closing return).
+                Some(Stmt::Block(_)) => {
+                    let last = v.last_mut().unwrap();
+                    let before = match last {
+                        Stmt::Block(b) => b.len(),
+                        _ => 0,
+                    };
+                    strip_trailing_void_return(last);
+                    let after = match last {
+                        Stmt::Block(b) => b.len(),
+                        _ => 0,
+                    };
+                    if after == before {
+                        break; // nothing stripped inside
+                    }
+                }
+                _ => break,
+            }
         }
     }
+}
+
+/// A static initializer cannot contain `return` in source form — the
+/// clinit's closing return is a method-level artifact, but the
+/// structurer can leave it nested inside loops/branches where the
+/// top-level strip cannot see it (x2/a: `static { while { ...; return;
+/// } }` — "return outside method", 184 sites on reqable).
+pub fn strip_clinit_returns(s: &mut Stmt) {
+    walk_mut_deep(s, &mut |st| {
+        if let Stmt::Block(v) = st {
+            v.retain(|x| !matches!(x, Stmt::Return(None)));
+        }
+    });
 }
 
 pub fn prepend_comment(s: &mut Stmt, text: String) {
