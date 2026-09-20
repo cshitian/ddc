@@ -2440,6 +2440,71 @@ fn expr_evidence<F: FnMut(u32, JavaType)>(e: &Expr, f: &mut F) {
     });
 }
 
+/// Type inference can leave a specific-reference-typed target assigned
+/// from a `java/lang/Object`-typed value: a phi that merged String and
+/// Object then settled on String (`String str4; ... str4 = obj;` where
+/// `obj` is an Object field — y5/n.java), or an Object local flowing to a
+/// typed field. Java requires a narrowing cast there; insert `(T) value`
+/// at the USE site (round-40 philosophy: narrow at use, never retype the
+/// declaration). Guarded tightly: only when the value's resolved static
+/// type is EXACTLY `java/lang/Object` (the untyped top — a known subtype
+/// is never re-cast), the value is not a null const (assignable to any
+/// ref) nor already a cast, and the target is a specific reference type
+/// (Object→int/boolean is unboxing, a different problem left alone).
+pub fn insert_object_narrowing_casts(vt: &VarTable, body: &mut Stmt) {
+    // Resolve a value's static type through the VarTable for locals (the
+    // embedded Local ty can lag infer_types), else the expr's own type.
+    let value_ty = |e: &Expr| -> JavaType {
+        match e {
+            Expr::Local { var, .. } => vt.var(*var).ty.erased(),
+            other => other.type_ref().erased(),
+        }
+    };
+    let is_top_object = |e: &Expr| -> bool {
+        value_ty(e) == JavaType::Object("java/lang/Object".into())
+    };
+    // A specific reference target type (a class other than java/lang/Object).
+    let specific_ref = |ty: &TypeRef| -> Option<TypeRef> {
+        match ty.erased() {
+            JavaType::Object(c) if c.as_ref() != "java/lang/Object" => Some(ty.clone()),
+            _ => None,
+        }
+    };
+    let castable = |e: &Expr| -> bool {
+        is_top_object(e)
+            && !matches!(e, Expr::Const(_) | Expr::Cast { .. } | Expr::InstanceOf { .. })
+    };
+    walk_mut_deep(body, &mut |st| match st {
+        Stmt::ExprStmt(Expr::Assign { target, value, op, .. })
+            if matches!(op, AssignOp::Plain) =>
+        {
+            let tgt = match &**target {
+                Expr::Local { var, .. } => vt.var(*var).ty.clone(),
+                Expr::Field { ty, .. } => ty.clone(),
+                _ => return,
+            };
+            if let Some(t) = specific_ref(&tgt) {
+                if castable(value) {
+                    let v = std::mem::replace(value, Box::new(Expr::This));
+                    *value = Box::new(Expr::Cast { ty: t, e: v });
+                }
+            }
+        }
+        Stmt::LocalDef { var, init: Some(value), .. } => {
+            if let Some(t) = specific_ref(&vt.var(*var).ty) {
+                if castable(value) {
+                    let v = std::mem::replace(value, Expr::This);
+                    *value = Expr::Cast {
+                        ty: t,
+                        e: Box::new(v),
+                    };
+                }
+            }
+        }
+        _ => {}
+    });
+}
+
 /// Boolean inference: vars only ever assigned 0/1/comparisons/booleans and
 /// read in conditions become `boolean`, with `v != 0` → `v` in conditions.
 pub fn booleanize(vt: &mut VarTable, body: &mut Stmt, ret_bool: bool) {
