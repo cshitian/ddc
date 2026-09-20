@@ -567,6 +567,8 @@ pub fn decompile_method(
     }
         passes::strip_trailing_void_return(&mut body);
         passes::cleanup(&mut body);
+        passes::invert_empty_thens(&mut body);
+        passes::fold_short_circuits(&mut body);
         if !errors.is_empty() {
             passes::prepend_comment(
                 &mut body,
@@ -742,6 +744,10 @@ pub fn decompile_method(
     }
     passes::strip_trailing_void_return(&mut body);
     passes::cleanup(&mut body);
+    // Short-circuit folding last: the diamond shapes are final only
+    // after cleanup merges singleton blocks.
+    passes::invert_empty_thens(&mut body);
+    passes::fold_short_circuits(&mut body);
 
     if !errors.is_empty() {
         passes::prepend_comment(

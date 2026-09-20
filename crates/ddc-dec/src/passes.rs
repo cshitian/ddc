@@ -877,6 +877,239 @@ pub fn strip_trailing_void_return(s: &mut Stmt) {
     }
 }
 
+/// `if (c) { } else { B }` → `if (!c) { B }` — the empty-then shape is
+/// how the structurer lands an inverted diamond, and source never writes
+/// it (jadx prints the positive form). negate() carries De Morgan so
+/// composed conditions stay clean.
+pub fn invert_empty_thens(s: &mut Stmt) {
+    walk_mut_deep(s, &mut |st| {
+        if let Stmt::If {
+            cond,
+            then_stmt,
+            else_stmt,
+        } = st
+        {
+            let then_empty = matches!(&**then_stmt, Stmt::Block(v) if v.is_empty());
+            if then_empty {
+                if let Some(els) = else_stmt.take() {
+                    let c = std::mem::replace(cond, Expr::Const(ConstVal::Int(0)));
+                    *cond = jdc_core::convert::negate(c);
+                    *then_stmt = els;
+                }
+            }
+        }
+    });
+}
+
+/// Fold if-diamonds back into short-circuit conditions (DAD's
+/// short_circuit_struct, statement level). The structurer emits nested
+/// ifs for `a && b` / `a || b` bytecode diamonds; javac source almost
+/// never nests them, and jadx folds all four shapes:
+///   if (c1) { if (c2) {T} else {F} } else {F}  →  if (c1 && c2) {T} else {F}
+///   if (c1) { if (c2) {F} else {T} } else {F}  →  if (c1 && !c2) {T} else {F}
+///   if (c1) {T} else { if (c2) {T} else {F} }  →  if (c1 || c2) {T} else {F}
+///   if (c1) {T} else { if (c2) {F} else {T} }  →  if (c1 || !c2) {T} else {F}
+/// Branch identity is deep structural equality (Stmt: PartialEq);
+/// iterate to a fixpoint so chained diamonds `(a && b) && c` collapse.
+pub fn fold_short_circuits(s: &mut Stmt) {
+    for _ in 0..8 {
+        let mut changed = false;
+        walk_mut_deep(s, &mut |st| {
+            if try_fold_diamond(st) {
+                changed = true;
+            }
+        });
+        if !changed {
+            break;
+        }
+    }
+}
+
+fn try_fold_diamond(st: &mut Stmt) -> bool {
+    enum Shape {
+        ThenAnd,
+        ThenAndNot,
+        ElseOr,
+        ElseOrNot,
+        BareAnd,
+        BareAndNot,
+    }
+    // Probe the shape on an immutable borrow first (the fold takes the
+    // whole If apart; matching and rebuilding inside one borrow is not
+    // expressible).
+    let shape = match &*st {
+        // One-sided diamonds: the shared branch is the implicit empty
+        // fall-through (`if (c1) { if (c2) {T} }` → `if (c1 && c2) {T}`).
+        Stmt::If {
+            then_stmt,
+            else_stmt: None,
+            ..
+        } => match &**then_stmt {
+            Stmt::If {
+                then_stmt: t2,
+                else_stmt: None,
+                ..
+            } if !matches!(&**t2, Stmt::Block(v) if v.is_empty()) => Some(Shape::BareAnd),
+            Stmt::If {
+                then_stmt: t2,
+                else_stmt: Some(_),
+                ..
+            } if matches!(&**t2, Stmt::Block(v) if v.is_empty()) => Some(Shape::BareAndNot),
+            _ => None,
+        },
+        Stmt::If {
+            then_stmt,
+            else_stmt: Some(els),
+            ..
+        } => match (&**then_stmt, &**els) {
+            (Stmt::If { else_stmt: Some(f2), .. }, _) if f2.as_ref() == els.as_ref() => {
+                Some(Shape::ThenAnd)
+            }
+            (Stmt::If { then_stmt: t2, else_stmt: Some(_), .. }, _)
+                if t2.as_ref() == els.as_ref() =>
+            {
+                Some(Shape::ThenAndNot)
+            }
+            (_, Stmt::If { then_stmt: t2, else_stmt: Some(_), .. })
+                if t2.as_ref() == then_stmt.as_ref() =>
+            {
+                Some(Shape::ElseOr)
+            }
+            (_, Stmt::If { else_stmt: Some(f2), .. })
+                if f2.as_ref() == then_stmt.as_ref() =>
+            {
+                Some(Shape::ElseOrNot)
+            }
+            _ => None,
+        },
+        _ => None,
+    };
+    let Some(shape) = shape else {
+        return false;
+    };
+
+    let taken = std::mem::replace(st, Stmt::Block(vec![]));
+    // Bare (no-else) diamonds fold without an else at all.
+    if matches!(shape, Shape::BareAnd | Shape::BareAndNot) {
+        let Stmt::If {
+            cond: c1,
+            then_stmt,
+            else_stmt: None,
+        } = taken
+        else {
+            unreachable!()
+        };
+        let Stmt::If {
+            cond: c2,
+            then_stmt: t2,
+            else_stmt: f2,
+        } = *then_stmt
+        else {
+            unreachable!()
+        };
+        let sc = |op: BinOp, l: Expr, r: Expr| Expr::Bin {
+            op,
+            l: Box::new(l),
+            r: Box::new(r),
+            ty: None,
+        };
+        match shape {
+            // if (c1 && c2) {T}
+            Shape::BareAnd => {
+                *st = Stmt::If {
+                    cond: sc(BinOp::LogAnd, c1, c2),
+                    then_stmt: t2,
+                    else_stmt: None,
+                };
+            }
+            // if (c1) { if (c2) {} else {T} }  →  if (c1 && !c2) {T}
+            _ => {
+                let body = f2.unwrap();
+                *st = Stmt::If {
+                    cond: sc(
+                        BinOp::LogAnd,
+                        c1,
+                        Expr::Un {
+                            op: UnOp::Not,
+                            e: Box::new(c2),
+                        },
+                    ),
+                    then_stmt: body,
+                    else_stmt: None,
+                };
+            }
+        }
+        return true;
+    }
+    let Stmt::If {
+        cond: c1,
+        then_stmt,
+        else_stmt: Some(els),
+    } = taken
+    else {
+        unreachable!("shape probe guaranteed an If with else")
+    };
+    let sc = |op: BinOp, l: Expr, r: Expr| Expr::Bin {
+        op,
+        l: Box::new(l),
+        r: Box::new(r),
+        ty: None,
+    };
+    let not = |e: Expr| Expr::Un {
+        op: UnOp::Not,
+        e: Box::new(e),
+    };
+    match shape {
+        Shape::BareAnd | Shape::BareAndNot => unreachable!("handled above"),
+        Shape::ThenAnd | Shape::ThenAndNot => {
+            let Stmt::If {
+                cond: c2,
+                then_stmt: t2,
+                else_stmt: Some(f2),
+            } = *then_stmt
+            else {
+                unreachable!()
+            };
+            let (nc, body, alt) = match shape {
+                // if (c1 && c2) {T} else {F}
+                Shape::ThenAnd => (sc(BinOp::LogAnd, c1, c2), t2, f2),
+                // if (c1 && !c2) {T} else {F}   (inner: {F} else {T})
+                _ => (sc(BinOp::LogAnd, c1, not(c2)), f2, t2),
+            };
+            *st = Stmt::If {
+                cond: nc,
+                then_stmt: body,
+                else_stmt: Some(alt),
+            };
+        }
+        Shape::ElseOr | Shape::ElseOrNot => {
+            let Stmt::If {
+                cond: c2,
+                then_stmt: t2,
+                else_stmt: Some(f2),
+            } = *els
+            else {
+                unreachable!()
+            };
+            // The surviving then-body is the OUTER then (identical to the
+            // matching inner branch by the probe).
+            let body = then_stmt;
+            let (nc, alt) = match shape {
+                // if (c1 || c2) {T} else {F}   (inner: {T} else {F})
+                Shape::ElseOr => (sc(BinOp::LogOr, c1, c2), f2),
+                // if (c1 || !c2) {T} else {F}  (inner: {F} else {T})
+                _ => (sc(BinOp::LogOr, c1, not(c2)), t2),
+            };
+            *st = Stmt::If {
+                cond: nc,
+                then_stmt: body,
+                else_stmt: Some(alt),
+            };
+        }
+    }
+    true
+}
+
 /// A static initializer cannot contain `return` in source form — the
 /// clinit's closing return is a method-level artifact, but the
 /// structurer can leave it nested inside loops/branches where the
