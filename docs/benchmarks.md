@@ -24,9 +24,17 @@ RSS via `/usr/bin/time -l`:
 | lark | 398 MB | **5.52s** | 1831 MB |
 | qq | 374 MB | **15.92s** | 2459 MB |
 
-**Compile validation**: every `.java` of all seven APKs (909,689
-files) is fed to `javac`'s parse gate (`-XDshould-stop.ifNoError=PARSE
--XDshould-stop.ifError=PARSE`): **zero syntax errors**.
+**Compile validation — read the scope before quoting this number**:
+every `.java` of all seven APKs (909,689 files) passes `javac`'s parse
+gate (`-XDshould-stop.ifNoError=PARSE -XDshould-stop.ifError=PARSE`)
+with **zero syntax errors**. That gate stops at the parser: it does NOT
+type-check, resolve symbols, or guarantee the output compiles against a
+classpath. Semantic quality (type recovery, cross-references) trails
+jadx — see "Known limitations" in the README. Symbol/typing error
+counts under full `javac` compilation are tracked separately and have
+been the driver of the post-0.1.4 fix rounds (duplicate declarations:
+lark 22,316 → 14, weibo 14,871 → 3, null-into-local `str = 0` family
+root-caused and fixed in 0.1.6).
 
 ## Every query subcommand, same seven APKs
 

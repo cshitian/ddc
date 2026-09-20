@@ -15,10 +15,11 @@ categories = ["command-line-utilities", "development-tools::debugging"]
 [workspace.dependencies]
 ddc-dex = { path = "crates/ddc-dex", version = "0.2.1" }
 ddc-dec = { path = "crates/ddc-dec", version = "0.1.5" }
-jdc-core = "0.2.0"
+jdc-core = "0.2.1"
 anyhow = "1"
 
 [profile.release]
 debug = true
 lto = "fat"
 codegen-units = 1
+

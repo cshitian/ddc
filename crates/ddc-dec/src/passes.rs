@@ -318,7 +318,7 @@ fn for_each_child_mut<F: FnMut(&mut Expr)>(e: &mut Expr, f: &mut F) {
 }
 
 /// Deep mutable expression rewrite.
-fn deep_rewrite<F: FnMut(&mut Expr)>(e: &mut Expr, f: &mut F) {
+pub(crate) fn deep_rewrite<F: FnMut(&mut Expr)>(e: &mut Expr, f: &mut F) {
     f(e);
     for_each_child_mut(e, &mut |c| deep_rewrite(c, f));
 }
@@ -951,6 +951,36 @@ pub fn fused_expr_rewrites(s: &mut Stmt, vt: &VarTable) {
                 }
             }
         });
+    });
+    // 4. null into reference-typed assignment targets. The register
+    //    machine stores null as const-0; return/throw/field-store/invoke
+    //    argument paths were normalized in the lifter, but a null that
+    //    MATERIALIZES into a local was rendered as `str = 0;` — javac
+    //    "int cannot be converted to String" (the single biggest error
+    //    family on real corpora: d8 emits null locals this way after
+    //    every `x = null` branch).
+    walk_mut_deep(s, &mut |st| {
+        if let Stmt::ExprStmt(Expr::Assign { target, value, .. }) = st {
+            let tgt_is_obj = match &**target {
+                Expr::Local { var, .. } => {
+                    obj_vars.get(*var as usize).copied().unwrap_or(false)
+                }
+                other => other.type_ref().erased().is_reference(),
+            };
+            if tgt_is_obj {
+                if let Expr::Const(ConstVal::Int(0)) = &**value {
+                    **value = Expr::Const(ConstVal::Null);
+                }
+            }
+        } else if let Stmt::LocalDef { var, init, .. } = st {
+            if obj_vars.get(*var as usize).copied().unwrap_or(false) {
+                if let Some(iv) = init {
+                    if let Expr::Const(ConstVal::Int(0)) = iv {
+                        *iv = Expr::Const(ConstVal::Null);
+                    }
+                }
+            }
+        }
     });
 }
 
@@ -1759,43 +1789,100 @@ fn forward_adjacent_impure(s: &mut Stmt, values: &[Option<Expr>], impure: &[bool
 
 /// Evidence-based type inference for synthetic (non-parameter) vars.
 pub fn infer_types(vt: &mut VarTable, body: &mut Stmt, ret: &JavaType, env: &MethodEnv) {
-    let n_vars = vt.vars.len();
-    let mut evidence: Vec<Vec<JavaType>> = vec![Vec::new(); n_vars];
-    let ev = |evidence: &mut Vec<Vec<JavaType>>, var: u32, t: JavaType| {
+    let n = vt.vars.len();
+    // (type, strong) — DIRECTIONAL evidence. Strong facts (an assigned
+    // value's type, the declared return/throw/monitor type) DEFINE the
+    // variable; weak facts (call argument expectations, receiver
+    // contexts, numeric literals) only constrain a use. jadx's bound
+    // system carries the same direction; a flat pool let a weak
+    // expectation (`v26 = p1` with boolean p1 beside `v26 = 0` sugar)
+    // outvote the definition.
+    let mut evidence: Vec<Vec<(JavaType, bool)>> = vec![Vec::new(); n];
+    let ev = |evidence: &mut Vec<Vec<(JavaType, bool)>>, var: u32, t: JavaType, strong: bool| {
         if (var as usize) < evidence.len() {
-            evidence[var as usize].push(t);
+            evidence[var as usize].push((t, strong));
         }
     };
 
     walk_all(body, &mut |st| match st {
         Stmt::LocalDef { var, init, .. } => {
             if let Some(e) = init {
-                expr_evidence(e, &mut |v, t| ev(&mut evidence, v, t));
-                if let Expr::Local { var: src, .. } = e {
-                    let _ = src;
-                }
-                if let Expr::Local { var: src, .. } = e {
-                    if evidence.get(*var as usize).is_some() {
-                        let _ = src;
+                expr_evidence(e, &mut |v, t| ev(&mut evidence, v, t, false));
+                // The initializer DEFINES the declared type: `long v = l(...)`
+                // must not stay `int v` (silent 64-bit truncation in the
+                // eyes of a reader; javac rejects it as lossy). Null
+                // carries no type (it would DOWNGRADE String to Object).
+                // Literals are weak (0/1 is boolean sugar half the time);
+                // typed producers and parameter sources are strong;
+                // local-to-local copies are weak (register reuse).
+                let strong = match e {
+                    Expr::Const(_) => false,
+                    Expr::Local { var: src, .. } => {
+                        let src_ty = vt.vars.get(*src as usize).map(|v| v.ty.erased());
+                        let tgt_ty = vt.vars.get(*var as usize).map(|v| v.ty.erased());
+                        match (src_ty, tgt_ty) {
+                            (Some(s), Some(g)) => {
+                                (s.is_numeric() && g.is_numeric())
+                                    || (s.is_reference() && g.is_reference())
+                            }
+                            _ => false,
+                        }
                     }
-                }
+                    _ => true,
+                };
+                ev(&mut evidence, *var, e.type_ref().erased(), strong);
             }
         }
-        Stmt::ExprStmt(e) => expr_evidence(e, &mut |v, t| ev(&mut evidence, v, t)),
+        Stmt::ExprStmt(e) => {
+            // Assignment targets: a typed PRODUCER (method/new/field) or a
+            // PARAMETER source is a STRONG definition (`v26 = p1` with
+            // boolean p1). A local-to-local copy is weak — register reuse
+            // and merge materialization emit exactly that shape with
+            // mismatched types (`sb7 = compareTo10` in a Kotlin when).
+            // Literals stay weak.
+            if let Expr::Assign { target, value, .. } = e {
+                if let Expr::Local { var, .. } = &**target {
+                    let strong = match &**value {
+                        Expr::Const(_) => false,
+                        Expr::Local { var: src, .. } => {
+                            // A local copy is strong when the source and
+                            // the target's register type are the same
+                            // FAMILY (numeric↔numeric, reference↔
+                            // reference) — a cross-family copy (int into
+                            // a StringBuilder local) is merge-material
+                            // residue and stays weak.
+                            let src_ty = vt.vars.get(*src as usize).map(|v| v.ty.erased());
+                            let tgt_ty = vt.vars.get(*var as usize).map(|v| v.ty.erased());
+                            match (src_ty, tgt_ty) {
+                                (Some(s), Some(g)) => {
+                                    (s.is_numeric() && g.is_numeric())
+                                        || (s.is_reference() && g.is_reference())
+                                }
+                                _ => false,
+                            }
+                        }
+                        _ => true,
+                    };
+                    ev(&mut evidence, *var, value.type_ref().erased(), strong);
+                }
+            }
+            expr_evidence(e, &mut |v, t| ev(&mut evidence, v, t, false));
+        }
         Stmt::Throw(e) => {
-            expr_evidence(e, &mut |v, t| ev(&mut evidence, v, t));
+            expr_evidence(e, &mut |v, t| ev(&mut evidence, v, t, false));
             if let Expr::Local { var, .. } = e {
                 ev(
                     &mut evidence,
                     *var,
                     JavaType::Object("java/lang/Throwable".into()),
+                    true,
                 );
             }
         }
         Stmt::Return(Some(e)) => {
-            expr_evidence(e, &mut |v, t| ev(&mut evidence, v, t));
+            expr_evidence(e, &mut |v, t| ev(&mut evidence, v, t, false));
             if let Expr::Local { var, .. } = e {
-                ev(&mut evidence, *var, ret.clone());
+                ev(&mut evidence, *var, ret.clone(), true);
             }
         }
         Stmt::MonitorEnter(e) | Stmt::MonitorExit(e) => {
@@ -1804,6 +1891,7 @@ pub fn infer_types(vt: &mut VarTable, body: &mut Stmt, ret: &JavaType, env: &Met
                     &mut evidence,
                     *var,
                     JavaType::Object("java/lang/Object".into()),
+                    true,
                 );
             }
         }
@@ -1815,12 +1903,13 @@ pub fn infer_types(vt: &mut VarTable, body: &mut Stmt, ret: &JavaType, env: &Met
         } => {
             if let Expr::Local { var: v0, .. } = iterable {
                 if *is_array {
-                    ev(&mut evidence, *v0, JavaType::Array(Box::new(JavaType::Int)));
+                    ev(&mut evidence, *v0, JavaType::Array(Box::new(JavaType::Int)), true);
                 } else {
                     ev(
                         &mut evidence,
                         *v0,
                         JavaType::Object("java/lang/Object".into()),
+                        true,
                     );
                 }
             }
@@ -1833,24 +1922,65 @@ pub fn infer_types(vt: &mut VarTable, body: &mut Stmt, ret: &JavaType, env: &Met
     // Return-position locals take the declared return type (also inside
     // nested returns — handled by the walk above).
 
-    for (i, evs) in evidence.iter_mut().enumerate() {
+    for (i, evs) in evidence.iter().enumerate() {
         let info = &vt.vars[i];
         if info.is_param {
             continue;
         }
+        let strong: Vec<JavaType> = evs
+            .iter()
+            .filter(|(_, s)| *s)
+            .map(|(t, _)| t.clone())
+            .collect();
+        let all: Vec<JavaType> = evs.iter().map(|(t, _)| t.clone()).collect();
         if info.ty.erased().is_reference() {
-            // Only refine reference-typed synthetics with object evidence.
-            if let Some(t) = pick_object(evs) {
-                vt.vars[i].ty = TypeRef::J(t);
-            }
-        } else if evs.iter().all(|t| t.is_numeric()) && !evs.is_empty() {
-            if let Some(t) = pick_numeric(evs) {
-                if !info.ty.erased().is_reference() {
-                    vt.vars[i].ty = TypeRef::J(t);
+            // Materialization residue: no strong definition, and the weak
+            // pool names ≥2 DIFFERENT classes (a Kotlin `when` lowered
+            // every branch's value into one register slot) — neither
+            // class can win, every assignment needs boxing headroom:
+            // widen to Object (uses get receiver casts).
+            if strong.is_empty() {
+                let refs: std::collections::HashSet<&str> = all
+                    .iter()
+                    .filter_map(|t| match t {
+                        JavaType::Object(n) if n.as_ref() != "java/lang/Object" => {
+                            Some(n.as_ref())
+                        }
+                        _ => None,
+                    })
+                    .collect();
+                let mixed = all.iter().any(|t| t.is_numeric());
+                if refs.len() >= 2 || (mixed && !refs.is_empty()) || (mixed && all.iter().any(|t| matches!(t, JavaType::Array(_)))) {
+                    vt.vars[i].ty =
+                        TypeRef::J(JavaType::Object("java/lang/Object".into()));
+                    continue;
                 }
             }
-        } else if let Some(t) = pick_object(evs) {
-            vt.vars[i].ty = TypeRef::J(t);
+            // Strong definitions outrank weak expectations.
+            if let Some(t) = pick_object(&strong).or_else(|| pick_object(&all)) {
+                vt.vars[i].ty = TypeRef::J(t);
+            }
+        } else if strong.contains(&JavaType::Boolean) {
+            // A boolean-typed SOURCE assigned into the variable is a
+            // definition (`v26 = p1` with boolean p1); the 0/1 literals
+            // that share the pool are boolean sugar as often as not.
+            vt.vars[i].ty = TypeRef::J(JavaType::Boolean);
+        } else if !all.is_empty() && all.iter().all(|t| t.is_numeric()) {
+            if let Some(t) = pick_numeric(&all) {
+                vt.vars[i].ty = TypeRef::J(t);
+            }
+        } else {
+            // Mixed-family materialization on a numeric-declared slot
+            // (int slot receiving StringBuilders — the register was the
+            // `when` accumulator): Object, same as the reference side.
+            let refs = all.iter().filter(|t| t.is_reference()).count();
+            let nums = all.iter().filter(|t| t.is_numeric()).count();
+            if refs > 0 && nums > 0 {
+                vt.vars[i].ty =
+                    TypeRef::J(JavaType::Object("java/lang/Object".into()));
+            } else if let Some(t) = pick_object(&strong).or_else(|| pick_object(&all)) {
+                vt.vars[i].ty = TypeRef::J(t);
+            }
         }
     }
 
@@ -1998,15 +2128,17 @@ fn expr_evidence<F: FnMut(u32, JavaType)>(e: &Expr, f: &mut F) {
                 }
             }
         }
-        Expr::Assign { target, value, .. } => {
-            if let Expr::Local { var, .. } = &**target {
-                f(*var, value.type_ref().erased());
-            }
+        Expr::Assign { .. } => {
+            // Covered by the typed strong-evidence walk in infer_types;
+            // keeping a weak duplicate here let expectations outvote it.
         }
-        Expr::Cast { ty, e: inner } => {
-            if let Expr::Local { var, .. } = &**inner {
-                f(*var, ty.erased());
-            }
+        Expr::Cast { e: inner, .. } => {
+            // A cast is an EXPLICIT narrowing at the use site — it must
+            // NOT feed the cast target as evidence for the variable
+            // (`Object get2 = list.get(2); j((String) get2);` had get2
+            // retyped to String, making the assignment incompatible).
+            // jadx's bounds carry direction: a USE bound narrows nothing.
+            let _ = inner;
         }
         Expr::InstanceOf { e: inner, .. } => {
             let _ = inner;
@@ -2018,6 +2150,17 @@ fn expr_evidence<F: FnMut(u32, JavaType)>(e: &Expr, f: &mut F) {
 /// Boolean inference: vars only ever assigned 0/1/comparisons/booleans and
 /// read in conditions become `boolean`, with `v != 0` → `v` in conditions.
 pub fn booleanize(vt: &mut VarTable, body: &mut Stmt, ret_bool: bool) {
+    // Booleans propagate through local chains (`v17 = v24` where v24
+    // itself became boolean in the first round) — iterate to a fixpoint;
+    // the common corpus converts nothing and exits after one round.
+    for _ in 0..4 {
+        if booleanize_round(vt, body, ret_bool) == 0 {
+            break;
+        }
+    }
+}
+
+fn booleanize_round(vt: &mut VarTable, body: &mut Stmt, ret_bool: bool) -> usize {
     let n = vt.vars.len();
     let mut in_cond = vec![false; n];
 
@@ -2081,6 +2224,23 @@ pub fn booleanize(vt: &mut VarTable, body: &mut Stmt, ret_bool: bool) {
                             }
                         }
                     }
+                    // Kotlin/d8 merge booleans through INT bitwise ops
+                    // (`v3 | obj instanceof g`) == 0 — the other side's
+                    // static type being boolean makes this a boolean
+                    // context for the local (a genuine int bitwise
+                    // expression never has a boolean operand).
+                    if matches!(op, BinOp::Or | BinOp::And) {
+                        let l_bool = l.type_ref().erased() == JavaType::Boolean;
+                        let r_bool = r.type_ref().erased() == JavaType::Boolean;
+                        if l_bool != r_bool {
+                            let side = if l_bool { r } else { l };
+                            if let Expr::Local { var, .. } = &**side {
+                                if (*var as usize) < n {
+                                    in_cond[*var as usize] = true;
+                                }
+                            }
+                        }
+                    }
                 }
             });
         }
@@ -2094,6 +2254,7 @@ pub fn booleanize(vt: &mut VarTable, body: &mut Stmt, ret_bool: bool) {
     // (any, all_bool) facts for every var.)
     let mut assigned_any = vec![false; n];
     let mut all_bool = vec![true; n];
+    let mut edges: Vec<(usize, usize)> = Vec::new();
     walk_all(body, &mut |st| {
         let (var, value) = match st {
             Stmt::ExprStmt(Expr::Assign { target, value, .. }) => match &**target {
@@ -2111,8 +2272,34 @@ pub fn booleanize(vt: &mut VarTable, body: &mut Stmt, ret_bool: bool) {
             if !is_boolean_valued(value) {
                 all_bool[i] = false;
             }
+            // Chain edges for the context closure below: `v17 = v24`
+            // links the two locals; when the TARGET is in a boolean
+            // context, the source inherits it (its only reader is the
+            // boolean-shaped chain). Collected as edges because the
+            // target's context can be discovered anywhere in the tree.
+            if let Expr::Local { var: src, .. } = value {
+                if (*src as usize) < n {
+                    edges.push((i, *src as usize));
+                }
+            }
         }
     });
+    // Context closure along local chains: a var in a boolean context
+    // pushes that context through every local it is assigned from
+    // (`return v17` — v17 = v24 — v24 = 0/1) — the statement order
+    // cannot be relied on (the return may follow the assignment).
+    loop {
+        let mut changed = false;
+        for &(tgt, src) in &edges {
+            if in_cond[tgt] && !in_cond[src] && all_bool[src] {
+                in_cond[src] = true;
+                changed = true;
+            }
+        }
+        if !changed {
+            break;
+        }
+    }
     let mut boolean_vars: HashSet<u32> = HashSet::default();
     for i in 0..n {
         if vt.vars[i].is_param {
@@ -2126,7 +2313,7 @@ pub fn booleanize(vt: &mut VarTable, body: &mut Stmt, ret_bool: bool) {
         }
     }
     if boolean_vars.is_empty() {
-        return;
+        return 0;
     }
     for v in &boolean_vars {
         vt.vars[*v as usize].ty = TypeRef::J(JavaType::Boolean);
@@ -2146,6 +2333,7 @@ pub fn booleanize(vt: &mut VarTable, body: &mut Stmt, ret_bool: bool) {
 
     // Condition folding: `b != 0` → `b`, `b == 0` → `!b` (boolean vars).
     fold_bool_conditions(body, &boolean_vars);
+    boolean_vars.len()
 }
 
 fn is_boolean_valued(e: &Expr) -> bool {
@@ -2490,6 +2678,37 @@ fn scope_pass_b(
 
 /// Declaration hygiene: every used var that has no LocalDef gets a bare
 /// declaration at the top; duplicate LocalDefs demote to assignments.
+/// In an enum's `<clinit>`, every constant's assignment
+/// (`Self.FIELD = new Self("NAME", ordinal, ...)`) is compiler-mandated
+/// boilerplate — when the class renders as a true `enum` declaration the
+/// constants live in the header and these assignments must go. Only
+/// ACC_ENUM-flagged static fields of the class itself are touched; the
+/// `$VALUES` array assignment stays (a static block in an enum is legal).
+pub fn strip_enum_const_inits(s: &mut Stmt, class: &crate::PoolClass) {
+    let const_fields: jdc_core::FxHashSet<&str> = class
+        .static_fields
+        .iter()
+        .filter(|f| f.access & crate::access::ACC_ENUM != 0)
+        .map(|f| f.name.as_str())
+        .collect();
+    if const_fields.is_empty() {
+        return;
+    }
+    if let Stmt::Block(stmts) = s {
+        stmts.retain(|st| {
+            !matches!(
+                st,
+                Stmt::ExprStmt(Expr::Assign { target, value, .. })
+                    if matches!(&**target,
+                        Expr::Field { cls, name, is_static: true, .. }
+                            if cls.as_ref() == class.name
+                                && const_fields.contains(&**name))
+                        && matches!(&**value, Expr::New { cls: ncls, .. } if ncls.as_ref() == class.name)
+            )
+        });
+    }
+}
+
 /// Java requires the `super(...)`/`this(...)` delegation to be the FIRST
 /// statement of a constructor. d8/R8 order the outer-reference capture
 /// (`this.b = p1;`) or other field writes before the invokesuper in the
@@ -2500,11 +2719,24 @@ pub fn fix_ctor_super_first(body: &mut Stmt) {
     if stmts.is_empty() || is_bare_ctor_call(stmts.first().unwrap()) {
         return;
     }
-    let Some(pos) = stmts.iter().position(is_bare_ctor_call) else {
+    // Top-level delegation call.
+    if let Some(pos) = stmts.iter().position(is_bare_ctor_call) {
+        let call = stmts.remove(pos);
+        stmts.insert(0, call);
         return;
-    };
-    let call = stmts.remove(pos);
-    stmts.insert(0, call);
+    }
+    // The structurer can wrap the delegation (with the parameter
+    // null-checks that follow it) in a bare nested block — hoist the
+    // call out of the block to the constructor top.
+    for st in stmts.iter_mut() {
+        if let Stmt::Block(inner) = st {
+            if !inner.is_empty() && is_bare_ctor_call(inner.first().unwrap()) {
+                let call = inner.remove(0);
+                stmts.insert(0, call);
+                return;
+            }
+        }
+    }
 }
 
 fn is_bare_ctor_call(s: &Stmt) -> bool {
@@ -2722,13 +2954,32 @@ pub fn apply_local_names(vt: &mut VarTable, body: &Stmt) {
     // scopes (`int i` in two loops) but our flat declaration hoisting
     // puts them in one scope — de-duplicate with the same numeric
     // suffixes the claim path uses.
+    // Uniqueness operates on the SANITIZED display name: the identifier
+    // sanitizer maps non-ASCII to `_`, so distinct debug names
+    // (`ERROR_token参数缺失` / `ERROR_channelId参数缺失`) both RENDER as
+    // `ERROR________` and collide as declarations. Tracking raw names
+    // here would let the collision through.
+    let sanit = |n: &str| crate::classdec::java_ident(n).into_owned();
     let mut taken: HashSet<String> = HashSet::default();
+    // Parameter names are occupied REGARDLESS of syntheticness: claim()
+    // hands out rename candidates, and without the synthetic params in
+    // the pool a type fallback (`l7.p0` → "p0") renamed one parameter
+    // ONTO another's slot-name (`b(v6.l p0, Object obj, l7.p0 p0)`).
+    for v in vt.vars.iter() {
+        // ALL synthetic names occupy their names, not just parameters:
+        // a type fallback (`pc5.v56` → "v56") otherwise renames a local
+        // ONTO another local's slot-name (`int v56;` beside
+        // `pc5.v56 v56;`).
+        if v.synthetic_name {
+            taken.insert(sanit(&v.name));
+        }
+    }
     for v in vt.vars.iter_mut() {
         if v.synthetic_name {
             continue;
         }
-        if !taken.insert(v.name.clone()) {
-            let base = v.name.clone();
+        if !taken.insert(sanit(&v.name)) {
+            let base = sanit(&v.name);
             for i in 2.. {
                 let cand = format!("{base}{i}");
                 if taken.insert(cand.clone()) {
@@ -2739,16 +2990,17 @@ pub fn apply_local_names(vt: &mut VarTable, body: &Stmt) {
         }
     }
     let claim = |taken: &mut HashSet<String>, want: &str| -> String {
-        if taken.insert(want.to_string()) {
-            return want.to_string();
+        let w = crate::classdec::java_ident(want).into_owned();
+        if taken.insert(w.clone()) {
+            return w;
         }
         for i in 2.. {
-            let cand = format!("{want}{i}");
+            let cand = format!("{w}{i}");
             if taken.insert(cand.clone()) {
                 return cand;
             }
         }
-        want.to_string()
+        w
     };
 
     for info in vt.vars.iter_mut() {
@@ -2779,6 +3031,24 @@ pub fn apply_local_names(vt: &mut VarTable, body: &Stmt) {
         let want = type_alias(&info.ty).map(str::to_string).or_else(|| simple_type_name(&info.ty));
         if let Some(n) = want {
             info.name = claim(&mut taken, &n);
+        }
+    }
+
+    // Final uniquification across ALL vars (params, locals, catch): the
+    // reservation, claim and debug-name domains above are checked
+    // pairwise but a name claimed LAST can still equal a debug name
+    // that never re-checked (`zd1.v2 v2` beside `zd1.v2[] v2`).
+    let mut seen: HashSet<String> = HashSet::default();
+    for v in vt.vars.iter_mut() {
+        if !seen.insert(sanit(&v.name)) {
+            let base = sanit(&v.name);
+            for i in 2.. {
+                let cand = format!("{base}{i}");
+                if seen.insert(cand.clone()) {
+                    v.name = cand;
+                    break;
+                }
+            }
         }
     }
 }
@@ -3091,8 +3361,11 @@ enum Shape {
 fn field_of(dex: &ddc_dex::DexFile, field_idx: u32) -> Option<(String, String, String)> {
     let f = dex.field(field_idx);
     Some((
-        dex.type_name(f.class_idx).to_string(),
+        // class_name strips the `L...;` shell; type_name would leak a
+        // descriptor into the Field's owner class (`La3.a.e_`).
+        dex.class_name(f.class_idx),
         dex.string(f.name_idx).to_string(),
+        // The FIELD TYPE stays a descriptor: desc_type parses it.
         dex.type_name(f.type_idx).to_string(),
     ))
 }
@@ -3153,7 +3426,9 @@ fn accessor_shape(
                 }
             }
             let mid = dex.method(*method_idx);
-            let cls = dex.type_name(mid.class_idx).to_string();
+            // class_name strips the `L...;` shell — type_name leaks a
+            // descriptor into the forwarded call's class (`La3.a.e_`).
+            let cls = dex.class_name(mid.class_idx);
             let name = dex.string(mid.name_idx).to_string();
             let mut s = String::from("(");
             for t in dex.proto_params(mid.proto_idx) {

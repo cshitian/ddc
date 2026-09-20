@@ -998,11 +998,12 @@ pub(crate) fn getclass_text(
         pool.set_dex_label(idx, label);
     }
     let pool = std::sync::Arc::new(pool);
-    // References inside the emitted class follow case-collision renames.
-    ddc_dec::install_case_renames(&pool);
     let pc = pool.get(&internal).with_context(|| {
         bif!("class {0} not found (try `ddc listclasses <input> <pattern>`)", "找不到类 {0}（可用 `ddc listclasses <输入> <模式>`）"; fqcn)
     })?;
+    // AFTER materializing the target: member renames (field/method
+    // collisions) need the pooled fields of the classes being emitted.
+    ddc_dec::install_case_renames(&pool);
 
     let pending: std::sync::Mutex<Vec<ddc_dec::classdec::PendingMonitor>> =
         std::sync::Mutex::new(Vec::new());

@@ -558,10 +558,13 @@ pub fn decompile_method(
         passes::remove_kotlin_checks(&mut body);
         passes::platform_constants(&mut body);
         passes::drop_dead_locals(&mut body);
+    passes::ensure_declared(&mut body, &vt);
+    // AFTER the declaration hoisting: ensure_declared inserts bare
+    // top-of-method declarations, and a local declaration ahead of the
+    // super() call is still "super must be first statement".
     if &*m.name == "<init>" {
         passes::fix_ctor_super_first(&mut body);
     }
-    passes::ensure_declared(&mut body, &vt);
         passes::strip_trailing_void_return(&mut body);
         passes::cleanup(&mut body);
         if !errors.is_empty() {
@@ -727,10 +730,13 @@ pub fn decompile_method(
     passes::remove_kotlin_checks(&mut body);
     passes::platform_constants(&mut body);
     passes::drop_dead_locals(&mut body);
+    passes::ensure_declared(&mut body, &vt);
+    // AFTER the declaration hoisting: ensure_declared inserts bare
+    // top-of-method declarations, and a local declaration ahead of the
+    // super() call is still "super must be first statement".
     if &*m.name == "<init>" {
         passes::fix_ctor_super_first(&mut body);
     }
-    passes::ensure_declared(&mut body, &vt);
     passes::strip_trailing_void_return(&mut body);
     passes::cleanup(&mut body);
 

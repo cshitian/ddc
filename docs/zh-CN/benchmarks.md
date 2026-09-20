@@ -17,9 +17,14 @@
 | lark | 398 MB | **5.52s** | 1831 MB |
 | qq | 374 MB | **15.92s** | 2459 MB |
 
-**编译验证**：七个 APK 的全部 `.java`（共 909,689 个文件）逐个喂给
-`javac` 解析闸门（`-XDshould-stop.ifNoError=PARSE
--XDshould-stop.ifError=PARSE`）——**语法错误为零**。
+**编译验证——引用这个数字前请先读口径**：七个 APK 的全部 `.java`（共
+909,689 个文件）过 `javac` 解析闸门（`-XDshould-stop.ifNoError=PARSE
+-XDshould-stop.ifError=PARSE`）——**语法错误为零**。该闸门只到解析器为止：
+**不做类型检查、不做符号解析、不保证挂 classpath 后能编译通过**。语义质量
+（类型恢复、交叉引用）目前落后于 jadx——见 README「已知限制」。全量 `javac`
+编译口径下的符号/类型错误数另行统计，正是 0.1.4 之后多轮修复的驱动力
+（重复声明类错误：lark 22,316→14、weibo 14,871→3；null 落局部的
+`str = 0` 错误家族已在 0.1.6 根治）。
 
 ## 同一批 APK 上的全部查询子命令
 

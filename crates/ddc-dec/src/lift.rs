@@ -105,11 +105,16 @@ impl<'a> MethodEnv<'a> {
         JavaType,
     ) {
         let f = self.dex.field(idx);
-        (
-            std::sync::Arc::from(self.dex.class_name(f.class_idx).as_str()),
-            std::sync::Arc::from(self.dex.string(f.name_idx)),
-            self.java_type(f.type_idx),
-        )
+        let owner = std::sync::Arc::from(self.dex.class_name(f.class_idx).as_str());
+        let raw = self.dex.string(f.name_idx);
+        // Colliding obfuscated field names (synthetic outer ref renamed
+        // to a one-char name beside a real field) resolve differently per
+        // site in source — run the shared rename registry so every
+        // reference prints the same display name as the declaration.
+        let name = jdc_core::rename::field_display(&owner, raw, self.dex.type_name(f.type_idx))
+            .map(std::sync::Arc::from)
+            .unwrap_or_else(|| std::sync::Arc::from(raw));
+        (owner, name, self.java_type(f.type_idx))
     }
     pub fn method_ref(
         &self,
@@ -123,11 +128,21 @@ impl<'a> MethodEnv<'a> {
         // (6-10 allocations per call instruction). All three components
         // are shared table entries now — refcount bumps.
         let m = self.dex.method(idx);
-        (
-            std::sync::Arc::from(self.dex.class_name(m.class_idx).as_str()),
-            std::sync::Arc::from(self.dex.string(m.name_idx)),
-            self.pool.proto_desc_parsed(self.di, m.proto_idx),
-        )
+        let owner = std::sync::Arc::from(self.dex.class_name(m.class_idx).as_str());
+        let desc = self.pool.proto_desc_parsed(self.di, m.proto_idx);
+        // Sanitizer-collapsed method names (whole `ERROR_中文` families on
+        // weibo render one `ERROR________`) need the shared member-rename
+        // registry so declarations and call sites agree. Cold path only:
+        // clean corpora never rebuild the descriptor string.
+        let name = if jdc_core::rename::member_rename_active() {
+            let raw = self.dex.string(m.name_idx);
+            jdc_core::rename::field_display(&owner, raw, &desc.to_string())
+                .map(std::sync::Arc::from)
+                .unwrap_or_else(|| std::sync::Arc::from(raw))
+        } else {
+            std::sync::Arc::from(self.dex.string(m.name_idx))
+        };
+        (owner, name, desc)
     }
 }
 

@@ -214,6 +214,7 @@ pub struct DexPool {
     retire_armed: std::sync::atomic::AtomicBool,
     /// name → outer (computed once; `$` heuristic + dalvik annotations).
     outers: std::sync::OnceLock<HashMap<String, Option<String>>>,
+    dollar_ix: std::sync::OnceLock<Vec<String>>,
     /// outer → direct children (computed once).
     children: std::sync::OnceLock<HashMap<String, Vec<String>>>,
     /// Per-image hot-reference interning (parallel to `dexes`).
@@ -255,6 +256,7 @@ impl DexPool {
             order: Vec::new(),
             retire_counts: std::sync::Mutex::new(Vec::new()),
             outers: std::sync::OnceLock::new(),
+            dollar_ix: std::sync::OnceLock::new(),
             children: std::sync::OnceLock::new(),
             ref_caches: Vec::new(),
         }
@@ -330,6 +332,28 @@ impl DexPool {
     }
 
     /// The outer class of `name`, from the cached map (borrowed).
+    /// True when some pool class is named `prefix$…` (a LITERAL `$` in a
+    /// class name — R8 desugars `j$/util/...`, anonymous ids). Used by
+    /// print_class_name: a `$` boundary is a nesting dot only when the
+    /// left side is a known class AND no pool class carries that exact
+    /// `$`-literal prefix (`android/os/Parcelable$Creator` — the pool
+    /// has no `android/os/Parcelable$*` class, so Creator is a nested
+    /// type of an external framework class, not a literal name).
+    pub fn has_dollar_prefix(&self, prefix: &str) -> bool {
+        if self.dollar_ix.get().is_none() {
+            let mut sorted: Vec<String> = self.order.clone();
+            sorted.sort_unstable();
+            let _ = self.dollar_ix.set(sorted);
+        }
+        self.dollar_ix.get().is_some_and(|sorted| {
+            let needle = format!("{prefix}$");
+            match sorted.binary_search_by(|n| n.as_str().cmp(needle.as_str())) {
+                Ok(_) => true,
+                Err(pos) => pos < sorted.len() && sorted[pos].starts_with(&needle),
+            }
+        })
+    }
+
     pub fn outer_of(&self, name: &str) -> Option<&str> {
         self.outer_map().get(name).and_then(|o| o.as_deref())
     }
@@ -1003,8 +1027,219 @@ fn nested_collision_renames(pool: &DexPool, map: &mut HashMap<String, String>) {
 /// Compute and install the registry (call before worker threads spawn).
 pub fn install_case_renames(pool: &DexPool) {
     let mut map = case_rename_map(pool);
+    // Package-leaf shadows FIRST: the nested-collision renames compute
+    // display chains off the (renamed) parent display names — running
+    // them before the parent rename left both rules minting the same
+    // display (`a2` twice in weibo's AIDL families).
+    pkg_leaf_shadow_renames(pool, &mut map);
     nested_collision_renames(pool, &mut map);
     jdc_core::rename::set_class_renames(map);
+    jdc_core::rename::set_field_renames(member_collision_renames(pool));
 }
 
+/// Obfuscators can name a class after its own package leaf (`package k;`
+/// `class k extends EditText`). Every SAME-PACKAGE reference to `k.Anything`
+/// then resolves the first segment to the CLASS, not the package —
+/// javac looks for `Anything` as a member of class k ("找不到符号 class p2,
+/// location: class k"). Renaming the class (display-level, the registry
+/// carries declarations and references) makes the package the only
+/// thing the leaf name resolves to.
+fn pkg_leaf_shadow_renames(pool: &DexPool, map: &mut HashMap<String, String>) {
+    let taken: jdc_core::FxHashSet<String> = pool.order.iter().cloned().collect();
+    for name in &pool.order {
+        let Some((pkg, simple)) = name.rsplit_once('/') else {
+            continue;
+        };
+        if simple.is_empty() || pkg.is_empty() {
+            continue;
+        }
+        let leaf = pkg.rsplit('/').next().unwrap_or(pkg);
+        // class name == package leaf, and the package really exists
+        // (more classes than just this one live under it).
+        if simple != leaf {
+            continue;
+        }
+        let prefix = format!("{pkg}/");
+        let siblings = pool
+            .order
+            .iter()
+            .filter(|n| n.starts_with(&prefix) && **n != *name)
+            .count();
+        if siblings == 0 || map.get(name).is_some_and(|v| v != name) {
+            continue; // already renamed by an earlier rule; identity anchors are fine to overwrite
+        }
+        let mut k = 1u32;
+        loop {
+            k += 1;
+            let cand = format!("{pkg}/{simple}{k}");
+            if !taken.contains(&cand) && !map.values().any(|v| *v == cand) {
+                map.insert(name.clone(), cand);
+                break;
+            }
+        }
+    }
+}
+
+/// Member-level collision renames (fields AND methods of one class).
+/// Two sources collapse onto one display name: obfuscators renaming a
+/// synthetic outer reference (`this$0`) onto a real field's name, and
+/// the identifier sanitizer mapping non-ASCII to `_` (whole
+/// `ERROR_中文` families render one `ERROR________`).
+/// Both are legal in bytecode (members resolve by index) and both are
+/// javac "already defined" errors in source. Policy per colliding group
+/// (fields keep the first non-synthetic name; a synthetic outer
+/// reference restores `this$0`; everything else gets `2`/`3` suffixes;
+/// method keys include erased parameter types):
+/// Keys stay ORIGINAL (name, descriptor) so references resolve exactly;
+/// only the rendered identifier changes.
+fn member_collision_renames(
+    pool: &DexPool,
+) -> HashMap<std::sync::Arc<str>, Vec<jdc_core::rename::FieldRename>> {
+    let mut out: HashMap<std::sync::Arc<str>, Vec<jdc_core::rename::FieldRename>> =
+        HashMap::default();
+    for name in &pool.order {
+        let Some(pc) = pool.get_if_materialized(name) else {
+            continue;
+        };
+        let outer_ref_desc = find_outer_name(pool, name)
+            .filter(|o| o != name)
+            .map(|o| format!("L{o};"));
+        // ---- fields: one shared namespace (static + instance) ----
+        let fields: Vec<&PoolField> = pc
+            .static_fields
+            .iter()
+            .chain(pc.instance_fields.iter())
+            .collect();
+        let fgroups: HashMap<String, Vec<&PoolField>> = HashMap::default();
+        let mut fgroups = fgroups;
+        for f in &fields {
+            let disp = crate::classdec::java_ident(&f.name).into_owned();
+            fgroups.entry(disp).or_default().push(f);
+        }
+        let f_taken: jdc_core::FxHashSet<String> = fields
+            .iter()
+            .map(|f| crate::classdec::java_ident(&f.name).into_owned())
+            .collect();
+        let mut f_taken = f_taken;
+        for group in fgroups.values() {
+            if group.len() < 2 {
+                continue;
+            }
+            let keeper_pos = group
+                .iter()
+                .position(|f| f.access & crate::access::ACC_SYNTHETIC == 0)
+                .unwrap_or(0);
+            for (gi, f) in group.iter().enumerate() {
+                if gi == keeper_pos {
+                    continue;
+                }
+                let base = crate::classdec::java_ident(&f.name).into_owned();
+                let display: String = match &outer_ref_desc {
+                    Some(ord)
+                        if f.access & crate::access::ACC_SYNTHETIC != 0
+                            && !f.is_static
+                            && *ord == f.desc =>
+                    {
+                        let mut k = 0u32;
+                        loop {
+                            let cand = if k == 0 {
+                                "this$0".to_string()
+                            } else {
+                                format!("this$0{k}")
+                            };
+                            if f_taken.insert(cand.clone()) {
+                                break cand;
+                            }
+                            k += 1;
+                        }
+                    }
+                    _ => suffix_unique(&base, &mut f_taken),
+                };
+                out.entry(std::sync::Arc::from(name.as_str()))
+                    .or_default()
+                    .push(jdc_core::rename::FieldRename {
+                        name: std::sync::Arc::from(f.name.as_str()),
+                        desc: std::sync::Arc::from(f.desc.as_str()),
+                        display: std::sync::Arc::from(display.as_str()),
+                    });
+            }
+        }
+        // ---- methods: display key = sanitized name + erased params ----
+        let methods: Vec<&PoolMethod> = pc.all_methods().collect();
+        let mut m_taken: jdc_core::FxHashSet<String> = methods
+            .iter()
+            .map(|m| crate::classdec::java_ident(&m.name).into_owned())
+            .collect();
+        let mut mgroups: HashMap<(String, String), Vec<&PoolMethod>> = HashMap::default();
+        for m in &methods {
+            let d: &str = &m.desc;
+            let lo = d.find('(').map(|i| i + 1).unwrap_or(0);
+            let hi = d.find(')').unwrap_or(d.len());
+            let key = (
+                crate::classdec::java_ident(&m.name).into_owned(),
+                d[lo..hi].to_string(),
+            );
+            mgroups.entry(key).or_default().push(m);
+        }
+        for ((base, _), group) in &mgroups {
+            if group.len() < 2 {
+                continue;
+            }
+            // A COVARIANT override pair (same ORIGINAL name, different
+            // descriptors — the compiler's bridge shape: the interface's
+            // `deserialize(e)` plus the narrower implementation). Renaming
+            // either side breaks @Override ("is not abstract and does not
+            // override abstract method deserialize(e)", ~2.2k on reqable);
+            // the emitter's claim logic already renders only the
+            // non-bridge member of the pair.
+            let covariant = group
+                .iter()
+                .any(|m| group.iter().any(|o| o.name == m.name && o.desc != m.desc));
+            if covariant {
+                continue;
+            }
+            // Real re-declarations (same original name AND descriptor —
+            // R8 duplicates) are already deduped by the emitter's claim
+            // logic; only SANITIZER collapses reach here and every one of
+            // them is a distinct method.
+            let mut base = base.clone();
+            let mut seen_orig: jdc_core::FxHashSet<(&str, &str)> =
+                jdc_core::FxHashSet::default();
+            for m in group {
+                if !seen_orig.insert((&m.name, &m.desc)) {
+                    continue; // exact duplicate: emitter drops it
+                }
+                let display = suffix_unique(&base, &mut m_taken);
+                out.entry(std::sync::Arc::from(name.as_str()))
+                    .or_default()
+                    .push(jdc_core::rename::FieldRename {
+                        name: m.name.clone(),
+                        desc: m.desc.clone(),
+                        display: std::sync::Arc::from(display.as_str()),
+                    });
+                // The base stays the sanitized ORIGINAL so the first
+                // occurrence keeps the plain name.
+                let _ = &mut base;
+            }
+        }
+    }
+    out
+}
+
+fn suffix_unique(base: &str, taken: &mut jdc_core::FxHashSet<String>) -> String {
+    let mut k = 1u32;
+    loop {
+        k += 1;
+        let cand = format!("{base}{k}");
+        if taken.insert(cand.clone()) {
+            return cand;
+        }
+    }
+}
+
+/// Install member renames (call with the class rename install, before
+/// workers spawn).
+pub fn install_field_renames(pool: &DexPool) {
+    jdc_core::rename::set_field_renames(member_collision_renames(pool));
+}
 pub use jdc_core::rename::apply_class_rename;

@@ -1054,14 +1054,15 @@ pub(crate) fn cmd_pkg(args: &[String]) -> Result<()> {
         pool.set_dex_label(idx, label);
     }
     let pool = std::sync::Arc::new(pool);
-    // References follow case-collision renames (identity for ordinary
-    // corpora).
-    ddc_dec::install_case_renames(&pool);
+    // Materialize the selection FIRST: member renames (field/method
+    // collisions) need the pooled fields of every class about to be
+    // emitted.
     let selected: Vec<String> = names
         .iter()
         .filter(|n| pool.get(n).is_some())
         .cloned()
         .collect();
+    ddc_dec::install_case_renames(&pool);
     eprintln!("ddc: {} class(es) under {package}", selected.len());
 
     let dirs: std::sync::Mutex<std::collections::HashSet<std::path::PathBuf>> =

@@ -6,6 +6,7 @@ use jdc_core::types::JavaType;
 use jdc_core::Ctx;
 
 use crate::access::*;
+use crate::PoolField;
 use crate::ctx::{java_type_to_generic, DexCtx};
 use crate::method::decompile_method;
 use crate::{desc_type, DexPool, PoolClass, PoolMethod, StaticValue};
@@ -157,6 +158,217 @@ fn decompile_class_impl(
 /// `out` (used at top level and recursively for nested members).
 // `opts` is only consumed by the nested-member recursion below — that
 // is its purpose (propagating emission options into inline children).
+/// One enum constant: the source identifier plus constructor
+/// arguments beyond the compiler-mandated `(String name, int ordinal)`.
+use jdc_core::ir::expr::{ConstVal, Expr};
+use jdc_core::ir::stmt::Stmt;
+struct EnumConst {
+    #[allow(dead_code)]
+    field: String,
+    name: String,
+    extra_args: Vec<Expr>,
+}
+
+/// Collect enum constants for a true `enum` rendering. Every ACC_ENUM
+/// static field must be initialized in `<clinit>` by
+/// `Self.field = new Self("NAME", ordinal, ...)` — the shape javac/d8
+/// always emit. Returns None (caller falls back to the desugared
+/// `/* enum */ class` form) when anything is missing: R8 variance,
+/// constant-specific bodies (the field holds an anonymous subclass), or
+/// a <clinit> that failed to decompile.
+fn collect_enum_constants(
+    pool: &DexPool,
+    class: &PoolClass,
+    ctx: &DexCtx<'_>,
+) -> Option<(Vec<EnumConst>, crate::method::MethodBody)> {
+    let _ = ctx;
+    let const_fields: Vec<&PoolField> = class
+        .static_fields
+        .iter()
+        .filter(|f| f.access & crate::access::ACC_ENUM != 0)
+        .collect();
+    if const_fields.is_empty() {
+        return None;
+    }
+    let clinit = class.all_methods().find(|m| &*m.name == "<clinit>")?;
+    let mut body = decompile_method(pool, class, clinit).ok().flatten()?;
+
+    // R8/d8 split the constant build across an intermediate local:
+    //   Self v0 = new Self("NAME", i, ...);
+    //   a = v0;                       // sput to the ACC_ENUM field
+    //   Self[] v5 = new Self[n]; v5[k] = v0; ...; $VALUES = v5;
+    // Pass 1 registers each intermediate (or direct) new; pass 2 binds
+    // them to the ACC_ENUM fields; references to the locals are then
+    // rewritten into constant identifiers so the $VALUES build keeps
+    // compiling once the definitions drop.
+    use std::collections::HashMap;
+    let mut const_name: Vec<String> = Vec::new();
+    let mut const_field: Vec<String> = Vec::new();
+    let mut const_extra: Vec<Vec<Expr>> = Vec::new();
+    let mut var_of: HashMap<u32, usize> = HashMap::default(); // local id -> const idx
+    let mut drop_stmts: Vec<usize> = Vec::new();
+
+    // Collect (immutable borrows) first; the mutable passes come after.
+    if !matches!(&body.body, Stmt::Block(_)) {
+        return None;
+    }
+
+    // Pass 1: definitions. (immutable borrow; rewrite comes later)
+    for (i, st) in match &body.body {
+        Stmt::Block(v) => v.iter().enumerate(),
+        _ => return None,
+    } {
+        if let Stmt::LocalDef {
+            var,
+            init: Some(Expr::New { cls: ncls, args, .. }),
+            ..
+        } = st
+        {
+            if ncls.as_ref() == class.name && args.len() >= 2 {
+                if let (Expr::Const(ConstVal::Str(n)), Expr::Const(ConstVal::Int(_))) =
+                    (&args[0], &args[1])
+                {
+                    if java_ident(n).as_ref() != &**n || n.is_empty() {
+                        return None;
+                    }
+                    var_of.insert(*var, const_name.len());
+                    const_name.push(n.to_string());
+                    const_field.push(String::new());
+                    const_extra.push(args[2..].to_vec());
+                    drop_stmts.push(i);
+                }
+            }
+        }
+    }
+
+    // Pass 2: sputs to the ACC_ENUM fields (direct new or intermediate).
+    for (i, st) in match &body.body {
+        Stmt::Block(v) => v.iter().enumerate(),
+        _ => return None,
+    } {
+        if let Stmt::ExprStmt(Expr::Assign { target, value, .. }) = st {
+            if let Expr::Field {
+                cls,
+                name: fname,
+                is_static: true,
+                ..
+            } = &**target
+            {
+                if cls.as_ref() != class.name {
+                    continue;
+                }
+                if !const_fields.iter().any(|f| f.name.as_str() == &**fname) {
+                    continue;
+                }
+                if const_field.iter().any(|f| !f.is_empty() && f == &**fname) {
+                    return None; // duplicate assignment
+                }
+                let idx = match &**value {
+                    Expr::Local { var, .. } => var_of.get(var).copied()?,
+                    Expr::New { cls: ncls, args, .. }
+                        if ncls.as_ref() == class.name && args.len() >= 2 =>
+                    {
+                        if let (Expr::Const(ConstVal::Str(n)), Expr::Const(ConstVal::Int(_))) =
+                            (&args[0], &args[1])
+                        {
+                            if java_ident(n).as_ref() != &**n || n.is_empty() {
+                                return None;
+                            }
+                            let idx = const_name.len();
+                            const_name.push(n.to_string());
+                            const_field.push(String::new());
+                            const_extra.push(args[2..].to_vec());
+                            idx
+                        } else {
+                            return None;
+                        }
+                    }
+                    _ => return None,
+                };
+                const_field[idx] = fname.to_string();
+                drop_stmts.push(i);
+            }
+        }
+    }
+
+    // Every ACC_ENUM field bound, every intermediate matched.
+    if const_field.len() != const_fields.len() || const_field.iter().any(|f| f.is_empty()) {
+        return None;
+    }
+    {
+        let mut seen: std::collections::HashSet<&str> = std::collections::HashSet::default();
+        if !const_name.iter().all(|c| seen.insert(c.as_str())) {
+            return None;
+        }
+    }
+
+    // Pass 3: rewrite references to the intermediate locals into the
+    // constant identifiers (static-field reads on Self).
+    let var2name: jdc_core::FxHashMap<u32, &str> = var_of
+        .iter()
+        .map(|(v, &i)| (*v, const_name[i].as_str()))
+        .collect();
+    let self_name: std::sync::Arc<str> = class.name.as_str().into();
+    let self_ty =
+        jdc_core::ir::expr::TypeRef::J(JavaType::Object(class.name.as_str().into()));
+    crate::passes::rewrite_exprs(&mut body.body, &mut |e| {
+        crate::passes::deep_rewrite(e, &mut |x| {
+            if let Expr::Local { var, .. } = x {
+                if let Some(n) = var2name.get(var) {
+                    let name: std::sync::Arc<str> = std::sync::Arc::from(*n);
+                    *x = Expr::Field {
+                        owner: None,
+                        cls: self_name.clone(),
+                        name,
+                        ty: self_ty.clone(),
+                        is_static: true,
+                    };
+                }
+            }
+        });
+    });
+
+    // Pass 4: drop the definitions and their sputs.
+    if let Stmt::Block(vs) = &mut body.body {
+        let drop_set: std::collections::HashSet<usize> =
+            drop_stmts.iter().copied().collect();
+        vs.retain(|_| true);
+        let mut idx = 0usize;
+        vs.retain(|_| {
+            let keep = !drop_set.contains(&idx);
+            idx += 1;
+            keep
+        });
+    }
+
+    let out: Vec<EnumConst> = const_field
+        .into_iter()
+        .zip(const_name)
+        .zip(const_extra)
+        .map(|((field, name), extra_args)| EnumConst {
+            field,
+            name,
+            extra_args,
+        })
+        .collect();
+    Some((out, body))
+}
+
+/// Render enum-constant constructor arguments via the shared expression
+/// emitter (the VarTable is irrelevant for argument printing — no local
+/// names appear — but the API requires one).
+fn render_enum_args(ctx: &DexCtx<'_>, pool: &DexPool, args: &[Expr], out: &mut String) {
+    let dummy_vt = jdc_core::var::VarTable::default();
+    let mut p = Printer::new(ctx, &dummy_vt);
+    for (i, a) in args.iter().enumerate() {
+        if i > 0 {
+            out.push_str(", ");
+        }
+        p.expr(a, 0, out);
+    }
+    let _ = pool;
+}
+
 #[allow(clippy::only_used_in_recursion)]
 fn emit_class_body(
     pool: &DexPool,
@@ -221,7 +433,22 @@ fn emit_class_body(
     if a & ACC_ANNOTATION != 0 {
         head.push('@');
     }
-    if is_enum {
+    let mut enum_consts: Option<(Vec<EnumConst>, crate::method::MethodBody)> = if is_enum {
+        collect_enum_constants(pool, class, ctx)
+    } else {
+        None
+    };
+    if let Some(ecs) = &enum_consts {
+        // True `enum` declaration: constants render in the header, the
+        // desugared boilerplate (const fields, their <clinit> inits —
+        // stripped by strip_enum_const_inits — and the ACC_ENUM flags)
+        // disappears. R8-renamed values()/valueOf() stay (they do not
+        // collide with the compiler-generated ones); javac-named ones
+        // are skipped at the method loop below.
+        head.push_str("enum ");
+        head.push_str(&java_ident(&simple));
+        let _ = ecs;
+    } else if is_enum {
         // An enum with constant-specific bodies carries ACC_ABSTRACT —
         // `abstract final` is an illegal modifier combination; abstract
         // (already pushed above) suppresses the hardcoded final.
@@ -265,11 +492,38 @@ fn emit_class_body(
     out.push_str(&head);
     out.push_str(" {\n");
 
+    // True-enum constant list: the constants lead the body, ahead of
+    // any remaining fields.
+    if let Some((ecs, _)) = &enum_consts {
+        for (i, ec) in ecs.iter().enumerate() {
+            out.push_str(&indent(depth + 1));
+            out.push_str(&java_ident(&ec.name));
+            if !ec.extra_args.is_empty() {
+                let mut line = String::from("(");
+                render_enum_args(ctx, pool, &ec.extra_args, &mut line);
+                line.push(')');
+                out.push_str(&line);
+            }
+            if i + 1 < ecs.len() {
+                out.push_str(",\n");
+            } else {
+                out.push_str(";\n");
+            }
+        }
+        out.push('\n');
+    }
+
     // Fields.
+    let mut field_emitted = false;
     for (i, f) in class.static_fields.iter().enumerate() {
-        if i > 0 || !class.instance_fields.is_empty() {
+        // Enum constant fields became the header list above.
+        if enum_consts.is_some() && f.access & crate::access::ACC_ENUM != 0 {
+            continue;
+        }
+        if field_emitted || !class.instance_fields.is_empty() {
             out.push('\n');
         }
+        field_emitted = true;
         emit_field(
             pool,
             f,
@@ -333,6 +587,46 @@ fn emit_class_body(
         if claim.get(&sig_key(m)) != Some(&i) {
             continue;
         }
+        // True-enum rendering: javac auto-generates values()/valueOf()
+        // — the original-named ones must not re-declare (R8-renamed
+        // copies stay, they do not collide).
+        if let Some((ecs, _)) = &enum_consts {
+            let d = m.parsed_desc();
+            let self_arr = d.as_ref().map(|d| d.ret == JavaType::Array(Box::new(JavaType::Object(class.name.as_str().into()))));
+            let self_ret = d.as_ref().map(|d| d.ret == JavaType::Object(class.name.as_str().into()));
+            let no_args = d.as_ref().map(|d| d.args.is_empty()).unwrap_or(false);
+            let one_str = d
+                .as_ref()
+                .map(|d| d.args.len() == 1 && matches!(d.args[0], JavaType::Object(ref n) if n.as_ref() == "java/lang/String"))
+                .unwrap_or(false);
+            let static_ = m.is_static();
+            if static_ && no_args && self_arr == Some(true) && &*m.name == "values" {
+                continue;
+            }
+            if static_ && one_str && self_ret == Some(true) && &*m.name == "valueOf" {
+                continue;
+            }
+            // Enum constructors must be private in source form.
+            let m_owned: Option<PoolMethod> = if &*m.name == "<init>" {
+                let mut c = (*m).clone();
+                c.access = (c.access & !(crate::access::ACC_PUBLIC | crate::access::ACC_PROTECTED | crate::access::ACC_PRIVATE)) | crate::access::ACC_PRIVATE;
+                Some(c)
+            } else {
+                None
+            };
+            let m_ref: &PoolMethod = m_owned.as_ref().unwrap_or(m);
+            let mark = out.len();
+            if emitted_any {
+                out.push('\n');
+            }
+            if emit_method(pool, class, ctx, m_ref, depth + 1, out)? {
+                emitted_any = true;
+            } else {
+                out.truncate(mark);
+            }
+            let _ = ecs;
+            continue;
+        }
         let mark = out.len();
         if emitted_any {
             out.push('\n');
@@ -348,7 +642,34 @@ fn emit_class_body(
     // the `= null` default) already render as field initializers; skip
     // the block entirely.
     let skip_clinit = class.is_interface();
-    if let Some(clinit) = (!skip_clinit)
+    if let Some((_, clinit_body)) = enum_consts.take() {
+        // True-enum <clinit>: the constant assignments are already gone;
+        // render the remainder (the $VALUES array build) directly.
+        // Skip an empty remainder (all statements were constant inits).
+        let empty = match &clinit_body.body {
+            Stmt::Block(v) => v.iter().all(|s| matches!(s, Stmt::Block(b) if b.is_empty())),
+            _ => false,
+        };
+        if !empty {
+            if emitted_any {
+                out.push('\n');
+            }
+            out.push_str(&indent(depth + 1));
+            out.push_str("static {\n");
+            let p = Printer::new(ctx, &clinit_body.vt);
+            let text = p.with_indent(depth + 2).into_string(&clinit_body.body);
+            for line in text.lines() {
+                if line.trim().is_empty() {
+                    continue;
+                }
+                out.push_str(line);
+                out.push('\n');
+            }
+            out.push_str(&indent(depth + 1));
+            out.push_str("}\n");
+            emitted_any = true;
+        }
+    } else if let Some(clinit) = (!skip_clinit)
         .then(|| class.all_methods().find(|m| &*m.name == "<clinit>"))
         .flatten()
     {
@@ -462,7 +783,8 @@ fn emit_field(
     let ty = type_name(pool, &desc_type(&f.desc));
     line.push_str(&ty);
     line.push(' ');
-    line.push_str(&java_ident(&f.name));
+    let fname = jdc_core::rename::field_display(f_class, &f.name, &f.desc).unwrap_or(&*f.name);
+    line.push_str(&java_ident(fname));
     let mut rendered = None;
     if let Some(v) = init {
         rendered = render_static_value(pool, v, f_class);
@@ -631,7 +953,9 @@ fn emit_method(
         } else {
             sig.push_str(&type_name(pool, &d.ret));
             sig.push(' ');
-            sig.push_str(&java_ident(&m.name));
+            let mname =
+                jdc_core::rename::field_display(&class.name, &m.name, &m.desc).unwrap_or(&*m.name);
+            sig.push_str(&java_ident(mname));
         }
         sig.push('(');
         let n = d.args.len();
@@ -922,7 +1246,8 @@ pub fn print_class_name(pool: &DexPool, internal: &str) -> String {
                 let seg = &rest[..i];
                 let prefix = &internal[..off + i];
                 let known = pool.get(prefix).is_some()
-                    || jdc_core::rename::is_renamed_display(prefix);
+                    || jdc_core::rename::is_renamed_display(prefix)
+                    || !pool.has_dollar_prefix(prefix);
                 // The `$` may only become a nesting dot when the tail
                 // segment STARTS a Java identifier: R8's desugared-
                 // library names carry `$` inside PACKAGE paths
