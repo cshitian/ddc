@@ -1972,6 +1972,29 @@ fn count_reads(s: &Stmt, out: &mut Vec<usize>) {
             Stmt::If { cond, .. } => vec![cond],
             Stmt::While { cond, .. } => vec![cond],
             Stmt::DoWhile { cond, .. } => vec![cond],
+            // Read sites that are NOT statement children (walk_all recurses
+            // into bodies but these payloads are expressions on the node
+            // itself). Omitting them under-counts reads, which would let
+            // drop_dead_locals over-prune a var whose only use is a switch
+            // selector / loop condition / lock / iterable.
+            Stmt::Switch { selector, .. } => vec![selector],
+            Stmt::ForEach { iterable, .. } => vec![iterable],
+            Stmt::Synchronized { lock, .. } => vec![lock],
+            Stmt::For { cond, update, .. } => {
+                let mut v: Vec<&Expr> = Vec::with_capacity(update.len() + 1);
+                if let Some(c) = cond {
+                    v.push(c);
+                }
+                v.extend(update.iter());
+                v
+            }
+            Stmt::Assert { cond, msg } => {
+                let mut v: Vec<&Expr> = vec![cond];
+                if let Some(m) = msg {
+                    v.push(m);
+                }
+                v
+            }
             _ => Vec::new(),
         };
         for e in exprs {
@@ -2720,49 +2743,66 @@ pub fn drop_dead_locals(body: &mut Stmt) {
     loop {
         let mut reads: Vec<usize> = Vec::new();
         count_reads(body, &mut reads);
-        let dead = |v: u32| reads.get(v as usize).copied().unwrap_or(0) == 0;
         let mut dropped = 0usize;
-        walk_mut_deep(body, &mut |st| {
-            if let Stmt::Block(items) = st {
-                // In-place retain_mut: the earlier drain+rebuild allocated
-                // a fresh Vec per block per fixpoint round.
-                items.retain_mut(|x| {
-                    match x {
-                        Stmt::ExprStmt(Expr::Assign { target, value, op, .. }) => {
-                            let dead_target =
-                                matches!(&**target, Expr::Local { var, .. } if dead(*var));
-                            if dead_target && matches!(*op, AssignOp::Plain) {
-                                dropped += 1;
-                                if has_side_effects(value) {
-                                    let e = std::mem::replace(value, Box::new(Expr::This));
-                                    *x = Stmt::ExprStmt(*e);
-                                    true
-                                } else {
-                                    false
-                                }
-                            } else {
-                                true
-                            }
-                        }
-                        Stmt::LocalDef { var, init, .. } if dead(*var) => {
-                            dropped += 1;
-                            if let Some(e) = init.take() {
-                                if has_side_effects(&e) {
-                                    *x = Stmt::ExprStmt(e);
-                                    return true;
-                                }
-                            }
-                            false
-                        }
-                        _ => true,
-                    }
-                });
+        walk_mut_deep(body, &mut |st| match st {
+            Stmt::Block(items) => prune_dead_items(items, &reads, &mut dropped),
+            // Switch case bodies and For inits are bare `Vec<Stmt>`, NOT
+            // wrapped in a `Stmt::Block`, so the Block arm never sees them.
+            // Dead phi commits land directly in case bodies (`sb4 =
+            // compareTo;` per case): pruning only Blocks dropped the
+            // commit's reader (in a real post-switch Block) but left the
+            // now-dead commits, stalling the fixpoint cascade and leaking
+            // mistyped phi residue. TryWithResources.resources is
+            // deliberately excluded — its LocalDefs carry auto-close
+            // semantics that a bare-expression rewrite would break.
+            Stmt::Switch { cases, .. } => {
+                for c in cases {
+                    prune_dead_items(&mut c.body, &reads, &mut dropped);
+                }
             }
+            Stmt::For { init, .. } => prune_dead_items(init, &reads, &mut dropped),
+            _ => {}
         });
         if dropped == 0 {
             break;
         }
     }
+}
+
+/// Remove dead assignments/declarations from one bare statement vector.
+/// Shared by `drop_dead_locals` across every prunable `Vec<Stmt>`
+/// container. Side-effect-free values drop entirely; an impure value
+/// survives as a bare expression statement.
+fn prune_dead_items(items: &mut Vec<Stmt>, reads: &[usize], dropped: &mut usize) {
+    let dead = |v: u32| reads.get(v as usize).copied().unwrap_or(0) == 0;
+    items.retain_mut(|x| match x {
+        Stmt::ExprStmt(Expr::Assign { target, value, op, .. }) => {
+            let dead_target = matches!(&**target, Expr::Local { var, .. } if dead(*var));
+            if dead_target && matches!(*op, AssignOp::Plain) {
+                *dropped += 1;
+                if has_side_effects(value) {
+                    let e = std::mem::replace(value, Box::new(Expr::This));
+                    *x = Stmt::ExprStmt(*e);
+                    true
+                } else {
+                    false
+                }
+            } else {
+                true
+            }
+        }
+        Stmt::LocalDef { var, init, .. } if dead(*var) => {
+            *dropped += 1;
+            if let Some(e) = init.take() {
+                if has_side_effects(&e) {
+                    *x = Stmt::ExprStmt(e);
+                    return true;
+                }
+            }
+            false
+        }
+        _ => true,
+    });
 }
 
 /// Immutable shallow child walk (mirrors `walk_mut`), for the two-pass
