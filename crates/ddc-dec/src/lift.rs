@@ -954,13 +954,25 @@ impl<'a> Lifter<'a> {
                     let elem_desc = self.env.type_name(*type_idx);
                     // The type id names the ARRAY type: strip one `[`.
                     let elem = crate::desc_type(elem_desc.trim_start_matches('['));
+                    // `new-array vB, vC, T@` allocates ONE dimension (vC) of
+                    // elements whose type is T@ with a single `[` stripped.
+                    // When T@ is itself an array (`[[I` = int[][]), the extra
+                    // `[` levels are trailing empty dims: `new int[size][]`.
+                    // Counting only the first `[` as the sized dim and the
+                    // rest as trailing_dims (elem keeps the fully-stripped
+                    // base) — the old trim_start_matches('[') dropped every
+                    // level, rendering int[][] as `new int[size]` and the
+                    // element stores as `a[i] = (int[]) x` ("int[]无法转换
+                    // 为int", 267 on reqable).
+                    let n_brackets = elem_desc.chars().take_while(|&c| c == '[').count();
+                    let trailing_dims = n_brackets.saturating_sub(1).min(u8::MAX as usize) as u8;
                     let dims = self.read_nest(*size);
                     self.write(
                         *dst,
                         Expr::NewArray {
                             elem: TypeRef::J(elem),
                             dims: vec![dims],
-                            trailing_dims: 0,
+                            trailing_dims,
                             init: None,
                         },
                         ins.pc,
