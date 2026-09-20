@@ -563,7 +563,11 @@ pub fn decompile_method(
     // top-of-method declarations, and a local declaration ahead of the
     // super() call is still "super must be first statement".
     if &*m.name == "<init>" {
-        passes::fix_ctor_super_first(&mut body);
+        if class.is_enum() {
+            passes::strip_enum_ctor_super(&mut body);
+        } else {
+            passes::fix_ctor_super_first(&mut body);
+        }
     }
         passes::strip_trailing_void_return(&mut body);
         passes::cleanup(&mut body);
@@ -737,7 +741,11 @@ pub fn decompile_method(
     // top-of-method declarations, and a local declaration ahead of the
     // super() call is still "super must be first statement".
     if &*m.name == "<init>" {
-        passes::fix_ctor_super_first(&mut body);
+        if class.is_enum() {
+            passes::strip_enum_ctor_super(&mut body);
+        } else {
+            passes::fix_ctor_super_first(&mut body);
+        }
     }
     if &*m.name == "<clinit>" {
         passes::strip_clinit_returns(&mut body);

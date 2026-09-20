@@ -3092,6 +3092,33 @@ fn is_bare_ctor_call(s: &Stmt) -> bool {
     )
 }
 
+/// An enum constructor's bytecode opens with `invoke-direct super.<init>
+/// (name, ordinal, ..)` — the implicit `Enum(String, int)` super that Java
+/// forbids writing explicitly in an enum ctor ("在枚举构造器中不允许调用
+/// 超类"). The enum consts desugar to `new C(name, ordinal, ..)`, so the
+/// ctor's declared `(String name, int ordinal, ..extra)` params still match
+/// once the explicit super() is gone. Strip the super() delegation wherever
+/// the structurer landed it (top level or a first-level nested block, the
+/// same two places fix_ctor_super_first searches); a this() delegation
+/// (is_super=false) is legal in an enum ctor and is left alone.
+pub fn strip_enum_ctor_super(body: &mut Stmt) {
+    let is_enum_super = |s: &Stmt| {
+        matches!(
+            s,
+            Stmt::ExprStmt(Expr::Method { name, is_super: true, .. }) if &**name == "<init>"
+        )
+    };
+    let Stmt::Block(stmts) = body else {
+        return;
+    };
+    stmts.retain(|s| !is_enum_super(s));
+    for st in stmts.iter_mut() {
+        if let Stmt::Block(inner) = st {
+            inner.retain(|s| !is_enum_super(s));
+        }
+    }
+}
+
 pub fn ensure_declared(body: &mut Stmt, vt: &VarTable) {
     // (Perf: dense Vec<bool> tables instead of HashSets — var ids are
     // dense; the `assigned` set collected here was never read and cost a
