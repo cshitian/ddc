@@ -7,15 +7,15 @@
 
 `ddc` 把 Android DEX 字节码反编译回可读的 Java —— 真实 App 级别的速度、
 可以像数据库一样查询，并且**经过 javac 验证**：七个真实 APK 共
-1,085,000 个输出文件全部零语法错误。
+909,689 个输出文件全部零语法错误。
 
 ## 特性
 
-- **快** —— 226MB/20 dex 的 weibo（9.8 万个类）全量反编译 **6.0s**，
-  398MB 的飞书 **5.8s**；病态类跑在带截止期的受控线程上，不会拖死
+- **快** —— 226MB/20 dex 的 weibo（9.8 万个类）全量反编译 **5.0s**，
+  398MB 的飞书 **5.5s**；病态类跑在带截止期的受控线程上，不会拖死
   整个运行。
 - **能编译** —— 七个基准 APK（reqable/Telegram/WhatsApp/weibo/weixin/
-  qq/lark，共 109 万文件）的输出全部通过 javac，**零语法错误**；
+  qq/lark，共 91 万文件）的输出全部通过 javac，**零语法错误**；
   大小写仅差一位的类名对（`X/Cua` vs `X/cua`）两个类都各自成文件，
   不再后者覆盖前者。
 - **渐进式反编译** —— 20+ 查询子命令（字符串、交叉引用、继承谱、
@@ -100,13 +100,13 @@ ddc pkg app.apk --app -o own/        # 只反编译 App 自身代码
 
 | APK | 大小 | 全量反编译 | 峰值 RSS |
 |---|---|---|---|
-| reqable | 34 MB | **0.28s** | 151 MB |
-| Telegram | 62 MB | **8.00s** | 1301 MB |
-| WhatsApp | 139 MB | **9.0s**（99,276 文件——大小写变体类全部保留） | 1240 MB |
-| weibo | 226 MB | **5.98s** | 1234 MB |
-| weixin | 268 MB | **16.5s** | 1400 MB |
-| lark | 398 MB | **5.80s** | 1614 MB |
-| qq | 374 MB | **18.04s** | 2312 MB |
+| reqable | 34 MB | **0.25s** | 139 MB |
+| Telegram | 62 MB | **5.64s** | 1479 MB |
+| WhatsApp | 139 MB | **5.87s** (99,277 个文件——大小写变体类对全部保留) | 1116 MB |
+| weibo | 226 MB | **5.03s** | 1172 MB |
+| weixin | 268 MB | **11.61s** | 1339 MB |
+| lark | 398 MB | **5.52s** | 1831 MB |
+| qq | 374 MB | **15.92s** | 2459 MB |
 
 </details>
 
@@ -119,19 +119,19 @@ ddc pkg app.apk --app -o own/        # 只反编译 App 自身代码
 
 | 子命令 | reqable | Telegram | WhatsApp | weibo | weixin | lark | qq |
 |---|---|---|---|---|---|---|---|
-| `info` | 0.01s / 24MB | 0.03s / 89MB | 0.04s / 268MB | 0.07s / 510MB | 0.07s / 510MB | 0.07s / 786MB | 0.14s / 1146MB |
-| `listclasses` | 0.02s / 17MB | 0.04s / 82MB | 0.05s / 85MB | 0.12s / 372MB | 0.15s / 424MB | 0.16s / 278MB | 0.23s / 366MB |
-| `manifest` | 0.00s / 4MB | 0.00s / 10MB | 0.00s / 17MB | 0.01s / 40MB | 0.00s / 28MB | 0.00s / 25MB | 0.00s / 44MB |
-| `mainactivity` | 0.01s / 21MB | 0.03s / 85MB | 0.05s / 220MB | 0.08s / 357MB | 0.08s / 386MB | 0.11s / 436MB | 0.17s / 540MB |
-| `res` | 0.00s / 4MB | 0.00s / 11MB | 0.01s / 19MB | 0.02s / 58MB | 0.01s / 29MB | 0.01s / 28MB | 0.02s / 50MB |
-| `largest` | 0.02s / 28MB | 0.05s / 85MB | 0.12s / 246MB | 0.28s / 506MB | 0.28s / 489MB | 0.42s / 658MB | 0.61s / 842MB |
-| `strings` | 0.02s / 20MB | 0.07s / 85MB | 0.18s / 221MB | 0.37s / 376MB | 0.38s / 374MB | 0.50s / 433MB | 0.77s / 524MB |
-| `findrefs-string` | 0.02s / 23MB | 0.03s / 78MB | 0.04s / 215MB | 0.06s / 400MB | 0.09s / 453MB | 0.04s / 330MB | 0.11s / 878MB |
-| `findrefs-method` | 0.02s / 23MB | 0.05s / 83MB | 0.04s / 206MB | 0.06s / 395MB | 0.07s / 462MB | 0.07s / 638MB | 0.11s / 899MB |
-| `members` | 0.01s / 20MB | 0.03s / 83MB | 0.05s / 221MB | 0.10s / 350MB | 0.10s / 365MB | 0.13s / 438MB | 0.19s / 512MB |
-| `hierarchy` | 0.01s / 20MB | 0.03s / 85MB | 0.05s / 205MB | 0.09s / 364MB | 0.10s / 399MB | 0.14s / 413MB | 0.18s / 524MB |
-| `disasm` | 0.01s / 20MB | 0.04s / 85MB | 0.06s / 218MB | 0.08s / 365MB | 0.10s / 371MB | 0.13s / 436MB | 0.18s / 518MB |
-| `getclass` | 0.02s / 33MB | 0.61s / 196MB | 0.09s / 310MB | 0.16s / 646MB | 0.23s / 792MB | 0.29s / 1078MB | 0.40s / 1356MB |
+| `info` | 0.12s / 40MB | 0.21s / 88MB | 0.42s / 305MB | 0.65s / 610MB | 0.79s / 550MB | 1.10s / 907MB | 1.08s / 1240MB |
+| `listclasses` | 0.04s / 21MB | 0.06s / 84MB | 0.08s / 93MB | 0.13s / 396MB | 0.21s / 417MB | 0.20s / 299MB | 0.27s / 391MB |
+| `manifest` | 0.03s / 7MB | 0.03s / 14MB | 0.02s / 20MB | 0.03s / 43MB | 0.04s / 31MB | 0.03s / 28MB | 0.03s / 47MB |
+| `mainactivity` | 0.04s / 24MB | 0.06s / 86MB | 0.08s / 224MB | 0.10s / 358MB | 0.13s / 371MB | 0.14s / 421MB | 0.21s / 554MB |
+| `res` | 0.02s / 7MB | 0.03s / 15MB | 0.03s / 22MB | 0.05s / 60MB | 0.04s / 32MB | 0.04s / 31MB | 0.05s / 53MB |
+| `largest` | 0.05s / 29MB | 0.08s / 78MB | 0.15s / 236MB | 0.31s / 500MB | 0.32s / 500MB | 0.46s / 676MB | 0.66s / 810MB |
+| `strings` | 0.05s / 24MB | 0.10s / 85MB | 0.21s / 222MB | 0.39s / 354MB | 0.45s / 395MB | 0.52s / 431MB | 0.81s / 551MB |
+| `findrefs-string` | 0.04s / 26MB | 0.05s / 70MB | 0.06s / 214MB | 0.10s / 403MB | 0.12s / 446MB | 0.07s / 335MB | 0.14s / 871MB |
+| `findrefs-method` | 0.05s / 26MB | 0.07s / 70MB | 0.07s / 219MB | 0.09s / 410MB | 0.10s / 458MB | 0.10s / 620MB | 0.15s / 896MB |
+| `members` | 0.07s / 23MB | 0.21s / 86MB | 0.62s / 222MB | 1.32s / 366MB | 1.17s / 381MB | 1.64s / 443MB | 2.66s / 572MB |
+| `hierarchy` | 0.04s / 24MB | 0.05s / 86MB | 0.09s / 212MB | 0.12s / 396MB | 0.14s / 386MB | 0.17s / 429MB | 0.22s / 548MB |
+| `disasm` | 0.04s / 23MB | 0.07s / 88MB | 0.09s / 214MB | 0.12s / 371MB | 0.13s / 392MB | 0.16s / 422MB | 0.20s / 533MB |
+| `getclass` | 0.05s / 34MB | 0.28s / 182MB | 0.14s / 357MB | 0.33s / 740MB | 0.37s / 942MB | 0.50s / 1235MB | 0.76s / 1651MB |
 
 </details>
 
@@ -149,8 +149,10 @@ ddc pkg app.apk --app -o own/        # 只反编译 App 自身代码
 ## 已知限制
 
 擦除类型（DEX 无 Signature）；d8 反糖的 `-$$Lambda$` 类独立成文件；极少数
-R8 巨兽方法超时降级；pattern-switch 呈现为反糖分发链。详见
-[架构文档](docs/zh-CN/architecture.md)。
+R8 巨兽方法超时降级（个别被墙钟截止截断的类输出可能随运行浮动）；
+pattern-switch 呈现为反糖分发链。上述 javac 门控是**语法**门——语义级
+诊断（缺 Android classpath、极少数寄存器密集巨兽方法中的类型混淆局部
+变量）仍会存在。详见[架构文档](docs/zh-CN/architecture.md)。
 
 ## 测试
 

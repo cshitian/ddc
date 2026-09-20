@@ -82,7 +82,7 @@ pub struct DexFile {
     /// pipeline retires a dex once every class in it has been emitted;
     /// on weibo/lark that is ~360MB of images that used to stay resident
     /// for the whole run).
-    data: std::sync::Mutex<Option<Vec<u8>>>,
+    data: std::sync::RwLock<Option<Vec<u8>>>,
     /// Set by `mark_released` from a shared (&) reference — the actual
     /// bytes drop immediately through the mutex.
     released: std::sync::atomic::AtomicBool,
@@ -143,7 +143,7 @@ pub struct CallSiteInfo {
 
 impl Drop for DexFile {
     fn drop(&mut self) {
-        *self.data.lock().unwrap() = None;
+        *self.data.write().unwrap() = None;
     }
 }
 
@@ -310,7 +310,7 @@ impl DexFile {
         let (method_handles, call_sites) = parse_map_tables(&data);
 
         Ok(DexFile {
-            data: std::sync::Mutex::new(Some(data)),
+            data: std::sync::RwLock::new(Some(data)),
             released: std::sync::atomic::AtomicBool::new(false),
             strings,
             types,
@@ -338,7 +338,11 @@ impl DexFile {
     /// single-call scope is the documented contract; the alternative
     /// (returning a guard) would infect every parser signature.
     pub fn raw(&self) -> &[u8] {
-        let guard = self.data.lock().unwrap();
+        // RwLock read: `raw()` ran once PER CLASS through an exclusive
+        // mutex while 18 materialize threads hammered the same per-image
+        // lock (3.9% of weixin's CPU in mutexwait/mutexdrop). Readers
+        // never exclude each other; only retirement takes the write lock.
+        let guard = self.data.read().unwrap();
         match guard.as_ref() {
             Some(bytes) => unsafe { std::mem::transmute::<&[u8], &[u8]>(bytes.as_slice()) },
             None => &[],
@@ -348,7 +352,7 @@ impl DexFile {
     /// Drop the inflated image (tables stay usable; code accessors return
     /// empty). Call only when no further code decoding will happen.
     pub fn release_data(&mut self) {
-        *self.data.lock().unwrap() = None;
+        *self.data.write().unwrap() = None;
         self.released
             .store(true, std::sync::atomic::Ordering::Release);
     }
@@ -360,8 +364,8 @@ impl DexFile {
     pub fn mark_released(&self) {
         self.released
             .store(true, std::sync::atomic::Ordering::Release);
-        // Free the bytes NOW (through the mutex, &self-safe).
-        *self.data.lock().unwrap() = None;
+        // Free the bytes NOW (through the write lock, &self-safe).
+        *self.data.write().unwrap() = None;
     }
 
     #[inline]
@@ -402,6 +406,10 @@ impl DexFile {
 
     pub fn type_count(&self) -> usize {
         self.types.len()
+    }
+
+    pub fn proto_count(&self) -> usize {
+        self.protos.len()
     }
 
     pub fn proto(&self, idx: u32) -> &ProtoId {
@@ -551,16 +559,14 @@ impl DexFile {
             return None;
         }
         let o = off as usize;
-        if o + 16 > self.raw().len() {
+        // One snapshot: each raw() takes the RwLock read side (this ran
+        // 5 locks per call on per-method hot paths).
+        let d = self.raw();
+        if o + 16 > d.len() {
             return None;
         }
-        let regs = u16::from_le_bytes([self.raw()[o], self.raw()[o + 1]]);
-        let insns = u32::from_le_bytes([
-            self.raw()[o + 12],
-            self.raw()[o + 13],
-            self.raw()[o + 14],
-            self.raw()[o + 15],
-        ]);
+        let regs = u16::from_le_bytes([d[o], d[o + 1]]);
+        let insns = u32::from_le_bytes([d[o + 12], d[o + 13], d[o + 14], d[o + 15]]);
         Some((regs, insns))
     }
 
@@ -570,15 +576,11 @@ impl DexFile {
             return None;
         }
         let o = off as usize;
-        if o + 12 > self.raw().len() {
+        let d = self.raw();
+        if o + 12 > d.len() {
             return None;
         }
-        Some(u32::from_le_bytes([
-            self.raw()[o + 8],
-            self.raw()[o + 9],
-            self.raw()[o + 10],
-            self.raw()[o + 11],
-        ]))
+        Some(u32::from_le_bytes([d[o + 8], d[o + 9], d[o + 10], d[o + 11]]))
     }
 
     pub fn code_at(&self, off: u32) -> Option<CodeItem> {
@@ -712,6 +714,143 @@ impl DexFile {
     /// Parameter names from debug info (NO_INDEX → absent). `debug_info_off`
     /// comes from a code item; the entry layout is `line_start` uleb,
     /// `parameters_size` uleb, then `uleb128p1` names.
+    /// Local-variable table of a `debug_info_item` (DBG_START_LOCAL /
+    /// END / RESTART ranges). Release APKs strip it (empty result, zero
+    /// cost); debug-enabled builds recover the ORIGINAL source names
+    /// (`bArr`, `i3`, …) instead of synthetic `vN` registers.
+    pub fn debug_locals(&self, debug_info_off: u32) -> Vec<DebugLocal> {
+        if debug_info_off == 0 {
+            return Vec::new();
+        }
+        let raw = self.raw();
+        let mut c = Cursor::at(raw, debug_info_off as usize);
+        if c.read_uleb128().is_none() {
+            return Vec::new();
+        }
+        let n = match c.read_uleb128() {
+            Some(v) => v as usize,
+            None => return Vec::new(),
+        };
+        // Skip the parameter-name indices.
+        for _ in 0..n {
+            if c.read_uleb128p1().is_none() {
+                return Vec::new();
+            }
+        }
+        let mut out: Vec<DebugLocal> = Vec::new();
+        // Open ranges per register + the last closed name per register
+        // (DBG_RESTART_LOCAL resumes it). Small linear tables: a method
+        // touches a handful of registers at any address.
+        // (register, start pc, name, optional type descriptor)
+        type OpenLocal = (u16, u32, std::sync::Arc<str>, Option<std::sync::Arc<str>>);
+        let mut open: Vec<OpenLocal> = Vec::new();
+        let mut last: Vec<(u16, std::sync::Arc<str>, Option<std::sync::Arc<str>>)> = Vec::new();
+        let mut addr: u32 = 0;
+        // Corrupt-stream guard: the bytecode is variable-length; cap the
+        // opcode count far above any real method (tolerant-sentinel rule).
+        for _ in 0..2_000_000u32 {
+            let Some(op) = c.u1() else { break };
+            match op {
+                0x00 => break, // DBG_END_SEQUENCE
+                0x01 => {
+                    // DBG_ADVANCE_PC
+                    let Some(d) = c.read_uleb128() else { break };
+                    addr = addr.saturating_add(d as u32);
+                }
+                0x02 => {
+                    // DBG_ADVANCE_LINE (line numbers are not recovered)
+                    if c.read_sleb128().is_none() {
+                        break;
+                    }
+                }
+                0x03 | 0x04 => {
+                    // DBG_START_LOCAL[_EXTENDED]
+                    let (Some(reg), Some(ni)) = (c.read_uleb128(), c.read_uleb128p1()) else {
+                        break;
+                    };
+                    let ti = match c.read_uleb128p1() {
+                        Some(v) => v,
+                        None => break,
+                    };
+                    if op == 0x04 && c.read_uleb128p1().is_none() {
+                        break; // signature_idx
+                    }
+                    // read_uleb128p1 ALREADY applies the -1 (NO_INDEX =
+                    // -1); decrementing again shifted every name one
+                    // string-table slot down (pm→pi, name→line).
+                    if ni >= 0 {
+                        let reg = reg as u16;
+                        if let Some(pos) = open.iter().position(|(r, ..)| *r == reg) {
+                            let (_, start, name, ty) = open.remove(pos);
+                            out.push(DebugLocal { reg, start, end: addr, name, ty });
+                        }
+                        let name = self.string_arc(ni as u32);
+                        let ty = if ti >= 0 {
+                            Some(std::sync::Arc::from(self.type_name(ti as u32)))
+                        } else {
+                            None
+                        };
+                        if let Some(pos) = last.iter().position(|(r, ..)| *r == reg) {
+                            last[pos] = (reg, name.clone(), ty.clone());
+                        } else {
+                            last.push((reg, name.clone(), ty.clone()));
+                        }
+                        open.push((reg, addr, name, ty));
+                    }
+                }
+                0x05 => {
+                    // DBG_END_LOCAL
+                    let Some(reg) = c.read_uleb128() else { break };
+                    let reg = reg as u16;
+                    if let Some(pos) = open.iter().position(|(r, ..)| *r == reg) {
+                        let (_, start, name, ty) = open.remove(pos);
+                        out.push(DebugLocal { reg, start, end: addr, name, ty });
+                    }
+                }
+                0x06 => {
+                    // DBG_RESTART_LOCAL
+                    let Some(reg) = c.read_uleb128() else { break };
+                    let reg = reg as u16;
+                    if let Some((_, name, ty)) = last.iter().find(|(r, ..)| *r == reg) {
+                        let name = name.clone();
+                        let ty = ty.clone();
+                        if !open.iter().any(|(r, ..)| *r == reg) {
+                            open.push((reg, addr, name, ty));
+                        }
+                    }
+                }
+                0x07 | 0x08 => {} // prologue-end / epilogue-begin
+                0x09 => {
+                    // DBG_SET_FILE
+                    if c.read_uleb128p1().is_none() {
+                        break;
+                    }
+                }
+                // Special opcodes (>= 0x0a): DWARF-style fused
+                // (address, line) advance in ONE byte — addr +=
+                // (op - 0x0a) / 15, line += -4 + (op - 0x0a) % 15.
+                // Line numbers are not recovered; the address advance
+                // positions the local ranges. Treating these as invalid
+                // (an earlier shape broke here) lost EVERY local after
+                // the first special opcode — i.e. all of them.
+                c => {
+                    let adjusted = (c - 0x0a) as u32;
+                    addr = addr.saturating_add(adjusted / 15);
+                }
+            }
+        }
+        for (reg, start, name, ty) in open {
+            out.push(DebugLocal {
+                reg,
+                start,
+                end: u32::MAX,
+                name,
+                ty,
+            });
+        }
+        out
+    }
+
     pub fn parameter_names(&self, debug_info_off: u32) -> Vec<Option<String>> {
         if debug_info_off == 0 {
             return Vec::new();
@@ -881,4 +1020,20 @@ mod tests {
     fn rejects_non_dex() {
         assert!(DexFile::parse(vec![0u8; 128]).is_err());
     }
+}
+
+
+/// One source-level local from the debug-info local table: the name is
+/// valid for `reg` over `[start, end)` in code units.
+#[derive(Debug, Clone)]
+pub struct DebugLocal {
+    pub reg: u16,
+    pub start: u32,
+    pub end: u32,
+    pub name: std::sync::Arc<str>,
+    /// Type descriptor from the local table (`[C`, `Ljava/lang/String;`),
+    /// when present — lets the consumer reject a range whose type does
+    /// not match the value being named (register reuse: `new-array v0,
+    // v0` reads the OLD v0 as a size inside the NEW v0's range).
+    pub ty: Option<std::sync::Arc<str>>,
 }

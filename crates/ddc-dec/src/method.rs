@@ -2,7 +2,7 @@
 //! DEX code units → CFG → register→IR lifting (fixpoint with merge phis) →
 //! `jdc-core` structuring → statement conversion → refinement passes.
 
-use std::collections::HashMap;
+use jdc_core::FxHashMap as HashMap;
 
 use ddc_dex::insn::InsnKind;
 use jdc_core::convert::Converter;
@@ -25,7 +25,29 @@ pub struct MethodBody {
 }
 
 /// Catch types for the ranges a block handles (drives move-exception typing).
-fn handler_types_for(cfg: &DexCfg, bid: usize) -> Vec<Option<String>> {
+/// Debug-env reads, cached: `env::var` is an environ lock+scan — a
+/// per-METHOD cost across 716k methods shows up as __NSGetEnviron in
+/// profiles. Once per process is the right granularity.
+fn trace_on() -> bool {
+    static T: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *T.get_or_init(|| std::env::var("DDC_TRACE").is_ok())
+}
+
+fn walk_budget_override() -> Option<u64> {
+    static T: std::sync::OnceLock<Option<u64>> = std::sync::OnceLock::new();
+    *T.get_or_init(|| {
+        std::env::var("DDC_WALKBUDGET")
+            .ok()
+            .and_then(|v| v.parse().ok())
+    })
+}
+
+fn walk_ms_override() -> Option<u64> {
+    static T: std::sync::OnceLock<Option<u64>> = std::sync::OnceLock::new();
+    *T.get_or_init(|| std::env::var("DDC_WALKMS").ok().and_then(|v| v.parse().ok()))
+}
+
+fn handler_types_for(cfg: &DexCfg, bid: usize) -> Vec<Option<std::sync::Arc<str>>> {
     cfg.blocks[bid]
         .handlers
         .iter()
@@ -54,15 +76,19 @@ pub fn decompile_method(
     };
     let insn_count = code.insns.len();
     let param_names = dex.parameter_names(m.debug_info_off);
-    let cfg = DexCfg::build(&mut code, &|ty| dex.class_name(ty));
+    // Pool-cached Arc class names: the closure ran dex.class_name
+    // (fresh String) per exception range of every method.
+    let cfg = DexCfg::build(&mut code, &|ty| pool.type_name_arc(m.dex_idx, ty));
     let n = cfg.blocks.len();
     let env = MethodEnv {
         pool,
+        di: m.dex_idx,
         dex,
         code: &code,
         class_name: class.name.clone(),
         method_name: m.name.clone(),
         desc: desc.clone(),
+        debug_locals: dex.debug_locals(m.debug_info_off),
         is_static: m.is_static(),
         code_units: cfg.code_units,
     };
@@ -86,10 +112,10 @@ pub fn decompile_method(
     // Visiting order: reverse postorder, then any stragglers (so every block
     // is built at least once even when unreachable).
     let core_for_order = cfg.to_core();
-    let universe: std::collections::HashSet<usize> = (0..n).collect();
+    let universe: jdc_core::FxHashSet<usize> = (0..n).collect();
     let mut order = reverse_postorder(&core_for_order, core_for_order.entry, &universe);
     {
-        let mut seen: std::collections::HashSet<usize> = order.iter().copied().collect();
+        let mut seen: jdc_core::FxHashSet<usize> = order.iter().copied().collect();
         for b in &cfg.blocks {
             if seen.insert(b.id) {
                 order.push(b.id);
@@ -99,7 +125,7 @@ pub fn decompile_method(
 
     // Handler blocks: entry state approximated by the try-entry state (the
     // dominant pattern: catch reads values established before the try).
-    let mut handler_entry_block: HashMap<usize, usize> = HashMap::new();
+    let mut handler_entry_block: HashMap<usize, usize> = HashMap::default();
     for b in &cfg.blocks {
         if b.handlers.is_empty() {
             continue;
@@ -130,7 +156,7 @@ pub fn decompile_method(
     // Stable (block, register) → var ids across worklist rebuilds: keeps
     // re-lifts id-deterministic so the fixpoint CONVERGES instead of
     // cascading (was: 30M block-lifts on weibo, ~60 per block).
-    let mut stable_vars: HashMap<(usize, u16), u32> = HashMap::new();
+    let mut stable_vars: HashMap<(usize, u16, u64), u32> = HashMap::default();
     // Method feature flags OR-merged from every block lift: gates
     // post-lift passes that can only match if the bytecode contained the
     // feature (most methods contain none).
@@ -138,11 +164,11 @@ pub fn decompile_method(
     // Try-entry INPUT snapshots (for handler-block approximation) — only
     // try-entry starts (rare) keep their input state; no persistent
     // per-block copies.
-    let mut try_entry_snapshots: HashMap<usize, Vec<Reg>> = HashMap::new();
+    let mut try_entry_snapshots: HashMap<usize, Vec<Reg>> = HashMap::default();
     let mut built_once = vec![false; n];
-    let mut errors: HashMap<usize, String> = HashMap::new();
+    let mut errors: HashMap<usize, String> = HashMap::default();
     // (merge block, register) → phi var id.
-    let mut phis: HashMap<(usize, u16), u32> = HashMap::new();
+    let mut phis: HashMap<(usize, u16), u32> = HashMap::default();
     // pred → (write_pc, phi var, value) materializations.
 
     let entry_is_handler = handler_entry_block.contains_key(&0);
@@ -160,7 +186,7 @@ pub fn decompile_method(
                     .any(|r| cfg.block_at(r.start) == Some(b))
         })
         .collect();
-    let handler_types: Vec<Vec<Option<String>>> =
+    let handler_types: Vec<Vec<Option<std::sync::Arc<str>>>> =
         (0..n).map(|b| handler_types_for(&cfg, b)).collect();
 
     // Worklist fixpoint with version stamps: a block rebuilds only when the
@@ -191,7 +217,7 @@ pub fn decompile_method(
     }
     // merge bid → [(pred, write_pc, phi var, value)] — re-recorded whole on
     // each visit of the merge block (stale rounds must not accumulate).
-    let mut appends: HashMap<usize, Vec<(usize, u32, u32, Expr)>> = HashMap::new();
+    let mut appends: HashMap<usize, Vec<(usize, u32, u32, Expr)>> = HashMap::default();
     let mut total_visits: usize = 0;
     let visit_cap: usize = 64 * n + 256;
 
@@ -238,7 +264,8 @@ pub fn decompile_method(
                         sides.push(o.regs.as_slice());
                     }
                 }
-                let merged = merge_states(&mut vt, &mut phis, bid, &sides);
+                let merged =
+                    merge_states(&mut vt, &mut phis, bid, &sides, &env.debug_locals, cfg.blocks[bid].start);
                 // The entry side's phi contributions become leading
                 // assignments in the entry block (virtual pred). The entry
                 // block may be re-visited by the worklist — each visit
@@ -281,7 +308,14 @@ pub fn decompile_method(
             } else if sides.len() == 1 {
                 sides[0].to_vec()
             } else {
-                merge_states(&mut vt, &mut phis, bid, &sides)
+                merge_states(
+                    &mut vt,
+                    &mut phis,
+                    bid,
+                    &sides,
+                    &env.debug_locals,
+                    cfg.blocks[bid].start,
+                )
             }
         };
 
@@ -408,13 +442,25 @@ pub fn decompile_method(
     // first: register rotations (`a = b; b = a % b`) would otherwise read
     // the already-reassigned phi (stale capture).
     // Regroup: merge-keyed records → per-pred statement lists.
-    let mut per_pred: HashMap<usize, Vec<(u32, u32, Expr)>> = HashMap::new();
-    for recs in appends.values() {
-        for (p, pc, v, e) in recs {
+    //
+    // Deterministic order: `adds.sort_by_key(pc)` below is a STABLE sort,
+    // so same-pc records (one jump feeding several merge vars) keep
+    // their push order — iterating `appends` in map order made that
+    // order hasher-dependent (SipHash seeds per process: output was NOT
+    // byte-stable across runs; 243/5579 files wobbled on reqable).
+    // Sorted block ids here + sorted preds below pin every tie.
+    let mut merge_order: Vec<usize> = appends.keys().copied().collect();
+    merge_order.sort_unstable();
+    let mut per_pred: HashMap<usize, Vec<(u32, u32, Expr)>> = HashMap::default();
+    for bid in merge_order {
+        for (p, pc, v, e) in &appends[&bid] {
             per_pred.entry(*p).or_default().push((*pc, *v, e.clone()));
         }
     }
-    for (p, mut adds) in per_pred {
+    let mut pred_order: Vec<usize> = per_pred.keys().copied().collect();
+    pred_order.sort_unstable();
+    for p in pred_order {
+        let mut adds = per_pred.remove(&p).unwrap();
         if p == usize::MAX {
             continue;
         }
@@ -511,7 +557,11 @@ pub fn decompile_method(
         passes::apply_local_names(&mut vt, &body);
         passes::remove_kotlin_checks(&mut body);
         passes::platform_constants(&mut body);
-        passes::ensure_declared(&mut body, &vt);
+        passes::drop_dead_locals(&mut body);
+    if &*m.name == "<init>" {
+        passes::fix_ctor_super_first(&mut body);
+    }
+    passes::ensure_declared(&mut body, &vt);
         passes::strip_trailing_void_return(&mut body);
         passes::cleanup(&mut body);
         if !errors.is_empty() {
@@ -550,9 +600,9 @@ pub fn decompile_method(
     // retry — monster classes (gson adapters) spent the bulk of their
     // time there.
     let groups = jdc_core::structure::group_exceptions_with(&core_cfg, Some(&results));
-    let dom_universe: std::collections::HashSet<usize> = (0..core_cfg.blocks.len()).collect();
+    let dom_universe: jdc_core::FxHashSet<usize> = (0..core_cfg.blocks.len()).collect();
     let dom = jdc_core::structure::compute_dominators(&core_cfg, &dom_universe, core_cfg.entry);
-    if std::env::var("DDC_TRACE").is_ok() {
+    if trace_on() {
         eprintln!("[mshape] {}.{} blocks={}", class.name, m.name, n);
     }
     #[cfg(feature = "visit-stats")]
@@ -568,10 +618,7 @@ pub fn decompile_method(
     // method can recurse for effectively forever while the worker (and
     // the process) never finishes — Telegram's full run wrote every file
     // yet hung for 300+ seconds on 25 such classes.
-    let walk_budget: u64 = std::env::var("DDC_WALKBUDGET")
-        .ok()
-        .and_then(|v| v.parse().ok())
-        .unwrap_or(8 * n as u64 + 128);
+    let walk_budget: u64 = walk_budget_override().unwrap_or(8 * n as u64 + 128);
     // Wall-clock guard for the walk: legit methods finish far under this
     // (weibo's largest legit monster ~150ms); the exponential explorations
     // (Telegram sendMessage family) cut to Gotos, same degradation as the
@@ -579,31 +626,21 @@ pub fn decompile_method(
     // budget too slow (6ms/visit × 14k visits = minutes).
     let walk_deadline = std::time::Instant::now()
         + std::time::Duration::from_millis(
-            std::env::var("DDC_WALKMS")
-                .ok()
-                .and_then(|v| v.parse().ok())
-                .unwrap_or(1500),
+            walk_ms_override().unwrap_or(1500),
         );
     loop {
         jdc_core::structure::set_budget_override(Some(budget));
         jdc_core::structure::set_walk_visit_budget(Some(walk_budget));
         jdc_core::structure::set_walk_deadline(Some(walk_deadline));
-        let mut st = Structurer::with_precomputed_groups(
+        let mut st = Structurer::with_shared_groups(
             &core_cfg,
             &results,
-            groups.clone(),
+            &groups,
             Default::default(),
             Default::default(),
         );
         let region = st.structure_method();
-        let mut converter = Converter::with_precomputed(
-            &core_cfg,
-            &results,
-            groups.clone(),
-            jdc_core::structure::DomInfo {
-                idom: dom.idom.clone(),
-            },
-        );
+        let mut converter = Converter::with_precomputed_ref(&core_cfg, &results, &groups, &dom);
         let candidate = converter.convert(region);
         jdc_core::structure::set_budget_override(None);
         jdc_core::structure::set_walk_visit_budget(None);
@@ -613,14 +650,8 @@ pub fn decompile_method(
             passes::count_stmts_deep(&candidate, &mut c);
             c
         };
-        if std::env::var("DDC_TRACE").is_ok() {
-            static TRACE_ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
-            if *TRACE_ON.get_or_init(|| std::env::var("DDC_TRACE").is_ok()) {
-                eprintln!(
-                    "[guard] {}.{} size={} budget={}",
-                    class.name, m.name, size, budget
-                );
-            }
+        if trace_on() {
+            eprintln!("[guard] {}.{} size={} budget={}", class.name, m.name, size, budget);
         }
         if size <= TREE_GUARD {
             body = Some(candidate);
@@ -638,7 +669,7 @@ pub fn decompile_method(
         budget /= 2;
     }
     #[cfg(feature = "visit-stats")]
-    if std::env::var("DDC_TRACE").is_ok() && n > 3 {
+    if trace_on() && n > 3 {
         let used = jdc_core::structure::walk_visits_consumed();
         eprintln!(
             "[visits] {}.{} blocks={} consumed={} ratio={:.1}",
@@ -691,10 +722,14 @@ pub fn decompile_method(
     passes::cleanup(&mut body);
     passes::inline_accessors(&mut body, pool);
     passes::infer_types(&mut vt, &mut body, &desc.ret, &env);
-    passes::booleanize(&mut vt, &mut body);
+    passes::booleanize(&mut vt, &mut body, matches!(desc.ret, JavaType::Boolean));
     passes::apply_local_names(&mut vt, &body);
     passes::remove_kotlin_checks(&mut body);
     passes::platform_constants(&mut body);
+    passes::drop_dead_locals(&mut body);
+    if &*m.name == "<init>" {
+        passes::fix_ctor_super_first(&mut body);
+    }
     passes::ensure_declared(&mut body, &vt);
     passes::strip_trailing_void_return(&mut body);
     passes::cleanup(&mut body);
@@ -997,11 +1032,38 @@ fn visit_phi_refs(e: &Expr, phis: &std::collections::HashSet<u32>, hit: &mut boo
 
 /// Merge several predecessor register states: pass identical values
 /// through, otherwise materialize into a phi var for `(block, register)`.
+/// Debug-info name covering `(pc, slot)`, sanitized (shared by the
+/// lifter and the merge path).
+fn debug_name_at(
+    locals: &[ddc_dex::DebugLocal],
+    slot: u16,
+    pc: u32,
+    ty: &jdc_core::types::JavaType,
+) -> Option<String> {
+    if locals.is_empty() {
+        return None;
+    }
+    let hit = locals.iter().find(|l| {
+        l.reg == slot
+            && pc >= l.start
+            && pc < l.end
+            && l.ty.as_deref().map(|d| &crate::desc_type(d) == ty).unwrap_or(true)
+    })?;
+    let n = crate::classdec::java_ident(&hit.name);
+    if n.is_empty() {
+        None
+    } else {
+        Some(n.into_owned())
+    }
+}
+
 fn merge_states(
     vt: &mut VarTable,
     phis: &mut HashMap<(usize, u16), u32>,
     bid: usize,
     sides: &[&[Reg]],
+    debug_locals: &[ddc_dex::DebugLocal],
+    merge_pc: u32,
 ) -> Vec<Reg> {
     let len = sides.iter().map(|s| s.len()).max().unwrap_or(0);
     let mut out = vec![Reg::Undef; len];
@@ -1026,24 +1088,66 @@ fn merge_states(
             Some(&v) => v,
             None => {
                 let ty = join_side_types(vt, sides, r);
-                let id = vt.vars.len() as u32;
-                let name = format!("v{}", id);
-                vt.vars.push(jdc_core::var::VarInfo {
-                    id,
-                    slot: r as u16,
-                    name,
-                    ty,
-                    is_param: false,
-                    range_start: 0,
-                    range_end: u16::MAX,
-                    synthetic_name: true,
-                });
-                while vt.by_slot.len() <= r {
-                    vt.by_slot.push(Vec::new());
+                // Loop-carried values are usually THE source local (the
+                // `char[] out` / `int i` of a loop): name the phi from the
+                // debug range covering the merge block's head. When a var
+                // of that name+type already exists, REUSE it — per-block
+                // copies of one source local degrade to out/out2/out3
+                // suffix soup, and one register+type = one Java local is
+                // exactly Dalvik semantics.
+                if let Some(n) = debug_name_at(debug_locals, r as u16, merge_pc, &ty.erased()) {
+                    let unified = vt
+                        .vars
+                        .iter()
+                        .find(|v| {
+                            v.slot == r as u16
+                                && !v.synthetic_name
+                                && v.name == n
+                                && v.ty.erased() == ty.erased()
+                        })
+                        .map(|v| v.id);
+                    let id = match unified {
+                        Some(id) => id,
+                        None => {
+                            let id = vt.vars.len() as u32;
+                            vt.vars.push(jdc_core::var::VarInfo {
+                                id,
+                                slot: r as u16,
+                                name: n,
+                                ty,
+                                is_param: false,
+                                range_start: 0,
+                                range_end: u16::MAX,
+                                synthetic_name: false,
+                            });
+                            while vt.by_slot.len() <= r {
+                                vt.by_slot.push(Vec::new());
+                            }
+                            vt.by_slot[r].push((0, u16::MAX, id));
+                            id
+                        }
+                    };
+                    phis.insert(key, id);
+                    id
+                } else {
+                    let id = vt.vars.len() as u32;
+                    vt.vars.push(jdc_core::var::VarInfo {
+                        id,
+                        slot: r as u16,
+                        name: format!("v{}", id),
+                        ty,
+                        is_param: false,
+                        range_start: 0,
+                        range_end: u16::MAX,
+                        synthetic_name: true,
+                    });
+                    while vt.by_slot.len() <= r {
+                        vt.by_slot.push(Vec::new());
+                    }
+                    vt.by_slot[r].push((0, u16::MAX, id));
+                    phis.insert(key, id);
+                    id
                 }
-                vt.by_slot[r].push((0, u16::MAX, id));
-                phis.insert(key, id);
-                id
             }
         };
         *slot = Reg::Live(phi);

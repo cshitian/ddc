@@ -12,7 +12,7 @@
 // arms would trade per-arm clarity for lint silence.
 #![allow(clippy::collapsible_match)]
 
-use std::collections::HashSet;
+use jdc_core::FxHashSet as HashSet;
 
 // The tree-walker match arms intentionally mirror the statement grammar
 // one level at a time; collapsing the nested `if let`s into outer match
@@ -321,6 +321,32 @@ fn for_each_child_mut<F: FnMut(&mut Expr)>(e: &mut Expr, f: &mut F) {
 fn deep_rewrite<F: FnMut(&mut Expr)>(e: &mut Expr, f: &mut F) {
     f(e);
     for_each_child_mut(e, &mut |c| deep_rewrite(c, f));
+}
+
+/// `deep_rewrite` that respects WRITE positions: a `Local` appearing as
+/// an assignment target or a `++`/`--` operand never reaches `f`.
+/// Value-forwarding closures (`*x = value`) must use this — plain
+/// deep_rewrite turned a forwarded `vX = 25` into `25 = 25` (target
+/// replaced, and drop_defs then no longer recognized the statement, so
+/// the garbage survived into the output; reqable a4/e). Compound
+/// targets (`a[i] = …`, `o.f = …`) still recurse: owners and indices
+/// ARE reads.
+fn deep_rewrite_reads<F: FnMut(&mut Expr)>(e: &mut Expr, f: &mut F) {
+    f(e);
+    match e {
+        Expr::Assign { target, value, .. } => {
+            if !matches!(**target, Expr::Local { .. }) {
+                deep_rewrite_reads(target, f);
+            }
+            deep_rewrite_reads(value, f);
+        }
+        Expr::PreIncDec { e: inner, .. } | Expr::PostIncDec { e: inner, .. } => {
+            if !matches!(**inner, Expr::Local { .. }) {
+                deep_rewrite_reads(inner, f);
+            }
+        }
+        _ => for_each_child_mut(e, &mut |c| deep_rewrite_reads(c, f)),
+    }
 }
 
 fn collect_vars(e: &Expr, out: &mut HashSet<u32>) {
@@ -784,6 +810,23 @@ fn walk_mut<F: FnMut(&mut Stmt)>(s: &mut Stmt, f: &mut F) {
                 f(fl);
             }
         }
+        Stmt::TryWithResources {
+            resources,
+            body,
+            catches,
+            finally,
+        } => {
+            for r in resources.iter_mut() {
+                f(r);
+            }
+            f(body);
+            for c in catches {
+                f(&mut c.body);
+            }
+            if let Some(fl) = finally {
+                f(fl);
+            }
+        }
         Stmt::Synchronized { body, .. } | Stmt::Labeled { body, .. } => f(body),
         _ => {}
     }
@@ -824,16 +867,42 @@ pub fn prepend_comment(s: &mut Stmt, text: String) {
 /// Fused expression rewrites that each used to walk the whole tree:
 /// residual cmp sentinels, object-null comparisons, const-first compares.
 /// One traversal, three rules — the separate walks were a top profile cost.
+/// True when `e` evaluates to an object reference — a legal null-compare
+/// side: locals via the reference table, everything else via its own type
+/// (fields like `pi.versionName != 0` and call results are references too;
+/// constants never are).
+fn is_obj_expr(e: &Expr, obj_var: &dyn Fn(u32) -> bool) -> bool {
+    match e {
+        Expr::Local { var, .. } => obj_var(*var),
+        Expr::Const(_) => false,
+        _ => e.type_ref().erased().is_reference(),
+    }
+}
+
+/// `obj == 0` / `0 == obj` → `obj == null`: replace the CONST-0 side.
+/// The previous shape replaced the LOCAL side instead — every object
+/// null-check in the corpus rendered as `null != 0` (4,598 hits in
+/// reqable alone) and the real operand vanished from the condition.
+fn null_side_rewrite(x: &mut Expr, obj_var: &dyn Fn(u32) -> bool) {
+    if let Expr::Bin { op, l, r, .. } = x {
+        if !matches!(op, BinOp::Eq | BinOp::Ne) {
+            return;
+        }
+        let l_zero = matches!(&**l, Expr::Const(ConstVal::Int(0)));
+        let r_zero = matches!(&**r, Expr::Const(ConstVal::Int(0)));
+        if l_zero && !r_zero && is_obj_expr(r, obj_var) {
+            **l = Expr::Const(ConstVal::Null);
+        } else if r_zero && !l_zero && is_obj_expr(l, obj_var) {
+            **r = Expr::Const(ConstVal::Null);
+        }
+    }
+}
+
 pub fn fused_expr_rewrites(s: &mut Stmt, vt: &VarTable) {
     // var ids are dense: a byte table beats a HashSet lookup.
     let mut obj_vars: Vec<bool> = Vec::with_capacity(vt.vars.len());
-    let mut any_obj = false;
     for v in &vt.vars {
-        let is_obj = v.ty.erased().is_reference();
-        if is_obj {
-            any_obj = true;
-        }
-        obj_vars.push(is_obj);
+        obj_vars.push(v.ty.erased().is_reference());
     }
     rewrite_exprs(s, &mut |e| {
         deep_rewrite(e, &mut |x| {
@@ -853,7 +922,7 @@ pub fn fused_expr_rewrites(s: &mut Stmt, vt: &VarTable) {
                         owner: None,
                         cls: cls.into(),
                         name: "compare".into(),
-                        desc,
+                        desc: std::sync::Arc::new(desc),
                         args: args.clone(),
                         is_static: true,
                         is_interface: false,
@@ -865,26 +934,9 @@ pub fn fused_expr_rewrites(s: &mut Stmt, vt: &VarTable) {
                     return;
                 }
             }
-            // 2. null compares.
-            if any_obj {
-                if let Expr::Bin { op, l, r, .. } = x {
-                    if matches!(op, BinOp::Eq | BinOp::Ne) {
-                        let rewrite = |side: &mut Expr, other: &Expr| {
-                            if let Expr::Const(ConstVal::Int(0)) = other {
-                                if let Expr::Local { var, .. } = &*side {
-                                    if obj_vars.get(*var as usize).copied().unwrap_or(false) {
-                                        *side = Expr::Const(ConstVal::Null);
-                                    }
-                                }
-                            }
-                        };
-                        let lo = l.clone();
-                        let ro = r.clone();
-                        rewrite(l, &ro);
-                        rewrite(r, &lo);
-                    }
-                }
-            }
+            // 2. null compares (no any_obj gate: the object side may be
+            // a field/call whose type is not in the local table).
+            null_side_rewrite(x, &|v| obj_vars.get(v as usize).copied().unwrap_or(false));
             // 3. const-first compares.
             if let Expr::Bin { op, l, r, .. } = x {
                 if matches!(
@@ -923,7 +975,7 @@ pub fn desugar_cmp_residuals(s: &mut Stmt) {
                         owner: None,
                         cls: cls.into(),
                         name: "compare".into(),
-                        desc,
+                        desc: std::sync::Arc::new(desc),
                         args: args.clone(),
                         is_static: true,
                         is_interface: false,
@@ -995,7 +1047,7 @@ fn ternary_fold_walk(s: &mut Stmt, changed: &mut bool) {
     // The condition and both values must not re-assign the target between
     // the fold — they are single statements, so a mention is a re-read at
     // worst; re-assignment only happens via assignments inside them.
-    let mut touched = HashSet::new();
+    let mut touched = HashSet::default();
     let (Stmt::ExprStmt(a_then), Stmt::ExprStmt(a_else)) = (&tv[0], &ev[0]) else {
         return;
     };
@@ -1057,7 +1109,7 @@ pub fn fold_string_builders(s: &mut Stmt, vt: &VarTable) {
     record_assignments(s, &counts, &mut values);
 
     // Builders with statement-form appends (their chains are incomplete).
-    let mut appended_stmts: HashSet<u32> = HashSet::new();
+    let mut appended_stmts: HashSet<u32> = HashSet::default();
     walk_all(s, &mut |st| {
         if let Stmt::ExprStmt(Expr::Method {
             cls,
@@ -1067,7 +1119,7 @@ pub fn fold_string_builders(s: &mut Stmt, vt: &VarTable) {
             ..
         }) = st
         {
-            if name == "append" && is_string_builder(cls) && args.len() == 1 {
+            if name.as_ref() == "append" && is_string_builder(cls) && args.len() == 1 {
                 if let Some(Expr::Local { var, .. }) = owner.as_deref() {
                     appended_stmts.insert(*var);
                 }
@@ -1083,7 +1135,7 @@ pub fn fold_string_builders(s: &mut Stmt, vt: &VarTable) {
     // folded); the drop COUNT drives iteration — no statement counting
     // walks at all.
     for _ in 0..8 {
-        let mut reads: HashSet<u32> = HashSet::new();
+        let mut reads: HashSet<u32> = HashSet::default();
         stmt_collect_vars(s, &mut reads, false);
         if drop_unused_assigns(s, &reads) == 0 {
             break;
@@ -1129,6 +1181,26 @@ fn analyze_vars(s: &Stmt, a: &mut VarAnalysis) {
                     v.push(target);
                 }
                 v
+            }
+            Stmt::ExprStmt(e @ (Expr::PreIncDec { .. } | Expr::PostIncDec { .. })) => {
+                // `v++` is a read-modify-WRITE of v: counting it as a
+                // plain read makes v a single-assign/single-read forward
+                // candidate, and value-forwarding then fabricates `5++`
+                // (or drops v's def and leaves ++ on an undefined name).
+                let inner = match e {
+                    Expr::PreIncDec { e, .. } | Expr::PostIncDec { e, .. } => e,
+                    _ => unreachable!(),
+                };
+                if let Expr::Local { var, .. } = &**inner {
+                    grow_to(&mut a.assigns, *var);
+                    let idx = *var as usize;
+                    a.assigns[idx] += 1;
+                    if idx < a.values.len() {
+                        a.values[idx] = None;
+                    }
+                    return;
+                }
+                vec![e]
             }
             Stmt::ExprStmt(e) | Stmt::Throw(e) | Stmt::MonitorEnter(e) | Stmt::MonitorExit(e) => {
                 vec![e]
@@ -1229,7 +1301,7 @@ fn fold_concat_in_expr(e: &mut Expr, values: &[Option<Expr>], appended: &HashSet
             ..
         } = x
         {
-            if name == "toString" && args.is_empty() && is_string_builder(cls) {
+            if name.as_ref() == "toString" && args.is_empty() && is_string_builder(cls) {
                 if let Some(o) = owner {
                     // Statement-form appends attached to any chain var mean
                     // the parts are incomplete — keep the call.
@@ -1246,7 +1318,17 @@ fn fold_concat_in_expr(e: &mut Expr, values: &[Option<Expr>], appended: &HashSet
                     }
                     let resolved = resolve_local(o, values);
                     if let Some(parts) = collect_sb_parts(&resolved, values, 0) {
-                        *x = Expr::StringConcat(parts);
+                        // NEVER fold an empty chain: d8 splits builder
+                        // chains across alias registers (`v2 = v0.append
+                        // (x); v2.append(y); v0.toString()`) — the traced
+                        // chain sees a bare `new StringBuilder` and would
+                        // fold toString() to "" (a wrong VALUE, silently:
+                        // lab package Obf.label). With zero parts the
+                        // call stays — always correct, usually folded
+                        // elsewhere once the parts are visible.
+                        if !parts.is_empty() {
+                            *x = Expr::StringConcat(parts);
+                        }
                     }
                 }
             }
@@ -1283,7 +1365,7 @@ fn collect_sb_parts(e: &Expr, values: &[Option<Expr>], depth: u32) -> Option<Vec
             args,
             owner,
             ..
-        } if name == "append" && is_string_builder(cls) && args.len() == 1 => {
+        } if name.as_ref() == "append" && is_string_builder(cls) && args.len() == 1 => {
             let mut parts =
                 collect_sb_parts(&resolve_local(owner.as_deref()?, values), values, depth + 1)?;
             parts.push(ConcatPart::Str(args[0].clone()));
@@ -1298,7 +1380,7 @@ fn collect_sb_parts(e: &Expr, values: &[Option<Expr>], depth: u32) -> Option<Vec
             let mut parts = Vec::new();
             for a in args {
                 if let Expr::Const(ConstVal::Str(sv)) = a {
-                    parts.push(ConcatPart::Const(sv.clone()));
+                    parts.push(ConcatPart::Const(sv.to_string()));
                 } else {
                     parts.push(ConcatPart::Str(a.clone()));
                 }
@@ -1337,7 +1419,7 @@ fn is_sbish(e: &Expr) -> bool {
         Expr::New {
             cls, raw: false, ..
         } => is_string_builder(cls),
-        Expr::Method { name, cls, .. } => name == "append" && is_string_builder(cls),
+        Expr::Method { name, cls, .. } => name.as_ref() == "append" && is_string_builder(cls),
         _ => false,
     }
 }
@@ -1449,7 +1531,7 @@ pub fn forward_single_use(s: &mut Stmt, _vt: &VarTable) {
             continue;
         }
         if let Some(val) = values.get(v).and_then(|o| o.as_ref()) {
-            let mut refs = HashSet::new();
+            let mut refs = HashSet::default();
             collect_vars(val, &mut refs);
             if refs.iter().any(|r| assigns[*r as usize] > 1) {
                 continue;
@@ -1538,7 +1620,7 @@ pub fn forward_single_use(s: &mut Stmt, _vt: &VarTable) {
             })
             .collect();
         rewrite_exprs(s, &mut |e| {
-            deep_rewrite(e, &mut |x| {
+            deep_rewrite_reads(e, &mut |x| {
                 if let Expr::Local { var, .. } = x {
                     if let Some(Some(v)) = vals.get(*var as usize) {
                         *x = v.clone();
@@ -1568,6 +1650,19 @@ fn count_reads(s: &Stmt, out: &mut Vec<usize>) {
                     v.push(target);
                 }
                 v
+            }
+            // `v++` writes v — not a read (a compound `a[i]++` still
+            // reads its owner/index subtree).
+            Stmt::ExprStmt(e @ (Expr::PreIncDec { .. } | Expr::PostIncDec { .. })) => {
+                let inner = match e {
+                    Expr::PreIncDec { e, .. } | Expr::PostIncDec { e, .. } => e,
+                    _ => unreachable!(),
+                };
+                if matches!(**inner, Expr::Local { .. }) {
+                    Vec::new()
+                } else {
+                    vec![e]
+                }
             }
             Stmt::ExprStmt(e) | Stmt::Throw(e) | Stmt::MonitorEnter(e) | Stmt::MonitorExit(e) => {
                 vec![e]
@@ -1636,7 +1731,7 @@ fn forward_adjacent_impure(s: &mut Stmt, values: &[Option<Expr>], impure: &[bool
                             }
                         };
                         rewrite_exprs(&mut v[i + 1], &mut |e| {
-                            deep_rewrite(e, &mut |x| {
+                            deep_rewrite_reads(e, &mut |x| {
                                 if let Expr::Local { var: v2, .. } = x {
                                     if *v2 == var {
                                         *x = val.clone();
@@ -1759,13 +1854,18 @@ pub fn infer_types(vt: &mut VarTable, body: &mut Stmt, ret: &JavaType, env: &Met
         }
     }
 
-    // Rewrite embedded Local types.
-    let types: Vec<TypeRef> = vt.vars.iter().map(|v| v.ty.clone()).collect();
+    // Rewrite embedded Local types. Borrowed view + write-only-on-change:
+    // the table clone was n_vars JavaType clones per method, and the
+    // rewrite cloned a type into EVERY Local node — most already carry
+    // the right one (JavaType::Object clones allocate).
+    let types: Vec<&TypeRef> = vt.vars.iter().map(|v| &v.ty).collect();
     rewrite_exprs(body, &mut |e| {
         deep_rewrite(e, &mut |x| {
             if let Expr::Local { var, ty } = x {
-                if (*var as usize) < types.len() {
-                    *ty = types[*var as usize].clone();
+                if let Some(want) = types.get(*var as usize) {
+                    if ty != *want {
+                        *ty = (*want).clone();
+                    }
                 }
             }
         });
@@ -1776,7 +1876,7 @@ pub fn infer_types(vt: &mut VarTable, body: &mut Stmt, ret: &JavaType, env: &Met
     coerce_num_consts(body, &types);
 }
 
-fn coerce_num_consts(body: &mut Stmt, types: &[TypeRef]) {
+fn coerce_num_consts(body: &mut Stmt, types: &[&TypeRef]) {
     walk_mut_deep(body, &mut |st| {
         let (var, val): (u32, &mut Expr) = match st {
             Stmt::ExprStmt(Expr::Assign { target, value, .. }) => match &mut **target {
@@ -1813,7 +1913,7 @@ fn coerce_num_consts(body: &mut Stmt, types: &[TypeRef]) {
 
 fn pick_object(evs: &[JavaType]) -> Option<JavaType> {
     evs.iter()
-        .find(|t| t.is_reference() && !matches!(t, JavaType::Object(n) if n == "java/lang/Object"))
+        .find(|t| t.is_reference() && !matches!(t, JavaType::Object(n) if n.as_ref() == "java/lang/Object"))
         .cloned()
 }
 
@@ -1917,7 +2017,7 @@ fn expr_evidence<F: FnMut(u32, JavaType)>(e: &Expr, f: &mut F) {
 
 /// Boolean inference: vars only ever assigned 0/1/comparisons/booleans and
 /// read in conditions become `boolean`, with `v != 0` → `v` in conditions.
-pub fn booleanize(vt: &mut VarTable, body: &mut Stmt) {
+pub fn booleanize(vt: &mut VarTable, body: &mut Stmt, ret_bool: bool) {
     let n = vt.vars.len();
     let mut in_cond = vec![false; n];
 
@@ -1946,6 +2046,17 @@ pub fn booleanize(vt: &mut VarTable, body: &mut Stmt) {
                             in_cond[*var as usize] = true;
                         }
                     }
+                }
+            }
+        }
+        // A local RETURNED from a boolean method is boolean-typed even
+        // though it never appears in a condition (`int v9 = 0/1 … return
+        // v9;` — returning an int from `boolean check()` is a compile
+        // error; lab package Obf.check).
+        if ret_bool {
+            if let Stmt::Return(Some(Expr::Local { var, .. })) = st {
+                if (*var as usize) < n {
+                    in_cond[*var as usize] = true;
                 }
             }
         }
@@ -2002,7 +2113,7 @@ pub fn booleanize(vt: &mut VarTable, body: &mut Stmt) {
             }
         }
     });
-    let mut boolean_vars: HashSet<u32> = HashSet::new();
+    let mut boolean_vars: HashSet<u32> = HashSet::default();
     for i in 0..n {
         if vt.vars[i].is_param {
             continue;
@@ -2020,12 +2131,14 @@ pub fn booleanize(vt: &mut VarTable, body: &mut Stmt) {
     for v in &boolean_vars {
         vt.vars[*v as usize].ty = TypeRef::J(JavaType::Boolean);
     }
-    let types: Vec<TypeRef> = vt.vars.iter().map(|v| v.ty.clone()).collect();
+    let types: Vec<&TypeRef> = vt.vars.iter().map(|v| &v.ty).collect();
     rewrite_exprs(body, &mut |e| {
         deep_rewrite(e, &mut |x| {
             if let Expr::Local { var, ty } = x {
-                if (*var as usize) < types.len() {
-                    *ty = types[*var as usize].clone();
+                if let Some(want) = types.get(*var as usize) {
+                    if ty != *want {
+                        *ty = (*want).clone();
+                    }
                 }
             }
         });
@@ -2130,40 +2243,315 @@ pub fn null_compares(vt: &VarTable, body: &mut Stmt) {
         .filter(|v| v.ty.erased().is_reference())
         .map(|v| v.id)
         .collect();
-    if obj_vars.is_empty() {
-        return;
-    }
     rewrite_exprs(body, &mut |e| {
         deep_rewrite(e, &mut |x| {
-            if let Expr::Bin { op, l, r, .. } = x {
-                if !matches!(op, BinOp::Eq | BinOp::Ne) {
-                    return;
-                }
-                let rewrite = |side: &mut Expr, other: &Expr| {
-                    if let Expr::Const(ConstVal::Int(0)) = other {
-                        if let Expr::Local { var, .. } = &*side {
-                            if obj_vars.contains(var) {
-                                *side = Expr::Const(ConstVal::Null);
+            null_side_rewrite(x, &|v| obj_vars.contains(&v));
+        });
+    });
+}
+
+/// Drop assignments/declarations of locals that are NEVER read anywhere
+/// in the method. Register-machine merges commit values no Java-level
+/// code consumes (phi residue like `printStream = check;` — not just
+/// noise: the merge variable's inferred type need not match the value,
+/// so these lines are often type errors as well). Side-effect-free
+/// values drop entirely; an impure value survives as a bare expression
+/// statement. Iterated to a fixpoint: dropping `a = b` can make `b`
+/// unread.
+pub fn drop_dead_locals(body: &mut Stmt) {
+    loop {
+        let mut reads: Vec<usize> = Vec::new();
+        count_reads(body, &mut reads);
+        let dead = |v: u32| reads.get(v as usize).copied().unwrap_or(0) == 0;
+        let mut dropped = 0usize;
+        walk_mut_deep(body, &mut |st| {
+            if let Stmt::Block(items) = st {
+                // In-place retain_mut: the earlier drain+rebuild allocated
+                // a fresh Vec per block per fixpoint round.
+                items.retain_mut(|x| {
+                    match x {
+                        Stmt::ExprStmt(Expr::Assign { target, value, op, .. }) => {
+                            let dead_target =
+                                matches!(&**target, Expr::Local { var, .. } if dead(*var));
+                            if dead_target && matches!(*op, AssignOp::Plain) {
+                                dropped += 1;
+                                if has_side_effects(value) {
+                                    let e = std::mem::replace(value, Box::new(Expr::This));
+                                    *x = Stmt::ExprStmt(*e);
+                                    true
+                                } else {
+                                    false
+                                }
+                            } else {
+                                true
                             }
                         }
+                        Stmt::LocalDef { var, init, .. } if dead(*var) => {
+                            dropped += 1;
+                            if let Some(e) = init.take() {
+                                if has_side_effects(&e) {
+                                    *x = Stmt::ExprStmt(e);
+                                    return true;
+                                }
+                            }
+                            false
+                        }
+                        _ => true,
                     }
-                };
-                let lo = l.clone();
-                let ro = r.clone();
-                rewrite(l, &ro);
-                rewrite(r, &lo);
+                });
             }
         });
+        if dropped == 0 {
+            break;
+        }
+    }
+}
+
+/// Immutable shallow child walk (mirrors `walk_mut`), for the two-pass
+/// scope analysis below.
+fn for_each_child_stmt<'a>(st: &'a Stmt, f: &mut impl FnMut(&'a Stmt)) {
+    match st {
+        Stmt::Block(v) => {
+            for x in v {
+                f(x);
+            }
+        }
+        Stmt::If {
+            then_stmt,
+            else_stmt,
+            ..
+        } => {
+            f(then_stmt);
+            if let Some(e) = else_stmt {
+                f(e);
+            }
+        }
+        Stmt::While { body, .. } | Stmt::DoWhile { body, .. } => f(body),
+        Stmt::For { init, body, .. } => {
+            for x in init {
+                f(x);
+            }
+            f(body);
+        }
+        Stmt::ForEach { body, .. } => f(body),
+        Stmt::Switch { cases, default, .. } => {
+            for c in cases {
+                for x in &c.body {
+                    f(x);
+                }
+            }
+            if let Some(d) = default {
+                f(d);
+            }
+        }
+        Stmt::Try {
+            body,
+            catches,
+            finally,
+        } => {
+            f(body);
+            for c in catches {
+                f(&c.body);
+            }
+            if let Some(fl) = finally {
+                f(fl);
+            }
+        }
+        Stmt::TryWithResources {
+            resources,
+            body,
+            catches,
+            finally,
+        } => {
+            for r in resources {
+                f(r);
+            }
+            f(body);
+            for c in catches {
+                f(&c.body);
+            }
+            if let Some(fl) = finally {
+                f(fl);
+            }
+        }
+        Stmt::Synchronized { body, .. } | Stmt::Labeled { body, .. } => f(body),
+        _ => {}
+    }
+}
+
+/// Vars occurring in this statement's OWN expression payloads (nested
+/// sub-statements are descended separately so every occurrence carries
+/// its innermost block id). ForEach/Catch bound vars are declarations,
+/// not occurrences.
+fn stmt_shallow_vars<F: FnMut(u32)>(st: &Stmt, out: &mut F) {
+    fn ex<F: FnMut(u32)>(e: &Expr, out: &mut F) {
+        visit_exprs(e, &mut |x| {
+            if let Expr::Local { var, .. } = x {
+                out(*var);
+            }
+        });
+    }
+    match st {
+        Stmt::ExprStmt(e) | Stmt::Throw(e) | Stmt::MonitorEnter(e) | Stmt::MonitorExit(e) => {
+            ex(e, out)
+        }
+        Stmt::TernaryValue { e } => ex(e, out),
+        Stmt::Return(Some(e)) => ex(e, out),
+        Stmt::LocalDef { var, init, .. } => {
+            out(*var);
+            if let Some(e) = init {
+                ex(e, out);
+            }
+        }
+        Stmt::If { cond, .. } | Stmt::While { cond, .. } | Stmt::DoWhile { cond, .. } => {
+            ex(cond, out)
+        }
+        Stmt::For { cond, update, .. } => {
+            if let Some(c) = cond {
+                ex(c, out);
+            }
+            for u in update {
+                ex(u, out);
+            }
+        }
+        Stmt::ForEach { iterable, .. } => ex(iterable, out),
+        Stmt::Switch { selector, cases, .. } => {
+            ex(selector, out);
+            for cg in cases {
+                if let Some(g) = &cg.guard {
+                    ex(g, out);
+                }
+            }
+        }
+        Stmt::Assert { cond, msg } => {
+            ex(cond, out);
+            if let Some(m) = msg {
+                ex(m, out);
+            }
+        }
+        Stmt::Synchronized { lock, .. } => ex(lock, out),
+        _ => {}
+    }
+}
+
+/// Pass A: number every Block in pre-order (root = 0) and record each
+/// var's defining block. `sizes[id]` = the id-range span of the subtree.
+fn scope_pass_a(st: &Stmt, cur: u32, next: &mut u32, def_block: &mut [u32], sizes: &mut Vec<u32>) {
+    if let Stmt::LocalDef { var, .. } = st {
+        let i = *var as usize;
+        if i < def_block.len() && def_block[i] == u32::MAX {
+            def_block[i] = cur;
+        }
+    }
+    for_each_child_stmt(st, &mut |c| {
+        if matches!(c, Stmt::Block(_)) {
+            let id = *next;
+            *next += 1;
+            sizes.push(0);
+            scope_pass_a(c, id, next, def_block, sizes);
+            sizes[id as usize] = *next - id;
+        } else {
+            scope_pass_a(c, cur, next, def_block, sizes);
+        }
+    });
+}
+
+/// Pass B (same numbering walk): count each var's occurrences overall
+/// and within its defining block's subtree.
+fn scope_pass_b(
+    st: &Stmt,
+    cur: u32,
+    next: &mut u32,
+    def_block: &[u32],
+    sizes: &[u32],
+    within: &mut [u32],
+    total: &mut [u32],
+) {
+    stmt_shallow_vars(st, &mut |v| {
+        let i = v as usize;
+        if i < total.len() {
+            total[i] += 1;
+            let d = def_block[i];
+            if d != u32::MAX && d <= cur && cur < d + sizes[d as usize] {
+                within[i] += 1;
+            }
+        }
+    });
+    for_each_child_stmt(st, &mut |c| {
+        if matches!(c, Stmt::Block(_)) {
+            let id = *next;
+            *next += 1;
+            scope_pass_b(c, id, next, def_block, sizes, within, total);
+        } else {
+            scope_pass_b(c, cur, next, def_block, sizes, within, total);
+        }
     });
 }
 
 /// Declaration hygiene: every used var that has no LocalDef gets a bare
 /// declaration at the top; duplicate LocalDefs demote to assignments.
+/// Java requires the `super(...)`/`this(...)` delegation to be the FIRST
+/// statement of a constructor. d8/R8 order the outer-reference capture
+/// (`this.b = p1;`) or other field writes before the invokesuper in the
+/// bytecode, which lifts as-is into an uncompilable statement order —
+/// hoist the bare delegation call to position 0 (jadx does the same).
+pub fn fix_ctor_super_first(body: &mut Stmt) {
+    let Stmt::Block(stmts) = body else { return };
+    if stmts.is_empty() || is_bare_ctor_call(stmts.first().unwrap()) {
+        return;
+    }
+    let Some(pos) = stmts.iter().position(is_bare_ctor_call) else {
+        return;
+    };
+    let call = stmts.remove(pos);
+    stmts.insert(0, call);
+}
+
+fn is_bare_ctor_call(s: &Stmt) -> bool {
+    matches!(
+        s,
+        Stmt::ExprStmt(Expr::Method { name, .. }) if &**name == "<init>"
+    )
+}
+
 pub fn ensure_declared(body: &mut Stmt, vt: &VarTable) {
     // (Perf: dense Vec<bool> tables instead of HashSets — var ids are
     // dense; the `assigned` set collected here was never read and cost a
     // full extra tree walk per method.)
     let n = vt.vars.len().max(1);
+
+    // Demote extra LocalDefs (same var declared more than once) FIRST —
+    // the scope analysis below must see exactly one def per var.
+    let mut seen: HashSet<u32> = HashSet::default();
+    demote_dup_decls(body, &mut seen, vt);
+
+    // Scope hoist: a LocalDef inside a nested block whose var is also
+    // referenced OUTSIDE that block is a Java scope violation (the
+    // branch-local `int v8 = pi.versionCode;` read after the try —
+    // "cannot find symbol" at every outside use). Demote those defs to
+    // assignments and let the bare top-of-method declaration below cover
+    // the var. Two cheap passes: pre-order block numbering + per-var
+    // inside/outside occurrence counts (pre-order subtree = id range).
+    let mut def_block: Vec<u32> = vec![u32::MAX; n];
+    let mut sizes: Vec<u32> = vec![0];
+    let mut next_id: u32 = 1;
+    scope_pass_a(body, 0, &mut next_id, &mut def_block, &mut sizes);
+    sizes[0] = next_id;
+    let mut within: Vec<u32> = vec![0; n];
+    let mut total: Vec<u32> = vec![0; n];
+    let mut next_b: u32 = 1;
+    scope_pass_b(body, 0, &mut next_b, &def_block, &sizes, &mut within, &mut total);
+    let mut hoist: HashSet<u32> = HashSet::default();
+    for v in 0..n {
+        if def_block[v] != u32::MAX && def_block[v] != 0 && within[v] < total[v] {
+            hoist.insert(v as u32);
+        }
+    }
+    if !hoist.is_empty() {
+        let mut seed: HashSet<u32> = hoist.iter().copied().collect();
+        demote_dup_decls(body, &mut seed, vt);
+    }
+
     let mut declared: Vec<bool> = vec![false; n];
     let mut is_param: Vec<bool> = vec![false; n];
     for v in &vt.vars {
@@ -2171,6 +2559,21 @@ pub fn ensure_declared(body: &mut Stmt, vt: &VarTable) {
             is_param[v.id as usize] = true;
         }
     }
+    // Catch parameters are declared by the `catch (Type v)` clause —
+    // bind_catches consumed their LocalDef before this pass ran, so
+    // without this they re-declare at the top of the method and clash
+    // with the clause (`Throwable th2;` + `catch (Throwable th2)` — a
+    // syntax gate cannot see this, it is a semantic "already defined").
+    let mut is_catch: Vec<bool> = vec![false; n];
+    walk_all(body, &mut |st| {
+        if let Stmt::Try { catches, .. } = st {
+            for c in catches {
+                if (c.var as usize) < n {
+                    is_catch[c.var as usize] = true;
+                }
+            }
+        }
+    });
     walk_all(body, &mut |st| {
         if let Stmt::LocalDef { var, .. } = st {
             if (*var as usize) < n {
@@ -2178,23 +2581,24 @@ pub fn ensure_declared(body: &mut Stmt, vt: &VarTable) {
             }
         }
     });
-    let mut used: HashSet<u32> = HashSet::new();
-    stmt_collect_vars(body, &mut used, false);
+    let mut used: HashSet<u32> = HashSet::default();
+    // assignments=true: a var that only ever appears as an assign
+    // TARGET still needs a declaration (`x = 5;` alone does not
+    // declare x in Java).
+    stmt_collect_vars(body, &mut used, true);
 
-    // Params are declared by the signature.
+    // Params are declared by the signature; hoisted vars lost their
+    // LocalDef to the demotion above and always need the bare decl.
     let mut needs_decl: Vec<u32> = used
         .into_iter()
         .filter(|v| {
             let i = *v as usize;
-            i >= n || (!declared[i] && !is_param[i])
+            i >= n
+                || ((!declared[i] && !is_param[i] && !is_catch[i]) || hoist.contains(v))
         })
         .collect();
     needs_decl.sort_unstable();
-
-    // Demote extra LocalDefs (same var declared more than once). A fresh
-    // set: the pre-collected `declared` would demote every def.
-    let mut seen: HashSet<u32> = HashSet::new();
-    demote_dup_decls(body, &mut seen, vt);
+    needs_decl.dedup();
 
     if !needs_decl.is_empty() {
         let mut decls: Vec<Stmt> = needs_decl
@@ -2282,9 +2686,9 @@ pub fn apply_local_names(vt: &mut VarTable, body: &Stmt) {
 
     visit_all_exprs(body, &mut |e| {
         if let Expr::Method { cls, name, args, .. } = e {
-            if (cls == "kotlin/jvm/internal/Intrinsics"
-                || cls == "kotlin/jvm/internal/IntrinsicsKt")
-                && matches!(name.as_str(), "checkNotNullParameter" | "checkParameterIsNotNull")
+            if (cls.as_ref() == "kotlin/jvm/internal/Intrinsics"
+                || cls.as_ref() == "kotlin/jvm/internal/IntrinsicsKt")
+                && matches!(name.as_ref(), "checkNotNullParameter" | "checkParameterIsNotNull")
                 && args.len() == 2
             {
                 if let (Expr::Local { var, .. }, Expr::Const(ConstVal::Str(s))) = (&args[0], &args[1])
@@ -2314,12 +2718,26 @@ pub fn apply_local_names(vt: &mut VarTable, body: &Stmt) {
     });
 
     // ---- reservation + application --------------------------------------
-    let mut taken: HashSet<String> = vt
-        .vars
-        .iter()
-        .filter(|v| !v.synthetic_name)
-        .map(|v| v.name.clone())
-        .collect();
+    // Real (debug-info) names can legally REPEAT across sibling source
+    // scopes (`int i` in two loops) but our flat declaration hoisting
+    // puts them in one scope — de-duplicate with the same numeric
+    // suffixes the claim path uses.
+    let mut taken: HashSet<String> = HashSet::default();
+    for v in vt.vars.iter_mut() {
+        if v.synthetic_name {
+            continue;
+        }
+        if !taken.insert(v.name.clone()) {
+            let base = v.name.clone();
+            for i in 2.. {
+                let cand = format!("{base}{i}");
+                if taken.insert(cand.clone()) {
+                    v.name = cand;
+                    break;
+                }
+            }
+        }
+    }
     let claim = |taken: &mut HashSet<String>, want: &str| -> String {
         if taken.insert(want.to_string()) {
             return want.to_string();
@@ -2447,7 +2865,7 @@ fn type_alias(ty: &TypeRef) -> Option<&'static str> {
     let TypeRef::J(JavaType::Object(n)) = ty else {
         return None;
     };
-    Some(match n.as_str() {
+    Some(match n.as_ref() {
         "java/lang/String" | "kotlin/String" => "str",
         "java/lang/Class" => "cls",
         "java/lang/Throwable" => "th",
@@ -2577,9 +2995,9 @@ pub fn remove_kotlin_checks(s: &mut Stmt) {
 fn is_kotlin_check(s: &Stmt) -> bool {
     let Stmt::ExprStmt(e) = s else { return false };
     let Expr::Method { cls, name, .. } = e else { return false };
-    (cls == "kotlin/jvm/internal/Intrinsics" || cls == "kotlin/jvm/internal/IntrinsicsKt__Jdk7Kt")
+    (cls.as_ref() == "kotlin/jvm/internal/Intrinsics" || cls.as_ref() == "kotlin/jvm/internal/IntrinsicsKt__Jdk7Kt")
         && matches!(
-            name.as_str(),
+            name.as_ref(),
             "checkNotNullParameter"
                 | "checkParameterIsNotNull"
                 | "checkExpressionValueIsNotNull"
@@ -2632,13 +3050,19 @@ pub fn inline_accessors(s: &mut Stmt, pool: &DexPool) {
             Some(Shape::FieldRead { arg, cls: field_cls, field, field_ty }) => {
                 if let Some(owner) = args.get(arg).cloned().map(Box::new) {
                     let ty = TypeRef::J(desc_type(&field_ty));
-                    *e = Expr::Field { owner: Some(owner), cls: field_cls, name: field, ty, is_static: false };
+                    *e = Expr::Field {
+                        owner: Some(owner),
+                        cls: field_cls.into(),
+                        name: field.into(),
+                        ty,
+                        is_static: false,
+                    };
                 }
             }
             Some(Shape::Forward { cls: tcls, name: tname, desc: tdesc, instance }) => {
-                *cls = tcls;
-                *name = tname;
-                *desc = tdesc;
+                *cls = tcls.into();
+                *name = tname.into();
+                *desc = std::sync::Arc::new(tdesc);
                 if instance && !args.is_empty() {
                     // The first param (the receiver) becomes the owner.
                     let recv = args.remove(0);

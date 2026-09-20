@@ -82,8 +82,8 @@ fn print_help_en() {
     println!("  -o, --output <path>   output location (dir / file.java / -)");
     println!("  -c, --class FQCN      decompile only this class (dotted/slashed)");
     println!("  -l, --list            list class names and exit");
-    println!("  -t, --threads <n>     parallel workers (default: CPU count;");
-    println!("                        stdout output forces one thread for pool order)");
+    println!("  -t, --threads <n>     parallel workers (default: CPU count minus the");
+    println!("                        file-writer pool; stdout forces one thread for pool order)");
     println!("  --no-comments         omit the provenance header");
     println!("  --symbols <dir>        render IntDef constants as names (built-in");
     println!("                        by default; this rebuilds from an SDK platform");
@@ -195,8 +195,8 @@ fn print_help_zh() {
     println!("  -o, --output <路径>  输出位置（目录 / 文件.java / -）");
     println!("  -c, --class FQCN     只反编译这个类（点分/斜杠均可）");
     println!("  -l, --list           列出类名后退出");
-    println!("  -t, --threads <n>    并行 worker 数（默认 CPU 数；stdout 模式强制");
-    println!("                       单线程保证池序）");
+    println!("  -t, --threads <n>    并行 worker 数（默认 CPU 数减去写盘线程；");
+    println!("                       stdout 模式强制单线程保证池序）");
     println!("  --no-comments        去掉出处注释头");
     println!("  -v, --verbose        stderr 输出逐 dex 统计与慢类");
     println!("  -h, --help           打印本帮助");
@@ -282,6 +282,17 @@ unsafe fn mimalloc_sys_collect() {
 }
 
 fn main() {
+    // mimalloc reads MIMALLOC_* lazily on each option's first use; set
+    // the purge delay before any significant freeing happens. The 10ms
+    // default made the allocator madvise-purge and re-commit segments
+    // constantly under the decompiler's bursty per-method IR churn
+    // (posix_madvise + arena mutex waits ≈ 5% of weixin's CPU profile);
+    // 1s keeps segments hot across bursts without the RSS creep of a
+    // longer window (lark: 1624MB at 10s vs 1523MB at 1s, same wall). User-set values
+    // win.
+    if std::env::var_os("MIMALLOC_PURGE_DELAY").is_none() {
+        std::env::set_var("MIMALLOC_PURGE_DELAY", "1000");
+    }
     // `ddc ... | less` with the reader quitting closes the pipe: std
     // ignores SIGPIPE, so println! panics with "failed printing to
     // stdout: Broken pipe". Restore the default disposition — a quiet
@@ -1385,6 +1396,7 @@ fn run() -> Result<()> {
     let mut workers = std::thread::available_parallelism()
         .map(|n| n.get())
         .unwrap_or(4);
+    let mut threads_explicit = false;
     let mut verbose = false;
 
     let mut i = 0;
@@ -1440,6 +1452,7 @@ fn run() -> Result<()> {
             }
             "-t" | "--threads" => {
                 workers = take_value!().parse().unwrap_or(4);
+                threads_explicit = true;
             }
             "-v" | "--verbose" => verbose = true,
             other => {
@@ -1557,6 +1570,33 @@ fn run() -> Result<()> {
     if let Sink::Dir(d) = &sink {
         std::fs::create_dir_all(d)?;
     }
+    // Pre-create the package directories on a background thread while the
+    // parse runs: writers then hit zero mkdir syscalls in the common case
+    // (mkdir was ~8% of writer time — they are the throughput ceiling).
+    // Lexicographic order puts every parent before its children, so each
+    // create_dir_all resolves in one mkdir (or a cheap EEXIST). The writer
+    // keeps a NotFound fallback for the race where it outruns this thread.
+    let dir_maker: Option<std::thread::JoinHandle<()>> = match &sink {
+        Sink::Dir(d) if targets.len() > 64 && std::env::var("DDC_NOWRITE").is_err() => {
+            let d = d.clone();
+            let names = targets.clone();
+            Some(std::thread::spawn(move || {
+                let mut dirs: std::collections::HashSet<std::path::PathBuf> =
+                    std::collections::HashSet::new();
+                for name in &names {
+                    if let Some(p) = source_path(&d, name).parent() {
+                        dirs.insert(p.to_path_buf());
+                    }
+                }
+                let mut sorted: Vec<_> = dirs.into_iter().collect();
+                sorted.sort();
+                for p in sorted {
+                    let _ = std::fs::create_dir_all(p);
+                }
+            }))
+        }
+        _ => None,
+    };
     // Stdout must be deterministic: pool order, one worker.
     let stdout_mode = matches!(sink, Sink::Stdout);
     if stdout_mode && workers > 1 && targets.len() > 1 {
@@ -1594,42 +1634,64 @@ fn run() -> Result<()> {
     // multi-consumer). Measured on weibo: inline fs::write stalled
     // workers ~64s of wall (APFS metadata + page-cache flushing under 12
     // concurrent writers) while user CPU was only ~146s — workers sat
-    // blocked-in-kernel at "100% busy". The bound (256) keeps memory
-    // flat; writers keep per-thread mkdir caches (create_dir_all is
-    // idempotent, no shared lock).
+    // blocked-in-kernel at "100% busy". Writers keep per-thread mkdir
+    // caches (create_dir_all is idempotent, no shared lock).
+    //
+    // Items are BATCHES (one per worker chunk): 18 workers × 4 writers
+    // meeting on one mutex per FILE made the queue lock a top-3 profile
+    // entry (push-side condvar waits dominated the lark sample). One
+    // lock acquisition per ~32 files removes it; the bound counts
+    // FILES (not batches), so the memory ceiling is unchanged.
+    // (pending batches, total pending FILES — the bound counts files so
+    // batching cannot inflate the memory ceiling).
+    type WqState = (
+        std::collections::VecDeque<Vec<(std::path::PathBuf, String)>>,
+        usize,
+    );
     struct WriteQueue {
-        q: std::sync::Mutex<std::collections::VecDeque<(std::path::PathBuf, String)>>,
+        q: std::sync::Mutex<WqState>,
         not_empty: std::sync::Condvar,
         not_full: std::sync::Condvar,
         cap: usize,
     }
     impl WriteQueue {
-        fn push(&self, item: (std::path::PathBuf, String)) {
+        fn push_batch(&self, batch: Vec<(std::path::PathBuf, String)>) {
+            if batch.is_empty() {
+                return;
+            }
             let mut q = self.q.lock().unwrap();
-            while q.len() >= self.cap {
+            // `q.1 > 0` guard: an oversized batch must not deadlock on an
+            // otherwise-empty queue.
+            while q.1 > 0 && q.1 + batch.len() > self.cap {
                 q = self.not_full.wait(q).unwrap();
             }
-            q.push_back(item);
+            q.1 += batch.len();
+            q.0.push_back(batch);
+            drop(q);
             self.not_empty.notify_one();
         }
         fn close(&self) {
             let mut q = self.q.lock().unwrap();
-            // Sentinel-free shutdown: writers exit on the CLOSED marker.
-            q.push_back((std::path::PathBuf::new(), String::new()));
+            // Shutdown marker: an EMPTY batch writers exit on.
+            q.0.push_back(Vec::new());
+            drop(q);
             self.not_empty.notify_all();
         }
-        fn pop(&self) -> Option<(std::path::PathBuf, String)> {
+        fn pop(&self) -> Option<Vec<(std::path::PathBuf, String)>> {
             let mut q = self.q.lock().unwrap();
             loop {
-                if let Some(item) = q.pop_front() {
-                    self.not_full.notify_one();
-                    if item.0.as_os_str().is_empty() && item.1.is_empty() {
+                if let Some(item) = q.0.pop_front() {
+                    if item.is_empty() {
                         // Shutdown marker consumed: restore it for the
                         // other writers, then exit.
-                        q.push_back(item);
+                        q.0.push_back(item);
+                        drop(q);
                         self.not_empty.notify_one();
                         return None;
                     }
+                    q.1 -= item.len();
+                    drop(q);
+                    self.not_full.notify_one();
                     return Some(item);
                 }
                 q = self.not_empty.wait(q).unwrap();
@@ -1637,7 +1699,7 @@ fn run() -> Result<()> {
         }
     }
     let wq = std::sync::Arc::new(WriteQueue {
-        q: std::sync::Mutex::new(std::collections::VecDeque::new()),
+        q: std::sync::Mutex::new((std::collections::VecDeque::new(), 0)),
         not_empty: std::sync::Condvar::new(),
         not_full: std::sync::Condvar::new(),
         // Bounded at 1024 pending sources: enough runway that writers
@@ -1645,46 +1707,65 @@ fn run() -> Result<()> {
         // throughput), while capping the transient text buffer memory.
         cap: 1024,
     });
-    let n_writers = workers.clamp(2, 4);
+    // Writer threads: bounded pool draining the write queue. DDC_WRITERS
+    // overrides for tuning (APFS metadata throughput varies by volume).
+    let n_writers = std::env::var("DDC_WRITERS")
+        .ok()
+        .and_then(|v| v.parse::<usize>().ok())
+        .unwrap_or_else(|| (workers / 4).clamp(2, 4))
+        .clamp(1, 32);
     let uses_writers = matches!(sink, Sink::Dir(_)) && !nowrite;
+    // Reserve cores for the writer pool when the user did not pin -t:
+    // oversubscribing (18 workers + 4 writers on 18 cores) slowed BOTH
+    // sides — writers are syscall-bound and need CPU slots to run their
+    // syscalls (lark: 5.3s -> 4.8s at 14 workers + 4 writers).
+    if uses_writers && !stdout_mode && !threads_explicit && workers > n_writers + 1 {
+        workers -= n_writers;
+    }
     let writer_handles: Vec<std::thread::JoinHandle<()>> = if uses_writers {
-        // Case-INSENSITIVE filesystems (macOS/Windows) collapse distinct
-        // internal names (`X/6Lq` vs `X/6lq`) onto one output path;
-        // two writer threads writing it concurrently interleave bytes
-        // (a dangling `.content.Context p1, …` tail after the class
-        // close). Shard locks by the case-folded path: every write to
-        // the same physical file serializes, different files rarely
-        // contend (16 shards).
-        let path_locks: std::sync::Arc<Vec<std::sync::Mutex<()>>> =
-            std::sync::Arc::new((0..16).map(|_| std::sync::Mutex::new(())).collect());
         (0..n_writers)
             .map(|_| {
                 let wq = wq.clone();
-                let path_locks = path_locks.clone();
                 std::thread::spawn(move || {
-                    let mut dirs: std::collections::HashSet<std::path::PathBuf> =
-                        std::collections::HashSet::new();
-                    while let Some((path, text)) = wq.pop() {
-                        if let Some(parent) = path.parent() {
-                            if dirs.insert(parent.to_path_buf()) {
-                                let _ = std::fs::create_dir_all(parent);
+                    while let Some(batch) = wq.pop() {
+                        for (path, text) in batch {
+                            // create_new: one open syscall mints a fresh
+                            // inode — no blanket unlink (the old writer
+                            // paid remove+open+write+close per file).
+                            // The EEXIST fallback covers BOTH a pre-
+                            // existing file from an earlier run and a
+                            // case-VARIANT pair (X/CUA vs X/Cua) on
+                            // case-insensitive filesystems: remove drops
+                            // the old name so the on-disk NAME matches
+                            // the LAST writer's declared class. The
+                            // remove orphans any concurrently open fd
+                            // (its bytes die with the inode), so no
+                            // cross-writer shard lock is needed — the
+                            // final file is always exactly one writer's
+                            // complete content under one consistent name.
+                            use std::io::Write;
+                            match std::fs::OpenOptions::new()
+                                .write(true)
+                                .create_new(true)
+                                .open(&path)
+                            {
+                                Ok(mut f) => {
+                                    let _ = f.write_all(text.as_bytes());
+                                }
+                                Err(e) => {
+                                    // NotFound: the dir pre-creator has not
+                                    // reached this package yet (or the output
+                                    // dir is foreign) — create it and retry.
+                                    if e.kind() == std::io::ErrorKind::NotFound {
+                                        if let Some(parent) = path.parent() {
+                                            let _ = std::fs::create_dir_all(parent);
+                                        }
+                                    }
+                                    let _ = std::fs::remove_file(&path);
+                                    let _ = std::fs::write(&path, text.as_bytes());
+                                }
                             }
                         }
-                        let folded = path.to_string_lossy().to_ascii_lowercase();
-                        let mut h: u64 = 0;
-                        for b in folded.bytes() {
-                            h = h.wrapping_mul(31).wrapping_add(b as u64);
-                        }
-                        let _guard = path_locks[(h % 16) as usize].lock().unwrap();
-                        // Remove-then-write: on case-insensitive filesystems
-                        // a case-VARIANT class pair (X/CUA vs X/Cua) maps
-                        // two internal names onto one physical file; the
-                        // remove drops the earlier case so the on-disk
-                        // NAME ends up matching the LAST writer's declared
-                        // class (self-consistent file, no `public class
-                        // should be declared in` mismatch).
-                        let _ = std::fs::remove_file(&path);
-                        let _ = std::fs::write(&path, text);
                     }
                 })
             })
@@ -1721,6 +1802,11 @@ fn run() -> Result<()> {
                         let worker_start = std::time::Instant::now();
                         let mut busy = std::time::Duration::ZERO;
                         let mut iter_start = std::time::Instant::now();
+                        let trace_class = std::env::var_os("DDC_TRACE_CLASS").is_some();
+                        // Per-worker write batches: flushed at chunk ends
+                        // (32 classes) so the shared queue sees ~1/32 of
+                        // the lock acquisitions.
+                        let mut batch: Vec<(std::path::PathBuf, String)> = Vec::new();
                         loop {
                             let qi = cursor_ref.fetch_add(1, Ordering::Relaxed);
                             let Some(chunk) = queue_ref.get(qi) else {
@@ -1731,7 +1817,7 @@ fn run() -> Result<()> {
                             busy += iter_start.elapsed();
                             iter_start = std::time::Instant::now();
                             for name in chunk {
-                                if std::env::var_os("DDC_TRACE_CLASS").is_some() {
+                                if trace_class {
                                     eprintln!("[trace-class] {name}");
                                 }
                                 let ct0 = std::time::Instant::now();
@@ -1786,10 +1872,16 @@ fn run() -> Result<()> {
                                             }
                                             Sink::Dir(d) => {
                                                 if !nowrite {
-                                                    // Hand off to the writer pool; the bounded
-                                                    // queue blocks only when writers fall
-                                                    // behind (backpressure, not a stall).
-                                                    wq_ref.push((source_path(d, name), text));
+                                                    // Batched handoff to the writer
+                                                    // pool; the bounded queue blocks
+                                                    // only when writers fall behind
+                                                    // (backpressure, not a stall).
+                                                    batch.push((source_path(d, name), text));
+                                                    if batch.len() >= 32 {
+                                                        wq_ref.push_batch(std::mem::take(
+                                                            &mut batch,
+                                                        ));
+                                                    }
                                                 }
                                             }
                                         }
@@ -1829,6 +1921,9 @@ fn run() -> Result<()> {
                                     eprintln!("[i] {}/{} classes", n, total);
                                 }
                             }
+                            // Chunk end: flush the partial batch so the
+                            // writers see every finished source promptly.
+                            wq_ref.push_batch(std::mem::take(&mut batch));
                         }
                         WORKER_MICROS.fetch_add(
                             worker_start.elapsed().as_micros() as u64,
@@ -1877,7 +1972,7 @@ fn run() -> Result<()> {
                 }
                 Sink::Dir(d) => {
                     if !nowrite {
-                        wq.push((source_path(d, &name), text));
+                        wq.push_batch(vec![(source_path(d, &name), text)]);
                     }
                 }
             },
@@ -1905,6 +2000,9 @@ fn run() -> Result<()> {
     // All producers done: release the writers and join them (flush the
     // remaining queue before exiting).
     wq.close();
+    if let Some(h) = dir_maker {
+        let _ = h.join();
+    }
     for h in writer_handles {
         let _ = h.join();
     }

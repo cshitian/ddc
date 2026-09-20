@@ -95,26 +95,44 @@ fn decompile_class_impl(
     opts: &ClassOptions,
 ) -> anyhow::Result<String> {
     let ctx = DexCtx::new(pool, class);
-    let mut out = String::new();
+    // Size the class buffer up front: corpus-average classes render to
+    // ~1KB per method — without the reserve the String doubles through
+    // 4-6 realloc+copy rounds per class (~2× the final size in memmove).
+    // Cap the reserve: weixin's monster classes (hundreds of methods)
+    // would reserve megabytes of untouched capacity per class — large
+    // blocks take mimalloc's commit/purge path (madvise churn showed up
+    // in profiles). 256KB covers the corpus-average class dozens of
+    // times over; bigger classes pay a few extra doublings.
+    let mut out = String::with_capacity(
+        (class.all_methods().count() * 1024).min(256 * 1024) + 512,
+    );
     if opts.provenance {
-        out.push_str(&format!(
-            "// Decompiled by https://github.com/ejfkdev/ddc {}\n",
-            env!("CARGO_PKG_VERSION")
-        ));
+        static BANNER: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+        out.push_str(BANNER.get_or_init(|| {
+            format!(
+                "// Decompiled by https://github.com/ejfkdev/ddc {}\n",
+                env!("CARGO_PKG_VERSION")
+            )
+        }));
         // Provenance: which input image this class was lifted from (jadx's
         // `loaded from: classes.dex` pattern). Byte-stable across runs —
-        // deliberately NO timestamp so outputs diff cleanly.
-        let label = pool
-            .dex_labels
-            .get(class.dex_idx)
-            .cloned()
-            .unwrap_or_default();
+        // deliberately NO timestamp so outputs diff cleanly. Direct
+        // push_str: the per-class format! temporaries were 3 allocations
+        // × every class in the corpus.
         if let Some(dex) = pool.dex(class.dex_idx) {
-            out.push_str(&format!("// From: {} (DEX {})\n", label, dex.version));
+            if let Some(label) = pool.dex_labels.get(class.dex_idx) {
+                out.push_str("// From: ");
+                out.push_str(label);
+                out.push_str(" (DEX ");
+                out.push_str(&dex.version);
+                out.push_str(")\n");
+            }
         }
     }
     if let Some(src) = &class.source_file {
-        out.push_str(&format!("// Source file: {}\n", src));
+        out.push_str("// Source file: ");
+        out.push_str(src);
+        out.push('\n');
     }
     if class.is_synthetic() {
         out.push_str("// synthetic\n");
@@ -122,15 +140,16 @@ fn decompile_class_impl(
     let (pkg, _) = split_name(&class.name);
     if !pkg.is_empty() {
         out.push('\n');
-        out.push_str(&format!(
-            "package {};\n",
-            sanitize_fq(&pkg.replace('/', "."))
-        ));
+        out.push_str("package ");
+        let dotted = pkg.replace('/', ".");
+        out.push_str(&sanitize_fq(&dotted));
+        out.push_str(";\n");
     }
     out.push('\n');
-    let mut body = String::new();
-    emit_class_body(pool, class, &ctx, opts, &mut body, 0)?;
-    out.push_str(&body);
+    // Emit straight into `out`: the intermediate body buffer copied the
+    // whole rendered class (corpus-average ~10KB) a second time — pure
+    // memmove traffic; the error path discards `out` either way.
+    emit_class_body(pool, class, &ctx, opts, &mut out, 0)?;
     Ok(out)
 }
 
@@ -186,6 +205,12 @@ fn emit_class_body(
     let a = class.access;
     if a & ACC_PUBLIC != 0 {
         head.push_str("public ");
+    }
+    // Inline nested members need their `static` (interfaces/annotations
+    // are implicitly static; a missing `static` on a member class makes
+    // every `new Report(...)` site an "outer instance required" error).
+    if depth > 0 && !is_iface && ctx.nested_is_static(&class.name) {
+        head.push_str("static ");
     }
     if a & ACC_FINAL != 0 && !is_enum {
         head.push_str("final ");
@@ -267,18 +292,55 @@ fn emit_class_body(
     }
 
     // Methods.
+    // Duplicated (name, parameter-types) pairs in one class are javac
+    // "method is already defined" errors (weibo: 11.5k hits). Source
+    // cannot declare them, so exactly one survives: covariant bridges
+    // (`Object get(int)` beside `ByteString get(int)` — the compiler
+    // GENERATES bridges), plus R8 output that lost the bridge flag
+    // (okio Buffer.clone, interface getView re-declarations). A
+    // non-bridge method outranks a bridge for the same signature
+    // (bridge bodies are delegation stubs); first occurrence otherwise.
+    // Never drop a signature outright — the last method standing for a
+    // key is always rendered.
+    fn sig_key(m: &PoolMethod) -> (&str, &str) {
+        let d: &str = &m.desc;
+        let lo = d.find('(').map(|i| i + 1).unwrap_or(0);
+        let hi = d.find(')').unwrap_or(d.len());
+        (&*m.name, &d[lo..hi])
+    }
+    let methods: Vec<&PoolMethod> = class.all_methods().collect();
+    let mut claim: jdc_core::FxHashMap<(&str, &str), usize> = jdc_core::FxHashMap::default();
+    for (i, m) in methods.iter().enumerate() {
+        let key = sig_key(m);
+        match claim.get(&key) {
+            Some(&j)
+                if m.access & crate::access::ACC_BRIDGE == 0
+                    && methods[j].access & crate::access::ACC_BRIDGE != 0 =>
+            {
+                claim.insert(key, i);
+            }
+            None => {
+                claim.insert(key, i);
+            }
+            _ => {}
+        }
+    }
     let mut emitted_any = !class.static_fields.is_empty() || !class.instance_fields.is_empty();
-    for m in class.all_methods() {
+    for (i, m) in methods.iter().enumerate() {
         if &*m.name == "<clinit>" {
             continue; // rendered after the fields
         }
-        let text = emit_method(pool, class, ctx, m, depth + 1)?;
-        if let Some(text) = text {
-            if emitted_any {
-                out.push('\n');
-            }
-            out.push_str(&text);
+        if claim.get(&sig_key(m)) != Some(&i) {
+            continue;
+        }
+        let mark = out.len();
+        if emitted_any {
+            out.push('\n');
+        }
+        if emit_method(pool, class, ctx, m, depth + 1, out)? {
             emitted_any = true;
+        } else {
+            out.truncate(mark);
         }
     }
     // Static initializer. INTERFACES cannot carry a `static { }` block in
@@ -290,12 +352,14 @@ fn emit_class_body(
         .then(|| class.all_methods().find(|m| &*m.name == "<clinit>"))
         .flatten()
     {
-        if let Some(text) = emit_method(pool, class, ctx, clinit, depth + 1)? {
-            if emitted_any {
-                out.push('\n');
-            }
-            out.push_str(&text);
+        let mark = out.len();
+        if emitted_any {
+            out.push('\n');
+        }
+        if emit_method(pool, class, ctx, clinit, depth + 1, out)? {
             emitted_any = true;
+        } else {
+            out.truncate(mark);
         }
     }
 
@@ -326,7 +390,18 @@ fn nested_members<'a>(
     let mut out = Vec::new();
     for name in pool.children_of(&class.name) {
         let Some(pc) = pool.get(name) else { continue };
-        let rest = &name[class.name.len() + 1..];
+        // Only a REAL `outer$tail` name is an inline member: the
+        // children index also carries annotation-derived outers
+        // (EnclosingClass) with no naming relationship to the child
+        // (obfuscated apps pair a 1-char name with a long enclosing
+        // descriptor) — the blind slice panicked there (alipay
+        // `a.a.a.a.c`, exposed once children_of actually returned data).
+        let Some(rest) = name
+            .strip_prefix(class.name.as_str())
+            .and_then(|t| t.strip_prefix('$'))
+        else {
+            continue;
+        };
         if rest.is_empty() || rest.starts_with('-') {
             continue;
         }
@@ -443,7 +518,7 @@ fn render_static_value(pool: &DexPool, v: &StaticValue, owner: &str) -> Option<S
         StaticValue::Field(cls, name) => {
             let n = java_ident(name);
             if cls == owner {
-                n
+                n.into_owned()
             } else {
                 format!("{}.{}", print_class_name(pool, cls), n)
             }
@@ -452,18 +527,23 @@ fn render_static_value(pool: &DexPool, v: &StaticValue, owner: &str) -> Option<S
     })
 }
 
+/// Render one method straight into the class buffer `out`. Returns
+/// whether anything was written (skips: no descriptor, deferred to a
+/// monitored thread). The old shape returned a per-method String that
+/// the caller copied in — one extra full copy of every method body.
 fn emit_method(
     pool: &DexPool,
     class: &PoolClass,
     ctx: &DexCtx<'_>,
     m: &PoolMethod,
     depth: usize,
-) -> anyhow::Result<Option<String>> {
+    out: &mut String,
+) -> anyhow::Result<bool> {
     let ind = indent(depth);
     let desc = m.parsed_desc();
 
     // Signature.
-    let mut sig = String::new();
+    let mut sig = String::with_capacity(192);
     let a = m.access;
     if a & ACC_PUBLIC != 0 {
         sig.push_str("public ");
@@ -519,7 +599,7 @@ fn emit_method(
     if is_clinit {
         // `static { ... }` — the caller strips the method name/params.
     } else {
-        let Some(d) = &desc else { return Ok(None) };
+        let Some(d) = &desc else { return Ok(false) };
         if is_init {
             // The ctor name must equal the DECLARED class name of its
             // file: flat `$` at depth 0 (own file), own segment when
@@ -583,36 +663,38 @@ fn emit_method(
     }
 
     if is_clinit {
-        let Some(b) = body else { return Ok(None) };
-        let printer = Printer::new(ctx, &b.vt);
-        let t_print = std::time::Instant::now();
-        let body_text = printer.into_string(&b.body);
-        crate::method::phase_hit(3, t_print);
-        let mut out = String::new();
+        let Some(b) = body else { return Ok(false) };
+        // Direct render: the printer starts at the method's ABSOLUTE
+        // indent and appends into the same buffer that carries the
+        // header — no intermediate body string, no per-line re-indent
+        // pass (two full copies of every method body saved).
         out.push_str(&ind);
         out.push_str("static {\n");
-        for line in body_text.lines() {
-            if line.is_empty() {
-                out.push('\n');
-            } else {
-                out.push_str(&ind);
-                out.push_str("    ");
-                out.push_str(line);
-                out.push('\n');
-            }
+        let hdr = out.len();
+        let printer = Printer::new(ctx, &b.vt)
+            .with_indent(depth + 1)
+            .with_output(std::mem::take(out));
+        let t_print = std::time::Instant::now();
+        let mut rendered = printer.into_string(&b.body);
+        crate::method::phase_hit(3, t_print);
+        if rendered[hdr..].trim().is_empty() {
+            rendered.truncate(hdr);
         }
-        out.push_str(&ind);
-        out.push_str("}\n");
-        return Ok(Some(out));
+        rendered.push_str(&ind);
+        rendered.push_str("}\n");
+        *out = rendered;
+        return Ok(true);
     }
     if a & (ACC_ABSTRACT | ACC_NATIVE) != 0 || body.is_none() {
-        return Ok(Some(format!("{}{};\n", ind, sig)));
+        out.push_str(&ind);
+        out.push_str(&sig);
+        out.push_str(";\n");
+        return Ok(true);
     }
-    let Some(b) = body else { return Ok(None) };
+    let Some(b) = body else { return Ok(false) };
 
-    // The printer indents relative to 0; emit_method adds the absolute
-    // prefix (ind + one level) per line.
-    let mut printer = Printer::new(ctx, &b.vt);
+    // Direct render at the absolute indent level (see the clinit path).
+    let mut printer = Printer::new(ctx, &b.vt).with_indent(depth + 1);
     match &b.desc.ret {
         JavaType::Boolean => {
             printer = printer.with_ret_bool(true);
@@ -628,29 +710,21 @@ fn emit_method(
         }
         _ => {}
     }
-    let t_print = std::time::Instant::now();
-    let body_text = printer.into_string(&b.body);
-    crate::method::phase_hit(3, t_print);
-
-    let mut out = String::new();
     out.push_str(&ind);
     out.push_str(&sig);
     out.push_str(" {\n");
-    if !body_text.trim().is_empty() {
-        for line in body_text.lines() {
-            if line.is_empty() {
-                out.push('\n');
-            } else {
-                out.push_str(&ind);
-                out.push_str("    ");
-                out.push_str(line);
-                out.push('\n');
-            }
-        }
+    let hdr = out.len();
+    let printer = printer.with_output(std::mem::take(out));
+    let t_print = std::time::Instant::now();
+    let mut rendered = printer.into_string(&b.body);
+    crate::method::phase_hit(3, t_print);
+    if rendered[hdr..].trim().is_empty() {
+        rendered.truncate(hdr);
     }
-    out.push_str(&ind);
-    out.push_str("}\n");
-    Ok(Some(out))
+    rendered.push_str(&ind);
+    rendered.push_str("}\n");
+    *out = rendered;
+    Ok(true)
 }
 
 // ---------------------------------------------------------------------------
@@ -670,8 +744,11 @@ fn indent(depth: usize) -> String {
 /// Kotlin emits method names like `invokeSuspend$lambda-0` — `-` (and
 /// any other non-identifier character) is not legal Java. Deterministic
 /// mapping, applied identically at declaration and call sites.
-pub(crate) fn java_ident(name: &str) -> String {
-    if std::env::var_os("DDC_DBG_IDENT").is_some() {
+pub(crate) fn java_ident(name: &str) -> std::borrow::Cow<'_, str> {
+    // env::var_os is an environ lock+scan — java_ident runs per IDENTIFIER
+    // (millions per APK), where it profiled as __NSGetEnviron.
+    static DBG_IDENT: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    if *DBG_IDENT.get_or_init(|| std::env::var_os("DDC_DBG_IDENT").is_some()) {
         eprintln!("[ident] {name:?}");
     }
     let clean = name
@@ -745,9 +822,9 @@ pub(crate) fn java_ident(name: &str) -> String {
     // sanitize_source_name) prefix the same underscore.
     let digit_start = name.chars().next().is_some_and(|c| c.is_ascii_digit());
     if clean && !keyword && !digit_start {
-        name.to_string()
+        std::borrow::Cow::Borrowed(name)
     } else if keyword || digit_start {
-        format!("_{name}")
+        std::borrow::Cow::Owned(format!("_{name}"))
     } else {
         // Non-ASCII single chars (Alipay names a field `支`) map to a
         // lone `_` — itself reserved since Java 9. Escape it.
@@ -762,9 +839,9 @@ pub(crate) fn java_ident(name: &str) -> String {
             })
             .collect();
         if mapped == "_" {
-            "__".to_string()
+            std::borrow::Cow::Owned("__".to_string())
         } else {
-            mapped
+            std::borrow::Cow::Owned(mapped)
         }
     }
 }
@@ -832,12 +909,20 @@ pub fn print_class_name(pool: &DexPool, internal: &str) -> String {
     let cow = crate::apply_class_rename(internal);
     let internal: &str = &cow;
     let mut out = String::new();
-    let mut rest: &str = internal;
+    // `known` must test the ACCUMULATED internal prefix, not the bare
+    // inter-`$` segment: the per-segment shape checked `pool.get("a")`
+    // for the second level of `s5/o$a$b`, missed, and rendered the
+    // undeclarable reference `s5.o.a$b` (找不到符号) for every nested-
+    // nested type.
+    let mut off = 0usize;
     loop {
+        let rest = &internal[off..];
         match rest.find('$') {
             Some(i) => {
-                let cand = &rest[..i];
-                let known = pool.get(cand).is_some() || cand == internal;
+                let seg = &rest[..i];
+                let prefix = &internal[..off + i];
+                let known = pool.get(prefix).is_some()
+                    || jdc_core::rename::is_renamed_display(prefix);
                 // The `$` may only become a nesting dot when the tail
                 // segment STARTS a Java identifier: R8's desugared-
                 // library names carry `$` inside PACKAGE paths
@@ -848,13 +933,12 @@ pub fn print_class_name(pool: &DexPool, internal: &str) -> String {
                     .chars()
                     .next()
                     .is_some_and(|c| c.is_ascii_alphabetic() || c == '_');
-                out.push_str(&cand.replace('/', "."));
+                out.push_str(&seg.replace('/', "."));
                 out.push_str(if known && tail_ok { "." } else { "$" });
-                rest = &rest[i + 1..];
+                off += i + 1;
             }
             None => {
-                let seg = rest.replace('/', ".");
-                out.push_str(&seg);
+                out.push_str(&rest.replace('/', "."));
                 return sanitize_ref(&out);
             }
         }

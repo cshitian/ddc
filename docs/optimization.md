@@ -2,7 +2,7 @@
 
 [English] | [简体中文](zh-CN/optimization.md)
 
-How ddc got from **5 minutes to 5.4 seconds** on weibo (226MB, 20 dex,
+How ddc got from **5 minutes to 4.6 seconds** on weibo (226MB, 20 dex,
 98k classes) — every item below was located by stack sampling or phase
 instrumentation, then verified by re-measurement.
 
@@ -17,6 +17,7 @@ instrumentation, then verified by re-measurement.
 | 4 (jdc-core) | 24s | structuring algorithm fixes (below) |
 | 5 | 19.6s | **stable variable IDs**: `fresh_var` minted a new id per rebuild → out-states never equaled → worklist cascades (30M block rebuilds); `(block, reg) → var_id` reused across rebuilds |
 | 6 | **5.6s** | front-end and pipeline (below) |
+| 7 | **4.6s** | allocation & I/O round (below) — weixin 16.5s → 10.7s, lark 5.8s → 4.9s, qq 18.0s → 13.6s on the same pass |
 
 ## The big fixes, in order of impact
 
@@ -114,6 +115,114 @@ sampling weight was ~4× `walk_inner` itself:
    deadline was the tail-draining critical path (work finished at 4.3s,
    then 6s of idle waiting); at 5s every other monitored class still
    completes within its deadline.
+
+## Round 7: allocation, hashing, syscalls (5.6s → 4.6s weibo)
+
+Profiled with samply; every item below showed up as a named hotspot
+first. Also fixed two correctness bugs found on the way (a released
+v0.1.4 one): value-forwarding rewrote ASSIGNMENT TARGETS (`25 = 25;` —
+242 occurrences in reqable alone), and phi-commit ordering followed
+the hasher's iteration order (output was not byte-stable across runs —
+243/5579 files wobbled).
+
+1. **Writer pool**: workers hand finished sources over in ~32-file
+   batches (one mutex acquisition per batch, bound counted in FILES);
+   `create_new` open replaces the unconditional remove+open per file
+   (3 syscalls instead of 4, case-variant semantics preserved by the
+   EEXIST fallback — no shard locks needed); the package-directory tree
+   is pre-created on a background thread while parsing runs (writers
+   pay zero mkdir in the common case). Writers = clamp(cpus/4, 2, 4),
+   and the default worker count RESERVES those cores (18+4 threads on
+   18 cores slowed both sides).
+2. **FxHash everywhere** (jdc-core + ddc-dec): the universe/dominator/
+   walk-guard sets and per-method tables hashed usize keys with
+   SipHash-1-3 (~5% of worker CPU).
+3. **Arc-ified IR payloads**: `JavaType::Object`, `Expr::{Method,Field,
+   New}` names, `MethodDescriptor`, catch-type chains and
+   `ConstVal::Str` are `Arc<str>`/`Arc` now, backed by per-image
+   intern caches (`DexRefCache`: proto → descriptor, type → internal
+   name/parsed type, OnceLock slots). `method_ref` went from 6-10
+   allocations per invoke instruction (params → `format!` → re-parse!)
+   to zero; every downstream IR clone is a refcount bump.
+4. **group_exceptions_with**: was the single hottest jdc-core function
+   on weixin (11.8% self). Indexed first-pass grouping, handler keys
+   computed once (not per pair-comparison), fingerprint-bucketed merge
+   loop, binary-search windows for the gap scans (was full exc_range +
+   block scans PER PAIR), statement-tree walks hoisted into a
+   once-per-method prefix table, handler-protection pairs indexed by
+   start pc, and the per-pair TryGroup clones moved behind the cheap
+   predicates.
+5. **Zero-copy text assembly**: methods render straight into the class
+   buffer at their absolute indent (Printer::with_indent +
+   with_output) — the intermediate per-method String, the per-line
+   re-indent pass and the whole-body `push_str` copy are gone;
+   provenance headers write directly (no per-class `format!`s); class
+   buffer pre-sized (capped) from the method count.
+6. **Borrowed hot data**: Structurer/Converter share the method's
+   exception groups and dominators by reference (Cow) instead of three
+   deep clones per method; booleanize/infer_types hold `Vec<&TypeRef>`
+   and only write changed Local types.
+7. **Lock and churn removal**: `DexFile::raw()` (per-class mutex under
+   18-way materialize → RwLock + one hoisted snapshot per image in
+   `materialize_all`; per-helper call batching), env-var reads behind
+   OnceLocks (they ran per method/per identifier), `java_ident`
+   returns Cow, mimalloc `MIMALLOC_PURGE_DELAY=1000` (madvise churn
+   under bursty per-method IR lifetimes).
+
+Known residual: a handful of deadline-guarded monster methods (weibo's
+gson TypeAdapters, ~5 files) can still vary between runs — the
+wall-clock walk guard truncates by design; both variants compile.
+
+## Round 8: the quality round (external lab-package feedback)
+
+A reviewer compiled ddc's output of a small hand-made APK against the
+real `android.jar` (full javac, not our syntax gate) and got ~100
+semantic errors where jadx got 1. Reproduced on a rebuilt lab package,
+root-caused and fixed — every item below was a real bug in v0.1.4,
+invisible to the syntax-only gate:
+
+1. **Inverted null-compare rewrite** — `obj == 0` replaced the LOCAL
+   side with null instead of the const side: every object null check in
+   every corpus rendered `null != 0` (4,598 hits in reqable alone).
+2. **`children_of` OnceLock double-set** — an empty map was stored
+   first, the real index silently discarded: member nested classes were
+   neither inlined nor emitted (whole classes missing from output).
+3. **`return 0` for `return null`** — const-0 in object contexts
+   (return-object / throw / reference args / field stores) now coerces
+   to `null` at lift.
+4. **Register retyping** — the stable-var registry keyed `(block,
+   slot)` and RETYPED vars in place (`byte[] v1 = …; v1 = s(v1,…)` with
+   a String). Key is now `(block, slot, type-fingerprint)`: a retyped
+   register mints a fresh var.
+5. **Static nested classes rendered as inner** (`str.new Report(…)`
+   eating the first ctor arg) — DEX from plain d8 carries no nesting
+   annotations; the static check now falls back to structural evidence
+   (no instance field typed as the outer class), and inline member
+   headers gained their `static`.
+6. **`super()` rendered `new Object();`** — the ctor receiver
+   `Local{var:0}` was not recognized as `this`; normalized at lift.
+7. **Scope violations** — a `LocalDef` inside a branch whose var is
+   referenced outside now hoists (two-pass pre-order block numbering +
+   inside/outside occurrence counts); dead phi-commit residue
+   (`printStream = check;`) drops via `drop_dead_locals`; write-only
+   vars count as uses in `ensure_declared`.
+8. **StringBuilder fold ate the value** — `toString()` on a builder
+   whose appends went through an alias register folded to `""`; empty
+   chains never fold now.
+9. **Double allocation** — inlining a folded `new` at the register's
+   final read left the Pending view for the block-exit materialization
+   to emit again; final-read inlines now consume the register (raw
+   `new` views exempt — the ctor fold still needs them).
+10. **`boolean` method returning `int`** — return-position locals of
+    boolean methods are booleanize candidates.
+
+Lab package after the round: **0 full-compile errors** on all three
+dex variants (v0.1.4: 39 on the same gate). Corpus re-gate: 7 APKs +
+alipay/MinisApp ≈ 1.18M files, zero syntax errors, zero decompile
+failures; outputs byte-stable across runs (lark/weixin/reqable diff 0).
+Cost: ~+10% CPU on large corpora (weibo 4.6→5.0s, weixin 10.7→11.6s;
+lark/qq also render their nested members now — output that v0.1.4
+silently dropped), lark RSS +200MB (nested-class inlining).
 
 ## The floor below 5.6s (if you want to go further)
 

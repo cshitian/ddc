@@ -19,6 +19,6 @@ pub use code::{CatchHandler, CodeItem, TryItem};
 pub use file::{ClassData, EncodedField, EncodedMethod};
 
 mod file;
-pub use file::{ClassDef, DexFile, FieldId, MethodId, ProtoId, NO_INDEX};
+pub use file::{ClassDef, DebugLocal, DexFile, FieldId, MethodId, ProtoId, NO_INDEX};
 
 pub const DEX_HEADER_SIZE: usize = 0x70;

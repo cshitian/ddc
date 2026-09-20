@@ -22,7 +22,7 @@ use ddc_dex::{CodeItem, DexFile};
 use jdc_core::ir::build::{has_side_effects, BlockResult, SwitchTargets, Term};
 use jdc_core::ir::expr::{AssignOp, BinOp, ConcatPart, ConstVal, Expr, TypeRef, UnOp};
 use jdc_core::ir::stmt::Stmt;
-use jdc_core::types::{parse_method_descriptor, JavaType, MethodDescriptor};
+use jdc_core::types::{JavaType, MethodDescriptor};
 use jdc_core::var::{VarInfo, VarTable};
 
 use crate::DexPool;
@@ -68,11 +68,16 @@ impl MethodFlags {
 /// Everything one method body needs from its DEX image.
 pub struct MethodEnv<'a> {
     pub pool: &'a DexPool,
+    /// Image index of `dex` in the pool (keys the pool's ref caches).
+    pub di: usize,
     pub dex: &'a DexFile,
     pub code: &'a CodeItem,
     pub class_name: String,
     pub method_name: std::sync::Arc<str>,
     pub desc: MethodDescriptor,
+    /// Debug-info local table (empty for release/stripped builds):
+    /// real source names per (register, pc-range).
+    pub debug_locals: Vec<ddc_dex::DebugLocal>,
     pub is_static: bool,
     /// Total code units — the CFG owns the insns stream, so the lifter reads
     /// the extent from here instead of `code.insns` (hollowed after the
@@ -85,35 +90,43 @@ impl<'a> MethodEnv<'a> {
         self.dex.type_name(idx).to_string()
     }
     pub fn java_type(&self, idx: u32) -> JavaType {
-        crate::desc_type(self.dex.type_name(idx))
+        // Shared per-image parse (was desc-reparse per instruction).
+        (*self.pool.type_java(self.di, idx)).clone()
     }
-    pub fn field_ref(&self, idx: u32) -> (String, String, JavaType) {
+    pub fn type_name_arc(&self, idx: u32) -> std::sync::Arc<str> {
+        self.pool.type_name_arc(self.di, idx)
+    }
+    pub fn field_ref(
+        &self,
+        idx: u32,
+    ) -> (
+        std::sync::Arc<str>,
+        std::sync::Arc<str>,
+        JavaType,
+    ) {
         let f = self.dex.field(idx);
         (
-            self.dex.class_name(f.class_idx),
-            self.dex.string(f.name_idx).to_string(),
+            std::sync::Arc::from(self.dex.class_name(f.class_idx).as_str()),
+            std::sync::Arc::from(self.dex.string(f.name_idx)),
             self.java_type(f.type_idx),
         )
     }
-    pub fn method_ref(&self, idx: u32) -> (String, String, MethodDescriptor) {
+    pub fn method_ref(
+        &self,
+        idx: u32,
+    ) -> (
+        std::sync::Arc<str>,
+        std::sync::Arc<str>,
+        std::sync::Arc<MethodDescriptor>,
+    ) {
+        // Was: N param Strings + format! + descriptor RE-PARSE per invoke
+        // (6-10 allocations per call instruction). All three components
+        // are shared table entries now — refcount bumps.
         let m = self.dex.method(idx);
-        let proto = self.dex.proto(m.proto_idx);
-        let params: Vec<String> = self
-            .dex
-            .proto_params(m.proto_idx)
-            .iter()
-            .map(|&t| self.dex.type_name(t).to_string())
-            .collect();
-        let ret = self.dex.type_name(proto.return_type_idx);
-        let desc = format!("({}){}", params.join(""), ret);
-        let md = parse_method_descriptor(&desc).unwrap_or(MethodDescriptor {
-            args: vec![],
-            ret: JavaType::Void,
-        });
         (
-            self.dex.class_name(m.class_idx),
-            self.dex.string(m.name_idx).to_string(),
-            md,
+            std::sync::Arc::from(self.dex.class_name(m.class_idx).as_str()),
+            std::sync::Arc::from(self.dex.string(m.name_idx)),
+            self.pool.proto_desc_parsed(self.di, m.proto_idx),
         )
     }
 }
@@ -256,10 +269,10 @@ fn dst_regs(kind: &InsnKind) -> Vec<u16> {
 /// generation: walking the register's events in pc order, a read is
 /// final when no other read of the same register precedes its next WRITE
 /// (a write starts a new generation — the old value is dead there).
-fn compute_final_reads(ins: &[Insn]) -> std::collections::HashSet<(u32, u16)> {
-    use std::collections::HashMap;
+fn compute_final_reads(ins: &[Insn]) -> jdc_core::FxHashSet<(u32, u16)> {
+    use jdc_core::FxHashMap as HashMap;
     // reg → (pc, is_read) events, pc order (ins is already pc-sorted).
-    let mut events: HashMap<u16, Vec<(u32, bool)>> = HashMap::new();
+    let mut events: HashMap<u16, Vec<(u32, bool)>> = HashMap::default();
     for i in ins {
         for r in src_regs(&i.kind) {
             events.entry(r).or_default().push((i.pc, true));
@@ -268,7 +281,7 @@ fn compute_final_reads(ins: &[Insn]) -> std::collections::HashSet<(u32, u16)> {
             events.entry(r).or_default().push((i.pc, false));
         }
     }
-    let mut out = std::collections::HashSet::new();
+    let mut out = jdc_core::FxHashSet::default();
     for (reg, evs) in events {
         let mut dedup: Vec<(u32, bool)> = Vec::with_capacity(evs.len());
         for (pc, is_read) in evs {
@@ -307,7 +320,7 @@ pub struct Lifter<'a> {
     /// rebuild allocated fresh ids, the out-state compared unequal, and
     /// the worklist cascaded re-queuing until the visit cap (~60
     /// rebuilds per block, 30M lifts on weibo).
-    stable: &'a mut std::collections::HashMap<(usize, u16), u32>,
+    stable: &'a mut jdc_core::FxHashMap<(usize, u16, u64), u32>,
     regs: Vec<Reg>,
     write_pc: Vec<u32>,
     stmts: Vec<Stmt>,
@@ -322,7 +335,7 @@ pub struct Lifter<'a> {
     /// may only be inlined at a final read; a register reused for a
     /// call result and read again (greet → move-result v0 → println(v0))
     /// is a new generation, not another use of the allocation.
-    final_read: std::collections::HashSet<(u32, u16)>,
+    final_read: jdc_core::FxHashSet<(u32, u16)>,
     /// Method-level feature flags, merged in place as features are seen
     /// (build_block consumes the lifter, so the flags must escape via a
     /// shared reference rather than a field read afterwards).
@@ -335,7 +348,7 @@ impl<'a> Lifter<'a> {
         vt: &'a mut VarTable,
         in_regs: Vec<Reg>,
         block_id: usize,
-        stable: &'a mut std::collections::HashMap<(usize, u16), u32>,
+        stable: &'a mut jdc_core::FxHashMap<(usize, u16, u64), u32>,
         mflags: &'a mut MethodFlags,
     ) -> Lifter<'a> {
         let n = env.code.registers_size as usize;
@@ -353,20 +366,102 @@ impl<'a> Lifter<'a> {
             pending_call: None,
             code_units: env.code_units,
             cur_pc: 0,
-            final_read: std::collections::HashSet::new(),
+            final_read: jdc_core::FxHashSet::default(),
             mflags,
         }
     }
 
     // -- variable creation ---------------------------------------------------
 
+    /// Cheap 64-bit type fingerprint for the stable-var key: hashing the
+    /// JavaType itself (string bytes + tuple) ran on EVERY register
+    /// materialization; the fingerprint is one pass with no clones
+    /// (`erased()` deep-clones Array chains). G is unreachable in DEX
+    /// lift (no generic signatures) — a coarse tag suffices.
+    fn ty_key(ty: &TypeRef) -> u64 {
+        use std::hash::{Hash, Hasher};
+        fn jt_key(j: &JavaType, h: &mut jdc_core::fx::FxHasher) {
+            match j {
+                JavaType::Void => 1u64.hash(h),
+                JavaType::Boolean => 2u64.hash(h),
+                JavaType::Byte => 3u64.hash(h),
+                JavaType::Char => 4u64.hash(h),
+                JavaType::Short => 5u64.hash(h),
+                JavaType::Int => 6u64.hash(h),
+                JavaType::Float => 7u64.hash(h),
+                JavaType::Long => 8u64.hash(h),
+                JavaType::Double => 9u64.hash(h),
+                JavaType::Object(n) => {
+                    10u64.hash(h);
+                    n.hash(h);
+                }
+                JavaType::Array(inner) => {
+                    11u64.hash(h);
+                    jt_key(inner, h);
+                }
+            }
+        }
+        let mut h = jdc_core::fx::FxHasher::default();
+        match ty {
+            TypeRef::J(j) => jt_key(j, &mut h),
+            TypeRef::G(_) => 99u64.hash(&mut h),
+        }
+        h.finish()
+    }
+
     fn fresh_var(&mut self, slot: u16, ty: TypeRef) -> u32 {
-        if let Some(&id) = self.stable.get(&(self.block_id, slot)) {
+        // Keyed by TYPE as well as (block, slot): d8 reuses one register
+        // for values of different types (`v1: byte[]` then `v1: String`
+        // in the same method — the lab package's Main.run). A Java local
+        // cannot change type — the old (block, slot) key reused one var
+        // and then RETYPED it in place, emitting `byte[] v1 = …; v1 =
+        // Obf.s(v1, 90);` (String into byte[]) and kin all over the
+        // corpus. Distinct types mint distinct vars; rebuild stability
+        // (the worklist-convergence fix) holds because the key is a pure
+        // function of the instruction stream.
+        let key = (self.block_id, slot, Self::ty_key(&ty));
+        if let Some(&id) = self.stable.get(&key) {
+            return id;
+        }
+        // Real source name from the debug-info local table when a range
+        // covers (pc, slot); otherwise the synthetic `vN`. apply_local_
+        // names never renames non-synthetic vars and de-duplicates the
+        // (legal-in-source, illegal-in-flat-Java) same-name scopes.
+        if let Some(name) = self.debug_name(slot, &ty) {
+            // Unify same register+type+name vars across blocks: the debug
+            // table says they are ONE source local, and per-block copies
+            // degrade to `out`/`out2`/`out3` suffix soup after de-dup.
+            // Dalvik registers are method-scoped, so one Java local shared
+            // by every write site is exactly register semantics.
+            let tkey = Self::ty_key(&ty);
+            if let Some(id) = self
+                .vt
+                .vars
+                .iter()
+                .find(|v| {
+                    v.slot == slot
+                        && !v.synthetic_name
+                        && v.name == name
+                        && Self::ty_key(&v.ty) == tkey
+                })
+                .map(|v| v.id)
+            {
+                self.stable.insert(key, id);
+                return id;
+            }
+            let id = self.vt.vars.len() as u32;
+            self.stable.insert(key, id);
+            self.push_var(id, slot, name, ty, false);
             return id;
         }
         let id = self.vt.vars.len() as u32;
         let name = format!("v{}", id);
-        self.stable.insert((self.block_id, slot), id);
+        self.stable.insert(key, id);
+        self.push_var(id, slot, name, ty, true);
+        id
+    }
+
+    fn push_var(&mut self, id: u32, slot: u16, name: String, ty: TypeRef, synthetic: bool) {
         self.vt.vars.push(VarInfo {
             id,
             slot,
@@ -375,13 +470,53 @@ impl<'a> Lifter<'a> {
             is_param: false,
             range_start: 0,
             range_end: u16::MAX,
-            synthetic_name: true,
+            synthetic_name: synthetic,
         });
         while self.vt.by_slot.len() <= slot as usize {
             self.vt.by_slot.push(Vec::new());
         }
         self.vt.by_slot[slot as usize].push((0, u16::MAX, id));
-        id
+    }
+
+    /// The source-level name covering `(cur_pc, slot)` in the debug
+    /// local table, sanitized into a legal Java identifier. Linear scan:
+    /// the table is empty in release APKs (early-out) and small in
+    /// debug builds.
+    fn debug_name(&self, slot: u16, ty: &TypeRef) -> Option<String> {
+        let locals = &self.env.debug_locals;
+        if locals.is_empty() {
+            return None;
+        }
+        let want = ty.erased();
+        let covers = |pc: u32| {
+            locals.iter().find(|l| {
+                l.reg == slot
+                    && pc >= l.start
+                    && pc < l.end
+                    // Type gate: register reuse mints vars of a DIFFERENT
+                    // type inside the same range (`new-array v0, v0` reads
+                    // the old v0 as an int size inside the new v0's [C
+                    // range) — naming that junk var stole the real name.
+                    && l.ty.as_deref().map(|d| crate::desc_type(d) == want).unwrap_or(true)
+            })
+        };
+        // Materializations at block merges run BEFORE any instruction of
+        // the block (cur_pc is stale/zero) — fall back to the pc where
+        // the register's current value was BORN (write_pc), which is
+        // what the debug range actually describes.
+        let hit = covers(self.cur_pc).or_else(|| {
+            let wpc = *self.write_pc.get(slot as usize)?;
+            if wpc == 0 {
+                None
+            } else {
+                covers(wpc)
+            }
+        })?;
+        let name = crate::classdec::java_ident(&hit.name);
+        if name.is_empty() {
+            return None;
+        }
+        Some(name.into_owned())
     }
 
     fn local_expr(&self, v: u32) -> Expr {
@@ -428,6 +563,23 @@ impl<'a> Lifter<'a> {
                     let v = self.materialize(r);
                     self.local_expr(v)
                 } else {
+                    // Inline AND consume: this is the register's final
+                    // read in the block, yet leaving the Pending view in
+                    // place made the block-exit materialization emit the
+                    // SAME allocation a second time (`this.last = new
+                    // Report(..); new Report(..);` — a duplicated
+                    // observable side effect; lab package Guard.report).
+                    // `New { raw: true }` is EXEMPT: the ctor fold reads
+                    // the raw view at the invoke-direct site and must
+                    // still find it (consuming it there broke every
+                    // constructor fold).
+                    if matches!(&e, Expr::NewArray { .. })
+                        || matches!(&e, Expr::New { raw: false, .. })
+                    {
+                        if let Some(slot) = self.regs.get_mut(r as usize) {
+                            *slot = Reg::Undef;
+                        }
+                    }
                     e
                 }
             }
@@ -485,14 +637,10 @@ impl<'a> Lifter<'a> {
     fn materialize_value(&mut self, r: u16, e: Expr) -> u32 {
         let e = value_of_cmp(&e);
         let ty = e.type_ref();
-        let v = self.fresh_var(r, ty.clone());
-        // Re-materialization of the same (block, reg) with a new value
-        // legitimately changes the register's type (v0 as byte[], then
-        // int[], then byte[] across one clinit); refresh the table type
-        // so the LocalDef label matches the CURRENT init.
-        if let Some(info) = self.vt.vars.get_mut(v as usize) {
-            info.ty = ty;
-        }
+        // fresh_var is type-keyed: a retyped register gets a FRESH var,
+        // so no in-place retyping here (each var keeps its mint type and
+        // its LocalDef label always matches its init).
+        let v = self.fresh_var(r, ty);
         self.stmts.push(Stmt::LocalDef {
             var: v,
             init: Some(e),
@@ -544,14 +692,10 @@ impl<'a> Lifter<'a> {
         // cmp sentinels stored as values become library compare calls.
         let e = value_of_cmp(&e);
         let ty = e.type_ref();
-        let v = self.fresh_var(r, ty.clone());
-        // Re-materialization of the same (block, reg) with a new value
-        // legitimately changes the register's type (v0 as byte[], then
-        // int[], then byte[] across one clinit); refresh the table type
-        // so the LocalDef label matches the CURRENT init.
-        if let Some(info) = self.vt.vars.get_mut(v as usize) {
-            info.ty = ty;
-        }
+        // fresh_var is type-keyed: a retyped register gets a FRESH var,
+        // so no in-place retyping here (each var keeps its mint type and
+        // its LocalDef label always matches its init).
+        let v = self.fresh_var(r, ty);
         self.stmts.push(Stmt::LocalDef {
             var: v,
             init: Some(e),
@@ -637,7 +781,7 @@ impl<'a> Lifter<'a> {
     pub fn build_block(
         mut self,
         ins: &[Insn],
-        handler_types: &[Option<String>],
+        handler_types: &[Option<std::sync::Arc<str>>],
     ) -> BResult<(BlockResult, OutState)> {
         let payloads = &self.env.code.payloads;
         // Block-scoped event analysis, unconditionally: `ins` is ONE
@@ -734,7 +878,7 @@ impl<'a> Lifter<'a> {
                     self.write(*dst, e, ins.pc, *wide);
                 }
                 InsnKind::ConstString { dst, str_idx } => {
-                    let s = self.env.dex.string(*str_idx).to_string();
+                    let s = std::sync::Arc::from(self.env.dex.string(*str_idx));
                     self.write(*dst, Expr::Const(ConstVal::Str(s)), ins.pc, false);
                 }
                 InsnKind::ConstClass { dst, type_idx } => {
@@ -765,7 +909,7 @@ impl<'a> Lifter<'a> {
                     let e = self.read_nest(*src);
                     let length = Expr::Field {
                         owner: Some(Box::new(e)),
-                        cls: String::new(),
+                        cls: std::sync::Arc::from(""),
                         name: "length".into(),
                         ty: TypeRef::J(JavaType::Int),
                         is_static: false,
@@ -773,7 +917,7 @@ impl<'a> Lifter<'a> {
                     self.write(*dst, length, ins.pc, false);
                 }
                 InsnKind::NewInstance { dst, type_idx } => {
-                    let cls = self.env.dex.class_name(*type_idx);
+                    let cls = self.env.type_name_arc(*type_idx);
                     let ty = TypeRef::J(JavaType::Object(cls.clone()));
                     self.write(
                         *dst,
@@ -931,7 +1075,7 @@ impl<'a> Lifter<'a> {
                 } => {
                     self.drop_pending_call();
                     let (cls, name, ty) = self.env.field_ref(*field_idx);
-                    let v = self.read_nest(*value);
+                    let v = null_in_obj_ctx(self.read_nest(*value), &ty);
                     let owner = self.read_nest(*obj);
                     let owner_opt = self.owner_expr(owner, &cls);
                     let target = Expr::Field {
@@ -966,7 +1110,7 @@ impl<'a> Lifter<'a> {
                 InsnKind::SPut { value, field_idx } => {
                     self.drop_pending_call();
                     let (cls, name, ty) = self.env.field_ref(*field_idx);
-                    let v = self.read_nest(*value);
+                    let v = null_in_obj_ctx(self.read_nest(*value), &ty);
                     let target = Expr::Field {
                         owner: None,
                         cls,
@@ -1117,7 +1261,7 @@ impl<'a> Lifter<'a> {
         pc: u32,
     ) -> BResult<()> {
         let (cls, name, md) = self.env.method_ref(method_idx);
-        if cls == "java/lang/StringBuilder" || cls == "java/lang/StringBuffer" {
+        if cls.as_ref() == "java/lang/StringBuilder" || cls.as_ref() == "java/lang/StringBuffer" {
             *self.mflags = self.mflags.with_sb();
         }
         let is_static = matches!(kind, InvokeKind::Static);
@@ -1132,14 +1276,14 @@ impl<'a> Lifter<'a> {
             regs.iter().skip(1).copied().collect()
         };
         let mut args: Vec<Expr> = Vec::with_capacity(md.args.len());
-        for (i, _) in md.args.iter().enumerate() {
+        for (i, at) in md.args.iter().enumerate() {
             let r = arg_regs.get(i).copied().unwrap_or(0);
-            args.push(self.read_nest(r));
+            args.push(null_in_obj_ctx(self.read_nest(r), at));
         }
         let recv_expr = receiver_reg.map(|r| self.read_nest(r));
 
         // Constructor call: fold `new C` receivers; this/super otherwise.
-        if name == "<init>" && matches!(kind, InvokeKind::Direct) {
+        if name.as_ref() == "<init>" && matches!(kind, InvokeKind::Direct) {
             let recv_reg = receiver_reg.unwrap_or(0);
             let recv_state = self
                 .regs
@@ -1167,7 +1311,20 @@ impl<'a> Lifter<'a> {
                 }
             }
             let owner_expr_v = recv_expr.unwrap_or(Expr::This);
-            let is_super = cls != self.env.class_name;
+            // Normalize the receiver: in an instance method the `this`
+            // parameter is ALWAYS var 0 (entry_regs pushes it first).
+            // read_nest hands back Local{var:0}, which the emitter's
+            // is_this/lost_alloc checks do not recognize — a plain
+            // `super()` arrived there as a non-this receiver and printed
+            // `new Object();` (every default ctor in every app).
+            let owner_expr_v = if !self.env.is_static
+                && matches!(&owner_expr_v, Expr::Local { var: 0, .. })
+            {
+                Expr::This
+            } else {
+                owner_expr_v
+            };
+            let is_super = cls.as_ref() != self.env.class_name.as_str();
             let owner = if matches!(owner_expr_v, Expr::This) && is_super {
                 None
             } else {
@@ -1193,7 +1350,7 @@ impl<'a> Lifter<'a> {
         let is_interface = matches!(kind, InvokeKind::Interface);
         let is_super = match kind {
             InvokeKind::Super => true,
-            InvokeKind::Direct if !is_static => cls != self.env.class_name,
+            InvokeKind::Direct if !is_static => cls.as_ref() != self.env.class_name.as_str(),
             _ => false,
         };
         let owner: Option<Box<Expr>> = match recv_expr {
@@ -1413,8 +1570,18 @@ impl<'a> Lifter<'a> {
         match &last.kind {
             InsnKind::Goto { .. } => Term::Goto,
             InsnKind::ReturnVoid => Term::Return(None),
-            InsnKind::Return { src } => Term::Return(Some(self.read_term(*src))),
-            InsnKind::Throw { reg } => Term::Throw(self.read_term(*reg)),
+            InsnKind::Return { src } => {
+                let v = null_in_obj_ctx(self.read_term(*src), &self.env.desc.ret);
+                Term::Return(Some(v))
+            }
+            InsnKind::Throw { reg } => {
+                // throw is always an object context.
+                let mut v = self.read_term(*reg);
+                if let Expr::Const(ConstVal::Int(0)) = v {
+                    v = Expr::Const(ConstVal::Null);
+                }
+                Term::Throw(v)
+            }
             InsnKind::If { op, a, b, z, .. } => {
                 let cond = if *z {
                     let v = self.read_nest(*a);
@@ -1593,6 +1760,20 @@ fn reg_is_wide(st: &Reg, vt: &VarTable) -> bool {
     }
 }
 
+/// d8 encodes `null` as `const/4 vN, 0`; the instruction kind does not
+/// distinguish object contexts (return/return-object share one variant),
+/// so the surrounding DESCRIPTOR type decides: a zero constant flowing
+/// into a reference context is `null`, not `0` (rendering `return 0;`
+/// from a String method — lab-package feedback).
+fn null_in_obj_ctx(mut v: Expr, ctx_ty: &JavaType) -> Expr {
+    if ctx_ty.is_reference() {
+        if let Expr::Const(ConstVal::Int(0)) = v {
+            v = Expr::Const(ConstVal::Null);
+        }
+    }
+    v
+}
+
 /// Turn a stored cmp sentinel into a `Long.compare`-style call.
 fn value_of_cmp(e: &Expr) -> Expr {
     if let Expr::Invokedynamic { name, args, .. } = e {
@@ -1610,7 +1791,7 @@ fn value_of_cmp(e: &Expr) -> Expr {
                 owner: None,
                 cls: cls.into(),
                 name: "compare".into(),
-                desc,
+                desc: std::sync::Arc::new(desc),
                 args: args.clone(),
                 is_static: true,
                 is_interface: false,
@@ -1682,7 +1863,7 @@ pub fn entry_regs(vt: &mut VarTable, env: &MethodEnv, param_names: &[Option<Stri
             id,
             slot: reg as u16,
             name: "this".into(),
-            ty: TypeRef::J(JavaType::Object(env.class_name.clone())),
+            ty: TypeRef::J(JavaType::Object(env.class_name.as_str().into())),
             is_param: true,
             range_start: 0,
             range_end: u16::MAX,
@@ -1702,7 +1883,13 @@ pub fn entry_regs(vt: &mut VarTable, env: &MethodEnv, param_names: &[Option<Stri
         }
         let dbg = param_names.get(i).and_then(|o| o.clone());
         let named = dbg.is_some();
-        let name = dbg.unwrap_or_else(|| format!("p{}", pidx));
+        // Debug-info names are ARBITRARY DEX strings — obfuscated apps
+        // ship params named `25` (reqable a4/e: rendered `25 = 25;`, a
+        // javac parse error). Run them through the same deterministic
+        // sanitizer as every other declared identifier.
+        let name = dbg
+            .map(|d| crate::classdec::java_ident(&d).into_owned())
+            .unwrap_or_else(|| format!("p{}", pidx));
         let id = vt.vars.len() as u32;
         vt.vars.push(VarInfo {
             id,

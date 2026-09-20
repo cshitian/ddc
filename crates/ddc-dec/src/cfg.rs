@@ -35,7 +35,7 @@ pub struct ExcRange {
     /// Handler entry code unit.
     pub handler: u32,
     /// `None` = catch-all.
-    pub catch_type: Option<String>,
+    pub catch_type: Option<std::sync::Arc<str>>,
 }
 
 pub struct DexCfg {
@@ -58,7 +58,7 @@ impl DexCfg {
     /// owning a deep clone (the old per-block `Vec<Insn>` copies summed to a
     /// second full decode of every method; on weibo that was tens of
     /// millions of instruction clones).
-    pub fn build(code: &mut CodeItem, type_name: &dyn Fn(u32) -> String) -> DexCfg {
+    pub fn build(code: &mut CodeItem, type_name: &dyn Fn(u32) -> std::sync::Arc<str>) -> DexCfg {
         let insns = std::mem::take(&mut code.insns);
         let code_units: u32 = insns.last().map(|last| last.pc + last.size).unwrap_or(0);
 

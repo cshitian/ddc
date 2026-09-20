@@ -15,7 +15,7 @@ pub mod method;
 pub mod passes;
 pub mod platform;
 
-use std::collections::HashMap;
+use jdc_core::FxHashMap as HashMap;
 
 use ddc_dex::annotations::{self, EncodedValue};
 
@@ -216,6 +216,33 @@ pub struct DexPool {
     outers: std::sync::OnceLock<HashMap<String, Option<String>>>,
     /// outer → direct children (computed once).
     children: std::sync::OnceLock<HashMap<String, Vec<String>>>,
+    /// Per-image hot-reference interning (parallel to `dexes`).
+    ref_caches: Vec<DexRefCache>,
+}
+
+/// Lazily-filled, thread-shared reference interning for one image.
+///
+/// The lifter used to rebuild class names, field/method names and WHOLE
+/// method descriptors per INSTRUCTION (`method_ref` alone: N param
+/// Strings → `format!` descriptor → re-parse — 6-10 allocations per
+/// invoke). Every entry here is built at most once per (image, table
+/// index); lifts and the endless IR clones downstream are refcount
+/// bumps. Slots are `OnceLock` so worker threads fill them race-free
+/// without a lock on the hot path.
+pub(crate) struct DexRefCache {
+    proto_descs: Box<[std::sync::OnceLock<std::sync::Arc<jdc_core::types::MethodDescriptor>>]>,
+    type_names: Box<[std::sync::OnceLock<std::sync::Arc<str>>]>,
+    type_javas: Box<[std::sync::OnceLock<std::sync::Arc<jdc_core::types::JavaType>>]>,
+}
+
+impl DexRefCache {
+    fn new(protos: usize, types: usize) -> Self {
+        DexRefCache {
+            proto_descs: (0..protos).map(|_| std::sync::OnceLock::new()).collect(),
+            type_names: (0..types).map(|_| std::sync::OnceLock::new()).collect(),
+            type_javas: (0..types).map(|_| std::sync::OnceLock::new()).collect(),
+        }
+    }
 }
 
 impl DexPool {
@@ -224,11 +251,71 @@ impl DexPool {
             dexes: Vec::new(),
             retire_armed: std::sync::atomic::AtomicBool::new(false),
             dex_labels: Vec::new(),
-            classes: HashMap::new(),
+            classes: HashMap::default(),
             order: Vec::new(),
             retire_counts: std::sync::Mutex::new(Vec::new()),
             outers: std::sync::OnceLock::new(),
             children: std::sync::OnceLock::new(),
+            ref_caches: Vec::new(),
+        }
+    }
+
+    /// Shared `MethodDescriptor` of a proto (one parse per image).
+    pub fn proto_desc_parsed(
+        &self,
+        di: usize,
+        proto_idx: u32,
+    ) -> std::sync::Arc<jdc_core::types::MethodDescriptor> {
+        let Some(dex) = self.dexes.get(di) else {
+            return std::sync::Arc::new(jdc_core::types::MethodDescriptor {
+                args: Vec::new(),
+                ret: jdc_core::types::JavaType::Void,
+            });
+        };
+        let build = || {
+            std::sync::Arc::new(parse_proto_desc(dex, proto_idx))
+        };
+        match self
+            .ref_caches
+            .get(di)
+            .and_then(|c| c.proto_descs.get(proto_idx as usize))
+        {
+            Some(slot) => slot.get_or_init(build).clone(),
+            None => build(),
+        }
+    }
+
+    /// Shared internal class name of a type id (one strip+alloc per image).
+    pub fn type_name_arc(&self, di: usize, type_idx: u32) -> std::sync::Arc<str> {
+        let Some(dex) = self.dexes.get(di) else {
+            return std::sync::Arc::from("");
+        };
+        let build = || std::sync::Arc::from(dex.class_name(type_idx).as_str());
+        match self
+            .ref_caches
+            .get(di)
+            .and_then(|c| c.type_names.get(type_idx as usize))
+        {
+            Some(slot) => slot.get_or_init(build).clone(),
+            None => build(),
+        }
+    }
+
+    /// Shared parsed type of a type id.
+    pub fn type_java(&self, di: usize, type_idx: u32) -> std::sync::Arc<jdc_core::types::JavaType> {
+        let Some(dex) = self.dexes.get(di) else {
+            return std::sync::Arc::new(jdc_core::types::JavaType::Object(
+                std::sync::Arc::from("java/lang/Object"),
+            ));
+        };
+        let build = || std::sync::Arc::new(desc_type(dex.type_name(type_idx)));
+        match self
+            .ref_caches
+            .get(di)
+            .and_then(|c| c.type_javas.get(type_idx as usize))
+        {
+            Some(slot) => slot.get_or_init(build).clone(),
+            None => build(),
         }
     }
 
@@ -252,14 +339,21 @@ impl DexPool {
     /// class on 98k-class runs.)
     pub fn children_of(&self, internal: &str) -> &[String] {
         if self.children.get().is_none() {
-            let idx: HashMap<String, Vec<String>> = HashMap::new();
-            let _ = self.children.set(idx);
-            let mut idx: HashMap<String, Vec<String>> = HashMap::new();
+            // Build FIRST, set ONCE: the previous shape set an empty map
+            // to claim the OnceLock and then silently failed to store the
+            // real index (`let _ = set(...)` on an initialized lock) —
+            // children_of returned [] forever, so member nested classes
+            // were neither inlined nor emitted as files (Guard$Report
+            // vanished whole; every corpus run since the borrow refactor
+            // dropped them, invisible to the syntax-only gate).
+            let mut idx: HashMap<String, Vec<String>> = HashMap::default();
             for name in &self.order {
                 if let Some(outer) = self.outer_of(name).map(str::to_string) {
                     idx.entry(outer).or_default().push(name.clone());
                 }
             }
+            // A racing thread may have set an identical map first — the
+            // index is a pure function of `order`, so either copy is right.
             let _ = self.children.set(idx);
         }
         self.children
@@ -274,6 +368,9 @@ impl DexPool {
     /// provenance header a real origin instead of the default "dex N".
     pub fn add_dex(&mut self, dex: DexFile) -> usize {
         let dex_idx = self.dexes.len();
+        // Pre-size the name map: 240k-entry growth rehashed repeatedly
+        // (reserve_rehash showed up in corpus profiles).
+        self.classes.reserve(dex.class_defs.len());
         // The annotation reader borrows the image; pool classes are built
         // before ownership moves into `self.dexes` (no full-image copy).
         for cd in &dex.class_defs {
@@ -285,6 +382,8 @@ impl DexPool {
             self.classes.insert(name.clone(), ClassEntry::Eager(pc));
             self.order.push(name);
         }
+        self.ref_caches
+            .push(DexRefCache::new(dex.proto_count(), dex.type_count()));
         self.dexes.push(std::sync::Arc::new(dex));
         self.retire_counts.lock().unwrap().push(0);
         self.dex_labels.push(format!("dex {}", dex_idx));
@@ -296,6 +395,7 @@ impl DexPool {
     /// keep their first definition, matching `add_dex`.
     pub fn add_dex_lazy(&mut self, dex: DexFile) -> usize {
         let dex_idx = self.dexes.len();
+        self.classes.reserve(dex.class_defs.len());
         for (ci, cd) in dex.class_defs.iter().enumerate() {
             let name = dex.class_name(cd.class_idx);
             if self.classes.contains_key(&name) {
@@ -310,6 +410,8 @@ impl DexPool {
             );
             self.order.push(name);
         }
+        self.ref_caches
+            .push(DexRefCache::new(dex.proto_count(), dex.type_count()));
         self.dexes.push(std::sync::Arc::new(dex));
         self.retire_counts.lock().unwrap().push(0);
         self.dex_labels.push(format!("dex {}", dex_idx));
@@ -332,6 +434,14 @@ impl DexPool {
     }
 
     pub fn get(&self, internal: &str) -> Option<&PoolClass> {
+        self.get_inner(internal, None)
+    }
+
+    /// `get` with optional pre-taken raw-image snapshots (one per
+    /// image). `materialize_all` hoists the `DexFile::raw()` lock out of
+    /// the per-class loop — the parallel materialize used to take the
+    /// same per-image lock once PER CLASS across all threads.
+    fn get_inner(&self, internal: &str, raws: Option<&[&[u8]]>) -> Option<&PoolClass> {
         match self.classes.get(internal)? {
             ClassEntry::Eager(pc) => Some(pc),
             ClassEntry::Lazy { at, pc } => {
@@ -341,7 +451,11 @@ impl DexPool {
                 let (di, ci) = *at;
                 let dex = self.dexes.get(di)?;
                 let cd = dex.class_defs.get(ci)?;
-                let built = pool_class_of(dex, dex.raw(), cd, di);
+                let raw = match raws {
+                    Some(r) => r.get(di).copied().unwrap_or(&[]),
+                    None => dex.raw(),
+                };
+                let built = pool_class_of(dex, raw, cd, di);
                 Some(pc.get_or_init(move || built))
             }
         }
@@ -359,6 +473,14 @@ impl DexPool {
             .filter(|(_, e)| matches!(e, ClassEntry::Lazy { .. }))
             .map(|(k, _)| k.clone())
             .collect();
+        if keys.is_empty() {
+            return;
+        }
+        // One raw() snapshot per image for the whole sweep (see
+        // get_inner). Safe window: materialize_all completes before
+        // retirement is armed, so no image releases while these slices
+        // are alive.
+        let raws: Vec<&[u8]> = self.dexes.iter().map(|d| d.raw()).collect();
         let threads = threads.max(1);
         let next = std::sync::atomic::AtomicUsize::new(0);
         std::thread::scope(|scope| {
@@ -366,7 +488,7 @@ impl DexPool {
                 scope.spawn(|| loop {
                     let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                     let Some(k) = keys.get(i) else { break };
-                    let _ = self.get(k);
+                    let _ = self.get_inner(k, Some(&raws));
                 });
             }
         });
@@ -582,6 +704,24 @@ fn pool_class_of(dex: &DexFile, raw: &[u8], cd: &ClassDef, dex_idx: usize) -> Po
 }
 
 /// JavaType for a field/method descriptor segment.
+/// Parse a proto's descriptor into a MethodDescriptor straight from the
+/// tables (no string round-trip).
+fn parse_proto_desc(
+    dex: &ddc_dex::DexFile,
+    proto_idx: u32,
+) -> jdc_core::types::MethodDescriptor {
+    let proto = dex.proto(proto_idx);
+    let args = dex
+        .proto_params(proto_idx)
+        .iter()
+        .map(|&t| desc_type(dex.type_name(t)))
+        .collect();
+    jdc_core::types::MethodDescriptor {
+        args,
+        ret: desc_type(dex.type_name(proto.return_type_idx)),
+    }
+}
+
 pub fn desc_type(desc: &str) -> JavaType {
     parse_field_descriptor(desc).unwrap_or(JavaType::Object("java/lang/Object".into()))
 }
@@ -720,14 +860,14 @@ pub fn top_level_classes(pool: &DexPool) -> Vec<String> {
 /// group keeps its name, the others gain `_2`, `_3`, … on the simple
 /// segment. The map carries identity entries for unrenamed file-level
 /// classes (they anchor nested prefix walks in apply_class_rename).
-pub fn case_rename_map(pool: &DexPool) -> std::collections::HashMap<String, String> {
+pub fn case_rename_map(pool: &DexPool) -> HashMap<String, String> {
     use std::collections::HashMap;
-    let mut groups: HashMap<String, Vec<String>> = HashMap::new();
+    let mut groups: HashMap<String, Vec<String>> = HashMap::default();
     for t in top_level_classes(pool) {
         groups.entry(t.to_lowercase()).or_default().push(t);
     }
     let folds: std::collections::HashSet<String> = groups.keys().cloned().collect();
-    let mut map = HashMap::new();
+    let mut map = HashMap::default();
     for (_, mut members) in groups {
         members.sort();
         for (i, m) in members.iter().enumerate() {
@@ -753,9 +893,118 @@ pub fn case_rename_map(pool: &DexPool) -> std::collections::HashMap<String, Stri
     map
 }
 
+/// Display-level renames for two nested-class shapes that render
+/// uncompilable or inconsistent output:
+///
+/// 1. A member class whose simple tail equals its rendered parent's
+///    tail (`x0$a$a` inside `x0$a`): javac rejects a member class with
+///    the same simple name as its immediately enclosing class ("已在类
+///    x0中定义了类 x0.a") — a shape Kotlin lambda families hit by the
+///    thousand (lark alone: 22k). Bump the tail: `a` → `a2`, `a3`, …
+/// 2. An orphaned intermediate (`x0$a$b` with `x0$a` absent from the
+///    pool): the member DECLARES as `b` inside `x0` but references
+///    printed `x0.a$b` — a type that exists nowhere. Flatten the
+///    display name to `x0$b` so every site agrees.
+///
+/// Both are pure display renames keyed by internal name; declarations,
+/// ctor names, file names and every type reference funnel through
+/// apply_class_rename, so one map keeps all sites consistent. Children
+/// Display-level renames for nested member classes that render
+/// uncompilable or inconsistent output:
+///
+/// 1. A member whose simple tail equals ANY enclosing class's simple
+///    name in its nesting chain. javac rejects more than the immediate
+///    parent (`class a { static class a2 { static class a {} } }` —
+///    member `a` two levels under `a` — is "已在类 X中定义了类 X.a");
+///    Kotlin lambda families (`x0$a$a` inside `x0$a`) hit it by the
+///    thousand (lark alone: 22k). Bump the tail until it clears every
+///    ancestor name: `a` → `a3`.
+/// 2. An orphaned intermediate (`x0$a$b` with `x0$a` absent): the
+///    member DECLARES as `b` inside `x0` but references printed
+///    `x0.a$b` — a type that exists nowhere. Flatten the display to
+///    `x0$b` so every site agrees.
+///
+/// Candidates build on the parent's DISPLAY name (ancestors are
+/// renamed first — ascending `$`-depth order), so declarations,
+/// constructor names, file names and every type reference stay
+/// consistent through apply_class_rename. All are pure display
+/// renames keyed by internal name.
+fn nested_collision_renames(pool: &DexPool, map: &mut HashMap<String, String>) {
+    // Ancestors before descendants: a parent's rename must be in the
+    // map when its children compute their display chain.
+    let mut names: Vec<&String> = pool.order.iter().collect();
+    names.sort_by_key(|n| n.matches('$').count());
+    let mut assigned: jdc_core::FxHashSet<String> = jdc_core::FxHashSet::default();
+    for name in names {
+        if !name.contains('$') || map.contains_key(name) {
+            continue;
+        }
+        let Some(parent) = find_outer_name(pool, name) else {
+            continue;
+        };
+        // Only a REAL `parent$rest` name renders as an inline member;
+        // anonymous/local/lambda tails keep their flat own-file names.
+        let Some(rest) = name
+            .strip_prefix(parent.as_str())
+            .and_then(|t| t.strip_prefix('$'))
+        else {
+            continue;
+        };
+        if !clean_member_tail(rest) {
+            continue;
+        }
+        // Display simple names of every enclosing level, bottom-up.
+        let mut chain: Vec<String> = Vec::new();
+        let mut cur = parent.clone();
+        loop {
+            let disp = map.get(&cur).cloned().unwrap_or_else(|| cur.clone());
+            let simple = disp.rsplit('/').next().unwrap_or(&disp);
+            chain.push(simple.rsplit('$').next().unwrap_or(simple).to_string());
+            match find_outer_name(pool, &cur) {
+                Some(o) if o != cur => cur = o,
+                _ => break,
+            }
+        }
+        let disp_parent = map
+            .get(&parent)
+            .cloned()
+            .unwrap_or_else(|| parent.clone());
+        let tail = rest.rsplit('$').next().unwrap_or(rest);
+        let orphan = rest.contains('$');
+        let clash = chain.iter().any(|c| c == tail);
+        if !orphan && !clash {
+            continue;
+        }
+        let mut k = 0u32;
+        loop {
+            k += 1;
+            let cand_tail = if k == 1 {
+                tail.to_string()
+            } else {
+                format!("{tail}{k}")
+            };
+            // The candidate must clear every ancestor display name,
+            // not just the immediate parent (javac checks the whole
+            // chain — see the shape list above).
+            if chain.contains(&cand_tail) {
+                continue;
+            }
+            let cand = format!("{disp_parent}${cand_tail}");
+            if pool.has_name(&cand) || assigned.contains(&cand) {
+                continue;
+            }
+            assigned.insert(cand.clone());
+            map.insert(name.clone(), cand);
+            break;
+        }
+    }
+}
+
 /// Compute and install the registry (call before worker threads spawn).
 pub fn install_case_renames(pool: &DexPool) {
-    jdc_core::rename::set_class_renames(case_rename_map(pool));
+    let mut map = case_rename_map(pool);
+    nested_collision_renames(pool, &mut map);
+    jdc_core::rename::set_class_renames(map);
 }
 
 pub use jdc_core::rename::apply_class_rename;

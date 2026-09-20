@@ -15,10 +15,10 @@ fn forward_boxedmath_shape() {
         owner: Some(Box::new(int(owner))),
         cls: "java/lang/Integer".into(),
         name: "intValue".into(),
-        desc: MethodDescriptor {
+        desc: std::sync::Arc::new(MethodDescriptor {
             args: vec![],
             ret: JavaType::Int,
-        },
+        }),
         args: vec![],
         is_static: false,
         is_interface: false,
@@ -31,10 +31,10 @@ fn forward_boxedmath_shape() {
         owner: None,
         cls: "java/lang/Math".into(),
         name: "max".into(),
-        desc: MethodDescriptor {
+        desc: std::sync::Arc::new(MethodDescriptor {
             args: vec![JavaType::Int, JavaType::Int],
             ret: JavaType::Int,
-        },
+        }),
         args: vec![int(4), int(5)],
         is_static: true,
         is_interface: false,
@@ -185,10 +185,10 @@ fn local_names_follow_jadx_rules() {
         owner: None,
         cls: cls.into(),
         name: name.into(),
-        desc: jdc_core::types::MethodDescriptor {
+        desc: std::sync::Arc::new(jdc_core::types::MethodDescriptor {
             args: vec![],
             ret: JavaType::Object("java/lang/Object".into()),
-        },
+        }),
         args,
         is_static: true,
         is_interface: false,

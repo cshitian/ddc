@@ -28,6 +28,21 @@ impl<'a> DexCtx<'a> {
         self.pool.get(internal)
     }
 
+    /// Structural inner-class evidence: an instance field whose type IS
+    /// the enclosing class (the this$0 outer reference; type-based so it
+    /// survives field renames).
+    fn holds_outer_ref(&self, internal: &str, pc: &PoolClass) -> bool {
+        let Some(outer) = self.find_outer(internal) else {
+            return false;
+        };
+        pc.instance_fields.iter().any(|f| {
+            f.desc
+                .strip_prefix('L')
+                .and_then(|d| d.strip_suffix(';'))
+                .is_some_and(|ty| ty == outer)
+        })
+    }
+
     /// Nesting evidence (see `find_outer_name`).
     fn outer_of(&self, internal: &str) -> Option<String> {
         crate::find_outer_name(self.pool, internal)
@@ -65,6 +80,13 @@ impl<'a> DexCtx<'a> {
 }
 
 impl<'a> Ctx for DexCtx<'a> {
+    fn pool_id(&self) -> u64 {
+        // Printer::shorten memo cache key: every DexCtx in a run shares
+        // one DexPool, and shorten's ctx queries (has_class/find_outer/
+        // class_bases) are pool-level — one cache entry set per pool.
+        self.pool as *const DexPool as u64
+    }
+
     fn class_name(&self) -> &str {
         &self.class.name
     }
@@ -88,7 +110,7 @@ impl<'a> Ctx for DexCtx<'a> {
         // Cached child index: BFS over the `$` chain from `root`.
         let mut queue: std::collections::VecDeque<String> =
             self.pool.children_of(root).iter().cloned().collect();
-        let mut seen: std::collections::HashSet<String> = queue.iter().cloned().collect();
+        let mut seen: jdc_core::FxHashSet<String> = queue.iter().cloned().collect();
         while let Some(name) = queue.pop_front() {
             for c in self.pool.children_of(&name) {
                 if seen.insert(c.clone()) {
@@ -135,7 +157,15 @@ impl<'a> Ctx for DexCtx<'a> {
 
     fn nested_is_static(&self, internal: &str) -> bool {
         match self.find_class(internal) {
-            Some(pc) => pc.is_static_nested(),
+            // ACC_STATIC (annotation evidence) OR the structural signal:
+            // no instance field typed as the outer class. javac ALWAYS
+            // gives a non-static inner class an enclosing-instance field
+            // (this$0), and the field TYPE survives obfuscation that
+            // renames the field itself. Plain d8 output carries no
+            // nesting annotations at all — without the structural
+            // fallback every static nested class rendered as an inner
+            // one (`str.new Report(...)` swallowing the first ctor arg).
+            Some(pc) => pc.is_static_nested() || !self.holds_outer_ref(internal, pc),
             None => true,
         }
     }
@@ -143,7 +173,7 @@ impl<'a> Ctx for DexCtx<'a> {
     fn class_has_this0(&self, internal: &str) -> bool {
         // Inner classes without ACC_STATIC carry an enclosing instance.
         match self.find_class(internal) {
-            Some(pc) => self.find_outer(internal).is_some() && !pc.is_static_nested(),
+            Some(pc) => !pc.is_static_nested() && self.holds_outer_ref(internal, pc),
             None => false,
         }
     }
