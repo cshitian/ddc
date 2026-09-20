@@ -2496,14 +2496,50 @@ fn booleanize_round(vt: &mut VarTable, body: &mut Stmt, ret_bool: bool) -> usize
                 }
             }
         }
+        // A local STORED into a boolean field is boolean-typed even though
+        // it never appears in a condition (`b = v1` where `b` is a boolean
+        // field, `v1` an int 0/1 local — q.java static init). The emit
+        // layer already coerces a boolean-target assign through expr_bool,
+        // but that renders a bare int LOCAL unchanged, so the local itself
+        // must be booleanized (its 0/1 assigns then print false/true).
+        if let Stmt::ExprStmt(Expr::Assign { target, value, .. }) = st {
+            if let Expr::Field { ty, .. } = &**target {
+                if ty.erased() == JavaType::Boolean {
+                    if let Expr::Local { var, .. } = &**value {
+                        if (*var as usize) < n {
+                            in_cond[*var as usize] = true;
+                        }
+                    }
+                }
+            }
+        }
         let val: Option<&Expr> = match st {
             Stmt::ExprStmt(Expr::Assign { value, .. }) => Some(value),
+            // Bare expression statements (e.g. `q(v117);`) so a local
+            // passed to a boolean parameter is caught below.
+            Stmt::ExprStmt(e) => Some(e),
             Stmt::LocalDef { init: Some(e), .. } => Some(e),
             Stmt::Return(Some(e)) => Some(e),
             _ => None,
         };
         if let Some(v) = val {
             visit_exprs(v, &mut |x| {
+                // A local passed as a BOOLEAN parameter is boolean-typed
+                // (`q(v117)` where q's param is boolean, v117 an int 0/1 —
+                // f8/b.java). The DEX passes booleans as 0/1 ints, so a
+                // boolean param slot is authoritative for the argument's
+                // type.
+                if let Expr::Method { desc, args, .. } = x {
+                    for (i, a) in args.iter().enumerate() {
+                        if desc.args.get(i) == Some(&JavaType::Boolean) {
+                            if let Expr::Local { var, .. } = a {
+                                if (*var as usize) < n {
+                                    in_cond[*var as usize] = true;
+                                }
+                            }
+                        }
+                    }
+                }
                 if let Expr::Bin { op, l, r, .. } = x {
                     if matches!(
                         op,
