@@ -1372,9 +1372,18 @@ impl<'a> Lifter<'a> {
             regs.iter().skip(1).copied().collect()
         };
         let mut args: Vec<Expr> = Vec::with_capacity(md.args.len());
-        for (i, at) in md.args.iter().enumerate() {
-            let r = arg_regs.get(i).copied().unwrap_or(0);
+        // A WIDE parameter (long/double) occupies TWO register slots in
+        // the instruction's register list — indexing by PARAMETER
+        // position shifted every argument after a wide one (weixin
+        // yieldTransaction(JZ L) read the boolean from the long's HIGH
+        // register and the signal from the boolean's — the root of the
+        // call-argument int↔bool family and ~11k dangling `int vN`
+        // reads). Advance the register cursor by the arg's width.
+        let mut ri = 0usize;
+        for at in md.args.iter() {
+            let r = arg_regs.get(ri).copied().unwrap_or(0);
             args.push(null_in_obj_ctx(self.read_nest(r), at));
+            ri += if at.is_wide() { 2 } else { 1 };
         }
         let recv_expr = receiver_reg.map(|r| self.read_nest(r));
 
