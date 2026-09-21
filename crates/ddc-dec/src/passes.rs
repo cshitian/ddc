@@ -2475,9 +2475,12 @@ pub fn insert_object_narrowing_casts(vt: &VarTable, body: &mut Stmt) {
             && !matches!(e, Expr::Const(_) | Expr::Cast { .. } | Expr::InstanceOf { .. })
     };
     walk_mut_deep(body, &mut |st| match st {
-        Stmt::ExprStmt(Expr::Assign { target, value, op, .. })
-            if matches!(op, AssignOp::Plain) =>
-        {
+        Stmt::ExprStmt(Expr::Assign {
+            target,
+            value,
+            op: AssignOp::Plain,
+            ..
+        }) => {
             let tgt = match &**target {
                 Expr::Local { var, .. } => vt.var(*var).ty.clone(),
                 Expr::Field { ty, .. } => ty.clone(),
@@ -2486,7 +2489,7 @@ pub fn insert_object_narrowing_casts(vt: &VarTable, body: &mut Stmt) {
             if let Some(t) = specific_ref(&tgt) {
                 if castable(value) {
                     let v = std::mem::replace(value, Box::new(Expr::This));
-                    *value = Box::new(Expr::Cast { ty: t, e: v });
+                    **value = Expr::Cast { ty: t, e: v };
                 }
             }
         }
@@ -3429,14 +3432,15 @@ fn inline_locals(
 fn def_of(s: &Stmt) -> Option<(u32, &Expr)> {
     match s {
         Stmt::LocalDef { var, init: Some(e), .. } => Some((*var, e)),
-        Stmt::ExprStmt(Expr::Assign { target, value, op, .. })
-            if matches!(op, jdc_core::ir::expr::AssignOp::Plain) =>
-        {
-            match &**target {
-                Expr::Local { var, .. } => Some((*var, value)),
-                _ => None,
-            }
-        }
+        Stmt::ExprStmt(Expr::Assign {
+            target,
+            value,
+            op: jdc_core::ir::expr::AssignOp::Plain,
+            ..
+        }) => match &**target {
+            Expr::Local { var, .. } => Some((*var, value)),
+            _ => None,
+        },
         _ => None,
     }
 }
@@ -3551,7 +3555,7 @@ fn try_merge_branched_super(stmts: &mut Vec<Stmt>) -> bool {
         let gate = match &stmts[if_pos] {
             Stmt::If { then_stmt, else_stmt, .. } => {
                 contains_delegation(then_stmt)
-                    || else_stmt.as_ref().map_or(false, |e| contains_delegation(e))
+                    || else_stmt.as_ref().is_some_and(|e| contains_delegation(e))
             }
             _ => false,
         };
@@ -3570,7 +3574,7 @@ fn contains_delegation(s: &Stmt) -> bool {
         Stmt::Block(v) => v.iter().any(contains_delegation),
         Stmt::If { then_stmt, else_stmt, .. } => {
             contains_delegation(then_stmt)
-                || else_stmt.as_ref().map_or(false, |e| contains_delegation(e))
+                || else_stmt.as_ref().is_some_and(|e| contains_delegation(e))
         }
         _ => false,
     }
@@ -3596,7 +3600,7 @@ fn merge_at(stmts: &mut Vec<Stmt>, if_pos: usize) -> bool {
     /// when the branch has no delegation at all (pure remainder); Dirty
     /// otherwise (nested/conditional delegation — out of scope).
     enum Br {
-        Call(usize, Vec<(u32, Expr)>, Vec<usize>),
+        Call(usize, Vec<(u32, Expr)>),
         Clean,
         Dirty,
     }
@@ -3615,19 +3619,18 @@ fn merge_at(stmts: &mut Vec<Stmt>, if_pos: usize) -> bool {
             return Br::Dirty; // two delegations in one branch
         }
         let mut defs: Vec<(u32, Expr)> = Vec::new();
-        let mut extras: Vec<usize> = Vec::new();
-        for (i, s) in list.iter().enumerate().take(c) {
+        for s in list.iter().take(c) {
             match def_of(s) {
                 Some((v, e)) => defs.push((v, e.clone())),
                 None => match s {
                     // Side-effect statements and bare decls ahead of the
                     // delegation ride along into the remainder.
-                    Stmt::ExprStmt(_) | Stmt::LocalDef { .. } => extras.push(i),
+                    Stmt::ExprStmt(_) | Stmt::LocalDef { .. } => {}
                     _ => return Br::Dirty, // control flow pre-call
                 },
             }
         }
-        Br::Call(c, defs, extras)
+        Br::Call(c, defs)
     }
     /// Prelude single-assignment if/else → `v = c ? e1 : e2` def.
     fn cond_def_of(s: &Stmt) -> Option<(u32, Expr)> {
@@ -3724,20 +3727,20 @@ fn merge_at(stmts: &mut Vec<Stmt>, if_pos: usize) -> bool {
     // Exactly: two Call branches (merge with ternaries) or one Call +
     // one Clean (single-delegation throw-guard). Owned branch payloads.
     enum Side {
-        Call { at: usize, defs: Vec<(u32, Expr)>, extras: Vec<usize> },
+        Call { at: usize, defs: Vec<(u32, Expr)> },
         Clean,
     }
     let (t_side, e_side, two_sided) = match (split_branch(&then_list), split_branch(&else_list)) {
-        (Br::Call(tc, td, tx), Br::Call(ec, ed, ex)) => (
-            Side::Call { at: tc, defs: td, extras: tx },
-            Side::Call { at: ec, defs: ed, extras: ex },
+        (Br::Call(tc, td), Br::Call(ec, ed)) => (
+            Side::Call { at: tc, defs: td },
+            Side::Call { at: ec, defs: ed },
             true,
         ),
-        (Br::Call(tc, td, tx), Br::Clean) => {
-            (Side::Call { at: tc, defs: td, extras: tx }, Side::Clean, false)
+        (Br::Call(tc, td), Br::Clean) => {
+            (Side::Call { at: tc, defs: td }, Side::Clean, false)
         }
-        (Br::Clean, Br::Call(ec, ed, ex)) => {
-            (Side::Clean, Side::Call { at: ec, defs: ed, extras: ex }, false)
+        (Br::Clean, Br::Call(ec, ed)) => {
+            (Side::Clean, Side::Call { at: ec, defs: ed }, false)
         }
         _ => return false,
     };
@@ -3912,15 +3915,18 @@ fn merge_at(stmts: &mut Vec<Stmt>, if_pos: usize) -> bool {
             return false;
         }
     }
-    let (cond_counts, a1_counts, a2_counts, tail1_counts, tail2_counts, post_counts, def_counts): (
-        std::collections::HashMap<u32, usize>,
-        Vec<std::collections::HashMap<u32, usize>>,
-        Vec<std::collections::HashMap<u32, usize>>,
-        std::collections::HashMap<u32, usize>,
-        std::collections::HashMap<u32, usize>,
-        std::collections::HashMap<u32, usize>,
-        Vec<(u32, std::collections::HashMap<u32, usize>)>,
-    ) = if inlined.is_empty() {
+    type Counts = std::collections::HashMap<u32, usize>;
+    type GuardCounts = (
+        Counts,
+        Vec<Counts>,
+        Vec<Counts>,
+        Counts,
+        Counts,
+        Counts,
+        Vec<(u32, Counts)>,
+    );
+    let (cond_counts, a1_counts, a2_counts, tail1_counts, tail2_counts, post_counts, def_counts): GuardCounts =
+        if inlined.is_empty() {
         Default::default()
     } else {
         let all_defs: Vec<(u32, &Expr)> = pmap
@@ -3944,7 +3950,7 @@ fn merge_at(stmts: &mut Vec<Stmt>, if_pos: usize) -> bool {
             count_locals_stmts(post),
             all_defs.into_iter().map(|(v, e)| (v, count_locals_expr(e))).collect(),
         )
-    };
+        };
     for &v in &inlined {
         let in_t = matches!(&t_side, Side::Call { defs, .. } if defs.iter().any(|(d, _)| *d == v));
         let in_e = matches!(&e_side, Side::Call { defs, .. } if defs.iter().any(|(d, _)| *d == v));
@@ -3955,7 +3961,7 @@ fn merge_at(stmts: &mut Vec<Stmt>, if_pos: usize) -> bool {
         ]
         .into_iter()
         .flatten()
-        .any(|d| jdc_core::ir::build::has_side_effects(d));
+        .any(jdc_core::ir::build::has_side_effects);
         if !effectful {
             continue;
         }
@@ -4072,7 +4078,7 @@ fn merge_at(stmts: &mut Vec<Stmt>, if_pos: usize) -> bool {
     let if_empty = match &new_if {
         Stmt::If { then_stmt, else_stmt, .. } => {
             let be = |s: &Stmt| matches!(s, Stmt::Block(v) if v.is_empty());
-            be(then_stmt) && else_stmt.as_ref().map_or(true, |e| be(e))
+            be(then_stmt) && else_stmt.as_ref().is_none_or(|e| be(e))
         }
         _ => false,
     };

@@ -164,7 +164,7 @@ fn scan_image(
     // inline, the (rare) rest in a side map.
     let mut meth_a: Vec<u32> = vec![NONE; dex.method_count()];
     let mut meth_extra: HashMap<u32, Vec<u32>> = HashMap::default();
-    for idx in 0..dex.method_count() {
+    for (idx, slot) in meth_a.iter_mut().enumerate() {
         let m = dex.method(idx as u32);
         let mut hits: Vec<u32> = Vec::new();
         let push = |s: u32, hits: &mut Vec<u32>| {
@@ -182,7 +182,7 @@ fn scan_image(
             push(cand_type.get(t as usize).copied().unwrap_or(NONE), &mut hits);
         }
         if !hits.is_empty() {
-            meth_a[idx] = hits[0];
+            *slot = hits[0];
             if hits.len() > 1 {
                 meth_extra.insert(idx as u32, hits.split_off(1));
             }

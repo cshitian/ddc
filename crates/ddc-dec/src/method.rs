@@ -66,7 +66,6 @@ fn handler_types_for(cfg: &DexCfg, bid: usize) -> Vec<Option<std::sync::Arc<str>
 
 /// Decompile one method. `Err` only for malformed input; unsupported
 /// constructs degrade to comments inside the statement tree.
-
 pub fn decompile_method(
     pool: &DexPool,
     class: &PoolClass,

@@ -228,8 +228,12 @@ pub struct DexPool {
     /// between identical runs; DDC_NORETIRE=1 stable). The full-decompile
     /// driver fills this BEFORE `arm_retirement`; progressive/lazy pools
     /// never retire and fall through to live reads.
-    accessor_code: std::sync::OnceLock<HashMap<(usize, u32), std::sync::Arc<[u8]>>>,
+    accessor_code: std::sync::OnceLock<AccessorSnapshots>,
 }
+
+/// Raw code_item bytes of every synthetic-static accessor, keyed by
+/// (dex_idx, code_off) — see `snapshot_accessor_code`.
+type AccessorSnapshots = HashMap<(usize, u32), std::sync::Arc<[u8]>>;
 
 /// Lazily-filled, thread-shared reference interning for one image.
 ///
@@ -790,7 +794,7 @@ impl DexPool {
     /// tries are vanishingly rare; the snapshot is a deterministic
     /// function of the image either way).
     pub fn snapshot_accessor_code(&self) {
-        let mut snap: HashMap<(usize, u32), std::sync::Arc<[u8]>> = HashMap::default();
+        let mut snap: AccessorSnapshots = HashMap::default();
         let mut bytes_total = 0usize;
         for name in &self.order {
             let Some(pc) = self.get_if_materialized(name) else {
