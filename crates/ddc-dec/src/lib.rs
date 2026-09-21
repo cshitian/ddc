@@ -1241,9 +1241,57 @@ pub fn install_case_renames(pool: &DexPool) {
     // them before the parent rename left both rules minting the same
     // display (`a2` twice in weibo's AIDL families).
     pkg_leaf_shadow_renames(pool, &mut map);
+    class_pkg_collision_renames(pool, &mut map);
     nested_collision_renames(pool, &mut map);
     jdc_core::rename::set_class_renames(map);
     jdc_core::rename::set_field_renames(member_collision_renames(pool));
+}
+
+/// A class named `P/s` while OTHER classes live under `P/s/` — the dex
+/// namespace is flat, so obfuscators freely mint a class whose simple
+/// name equals a subpackage of its own package (`ptr.a` +
+/// `ptr.a.a`, weibo rsplay/ptr families). That namespace is
+/// unrepresentable in Java: the declaration itself is
+/// "类 a与带有相同名称的程序包冲突" and every qualified reference
+/// through the segment becomes unresolvable (the 53.8k weibo
+/// missing-class errors root here, with Object/getClass cascades on
+/// top). Rename the class — the registry carries declarations and
+/// references — with a candidate that cannot recreate the shape (not a
+/// class, not a package, not a nested-class prefix, not another rule's
+/// target).
+fn class_pkg_collision_renames(pool: &DexPool, map: &mut HashMap<String, String>) {
+    // Every package that exists in the pool (the prefix before the last
+    // '/' of some class) — one pass, then O(1) collision lookups.
+    let pkgs: jdc_core::FxHashSet<String> = pool
+        .order
+        .iter()
+        .filter_map(|n| n.rsplit_once('/').map(|(p, _)| p.to_string()))
+        .collect();
+    for name in &pool.order {
+        let Some((pkg, simple)) = name.rsplit_once('/') else {
+            continue;
+        };
+        if simple.is_empty() || pkg.is_empty() || simple.contains('$') {
+            // Nested classes render dotted (`Outer.a`) — no package
+            // effect from their `$` tail.
+            continue;
+        }
+        if !pkgs.contains(name) || map.get(name).is_some_and(|v| v != name) {
+            continue; // no subpackage under it, or an earlier rule moved it
+        }
+        let mut k = 1u32;
+        loop {
+            k += 1;
+            let cand = format!("{pkg}/{simple}{k}");
+            let clash = pkgs.contains(&cand)
+                || pool.order.iter().any(|n| n.starts_with(&cand))
+                || map.values().any(|v| *v == cand);
+            if !clash {
+                map.insert(name.clone(), cand);
+                break;
+            }
+        }
+    }
 }
 
 /// Obfuscators can name a class after its own package leaf (`package k;`
