@@ -1520,6 +1520,38 @@ pub fn type_name(pool: &DexPool, t: &JavaType) -> String {
 pub fn print_class_name(pool: &DexPool, internal: &str) -> String {
     let cow = crate::apply_class_rename(internal);
     let internal: &str = &cow;
+    // Flat EMISSION UNITS: a digit-tail member (anonymous / d8-lambda
+    // shape, `Outer$lruCache$1`) is emitted as its own top-level file
+    // whose simple name keeps every `$` — the `$` boundaries inside
+    // that unit are part of the NAME, not nesting. References must use
+    // the flat unit name; the generic loop below dotted the first
+    // boundary (`LruCacheKt.lruCache$1`) against the declaration
+    // `class LruCacheKt$lruCache$1` — every use of the type failed and
+    // javac's attribution for the whole file collapsed (3627 pure-
+    // cascade files on weibo).
+    if internal.contains('$') && pool.get(internal).is_some() {
+        if let Some(root) = emission_root(pool, internal) {
+            if root.contains('$') {
+                let below = &internal[root.len()..];
+                if below.is_empty() {
+                    // The unit itself: the flat name IS the reference.
+                    return sanitize_ref(&internal.replace('/', "."));
+                }
+                let segs: Vec<&str> = below[1..].split('$').collect();
+                if segs.iter().any(|s| s.is_empty()) {
+                    // R8 tails like `ThreadMsg$$$` cannot be dotted at
+                    // all — keep the whole name flat.
+                    return sanitize_ref(&internal.replace('/', "."));
+                }
+                let mut out = root.replace('/', ".");
+                for s in segs {
+                    out.push('.');
+                    out.push_str(s);
+                }
+                return sanitize_ref(&out);
+            }
+        }
+    }
     let mut out = String::new();
     // `known` must test the ACCUMULATED internal prefix, not the bare
     // inter-`$` segment: the per-segment shape checked `pool.get("a")`
@@ -1561,6 +1593,26 @@ pub fn print_class_name(pool: &DexPool, internal: &str) -> String {
                 return sanitize_ref(&out);
             }
         }
+    }
+}
+
+/// The top-level EMISSION UNIT ancestor of a pool class: walking the
+/// `$`-chain upward (outer_of), the first ancestor that is itself
+/// emitted as its own compilation unit — a digit-tail rest marks a
+/// flat boundary (see top_level_classes). Clean members render inline
+/// in their outer, so only the unit's own name may carry `$`.
+fn emission_root(pool: &DexPool, internal: &str) -> Option<String> {
+    let mut cur = internal.to_string();
+    loop {
+        let outer = pool.outer_of(&cur)?;
+        let rest = cur
+            .strip_prefix(outer)
+            .and_then(|t| t.strip_prefix('$'))
+            .unwrap_or("");
+        if !crate::clean_member_tail(rest) {
+            return Some(cur);
+        }
+        cur = outer.to_string();
     }
 }
 

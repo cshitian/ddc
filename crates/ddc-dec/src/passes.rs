@@ -3422,7 +3422,7 @@ pub fn fix_ctor_delegation_arg_defs(body: &mut Stmt) {
     // Inline the def inits into the delegation args.
     let values: Vec<(u32, Expr)> = plan
         .iter()
-        .map(|(v, q, _)| match &stmts[*q] {
+        .map(|(_v, q, _)| match &stmts[*q] {
             Stmt::LocalDef { var, init: Some(e), .. } => (*var, e.clone()),
             _ => unreachable!("plan entries carry a LocalDef with init"),
         })

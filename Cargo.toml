@@ -23,4 +23,9 @@ debug = true
 lto = "fat"
 codegen-units = 1
 
+# Local dev pin for jdc-core changes (REMOVE before publishing — the
+# released ddc builds against the registry crate).
+[patch.crates-io]
+jdc-core = { path = "../jdc-core" }
+
 
