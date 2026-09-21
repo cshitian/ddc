@@ -2902,12 +2902,13 @@ fn booleanize_round(vt: &mut VarTable, body: &mut Stmt, ret_bool: bool) -> usize
             break;
         }
     }
+    let reads = count_locals_stmts(std::slice::from_ref(body));
     let mut boolean_vars: HashSet<u32> = HashSet::default();
     for i in 0..n {
         if vt.vars[i].is_param {
             continue;
         }
-        if !in_cond[i] {
+        if !in_cond[i] && !(reads.get(&(i as u32)).copied().unwrap_or(0) == 0) {
             continue;
         }
         if assigned_any[i] && all_bool[i] {
@@ -2941,6 +2942,13 @@ fn booleanize_round(vt: &mut VarTable, body: &mut Stmt, ret_bool: bool) -> usize
 fn is_boolean_valued(e: &Expr) -> bool {
     match e {
         Expr::Const(ConstVal::Int(0)) | Expr::Const(ConstVal::Int(1)) => true,
+        // Kotlin's non-short-circuit boolean `or`/`and` compiles to `|`/`&`
+        // over boolean locals: both sides boolean-valued makes the whole
+        // expression boolean (`v15 = delete | delete2 | ..` — weixin
+        // SQLiteDatabase 4706 int→bool family).
+        Expr::Bin { op: BinOp::Or | BinOp::And, l, r, .. } => {
+            is_boolean_valued(l) && is_boolean_valued(r)
+        }
         Expr::Bin { op, .. } => matches!(
             op,
             BinOp::Eq | BinOp::Ne | BinOp::Lt | BinOp::Ge | BinOp::Gt | BinOp::Le
