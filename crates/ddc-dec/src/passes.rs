@@ -3220,14 +3220,91 @@ fn is_bare_ctor_call(s: &Stmt) -> bool {
 /// broken-but-faithful stays the status quo, wrong evaluation counts
 /// would be worse.
 pub fn fix_ctor_conditional_super(body: &mut Stmt) {
+    // A single-statement body can arrive UNWRAPPED (bare `If` — the
+    // gb6/e throw-guard family); the shape scans need a statement list.
+    if !matches!(body, Stmt::Block(_)) {
+        let inner = std::mem::replace(body, Stmt::Block(Vec::new()));
+        *body = Stmt::Block(vec![inner]);
+    }
     let Stmt::Block(stmts) = body else { return };
-    if stmts.is_empty() || is_bare_ctor_call(stmts.first().unwrap()) {
+    // Unwrap single-statement Block wrappers: the structurer can nest
+    // the whole body one level deeper, hiding the top-level If from the
+    // shape scans (cleanup would flatten it — but runs AFTER this pass).
+    while stmts.len() == 1 {
+        let Stmt::Block(inner) = &stmts[0] else { break };
+        *stmts = inner.clone();
+    }
+    if stmts.is_empty() {
+        return;
+    }
+    if is_bare_ctor_call(stmts.first().unwrap()) {
+        dedupe_ctor_delegations(body);
         return;
     }
     if try_linear_super_inline(stmts) {
         return;
     }
     try_merge_branched_super(stmts);
+}
+
+/// Shape C: the delegation is already first — strip duplicate copies
+/// left by R8 path-duplication (Kotlin default-arg bridge ctors: ft5/j
+/// had `super()` leading PLUS another inside a branch — "对super的调用
+/// 必须是构造器中的第一个语句" at the copy). Every path delegates
+/// through the leading call, so structurally-identical (or empty-args,
+/// same-kind) copies nested in blocks/ifs are removed, never moved.
+/// Runs both ahead of the shape-A/B attempt and AFTER the plain hoist
+/// (fix_ctor_super_first) — the hoist is what puts the leading
+/// delegation in place for path-duplicated ctors.
+pub fn dedupe_ctor_delegations(body: &mut Stmt) {
+    let Stmt::Block(stmts) = body else { return };
+    let Some(d0) = stmts.first().and_then(|s| match s {
+        Stmt::ExprStmt(e) if is_delegation_expr(e) => Some(e.clone()),
+        _ => None,
+    }) else {
+        return;
+    };
+    fn rec(s: &mut Stmt, d0: &Expr) {
+        match s {
+            Stmt::Block(v) => {
+                v.retain(|x| {
+                    !matches!(x, Stmt::ExprStmt(e) if is_delegation_expr(e) && same_delegation(e, d0))
+                });
+                for x in v.iter_mut() {
+                    rec(x, d0);
+                }
+            }
+            Stmt::If { then_stmt, else_stmt, .. } => {
+                rec(then_stmt, d0);
+                if let Some(e) = else_stmt {
+                    rec(e, d0);
+                }
+            }
+            _ => {}
+        }
+    }
+    for s in stmts.iter_mut().skip(1) {
+        rec(s, &d0);
+    }
+}
+
+/// Structural delegation identity for dedup: same kind/target and equal
+/// args — or both arg-less (`super()` copies across duplicated paths
+/// render with locally-renamed args yet delegate identically).
+fn same_delegation(a: &Expr, b: &Expr) -> bool {
+    match (a, b) {
+        (
+            Expr::Method { name: n1, cls: c1, is_super: s1, args: a1, .. },
+            Expr::Method { name: n2, cls: c2, is_super: s2, args: a2, .. },
+        ) => {
+            &**n1 == "<init>"
+                && &**n2 == "<init>"
+                && c1 == c2
+                && s1 == s2
+                && (a1 == a2 || (a1.is_empty() && a2.is_empty()))
+        }
+        _ => false,
+    }
 }
 
 /// The `Method` expr of a bare ctor-delegation statement.
@@ -3323,7 +3400,7 @@ fn cnt(m: &std::collections::HashMap<u32, usize>, v: u32) -> usize {
 /// chain is too deep.
 fn inline_locals(
     e: &Expr,
-    map: &std::collections::HashMap<u32, &Expr>,
+    map: &std::collections::HashMap<u32, Expr>,
     depth: u32,
 ) -> Option<Expr> {
     if depth > 4 {
@@ -3386,13 +3463,13 @@ fn try_linear_super_inline(stmts: &mut Vec<Stmt>) -> bool {
         return false;
     };
     // Defs reachable from the args (last definition wins, bytecode order).
-    let mut map: std::collections::HashMap<u32, &Expr> =
+    let mut map: std::collections::HashMap<u32, Expr> =
         std::collections::HashMap::new();
     let mut def_idx: std::collections::HashMap<u32, usize> =
         std::collections::HashMap::new();
     for (i, s) in stmts[..pos].iter().enumerate() {
         if let Some((v, e)) = def_of(s) {
-            map.insert(v, e);
+            map.insert(v, e.clone());
             def_idx.insert(v, i);
         }
     }
@@ -3417,7 +3494,7 @@ fn try_linear_super_inline(stmts: &mut Vec<Stmt>) -> bool {
     let mut consumed: Vec<usize> = Vec::new();
     let use_counts = count_locals_stmts(stmts);
     for &v in &needed {
-        let def = map[&v];
+        let def = &map[&v];
         let uses = cnt(&use_counts, v);
         if jdc_core::ir::build::has_side_effects(def) && uses != 1 {
             return false;
@@ -3459,16 +3536,6 @@ fn try_merge_branched_super(stmts: &mut Vec<Stmt>) -> bool {
     // Candidate If positions — the prelude before the chosen If must be
     // straight-line; try each If until one merges (nested/multi-if
     // ctors exist but the first matching one is the delegation site).
-    /// Does this branch contain a ctor delegation anywhere (cheap,
-    /// allocation-free gate — most ctor ifs are field null-checks and
-    /// must not pay the merge machinery).
-    fn contains_delegation(s: &Stmt) -> bool {
-        match s {
-            Stmt::ExprStmt(e) => is_delegation_expr(e),
-            Stmt::Block(v) => v.iter().any(contains_delegation),
-            _ => false,
-        }
-    }
     let if_positions: Vec<usize> = stmts
         .iter()
         .enumerate()
@@ -3476,9 +3543,15 @@ fn try_merge_branched_super(stmts: &mut Vec<Stmt>) -> bool {
         .map(|(i, _)| i)
         .collect();
     for if_pos in if_positions {
+        // Cheap allocation-free gate: at least one branch must hold a
+        // delegation (most ctor ifs are field null-checks and must not
+        // pay the merge machinery). The OTHER side may be delegation-free
+        // (throw-guard shape D) or absent (then-only shape E — the
+        // rendered if/else form often only exists after later passes).
         let gate = match &stmts[if_pos] {
-            Stmt::If { then_stmt, else_stmt: Some(e), .. } => {
-                contains_delegation(then_stmt) && contains_delegation(e)
+            Stmt::If { then_stmt, else_stmt, .. } => {
+                contains_delegation(then_stmt)
+                    || else_stmt.as_ref().map_or(false, |e| contains_delegation(e))
             }
             _ => false,
         };
@@ -3489,125 +3562,272 @@ fn try_merge_branched_super(stmts: &mut Vec<Stmt>) -> bool {
     false
 }
 
+/// Does this subtree contain a ctor delegation? (module-level: shared by
+/// the merge gate and split_branch)
+fn contains_delegation(s: &Stmt) -> bool {
+    match s {
+        Stmt::ExprStmt(e) => is_delegation_expr(e),
+        Stmt::Block(v) => v.iter().any(contains_delegation),
+        Stmt::If { then_stmt, else_stmt, .. } => {
+            contains_delegation(then_stmt)
+                || else_stmt.as_ref().map_or(false, |e| contains_delegation(e))
+        }
+        _ => false,
+    }
+}
 
 
+
+/// One merge attempt at `stmts[if_pos]`. See fix_ctor_conditional_super
+/// for the doctrine. Extensions over the pure two-call merge:
+/// - branch pre-call SIDE-EFFECT statements (Kotlin `o.h(param,..)`
+///   null-checks — the zz5/j0 family) are allowed; they move into the
+///   branch remainder (after super — the same reordering doctrine the
+///   plain hoist already applies; Java has no pre-super statement form).
+/// - a branch WITHOUT a delegation (throw-guard: `if (x==null) throw
+///   .. else { super(..); .. }` — the gb6/e family) merges as pure
+///   remainder; exactly one branch carries the call then, and no
+///   ternary args arise (the guard throws before any path needs them).
+/// - prelude single-assignment if/else (`if (c) {v=e1} else {v=e2}`)
+///   folds into a Cond def for inlining (the zz5/j0 v15/v16 preludes).
 fn merge_at(stmts: &mut Vec<Stmt>, if_pos: usize) -> bool {
-    if !stmts[..if_pos]
-        .iter()
-        .all(|s| matches!(s, Stmt::LocalDef { .. } | Stmt::ExprStmt(_)))
-    {
-        return false;
+    /// Branch classification: Call(at, defs, pre-call extra idxs) when a
+    /// delegation sits behind only defs/side-effect statements; Clean
+    /// when the branch has no delegation at all (pure remainder); Dirty
+    /// otherwise (nested/conditional delegation — out of scope).
+    enum Br {
+        Call(usize, Vec<(u32, Expr)>, Vec<usize>),
+        Clean,
+        Dirty,
     }
-    let (cond, then_v, else_v) = match &stmts[if_pos] {
-        Stmt::If { cond, then_stmt, else_stmt: Some(e) } => {
-            (cond.clone(), then_stmt.as_ref().clone(), e.as_ref().clone())
+    fn split_branch(list: &[&Stmt]) -> Br {
+        let call_pos = list.iter().position(|s| ctor_call_expr(s).is_some());
+        let Some(c) = call_pos else {
+            // No delegation at this level: a pure remainder branch
+            // (throw-guard) unless one hides in nested control flow.
+            return if list.iter().any(|s| contains_delegation(s)) {
+                Br::Dirty
+            } else {
+                Br::Clean
+            };
+        };
+        if list.iter().skip(c + 1).any(|s| ctor_call_expr(s).is_some()) {
+            return Br::Dirty; // two delegations in one branch
         }
-        _ => return false,
-    };
-    let then_list = flat_list(&then_v);
-    let else_list = flat_list(&else_v);
-    // Each branch: [defs.., ctor-call, tail..]; exactly one call, and
-    // only local defs may precede it (side-effect statements before the
-    // delegation cannot move past it unconditionally).
-    fn split_branch<'a>(list: &[&'a Stmt]) -> Option<(usize, Vec<(u32, &'a Expr)>)> {
-        let mut call_at = None;
-        let mut defs: Vec<(u32, &Expr)> = Vec::new();
-        for (i, s) in list.iter().enumerate() {
-            if ctor_call_expr(s).is_some() {
-                if call_at.is_some() {
-                    return None; // two delegations in one branch
-                }
-                call_at = Some(i);
-                continue;
-            }
-            if call_at.is_none() {
-                match def_of(s) {
-                    Some(d) => defs.push(d),
-                    None => return None, // side effect / decl pre-super
-                }
+        let mut defs: Vec<(u32, Expr)> = Vec::new();
+        let mut extras: Vec<usize> = Vec::new();
+        for (i, s) in list.iter().enumerate().take(c) {
+            match def_of(s) {
+                Some((v, e)) => defs.push((v, e.clone())),
+                None => match s {
+                    // Side-effect statements and bare decls ahead of the
+                    // delegation ride along into the remainder.
+                    Stmt::ExprStmt(_) | Stmt::LocalDef { .. } => extras.push(i),
+                    _ => return Br::Dirty, // control flow pre-call
+                },
             }
         }
-        call_at.map(|c| (c, defs))
+        Br::Call(c, defs, extras)
     }
-    let Some((t_call_i, t_defs)) = split_branch(&then_list) else {
-        return false;
-    };
-    let Some((e_call_i, e_defs)) = split_branch(&else_list) else {
-        return false;
-    };
-    let t_call = ctor_call_expr(then_list[t_call_i]).unwrap();
-    let e_call = ctor_call_expr(else_list[e_call_i]).unwrap();
-    if !same_ctor_kind(t_call, e_call) {
-        return false;
+    /// Prelude single-assignment if/else → `v = c ? e1 : e2` def.
+    fn cond_def_of(s: &Stmt) -> Option<(u32, Expr)> {
+        let Stmt::If { cond, then_stmt, else_stmt: Some(e), .. } = s else {
+            return None;
+        };
+        fn one(b: &Stmt) -> Option<(u32, &Expr)> {
+            let l = flat_list(b);
+            if l.len() == 1 {
+                def_of(l[0])
+            } else {
+                None
+            }
+        }
+        let (v1, e1) = one(then_stmt)?;
+        let (v2, e2) = one(e)?;
+        if v1 != v2 {
+            return None;
+        }
+        Some((
+            v1,
+            Expr::Cond {
+                c: Box::new(cond.clone()),
+                t: Box::new(e1.clone()),
+                f: Box::new(e2.clone()),
+            },
+        ))
     }
-    let (Expr::Method { args: a1, .. }, Expr::Method { args: a2, .. }) = (t_call, e_call) else {
-        return false;
-    };
-    if a1.len() != a2.len() {
-        return false;
-    }
-    // Prelude def map (for cond + shared args).
-    let mut pmap: std::collections::HashMap<u32, &Expr> =
+
+    // Prelude: defs (flat or folded cond), bare decls, side-effect stmts.
+    let mut pmap: std::collections::HashMap<u32, Expr> =
         std::collections::HashMap::new();
     let mut pidx: std::collections::HashMap<u32, usize> =
         std::collections::HashMap::new();
     for (i, s) in stmts[..if_pos].iter().enumerate() {
-        if let Some((v, e)) = def_of(s) {
-            pmap.insert(v, e);
-            pidx.insert(v, i);
+        match s {
+            Stmt::LocalDef { .. } | Stmt::ExprStmt(_) => {
+                if let Some((v, e)) = def_of(s) {
+                    pmap.insert(v, e.clone());
+                    pidx.insert(v, i);
+                }
+            }
+            Stmt::If { .. } => match cond_def_of(s) {
+                Some((v, e)) => {
+                    pmap.insert(v, e);
+                    pidx.insert(v, i);
+                }
+                None => return false,
+            },
+            _ => return false,
         }
     }
-    let mut tmap = pmap.clone();
-    for (v, e) in &t_defs {
-        tmap.insert(*v, e);
+    let (cond, then_v, else_v, had_else) = match &stmts[if_pos] {
+        Stmt::If { cond, then_stmt, else_stmt, .. } => (
+            cond.clone(),
+            then_stmt.as_ref().clone(),
+            else_stmt.as_ref().map_or_else(|| Stmt::Block(Vec::new()), |e| e.as_ref().clone()),
+            else_stmt.is_some(),
+        ),
+        _ => return false,
+    };
+    let then_list = flat_list(&then_v);
+    let else_list = flat_list(&else_v);
+
+    // Exactly: two Call branches (merge with ternaries) or one Call +
+    // one Clean (single-delegation throw-guard). Owned branch payloads.
+    enum Side {
+        Call { at: usize, defs: Vec<(u32, Expr)>, extras: Vec<usize> },
+        Clean,
     }
-    let mut emap = pmap.clone();
-    for (v, e) in &e_defs {
-        emap.insert(*v, e);
+    let (t_side, e_side, two_sided) = match (split_branch(&then_list), split_branch(&else_list)) {
+        (Br::Call(tc, td, tx), Br::Call(ec, ed, ex)) => (
+            Side::Call { at: tc, defs: td, extras: tx },
+            Side::Call { at: ec, defs: ed, extras: ex },
+            true,
+        ),
+        (Br::Call(tc, td, tx), Br::Clean) => {
+            (Side::Call { at: tc, defs: td, extras: tx }, Side::Clean, false)
+        }
+        (Br::Clean, Br::Call(ec, ed, ex)) => {
+            (Side::Clean, Side::Call { at: ec, defs: ed, extras: ex }, false)
+        }
+        _ => return false,
+    };
+    // The delegation nodes (two-sided: both; single: one).
+    let (t_call, e_call) = match (&t_side, &e_side) {
+        (Side::Call { at: ta, .. }, Side::Call { at: ea, .. }) => (
+            ctor_call_expr(then_list[*ta]),
+            ctor_call_expr(else_list[*ea]),
+        ),
+        (Side::Call { at: ta, .. }, Side::Clean) => {
+            (ctor_call_expr(then_list[*ta]), None)
+        }
+        (Side::Clean, Side::Call { at: ea, .. }) => {
+            (None, ctor_call_expr(else_list[*ea]))
+        }
+        _ => return false,
+    };
+    // The node that becomes the merged call: then side when present.
+    let (call_list, call_at) = match &t_side {
+        Side::Call { at, .. } => (&then_list, *at),
+        Side::Clean => match &e_side {
+            Side::Call { at, .. } => (&else_list, *at),
+            Side::Clean => return false,
+        },
+    };
+    let (base_args, other_args) = if two_sided {
+        let (Some(tc), Some(ec)) = (t_call, e_call) else {
+            return false;
+        };
+        if !same_ctor_kind(tc, ec) {
+            return false;
+        }
+        let (Expr::Method { args: a1, .. }, Expr::Method { args: a2, .. }) = (tc, ec) else {
+            return false;
+        };
+        if a1.len() != a2.len() {
+            return false;
+        }
+        (a1, Some(a2))
+    } else {
+        let c = t_call.or(e_call);
+        let Some(c) = c else { return false };
+        let Expr::Method { args, .. } = c else {
+            return false;
+        };
+        (args, None)
+    };
+
+    // Def maps per side (prelude + own branch defs).
+    let mut tmap: std::collections::HashMap<u32, Expr> = pmap.clone();
+    let mut emap: std::collections::HashMap<u32, Expr> = pmap.clone();
+    if let Side::Call { defs, .. } = &t_side {
+        for (v, e) in defs {
+            tmap.insert(*v, e.clone());
+        }
     }
-    // Inline the condition and both arg sides.
+    if let Side::Call { defs, .. } = &e_side {
+        for (v, e) in defs {
+            emap.insert(*v, e.clone());
+        }
+    }
     let Some(cond_i) = inline_locals(&cond, &pmap, 0) else {
         return false;
     };
-    let mut then_args: Vec<Expr> = Vec::with_capacity(a1.len());
-    for a in a1 {
-        match inline_locals(a, &tmap, 0) {
-            Some(r) => then_args.push(r),
-            None => return false,
+    // Inline each side's args through its own map.
+    let mut then_args: Vec<Expr> = Vec::with_capacity(base_args.len());
+    let mut else_args: Vec<Expr> = Vec::new();
+    if two_sided {
+        for a in base_args {
+            match inline_locals(a, &tmap, 0) {
+                Some(r) => then_args.push(r),
+                None => return false,
+            }
+        }
+        for a in other_args.unwrap() {
+            match inline_locals(a, &emap, 0) {
+                Some(r) => else_args.push(r),
+                None => return false,
+            }
+        }
+    } else {
+        // Single-delegation side: base_args belong to whichever side
+        // carries the call; pick that side's map.
+        let from_then = matches!(&t_side, Side::Call { .. });
+        for a in base_args {
+            let r = if from_then {
+                inline_locals(a, &tmap, 0)
+            } else {
+                inline_locals(a, &emap, 0)
+            };
+            match r {
+                Some(r) => then_args.push(r),
+                None => return false,
+            }
         }
     }
-    let mut else_args: Vec<Expr> = Vec::with_capacity(a2.len());
-    for a in a2 {
-        match inline_locals(a, &emap, 0) {
-            Some(r) => else_args.push(r),
-            None => return false,
-        }
-    }
-    // Per-position merge; count differing args (cond copies = 1 + diff).
-    let mut merged: Vec<Expr> = Vec::with_capacity(a1.len());
+    let primary_args = base_args;
+    // Per-position merge.
+    let mut merged: Vec<Expr> = Vec::with_capacity(then_args.len());
     let mut differ = 0usize;
-    for (t, e) in then_args.iter().zip(else_args.iter()) {
-        if t == e {
-            merged.push(t.clone());
+    for (j, t) in then_args.iter().enumerate() {
+        if two_sided {
+            let e = &else_args[j];
+            if t == e {
+                merged.push(t.clone());
+            } else {
+                differ += 1;
+                merged.push(Expr::Cond {
+                    c: Box::new(cond_i.clone()),
+                    t: Box::new(t.clone()),
+                    f: Box::new(e.clone()),
+                });
+            }
         } else {
-            differ += 1;
-            merged.push(Expr::Cond {
-                c: Box::new(cond_i.clone()),
-                t: Box::new(t.clone()),
-                f: Box::new(e.clone()),
-            });
+            merged.push(t.clone());
         }
     }
-    // Side-effect preservation guards. For every inlined var with a
-    // side-effecting def, the number of EMITTED copies of that def must
-    // match the original evaluation count (1 for a prelude def; 1-per-
-    // taken-branch for a branch-local def, which the ternary sides
-    // preserve naturally). Emitted copies per var:
-    //   cond-inlined:  (1 + differ)   — the `if` plus one per ternary
-    //   arg position j: identical merge → count in one side; differing
-    //                   → counts from BOTH sides (ternary arms).
-    // Any residual use (tails/post/other defs) means the def statement
-    // must ALSO survive → extra evaluation → reject.
+
+    // ---- side-effect preservation guards (batched counts) ----
     let vars_in = |e: &Expr| -> Vec<u32> {
         let mut vs = Vec::new();
         let mut probe = e.clone();
@@ -3621,11 +3841,25 @@ fn merge_at(stmts: &mut Vec<Stmt>, if_pos: usize) -> bool {
         });
         vs
     };
-    let tail_then = &then_list[t_call_i + 1..];
-    let tail_else = &else_list[e_call_i + 1..];
+    // Remainder statements per branch (extras + post-call tail; a Clean
+    // branch contributes all of its statements).
+    let branch_remainder = |list: &[&Stmt], side: &Side| -> Vec<Stmt> {
+        match side {
+            Side::Clean => list.iter().map(|s| (*s).clone()).collect(),
+            Side::Call { at, .. } => {
+                list.iter()
+                    .enumerate()
+                    .filter(|(i, _)| *i != *at)
+                    .map(|(_, s)| (*s).clone())
+                    .collect()
+            }
+        }
+    };
+    let tail_then_v = branch_remainder(&then_list, &t_side);
+    let tail_else_v = branch_remainder(&else_list, &e_side);
     let post = &stmts[if_pos + 1..];
     let mut inlined: Vec<u32> = vars_in(&cond);
-    for a in a1.iter().chain(a2.iter()) {
+    for a in primary_args.iter().chain(else_args.iter()) {
         for v in vars_in(a) {
             if !inlined.contains(&v) {
                 inlined.push(v);
@@ -3633,19 +3867,22 @@ fn merge_at(stmts: &mut Vec<Stmt>, if_pos: usize) -> bool {
         }
     }
     inlined.retain(|v| pmap.contains_key(v) || tmap.contains_key(v) || emap.contains_key(v));
-    // A var defined in the prelude AND redefined inside a branch has
-    // ambiguous provenance for the copy math — reject.
+    // Prelude-and-branch redefinition: ambiguous provenance — reject.
     for &v in &inlined {
-        if pmap.contains_key(&v)
-            && (t_defs.iter().any(|(d, _)| *d == v) || e_defs.iter().any(|(d, _)| *d == v))
-        {
+        let in_branch = match (&t_side, &e_side) {
+            (Side::Call { defs: td, .. }, Side::Call { defs: ed, .. }) => {
+                td.iter().any(|(d, _)| *d == v) || ed.iter().any(|(d, _)| *d == v)
+            }
+            (Side::Call { defs, .. }, Side::Clean)
+            | (Side::Clean, Side::Call { defs, .. }) => {
+                defs.iter().any(|(d, _)| *d == v)
+            }
+            _ => false,
+        };
+        if pmap.contains_key(&v) && in_branch {
             return false;
         }
     }
-    let tail_then_v: Vec<Stmt> = tail_then.iter().map(|s| (*s).clone()).collect();
-    let tail_else_v: Vec<Stmt> = tail_else.iter().map(|s| (*s).clone()).collect();
-    // Single-pass counts, and only when something actually inlines
-    // (all-const/param args skip the whole guard machinery).
     let (cond_counts, a1_counts, a2_counts, tail1_counts, tail2_counts, post_counts, def_counts): (
         std::collections::HashMap<u32, usize>,
         Vec<std::collections::HashMap<u32, usize>>,
@@ -3657,31 +3894,39 @@ fn merge_at(stmts: &mut Vec<Stmt>, if_pos: usize) -> bool {
     ) = if inlined.is_empty() {
         Default::default()
     } else {
+        let all_defs: Vec<(u32, &Expr)> = pmap
+            .iter()
+            .map(|(k, v)| (*k, v))
+            .chain(match &t_side {
+                Side::Call { defs, .. } => defs.iter().map(|(k, v)| (*k, v)).collect(),
+                Side::Clean => Vec::new(),
+            })
+            .chain(match &e_side {
+                Side::Call { defs, .. } => defs.iter().map(|(k, v)| (*k, v)).collect(),
+                Side::Clean => Vec::new(),
+            })
+            .collect();
         (
             count_locals_expr(&cond),
-            a1.iter().map(count_locals_expr).collect(),
-            a2.iter().map(count_locals_expr).collect(),
+            primary_args.iter().map(count_locals_expr).collect(),
+            else_args.iter().map(count_locals_expr).collect(),
             count_locals_stmts(&tail_then_v),
             count_locals_stmts(&tail_else_v),
             count_locals_stmts(post),
-            t_defs
-                .iter()
-                .map(|(v, e)| (*v, *e))
-                .chain(e_defs.iter().map(|(v, e)| (*v, *e)))
-                .chain(pmap.iter().map(|(k, v)| (*k, *v)))
-                .map(|(v, e)| (v, count_locals_expr(e)))
-                .collect(),
+            all_defs.into_iter().map(|(v, e)| (v, count_locals_expr(e))).collect(),
         )
     };
     for &v in &inlined {
-        let in_t = t_defs.iter().any(|(d, _)| *d == v);
-        let in_e = e_defs.iter().any(|(d, _)| *d == v);
-        // Side-effect status: the strictest def of the var wins (a
-        // redefined pair may have a pure side and an impure side).
-        let effectful = [in_t.then(|| tmap[&v]), in_e.then(|| emap[&v]), pmap.get(&v).copied()]
-            .into_iter()
-            .flatten()
-            .any(|d| jdc_core::ir::build::has_side_effects(d));
+        let in_t = matches!(&t_side, Side::Call { defs, .. } if defs.iter().any(|(d, _)| *d == v));
+        let in_e = matches!(&e_side, Side::Call { defs, .. } if defs.iter().any(|(d, _)| *d == v));
+        let effectful = [
+            in_t.then(|| tmap.get(&v)).flatten(),
+            in_e.then(|| emap.get(&v)).flatten(),
+            pmap.get(&v),
+        ]
+        .into_iter()
+        .flatten()
+        .any(|d| jdc_core::ir::build::has_side_effects(d));
         if !effectful {
             continue;
         }
@@ -3689,27 +3934,29 @@ fn merge_at(stmts: &mut Vec<Stmt>, if_pos: usize) -> bool {
         let u_post = cnt(&post_counts, v);
         let u_t1 = cnt(&tail1_counts, v);
         let u_t2 = cnt(&tail2_counts, v);
-        // Uses inside OTHER inlined defs (chained duplication).
         let mut u_odef = 0usize;
         for (dv, dc) in &def_counts {
             if *dv != v && inlined.contains(dv) {
                 u_odef += cnt(dc, v);
             }
         }
-        // Per-position emitted copies from args.
         let mut emit = u_cond * (1 + differ);
         let mut uses_args = 0usize;
-        for j in 0..a1.len() {
+        for j in 0..primary_args.len() {
             let c1 = cnt(&a1_counts[j], v);
-            let c2 = cnt(&a2_counts[j], v);
+            let c2 = if two_sided && j < a2_counts.len() {
+                cnt(&a2_counts[j], v)
+            } else {
+                0
+            };
             uses_args += c1 + c2;
-            emit += if then_args[j] == else_args[j] { c1 } else { c1 + c2 };
+            emit += if two_sided && then_args[j] != else_args[j] {
+                c1 + c2
+            } else {
+                c1.max(c2)
+            };
         }
         let ok = if in_t || in_e {
-            // Branch-local def(s): emitted copies live in their own
-            // ternary arm (or the identically-merged arg), each gated by
-            // the cond — evaluated at most once per original execution.
-            // A one-sided def must not be referenced from the other side.
             u_cond == 0
                 && u_post == 0
                 && u_t1 == 0
@@ -3721,8 +3968,10 @@ fn merge_at(stmts: &mut Vec<Stmt>, if_pos: usize) -> bool {
                 && (in_t || a1_counts.iter().all(|c| cnt(c, v) == 0))
                 && (in_e || a2_counts.iter().all(|c| cnt(c, v) == 0))
         } else {
-            // prelude def: originally evaluated exactly once.
-            u_post == 0 && u_t1 == 0 && u_t2 == 0 && u_odef == 0
+            u_post == 0
+                && u_t1 == 0
+                && u_t2 == 0
+                && u_odef == 0
                 && ((u_cond == 1 && uses_args == 0 && emit <= 2)
                     || (u_cond == 0 && emit <= 1))
         };
@@ -3730,78 +3979,78 @@ fn merge_at(stmts: &mut Vec<Stmt>, if_pos: usize) -> bool {
             return false;
         }
     }
-    // Build the output. The merged call reuses the then-branch node.
-    let mut call_stmt = then_list[t_call_i].clone();
+
+    // ---- assembly ----
+    let mut call_stmt = call_list[call_at].clone();
     if let Stmt::ExprStmt(Expr::Method { args: slot, .. }) = &mut call_stmt {
         *slot = merged;
     }
-    // Residual references to a var in the transformed remainder (tails
-    // stay branches; post follows the if): a def may be consumed only
-    // when nothing still reads the local.
     let residual = |v: u32| -> usize {
         cnt(&tail1_counts, v) + cnt(&tail2_counts, v) + cnt(&post_counts, v)
     };
-    // Prelude statements: drop defs whose var was inlined AND has no
-    // residual readers (their evaluation now lives in the call); keep
-    // the rest (moved after super, before the if).
     let mut kept_prelude: Vec<Stmt> = Vec::new();
     for (i, s) in stmts[..if_pos].iter().enumerate() {
-        if let Some((v, _)) = def_of(s) {
+        let consumed = match s {
+            Stmt::LocalDef { var, .. } => Some(*var),
+            Stmt::ExprStmt(Expr::Assign { target, .. }) => match &**target {
+                Expr::Local { var, .. } => Some(*var),
+                _ => None,
+            },
+            Stmt::If { .. } => cond_def_of(s).map(|(v, _)| v),
+            _ => None,
+        };
+        if let Some(v) = consumed {
             if inlined.contains(&v) && pidx.get(&v) == Some(&i) && residual(v) == 0 {
                 continue;
             }
         }
         kept_prelude.push(s.clone());
     }
-    // Branch remainders: branch-local defs that were NOT inlined stay
-    // (they feed the tail), then the original tail.
-    let mut then_keep: Vec<Stmt> = Vec::new();
-    for (i, s) in then_list.iter().enumerate() {
-        if i == t_call_i {
-            continue;
-        }
-        if i < t_call_i {
-            if let Some((v, _)) = def_of(s) {
-                if inlined.contains(&v) && residual(v) == 0 {
-                    continue;
+    let build_keep = |list: &[&Stmt], side: &Side| -> Vec<Stmt> {
+        match side {
+            Side::Clean => list.iter().map(|s| (*s).clone()).collect(),
+            Side::Call { at, .. } => {
+                let mut out = Vec::new();
+                for (i, s) in list.iter().enumerate() {
+                    if i == *at {
+                        continue;
+                    }
+                    if i < *at {
+                        if let Some((v, _)) = def_of(s) {
+                            if inlined.contains(&v) && residual(v) == 0 {
+                                continue;
+                            }
+                        }
+                    }
+                    out.push((*s).clone());
                 }
+                out
             }
         }
-        then_keep.push((*s).clone());
-    }
-    let mut else_keep: Vec<Stmt> = Vec::new();
-    for (i, s) in else_list.iter().enumerate() {
-        if i == e_call_i {
-            continue;
-        }
-        if i < e_call_i {
-            if let Some((v, _)) = def_of(s) {
-                if inlined.contains(&v) && residual(v) == 0 {
-                    continue;
-                }
-            }
-        }
-        else_keep.push((*s).clone());
-    }
+    };
+    let then_keep = build_keep(&then_list, &t_side);
+    let else_keep = build_keep(&else_list, &e_side);
+    let else_part = if else_keep.is_empty() && !had_else {
+        None
+    } else {
+        Some(Box::new(Stmt::Block(else_keep)))
+    };
     let new_if = Stmt::If {
         cond: cond_i,
         then_stmt: Box::new(Stmt::Block(then_keep)),
-        else_stmt: Some(Box::new(Stmt::Block(else_keep))),
+        else_stmt: else_part,
+    };
+    let if_empty = match &new_if {
+        Stmt::If { then_stmt, else_stmt, .. } => {
+            let be = |s: &Stmt| matches!(s, Stmt::Block(v) if v.is_empty());
+            be(then_stmt) && else_stmt.as_ref().map_or(true, |e| be(e))
+        }
+        _ => false,
     };
     let mut out: Vec<Stmt> = Vec::with_capacity(stmts.len());
     out.push(call_stmt);
     out.extend(kept_prelude);
-    // Only emit the if when a branch keeps statements; an empty double
-    // branch means everything merged into the call.
-    let branch_empty = |s: &Stmt| matches!(s, Stmt::Block(v) if v.is_empty());
-    let (then_empty, else_empty) = match &new_if {
-        Stmt::If { then_stmt, else_stmt, .. } => (
-            branch_empty(then_stmt),
-            else_stmt.as_ref().map(|e| branch_empty(e)).unwrap_or(true),
-        ),
-        _ => (true, true),
-    };
-    if !(then_empty && else_empty) {
+    if !if_empty {
         out.push(new_if);
     }
     out.extend(stmts[if_pos + 1..].to_vec());
@@ -3810,15 +4059,6 @@ fn merge_at(stmts: &mut Vec<Stmt>, if_pos: usize) -> bool {
 }
 
 
-/// An enum constructor's bytecode opens with `invoke-direct super.<init>
-/// (name, ordinal, ..)` — the implicit `Enum(String, int)` super that Java
-/// forbids writing explicitly in an enum ctor ("在枚举构造器中不允许调用
-/// 超类"). The enum consts desugar to `new C(name, ordinal, ..)`, so the
-/// ctor's declared `(String name, int ordinal, ..extra)` params still match
-/// once the explicit super() is gone. Strip the super() delegation wherever
-/// the structurer landed it (top level or a first-level nested block, the
-/// same two places fix_ctor_super_first searches); a this() delegation
-/// (is_super=false) is legal in an enum ctor and is left alone.
 pub fn strip_enum_ctor_super(body: &mut Stmt) {
     let is_enum_super = |s: &Stmt| {
         matches!(
