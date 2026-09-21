@@ -3689,6 +3689,35 @@ fn merge_at(stmts: &mut Vec<Stmt>, if_pos: usize) -> bool {
         ),
         _ => return false,
     };
+    // Chained guards (Kotlin multi-param null-checks):
+    // `if(a){throw..} else { if(b){throw..} else { super(..); .. } }` —
+    // a branch that is a lone delegation-bearing If gets merged
+    // recursively first (its delegation hoisted to the branch head), so
+    // the outer split then sees [call, nested-guard-remainder].
+    fn normalize_branch(b: &mut Stmt) {
+        // MOVE-based (no deep clone): chained weixin Parcel ctors carry
+        // huge tails; cloning per recursion level cost measurable wall
+        // time. merge_at leaves stmts untouched on failure, so the taken
+        // node can always go back.
+        let slot: &mut Stmt = match b {
+            Stmt::Block(v) if v.len() == 1 => &mut v[0],
+            other => other,
+        };
+        if !matches!(slot, Stmt::If { .. }) || !contains_delegation(slot) {
+            return;
+        }
+        let taken = std::mem::replace(slot, Stmt::Block(Vec::new()));
+        let mut tmp = vec![taken];
+        if merge_at(&mut tmp, 0) {
+            *slot = Stmt::Block(tmp);
+        } else {
+            *slot = tmp.pop().unwrap();
+        }
+    }
+    let mut then_v = then_v;
+    let mut else_v = else_v;
+    normalize_branch(&mut then_v);
+    normalize_branch(&mut else_v);
     let then_list = flat_list(&then_v);
     let else_list = flat_list(&else_v);
 
