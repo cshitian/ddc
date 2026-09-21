@@ -1052,7 +1052,20 @@ impl<'a> Lifter<'a> {
                     self.drop_pending_call();
                     let elem_desc = self.env.type_name(*type_idx);
                     let elem = crate::desc_type(elem_desc.trim_start_matches('['));
-                    let args: Vec<Expr> = regs.iter().map(|&r| self.read_nest(r)).collect();
+                    // A wide element (long/double) occupies TWO
+                    // register slots per element — walking the cursor by
+                    // the element width groups them correctly (reading
+                    // every register minted fresh locals from the WideHi
+                    // slots).
+                    let wide = elem.is_wide();
+                    let mut args: Vec<Expr> = Vec::with_capacity(regs.len());
+                    let mut it = regs.iter();
+                    while let Some(&r) = it.next() {
+                        args.push(self.read_nest(r));
+                        if wide {
+                            it.next();
+                        }
+                    }
                     self.pending_call = Some(Expr::NewArray {
                         elem: TypeRef::J(elem),
                         dims: vec![],
@@ -1578,12 +1591,17 @@ impl<'a> Lifter<'a> {
             _ => (String::new(), String::new()),
         };
 
-        // Dynamic arguments (the SAM parameters for lambdas).
+        // Dynamic arguments (the SAM parameters for lambdas). A wide
+        // parameter occupies TWO register slots — index a walking cursor
+        // by the param's width, not the param position (same bug class
+        // as the invoke arg lift).
         let mut args: Vec<Expr> = Vec::with_capacity(params.len().min(regs.len()));
-        for (i, _) in params.iter().enumerate() {
-            if let Some(&r) = regs.get(i) {
+        let mut ri = 0usize;
+        for at in params.iter() {
+            if let Some(&r) = regs.get(ri) {
                 args.push(self.read_nest(r));
             }
+            ri += if at.is_wide() { 2 } else { 1 };
         }
 
         // StringConcatFactory: fold the recipe into `+`.
