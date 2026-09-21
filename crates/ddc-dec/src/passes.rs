@@ -2897,6 +2897,15 @@ fn booleanize_round(vt: &mut VarTable, body: &mut Stmt, ret_bool: bool) -> usize
                 in_cond[src] = true;
                 changed = true;
             }
+            // FORWARD through pure copies: `v21 = v17` with v17 boolean
+            // makes v21 boolean when ALL of v21's assignments are
+            // bool-shaped (the loop-state save pattern — weixin u2/f's
+            // v62 → v17 → v21 chains left the copy targets int while
+            // the accumulator booleanized).
+            if in_cond[src] && !in_cond[tgt] && all_bool[tgt] {
+                in_cond[tgt] = true;
+                changed = true;
+            }
         }
         if !changed {
             break;
