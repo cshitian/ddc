@@ -623,7 +623,6 @@ fn collect_defined_locals(s: &Stmt, out: &mut jdc_core::FxHashSet<u32>) {
 /// First read of a local that is defined nowhere in the method (and is
 /// not a parameter) inside the catch body — the unmaterialized
 /// move-exception register.
-
 /// Vars carrying a real assignment (init or write target).
 fn collect_assigned_locals(s: &Stmt, out: &mut jdc_core::FxHashSet<u32>) {
     crate::passes::walk_all(s, &mut |st| {
@@ -649,8 +648,8 @@ fn first_thrown_unassigned_local(
     assigned: &jdc_core::FxHashSet<u32>,
 ) -> Option<u32> {
     let mut found: Option<u32> = None;
-    let mut c = body.clone();
-    walk_all(&mut c, &mut |st| {
+    let c = body.clone();
+    walk_all(&c, &mut |st| {
         if let Stmt::Throw(th) = st {
             if let Expr::Local { var, .. } = th {
                 let v = *var;
@@ -3725,8 +3724,8 @@ pub fn fix_int_returns(vt: &VarTable, body: &mut Stmt) {
 /// a Goto outside any loop stays as-is (no honest source form).
 pub fn resolve_dangling_gotos(s: &mut Stmt) {
     let mut labels: jdc_core::FxHashSet<u32> = jdc_core::FxHashSet::default();
-    let mut probe = s.clone();
-    walk_all(&mut probe, &mut |st| {
+    let probe = s.clone();
+    walk_all(&probe, &mut |st| {
         if let Stmt::Label(id) = st {
             labels.insert(*id);
         }
