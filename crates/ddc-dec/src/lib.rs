@@ -14,6 +14,7 @@ pub mod lift;
 pub mod method;
 pub mod passes;
 pub mod platform;
+mod refscan;
 
 use jdc_core::FxHashMap as HashMap;
 
@@ -931,10 +932,39 @@ pub fn case_rename_map(pool: &DexPool) -> HashMap<String, String> {
 /// renames keyed by internal name.
 fn nested_collision_renames(pool: &DexPool, map: &mut HashMap<String, String>) {
     // Ancestors before descendants: a parent's rename must be in the
-    // map when its children compute their display chain.
+    // map when its children compute their display chains.
     let mut names: Vec<&String> = pool.order.iter().collect();
     names.sort_by_key(|n| n.matches('$').count());
     let mut assigned: jdc_core::FxHashSet<String> = jdc_core::FxHashSet::default();
+    // Top-level package segments. A nested member type DISPLAYED as `a2`
+    // shadows package `a2` for every qualified `a2.x` reference in its
+    // file (member types outrank package names in class scope), so a
+    // renamed tail must not become a package shadow — round 47's failure
+    // mode at nested level: candidate `a2` (for j2/g$a) broke the SAME
+    // file's `extends a2.a` ("找不到符号 类 a" + a 9450-error Object
+    // cascade as every dependent of the corrupt head failed too).
+    let mut pkg_segments: jdc_core::FxHashSet<String> = jdc_core::FxHashSet::default();
+    for n in &pool.order {
+        if let Some((seg, _)) = n.split_once('/') {
+            pkg_segments.insert(seg.to_string());
+        }
+    }
+    // LOCAL-OK gate (round-59 Design B): a field-obscuring rename may
+    // only fire when every class referencing the candidate lives inside
+    // the root file's family, so the rename perturbs exactly ONE rendered
+    // file. Ungated (Design A) the rule netted reqable −1653 / lark −5221
+    // but weibo +36916: renames there flipped ambiguous type-vs-package
+    // resolutions across thousands of pre-existing conflict families and
+    // javac's error recovery turned "missing supertype, body suppressed"
+    // files into full Object cascades. Lazy (progressive-browse) pools
+    // skip the gate AND the rule — the multi-second image scan must not
+    // stall single-class queries; the full-decompile pipeline always
+    // materializes everything before installing renames.
+    let local_ok: jdc_core::FxHashSet<String> = if pool_majority_materialized(pool) {
+        refscan::local_ok(&pool.dexes, &field_clash_cands(pool, map))
+    } else {
+        jdc_core::FxHashSet::default()
+    };
     for name in names {
         if !name.contains('$') || map.contains_key(name) {
             continue;
@@ -953,7 +983,9 @@ fn nested_collision_renames(pool: &DexPool, map: &mut HashMap<String, String>) {
         if !clean_member_tail(rest) {
             continue;
         }
-        // Display simple names of every enclosing level, bottom-up.
+        // Display simple names of every enclosing level, bottom-up; `cur`
+        // ends at the ROOT (the top-level class whose file renders this
+        // nested type — the scope the renamed tail lives in).
         let mut chain: Vec<String> = Vec::new();
         let mut cur = parent.clone();
         loop {
@@ -965,15 +997,41 @@ fn nested_collision_renames(pool: &DexPool, map: &mut HashMap<String, String>) {
                 _ => break,
             }
         }
+        let root: &str = &cur;
         let disp_parent = map
             .get(&parent)
             .cloned()
             .unwrap_or_else(|| parent.clone());
         let tail = rest.rsplit('$').next().unwrap_or(rest);
         let orphan = rest.contains('$');
-        let clash = chain.iter().any(|c| c == tail);
+        // Field obscuring (JLS 6.4.2): a nested type whose simple name
+        // equals an enclosing-class field is OBSCURED by it in a
+        // `<Parent>.<tail>` qualified reference — `io/flutter/view/g$i`
+        // (a `static enum i`) renders `g.i.t`, but g also declares an
+        // instance field `i`, so javac resolves `g.i` to the field:
+        // "无法从静态上下文中引用非静态 变量 i" (975 of 1140 reqable
+        // static-context errors). The fix renames the NESTED TYPE (the
+        // registry carries every render path: shorten, inner_simple —
+        // whose bypass was the round-55 blowup, fixed in jdc-core —
+        // classdec declarations), gated to LOCAL-OK candidates by the
+        // refscan above. PoC: in-file rename of flutter g's `enum i`
+        // took the class from 2452 errors to 1.
+        let field_clash = local_ok.contains(name.as_str());
+        let clash = chain.iter().any(|c| c == tail) || field_clash;
         if !orphan && !clash {
             continue;
+        }
+        // The enclosing class's field names (sanitized like the renderer)
+        // — only needed once a rename actually fires, to keep the new
+        // tail from being obscured again. Computed lazily so progressive
+        // pools don't materialize parents for rules that don't rename.
+        let mut enc_fields: jdc_core::FxHashSet<String> = jdc_core::FxHashSet::default();
+        if field_clash {
+            if let Some(pc) = pool.get(&parent) {
+                for f in pc.static_fields.iter().chain(pc.instance_fields.iter()) {
+                    enc_fields.insert(crate::classdec::java_ident(&f.name).into_owned());
+                }
+            }
         }
         let mut k = 0u32;
         loop {
@@ -983,11 +1041,33 @@ fn nested_collision_renames(pool: &DexPool, map: &mut HashMap<String, String>) {
             } else {
                 format!("{tail}{k}")
             };
-            // The candidate must clear every ancestor display name,
-            // not just the immediate parent (javac checks the whole
-            // chain — see the shape list above).
-            if chain.contains(&cand_tail) {
+            // The candidate must clear every ancestor display name (javac
+            // checks the whole chain) AND every enclosing field name (else
+            // the renamed type is just obscured again). Sibling nested
+            // tails are covered by the pool.has_name check below.
+            if chain.contains(&cand_tail) || enc_fields.contains(&cand_tail) {
                 continue;
+            }
+            // Package shadow: the renamed tail becomes a member type of
+            // the root file's class, outranking any package of the same
+            // name for qualified refs in that file. Same-package top-level
+            // classes likewise outrank-then-break in-file simple refs.
+            // BOTH checks apply to field-clash renames only: for the
+            // orphan rule the k=1 candidate is the natural display name
+            // (`g0$$r` → `g0$r` renders identically — an invisible rename),
+            // and rejecting it forced weixin's whole `g0$$X` Runnable
+            // family to visible `X17` renames, breaking every lucky
+            // `g0.r`-style resolution corpus-wide (+2911 `变量 r` — the
+            // orphan rule is ungated by design, predating LOCAL-OK).
+            if field_clash {
+                if pkg_segments.contains(&cand_tail) {
+                    continue;
+                }
+                if let Some((root_pkg, _)) = root.rsplit_once('/') {
+                    if pool.has_name(&format!("{root_pkg}/{cand_tail}")) {
+                        continue;
+                    }
+                }
             }
             let cand = format!("{disp_parent}${cand_tail}");
             if pool.has_name(&cand) || assigned.contains(&cand) {
@@ -998,6 +1078,75 @@ fn nested_collision_renames(pool: &DexPool, map: &mut HashMap<String, String>) {
             break;
         }
     }
+}
+
+/// Field-obscuring rename candidates: nested member types whose simple
+/// name equals a field of the enclosing class, mapped to the top-level
+/// class whose file renders them (the LOCAL-OK family root). Mirrors the
+/// skip conditions of `nested_collision_renames` (same-name entries must
+/// agree, or the gate proves locality for a rename that never fires — or
+/// worse, skips one that does).
+fn field_clash_cands(pool: &DexPool, map: &HashMap<String, String>) -> HashMap<String, String> {
+    let mut out: HashMap<String, String> = HashMap::default();
+    for name in &pool.order {
+        if !name.contains('$') || map.contains_key(name) {
+            continue;
+        }
+        let Some(parent) = find_outer_name(pool, name) else {
+            continue;
+        };
+        let Some(rest) = name
+            .strip_prefix(parent.as_str())
+            .and_then(|t| t.strip_prefix('$'))
+        else {
+            continue;
+        };
+        if !clean_member_tail(rest) {
+            continue;
+        }
+        let tail = rest.rsplit('$').next().unwrap_or(rest);
+        let Some(pc) = pool.get(&parent) else {
+            continue;
+        };
+        let clash = pc
+            .static_fields
+            .iter()
+            .chain(pc.instance_fields.iter())
+            .any(|f| crate::classdec::java_ident(&f.name).as_ref() == tail);
+        if !clash {
+            continue;
+        }
+        let mut root = parent.clone();
+        loop {
+            match find_outer_name(pool, &root) {
+                Some(o) if o != root => root = o,
+                _ => break,
+            }
+        }
+        out.insert(name.clone(), root);
+    }
+    out
+}
+
+/// Whether the pool is (majority-)materialized: full-decompile pipelines
+/// call `materialize_all` before installing renames, progressive browse
+/// pools materialize a handful of classes on demand. The refscan gate
+/// must not run (or stall startup) in the progressive case.
+fn pool_majority_materialized(pool: &DexPool) -> bool {
+    let (mut mat, mut lazy) = (0usize, 0usize);
+    for e in pool.classes.values() {
+        match e {
+            ClassEntry::Eager(_) => mat += 1,
+            ClassEntry::Lazy { pc, .. } => {
+                if pc.get().is_some() {
+                    mat += 1;
+                } else {
+                    lazy += 1;
+                }
+            }
+        }
+    }
+    lazy == 0 || mat >= lazy
 }
 
 /// Compute and install the registry (call before worker threads spawn).
