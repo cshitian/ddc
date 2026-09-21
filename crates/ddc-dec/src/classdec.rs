@@ -623,7 +623,12 @@ fn emit_class_body(
         head.push_str(&java_ident(&simple));
     }
     if is_iface {
-        if !class.interfaces.is_empty() {
+        // A @interface cannot declare extends at all (JLS 9.6): the dex
+        // interface table lists java/lang/annotation/Annotation for
+        // every annotation type — rendering it produced "对于
+        // @interfaces, 不允许 'extends'" (weibo 1100).
+        let is_annot = a & ACC_ANNOTATION != 0;
+        if !class.interfaces.is_empty() && !is_annot {
             head.push_str(" extends ");
             head.push_str(&join_dotted(pool, &class.interfaces));
         }
@@ -735,6 +740,14 @@ fn emit_class_body(
             _ => {}
         }
     }
+    // NOTE: a same-signature bridge is already retired by the claim map
+    // above. An ERASURE-shaped bridge (SAM/variance: params are the
+    // Object-erased types of a sibling's) must NOT be skipped: with raw
+    // (non-generic) interface rendering the bridge is exactly what
+    // satisfies the interface — skipping it turned every Kotlin lambda
+    // class into "不是抽象的, 并且未覆盖…invoke(Object,Object)" (reqable
+    // +17), while the "对invoke的引用不明确" it appeared to fix was a
+    // missing-kotlin-classpath cascade, not a ddc bug.
     let mut emitted_any = !class.static_fields.is_empty() || !class.instance_fields.is_empty();
     for (i, m) in methods.iter().enumerate() {
         if &*m.name == "<clinit>" {
@@ -1060,6 +1073,18 @@ fn emit_method(
 
     // Body (needed for parameter names even for abstract methods).
     let mut body = decompile_method(pool, class, m).ok().flatten();
+    // An interface method WITH a body is a `default` method (JLS 9.4.3)
+    // unless static/private — dex carries no `default` flag, so the
+    // plain form rendered an abstract signature with a body and javac
+    // rejected every one ("接口抽象方法不能带有主体", weixin 1138). A
+    // default REQUIRES a body: only push it once the body is confirmed
+    // (a failed decompile renders a body-less declaration).
+    if class.is_interface()
+        && a & (ACC_STATIC | ACC_ABSTRACT | ACC_NATIVE | ACC_PRIVATE | ACC_ANNOTATION) == 0
+        && body.is_some()
+    {
+        sig.insert_str(0, "default ");
+    }
     let param_names: Vec<String> = body
         .as_ref()
         .map(|b| {
