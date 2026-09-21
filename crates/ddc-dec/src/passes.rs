@@ -3168,12 +3168,647 @@ pub fn fix_ctor_super_first(body: &mut Stmt) {
     }
 }
 
-fn is_bare_ctor_call(s: &Stmt) -> bool {
+/// A true constructor DELEGATION statement: `super(..)` (owner None) or
+/// `this(..)` (owner This). An un-folded `new X; <init>` (lost
+/// allocation — the ctor-fold-bug family) arrives as a `<init>` Method
+/// with a NON-this owner and prints as `new X(..)`: it is not a
+/// delegation and must neither satisfy nor anchor the super-first fixes
+/// (v7.a$a2: a dead `new f(0,..)` init at position 0 made both hoists
+/// believe the delegation was already first, leaving the real `super`
+/// last — "对super的调用必须是构造器中的第一个语句").
+fn is_delegation_expr(e: &Expr) -> bool {
     matches!(
-        s,
-        Stmt::ExprStmt(Expr::Method { name, .. }) if &**name == "<init>"
+        e,
+        Expr::Method { name, is_special: true, owner, .. }
+            if &**name == "<init>"
+                && (owner.is_none() || matches!(owner.as_deref(), Some(Expr::This)))
     )
 }
+
+fn is_bare_ctor_call(s: &Stmt) -> bool {
+    matches!(s, Stmt::ExprStmt(e) if is_delegation_expr(e))
+}
+
+/// Ctors whose delegation is buried in control flow or behind arg
+/// computations — the "对super的调用必须是构造器中的第一个语句" family
+/// that plain hoisting cannot reach (weixin 264 / weibo 116 / reqable 71
+/// / lark 62 after round 60): R8/Kotlin compute super-args conditionally
+/// and dex legally invokes super mid-branch.
+///
+/// Shape B (branch merge): `prelude; if (c) {d1; super(A1); t1} else
+/// {d2; super(A2); t2}; post` → one leading `super(..)` where each
+/// differing arg becomes `c ? a1i : a2i`; branch remainders stay an
+/// if/else AFTER the call; prelude statements move after it (nothing
+/// may precede super in Java; bytecode pre-super work is local-only by
+/// construction — dex forbids instance-field reads before the delegate).
+///
+/// Shape A (linear): `defs; super(A); rest` where `A` references the
+/// def locals — plain hoisting (fix_ctor_super_first case 1) would move
+/// the call above its argument definitions (forward refs). Inline the
+/// referenced defs into the args first, drop the consumed defs, hoist.
+/// Runs BEFORE fix_ctor_super_first and only fires when args reference
+/// preceding locals, leaving the battle-tested plain hoist untouched
+/// otherwise.
+///
+/// Inlining duplicates the def per use site, so a side-effecting def is
+/// inlined only when its var's use count is provably preserved: a
+/// single use in a merged arg (1 copy), or a single use in the
+/// condition with ≤1 differing arg (the cond then appears in the `if`
+/// plus one ternary — 2 copies of e.g. one Kotlin getter call, which
+/// the original bytecode typically made twice anyway: `p.u() == null ?
+/// .. : p.u().i()`). Pure defs inline freely. Every other shape aborts:
+/// broken-but-faithful stays the status quo, wrong evaluation counts
+/// would be worse.
+pub fn fix_ctor_conditional_super(body: &mut Stmt) {
+    let Stmt::Block(stmts) = body else { return };
+    if stmts.is_empty() || is_bare_ctor_call(stmts.first().unwrap()) {
+        return;
+    }
+    if try_linear_super_inline(stmts) {
+        return;
+    }
+    try_merge_branched_super(stmts);
+}
+
+/// The `Method` expr of a bare ctor-delegation statement.
+fn ctor_call_expr(s: &Stmt) -> Option<&Expr> {
+    match s {
+        Stmt::ExprStmt(e) if is_delegation_expr(e) => Some(e),
+        _ => None,
+    }
+}
+
+/// Same delegation kind ignoring args (super vs this, same target).
+fn same_ctor_kind(a: &Expr, b: &Expr) -> bool {
+    match (a, b) {
+        (
+            Expr::Method { cls: c1, is_super: s1, owner: o1, .. },
+            Expr::Method { cls: c2, is_super: s2, owner: o2, .. },
+        ) => c1 == c2 && s1 == s2 && o1 == o2,
+        _ => false,
+    }
+}
+
+/// Statements of a branch body, recursively flattening pure Blocks —
+/// the fix runs BEFORE cleanup, so structurer-emitted nesting is still
+/// in place. Any non-Block statement (If/Try/...) stays an item and
+/// fails the def/call classification, which is the intended abort.
+fn flat_list(s: &Stmt) -> Vec<&Stmt> {
+    fn rec<'a>(s: &'a Stmt, out: &mut Vec<&'a Stmt>) {
+        match s {
+            Stmt::Block(v) => {
+                for x in v {
+                    rec(x, out);
+                }
+            }
+            other => out.push(other),
+        }
+    }
+    let mut out = Vec::new();
+    rec(s, &mut out);
+    out
+}
+
+/// Blank the OWNER of un-folded `<init>` calls (lost allocation): the
+/// printer renders them as `new X(..)` and never reads the owner, so its
+/// register reference is not a real use (v7.a$a2: the dead
+/// `new f(0,..)`'s owner was v1's register, inflating v1's use count
+/// and blocking the inline-hoist).
+fn strip_lost_alloc_owners(e: &mut Expr) {
+    deep_rewrite(e, &mut |x| {
+        if let Expr::Method { name, is_special: true, owner: Some(o), .. } = x {
+            if &**name == "<init>" && !matches!(**o, Expr::This) {
+                **o = Expr::Const(jdc_core::ir::expr::ConstVal::Int(0));
+            }
+        }
+    });
+}
+
+/// Per-var `Local` occurrence counts over an expression (single pass;
+/// lost-alloc `<init>` owners excluded — see strip_lost_alloc_owners).
+fn count_locals_expr(e: &Expr) -> std::collections::HashMap<u32, usize> {
+    let mut m = std::collections::HashMap::new();
+    let mut probe = e.clone();
+    strip_lost_alloc_owners(&mut probe);
+    deep_rewrite(&mut probe, &mut |x| {
+        if let Expr::Local { var: v, .. } = x {
+            *m.entry(*v).or_insert(0) += 1;
+        }
+    });
+    m
+}
+
+fn count_locals_stmts(ss: &[Stmt]) -> std::collections::HashMap<u32, usize> {
+    let mut m = std::collections::HashMap::new();
+    for s in ss {
+        let mut c = s.clone();
+        walk_stmt_exprs(&mut c, &mut |e| {
+            strip_lost_alloc_owners(e);
+            deep_rewrite(e, &mut |x| {
+                if let Expr::Local { var: v, .. } = x {
+                    *m.entry(*v).or_insert(0) += 1;
+                }
+            });
+        });
+    }
+    m
+}
+
+fn cnt(m: &std::collections::HashMap<u32, usize>, v: u32) -> usize {
+    m.get(&v).copied().unwrap_or(0)
+}
+
+/// Substitute map-referenced locals, recursively expanding def chains
+/// (depth-capped). Returns None when a referenced var has no def or the
+/// chain is too deep.
+fn inline_locals(
+    e: &Expr,
+    map: &std::collections::HashMap<u32, &Expr>,
+    depth: u32,
+) -> Option<Expr> {
+    if depth > 4 {
+        return None;
+    }
+    let mut out = e.clone();
+    let mut fail = false;
+    deep_rewrite(&mut out, &mut |x| {
+        if let Expr::Local { var, .. } = x {
+            if let Some(def) = map.get(var) {
+                match inline_locals(def, map, depth + 1) {
+                    Some(r) => *x = r,
+                    None => fail = true,
+                }
+            }
+        }
+    });
+    if fail {
+        None
+    } else {
+        Some(out)
+    }
+}
+
+/// A leading statement that defines a local: (var, init expr).
+fn def_of(s: &Stmt) -> Option<(u32, &Expr)> {
+    match s {
+        Stmt::LocalDef { var, init: Some(e), .. } => Some((*var, e)),
+        Stmt::ExprStmt(Expr::Assign { target, value, op, .. })
+            if matches!(op, jdc_core::ir::expr::AssignOp::Plain) =>
+        {
+            match &**target {
+                Expr::Local { var, .. } => Some((*var, value)),
+                _ => None,
+            }
+        }
+        _ => None,
+    }
+}
+
+/// Shape A: straight-line prefix, delegation references prefix locals.
+fn try_linear_super_inline(stmts: &mut Vec<Stmt>) -> bool {
+    let Some(pos) = stmts.iter().position(is_bare_ctor_call) else {
+        return false;
+    };
+    if pos == 0 {
+        return false; // already first — nothing to do
+    }
+    // The prefix must be straight-line.
+    if !stmts[..pos]
+        .iter()
+        .all(|s| matches!(s, Stmt::LocalDef { .. } | Stmt::ExprStmt(_)))
+    {
+        return false;
+    }
+    let Some(call) = ctor_call_expr(&stmts[pos]) else {
+        return false;
+    };
+    let Expr::Method { args, .. } = call else {
+        return false;
+    };
+    // Defs reachable from the args (last definition wins, bytecode order).
+    let mut map: std::collections::HashMap<u32, &Expr> =
+        std::collections::HashMap::new();
+    let mut def_idx: std::collections::HashMap<u32, usize> =
+        std::collections::HashMap::new();
+    for (i, s) in stmts[..pos].iter().enumerate() {
+        if let Some((v, e)) = def_of(s) {
+            map.insert(v, e);
+            def_idx.insert(v, i);
+        }
+    }
+    // Which arg locals need inlining?
+    let mut needed: Vec<u32> = Vec::new();
+    for a in args {
+        let mut probe = a.clone();
+        strip_lost_alloc_owners(&mut probe);
+        deep_rewrite(&mut probe, &mut |x| {
+            if let Expr::Local { var, .. } = x {
+                if map.contains_key(var) && !needed.contains(var) {
+                    needed.push(*var);
+                }
+            }
+        });
+    }
+    if needed.is_empty() {
+        return false; // plain hoist handles it
+    }
+    // Guard: side-effecting defs inline only at a provably preserved
+    // call count (exactly one use, the arg site).
+    let mut consumed: Vec<usize> = Vec::new();
+    let use_counts = count_locals_stmts(stmts);
+    for &v in &needed {
+        let def = map[&v];
+        let uses = cnt(&use_counts, v);
+        if jdc_core::ir::build::has_side_effects(def) && uses != 1 {
+            return false;
+        }
+        if uses == 1 {
+            consumed.push(def_idx[&v]);
+        }
+    }
+    // Build the inlined args.
+    let mut new_args: Vec<Expr> = Vec::with_capacity(args.len());
+    for a in args {
+        match inline_locals(a, &map, 0) {
+            Some(r) => new_args.push(r),
+            None => return false,
+        }
+    }
+    // Rebuild: super first (with inlined args), the unconsumed prefix
+    // statements keep their order after it, then the original rest.
+    let mut call_stmt = stmts.remove(pos);
+    if let Stmt::ExprStmt(Expr::Method { args: slot, .. }) = &mut call_stmt {
+        *slot = new_args;
+    }
+    let mut rest: Vec<Stmt> = Vec::with_capacity(stmts.len() + 1);
+    rest.push(call_stmt);
+    for (i, s) in stmts.drain(..).enumerate() {
+        // Indices shift after `remove(pos)`: consumed holds pre-removal
+        // indices; pos itself is already gone from `stmts`.
+        let orig = if i >= pos { i + 1 } else { i };
+        if !consumed.contains(&orig) {
+            rest.push(s);
+        }
+    }
+    *stmts = rest;
+    true
+}
+
+/// Shape B: if/else branches each ending in the same-kind delegation.
+fn try_merge_branched_super(stmts: &mut Vec<Stmt>) -> bool {
+    // Candidate If positions — the prelude before the chosen If must be
+    // straight-line; try each If until one merges (nested/multi-if
+    // ctors exist but the first matching one is the delegation site).
+    /// Does this branch contain a ctor delegation anywhere (cheap,
+    /// allocation-free gate — most ctor ifs are field null-checks and
+    /// must not pay the merge machinery).
+    fn contains_delegation(s: &Stmt) -> bool {
+        match s {
+            Stmt::ExprStmt(e) => is_delegation_expr(e),
+            Stmt::Block(v) => v.iter().any(contains_delegation),
+            _ => false,
+        }
+    }
+    let if_positions: Vec<usize> = stmts
+        .iter()
+        .enumerate()
+        .filter(|(_, s)| matches!(s, Stmt::If { .. }))
+        .map(|(i, _)| i)
+        .collect();
+    for if_pos in if_positions {
+        let gate = match &stmts[if_pos] {
+            Stmt::If { then_stmt, else_stmt: Some(e), .. } => {
+                contains_delegation(then_stmt) && contains_delegation(e)
+            }
+            _ => false,
+        };
+        if gate && merge_at(stmts, if_pos) {
+            return true;
+        }
+    }
+    false
+}
+
+
+
+fn merge_at(stmts: &mut Vec<Stmt>, if_pos: usize) -> bool {
+    if !stmts[..if_pos]
+        .iter()
+        .all(|s| matches!(s, Stmt::LocalDef { .. } | Stmt::ExprStmt(_)))
+    {
+        return false;
+    }
+    let (cond, then_v, else_v) = match &stmts[if_pos] {
+        Stmt::If { cond, then_stmt, else_stmt: Some(e) } => {
+            (cond.clone(), then_stmt.as_ref().clone(), e.as_ref().clone())
+        }
+        _ => return false,
+    };
+    let then_list = flat_list(&then_v);
+    let else_list = flat_list(&else_v);
+    // Each branch: [defs.., ctor-call, tail..]; exactly one call, and
+    // only local defs may precede it (side-effect statements before the
+    // delegation cannot move past it unconditionally).
+    fn split_branch<'a>(list: &[&'a Stmt]) -> Option<(usize, Vec<(u32, &'a Expr)>)> {
+        let mut call_at = None;
+        let mut defs: Vec<(u32, &Expr)> = Vec::new();
+        for (i, s) in list.iter().enumerate() {
+            if ctor_call_expr(s).is_some() {
+                if call_at.is_some() {
+                    return None; // two delegations in one branch
+                }
+                call_at = Some(i);
+                continue;
+            }
+            if call_at.is_none() {
+                match def_of(s) {
+                    Some(d) => defs.push(d),
+                    None => return None, // side effect / decl pre-super
+                }
+            }
+        }
+        call_at.map(|c| (c, defs))
+    }
+    let Some((t_call_i, t_defs)) = split_branch(&then_list) else {
+        return false;
+    };
+    let Some((e_call_i, e_defs)) = split_branch(&else_list) else {
+        return false;
+    };
+    let t_call = ctor_call_expr(then_list[t_call_i]).unwrap();
+    let e_call = ctor_call_expr(else_list[e_call_i]).unwrap();
+    if !same_ctor_kind(t_call, e_call) {
+        return false;
+    }
+    let (Expr::Method { args: a1, .. }, Expr::Method { args: a2, .. }) = (t_call, e_call) else {
+        return false;
+    };
+    if a1.len() != a2.len() {
+        return false;
+    }
+    // Prelude def map (for cond + shared args).
+    let mut pmap: std::collections::HashMap<u32, &Expr> =
+        std::collections::HashMap::new();
+    let mut pidx: std::collections::HashMap<u32, usize> =
+        std::collections::HashMap::new();
+    for (i, s) in stmts[..if_pos].iter().enumerate() {
+        if let Some((v, e)) = def_of(s) {
+            pmap.insert(v, e);
+            pidx.insert(v, i);
+        }
+    }
+    let mut tmap = pmap.clone();
+    for (v, e) in &t_defs {
+        tmap.insert(*v, e);
+    }
+    let mut emap = pmap.clone();
+    for (v, e) in &e_defs {
+        emap.insert(*v, e);
+    }
+    // Inline the condition and both arg sides.
+    let Some(cond_i) = inline_locals(&cond, &pmap, 0) else {
+        return false;
+    };
+    let mut then_args: Vec<Expr> = Vec::with_capacity(a1.len());
+    for a in a1 {
+        match inline_locals(a, &tmap, 0) {
+            Some(r) => then_args.push(r),
+            None => return false,
+        }
+    }
+    let mut else_args: Vec<Expr> = Vec::with_capacity(a2.len());
+    for a in a2 {
+        match inline_locals(a, &emap, 0) {
+            Some(r) => else_args.push(r),
+            None => return false,
+        }
+    }
+    // Per-position merge; count differing args (cond copies = 1 + diff).
+    let mut merged: Vec<Expr> = Vec::with_capacity(a1.len());
+    let mut differ = 0usize;
+    for (t, e) in then_args.iter().zip(else_args.iter()) {
+        if t == e {
+            merged.push(t.clone());
+        } else {
+            differ += 1;
+            merged.push(Expr::Cond {
+                c: Box::new(cond_i.clone()),
+                t: Box::new(t.clone()),
+                f: Box::new(e.clone()),
+            });
+        }
+    }
+    // Side-effect preservation guards. For every inlined var with a
+    // side-effecting def, the number of EMITTED copies of that def must
+    // match the original evaluation count (1 for a prelude def; 1-per-
+    // taken-branch for a branch-local def, which the ternary sides
+    // preserve naturally). Emitted copies per var:
+    //   cond-inlined:  (1 + differ)   — the `if` plus one per ternary
+    //   arg position j: identical merge → count in one side; differing
+    //                   → counts from BOTH sides (ternary arms).
+    // Any residual use (tails/post/other defs) means the def statement
+    // must ALSO survive → extra evaluation → reject.
+    let vars_in = |e: &Expr| -> Vec<u32> {
+        let mut vs = Vec::new();
+        let mut probe = e.clone();
+        strip_lost_alloc_owners(&mut probe);
+        deep_rewrite(&mut probe, &mut |x| {
+            if let Expr::Local { var, .. } = x {
+                if !vs.contains(var) {
+                    vs.push(*var);
+                }
+            }
+        });
+        vs
+    };
+    let tail_then = &then_list[t_call_i + 1..];
+    let tail_else = &else_list[e_call_i + 1..];
+    let post = &stmts[if_pos + 1..];
+    let mut inlined: Vec<u32> = vars_in(&cond);
+    for a in a1.iter().chain(a2.iter()) {
+        for v in vars_in(a) {
+            if !inlined.contains(&v) {
+                inlined.push(v);
+            }
+        }
+    }
+    inlined.retain(|v| pmap.contains_key(v) || tmap.contains_key(v) || emap.contains_key(v));
+    // A var defined in the prelude AND redefined inside a branch has
+    // ambiguous provenance for the copy math — reject.
+    for &v in &inlined {
+        if pmap.contains_key(&v)
+            && (t_defs.iter().any(|(d, _)| *d == v) || e_defs.iter().any(|(d, _)| *d == v))
+        {
+            return false;
+        }
+    }
+    let tail_then_v: Vec<Stmt> = tail_then.iter().map(|s| (*s).clone()).collect();
+    let tail_else_v: Vec<Stmt> = tail_else.iter().map(|s| (*s).clone()).collect();
+    // Single-pass counts, and only when something actually inlines
+    // (all-const/param args skip the whole guard machinery).
+    let (cond_counts, a1_counts, a2_counts, tail1_counts, tail2_counts, post_counts, def_counts): (
+        std::collections::HashMap<u32, usize>,
+        Vec<std::collections::HashMap<u32, usize>>,
+        Vec<std::collections::HashMap<u32, usize>>,
+        std::collections::HashMap<u32, usize>,
+        std::collections::HashMap<u32, usize>,
+        std::collections::HashMap<u32, usize>,
+        Vec<(u32, std::collections::HashMap<u32, usize>)>,
+    ) = if inlined.is_empty() {
+        Default::default()
+    } else {
+        (
+            count_locals_expr(&cond),
+            a1.iter().map(count_locals_expr).collect(),
+            a2.iter().map(count_locals_expr).collect(),
+            count_locals_stmts(&tail_then_v),
+            count_locals_stmts(&tail_else_v),
+            count_locals_stmts(post),
+            t_defs
+                .iter()
+                .map(|(v, e)| (*v, *e))
+                .chain(e_defs.iter().map(|(v, e)| (*v, *e)))
+                .chain(pmap.iter().map(|(k, v)| (*k, *v)))
+                .map(|(v, e)| (v, count_locals_expr(e)))
+                .collect(),
+        )
+    };
+    for &v in &inlined {
+        let in_t = t_defs.iter().any(|(d, _)| *d == v);
+        let in_e = e_defs.iter().any(|(d, _)| *d == v);
+        // Side-effect status: the strictest def of the var wins (a
+        // redefined pair may have a pure side and an impure side).
+        let effectful = [in_t.then(|| tmap[&v]), in_e.then(|| emap[&v]), pmap.get(&v).copied()]
+            .into_iter()
+            .flatten()
+            .any(|d| jdc_core::ir::build::has_side_effects(d));
+        if !effectful {
+            continue;
+        }
+        let u_cond = cnt(&cond_counts, v);
+        let u_post = cnt(&post_counts, v);
+        let u_t1 = cnt(&tail1_counts, v);
+        let u_t2 = cnt(&tail2_counts, v);
+        // Uses inside OTHER inlined defs (chained duplication).
+        let mut u_odef = 0usize;
+        for (dv, dc) in &def_counts {
+            if *dv != v && inlined.contains(dv) {
+                u_odef += cnt(dc, v);
+            }
+        }
+        // Per-position emitted copies from args.
+        let mut emit = u_cond * (1 + differ);
+        let mut uses_args = 0usize;
+        for j in 0..a1.len() {
+            let c1 = cnt(&a1_counts[j], v);
+            let c2 = cnt(&a2_counts[j], v);
+            uses_args += c1 + c2;
+            emit += if then_args[j] == else_args[j] { c1 } else { c1 + c2 };
+        }
+        let ok = if in_t || in_e {
+            // Branch-local def(s): emitted copies live in their own
+            // ternary arm (or the identically-merged arg), each gated by
+            // the cond — evaluated at most once per original execution.
+            // A one-sided def must not be referenced from the other side.
+            u_cond == 0
+                && u_post == 0
+                && u_t1 == 0
+                && u_t2 == 0
+                && u_odef == 0
+                && a1_counts.iter().map(|c| cnt(c, v)).sum::<usize>() <= 1
+                && a2_counts.iter().map(|c| cnt(c, v)).sum::<usize>() <= 1
+                && emit <= 2
+                && (in_t || a1_counts.iter().all(|c| cnt(c, v) == 0))
+                && (in_e || a2_counts.iter().all(|c| cnt(c, v) == 0))
+        } else {
+            // prelude def: originally evaluated exactly once.
+            u_post == 0 && u_t1 == 0 && u_t2 == 0 && u_odef == 0
+                && ((u_cond == 1 && uses_args == 0 && emit <= 2)
+                    || (u_cond == 0 && emit <= 1))
+        };
+        if !ok {
+            return false;
+        }
+    }
+    // Build the output. The merged call reuses the then-branch node.
+    let mut call_stmt = then_list[t_call_i].clone();
+    if let Stmt::ExprStmt(Expr::Method { args: slot, .. }) = &mut call_stmt {
+        *slot = merged;
+    }
+    // Residual references to a var in the transformed remainder (tails
+    // stay branches; post follows the if): a def may be consumed only
+    // when nothing still reads the local.
+    let residual = |v: u32| -> usize {
+        cnt(&tail1_counts, v) + cnt(&tail2_counts, v) + cnt(&post_counts, v)
+    };
+    // Prelude statements: drop defs whose var was inlined AND has no
+    // residual readers (their evaluation now lives in the call); keep
+    // the rest (moved after super, before the if).
+    let mut kept_prelude: Vec<Stmt> = Vec::new();
+    for (i, s) in stmts[..if_pos].iter().enumerate() {
+        if let Some((v, _)) = def_of(s) {
+            if inlined.contains(&v) && pidx.get(&v) == Some(&i) && residual(v) == 0 {
+                continue;
+            }
+        }
+        kept_prelude.push(s.clone());
+    }
+    // Branch remainders: branch-local defs that were NOT inlined stay
+    // (they feed the tail), then the original tail.
+    let mut then_keep: Vec<Stmt> = Vec::new();
+    for (i, s) in then_list.iter().enumerate() {
+        if i == t_call_i {
+            continue;
+        }
+        if i < t_call_i {
+            if let Some((v, _)) = def_of(s) {
+                if inlined.contains(&v) && residual(v) == 0 {
+                    continue;
+                }
+            }
+        }
+        then_keep.push((*s).clone());
+    }
+    let mut else_keep: Vec<Stmt> = Vec::new();
+    for (i, s) in else_list.iter().enumerate() {
+        if i == e_call_i {
+            continue;
+        }
+        if i < e_call_i {
+            if let Some((v, _)) = def_of(s) {
+                if inlined.contains(&v) && residual(v) == 0 {
+                    continue;
+                }
+            }
+        }
+        else_keep.push((*s).clone());
+    }
+    let new_if = Stmt::If {
+        cond: cond_i,
+        then_stmt: Box::new(Stmt::Block(then_keep)),
+        else_stmt: Some(Box::new(Stmt::Block(else_keep))),
+    };
+    let mut out: Vec<Stmt> = Vec::with_capacity(stmts.len());
+    out.push(call_stmt);
+    out.extend(kept_prelude);
+    // Only emit the if when a branch keeps statements; an empty double
+    // branch means everything merged into the call.
+    let branch_empty = |s: &Stmt| matches!(s, Stmt::Block(v) if v.is_empty());
+    let (then_empty, else_empty) = match &new_if {
+        Stmt::If { then_stmt, else_stmt, .. } => (
+            branch_empty(then_stmt),
+            else_stmt.as_ref().map(|e| branch_empty(e)).unwrap_or(true),
+        ),
+        _ => (true, true),
+    };
+    if !(then_empty && else_empty) {
+        out.push(new_if);
+    }
+    out.extend(stmts[if_pos + 1..].to_vec());
+    *stmts = out;
+    true
+}
+
 
 /// An enum constructor's bytecode opens with `invoke-direct super.<init>
 /// (name, ordinal, ..)` — the implicit `Enum(String, int)` super that Java
