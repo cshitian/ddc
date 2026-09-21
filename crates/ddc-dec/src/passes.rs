@@ -3669,6 +3669,81 @@ pub fn fix_ctor_delegation_arg_defs(body: &mut Stmt) {
     }
 }
 
+/// Dangling `break L<id>`: a Goto whose paired Label/Labeled-wrap was
+/// lost to structure degradation prints `break L<id>;` against an
+/// undeclared label ("未定义的标签", weibo 371/lark 85/weixin 535).
+/// Inside a loop the goto-to-loop-exit shape degrades to a plain
+/// `break` — compilable, and the dominant original semantic. A Goto
+/// whose Label DOES exist in the method stays (the pair is valid);
+/// a Goto outside any loop stays as-is (no honest source form).
+pub fn resolve_dangling_gotos(s: &mut Stmt) {
+    let mut labels: jdc_core::FxHashSet<u32> = jdc_core::FxHashSet::default();
+    let mut probe = s.clone();
+    walk_all(&mut probe, &mut |st| {
+        if let Stmt::Label(id) = st {
+            labels.insert(*id);
+        }
+    });
+    resolve_gotos_walk(s, &labels, 0);
+}
+
+fn resolve_gotos_walk(s: &mut Stmt, labels: &jdc_core::FxHashSet<u32>, loop_depth: u32) {
+    let depth = match s {
+        Stmt::While { .. } | Stmt::DoWhile { .. } | Stmt::For { .. } | Stmt::ForEach { .. } => {
+            loop_depth + 1
+        }
+        _ => loop_depth,
+    };
+    match s {
+        Stmt::Goto(id) => {
+            if !labels.contains(id) && depth > 0 {
+                *s = Stmt::Break(None);
+            }
+        }
+        Stmt::Block(v) => {
+            for x in v.iter_mut() {
+                resolve_gotos_walk(x, labels, depth);
+            }
+        }
+        Stmt::If { then_stmt, else_stmt, .. } => {
+            resolve_gotos_walk(then_stmt, labels, depth);
+            if let Some(e) = else_stmt {
+                resolve_gotos_walk(e, labels, depth);
+            }
+        }
+        Stmt::While { body, .. }
+        | Stmt::DoWhile { body, .. }
+        | Stmt::For { body, .. }
+        | Stmt::ForEach { body, .. }
+        | Stmt::Labeled { body, .. }
+        | Stmt::Synchronized { body, .. } => resolve_gotos_walk(body, labels, depth),
+        Stmt::Try {
+            body,
+            catches,
+            finally,
+        } => {
+            resolve_gotos_walk(body, labels, depth);
+            for c in catches.iter_mut() {
+                resolve_gotos_walk(&mut c.body, labels, depth);
+            }
+            if let Some(f) = finally {
+                resolve_gotos_walk(f, labels, depth);
+            }
+        }
+        Stmt::Switch { cases, default, .. } => {
+            for c in cases.iter_mut() {
+                for x in c.body.iter_mut() {
+                    resolve_gotos_walk(x, labels, depth);
+                }
+            }
+            if let Some(d) = default {
+                resolve_gotos_walk(d, labels, depth);
+            }
+        }
+        _ => {}
+    }
+}
+
 /// READS of `v` across the statements (assignment targets excluded).
 fn stmts_read_var(stmts: &[Stmt], v: u32) -> usize {
     let mut n = 0usize;

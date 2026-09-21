@@ -586,6 +586,7 @@ pub fn decompile_method(
         passes::cleanup(&mut body);
         passes::invert_empty_thens(&mut body);
         passes::fold_short_circuits(&mut body);
+        passes::resolve_dangling_gotos(&mut body);
         if !errors.is_empty() {
             passes::prepend_comment(
                 &mut body,
@@ -787,6 +788,7 @@ pub fn decompile_method(
     // after cleanup merges singleton blocks.
     passes::invert_empty_thens(&mut body);
     passes::fold_short_circuits(&mut body);
+    passes::resolve_dangling_gotos(&mut body);
 
     if !errors.is_empty() {
         passes::prepend_comment(
