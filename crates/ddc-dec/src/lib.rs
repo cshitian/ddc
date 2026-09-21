@@ -219,6 +219,16 @@ pub struct DexPool {
     children: std::sync::OnceLock<HashMap<String, Vec<String>>>,
     /// Per-image hot-reference interning (parallel to `dexes`).
     ref_caches: Vec<DexRefCache>,
+    /// Synthetic-static accessor code snapshots keyed by (dex_idx,
+    /// code_off). `inline_accessors` reads accessor bodies ACROSS images
+    /// during worker runs; image retirement can release those bytes
+    /// mid-run, making the inline decision — and with it var numbering
+    /// downstream — dependent on worker completion interleaving
+    /// (observed: reqable enum-constant args flipping `var0`/`var1`
+    /// between identical runs; DDC_NORETIRE=1 stable). The full-decompile
+    /// driver fills this BEFORE `arm_retirement`; progressive/lazy pools
+    /// never retire and fall through to live reads.
+    accessor_code: std::sync::OnceLock<HashMap<(usize, u32), std::sync::Arc<[u8]>>>,
 }
 
 /// Lazily-filled, thread-shared reference interning for one image.
@@ -258,6 +268,7 @@ impl DexPool {
             outers: std::sync::OnceLock::new(),
             children: std::sync::OnceLock::new(),
             ref_caches: Vec::new(),
+            accessor_code: std::sync::OnceLock::new(),
         }
     }
 
@@ -768,6 +779,75 @@ fn clean_member_tail(rest: &str) -> bool {
 impl DexPool {
     /// Arm image retirement (full-decompile driver only): count one
     /// pending class per image by pool ownership.
+    /// Snapshot every synthetic-static accessor body (the exact predicate
+    /// `inline_accessors` uses) as RAW code_item bytes, so cross-image
+    /// accessor reads during worker runs survive image retirement.
+    /// Call AFTER materialization and BEFORE `arm_retirement`; idempotent
+    /// (first fill wins). Raw memcpy, no decode — accessors are numerous
+    /// (weixin ~100k) but only a fraction are ever inlined, so decoding
+    /// stays lazy at the use site. The slice bound covers the fixed
+    /// header + insns + try items with generous handler slack (accessor
+    /// tries are vanishingly rare; the snapshot is a deterministic
+    /// function of the image either way).
+    pub fn snapshot_accessor_code(&self) {
+        let mut snap: HashMap<(usize, u32), std::sync::Arc<[u8]>> = HashMap::default();
+        let mut bytes_total = 0usize;
+        for name in &self.order {
+            let Some(pc) = self.get_if_materialized(name) else {
+                continue;
+            };
+            for m in pc.direct_methods.iter().chain(pc.virtual_methods.iter()) {
+                if m.code_off == 0
+                    || !m.is_static()
+                    || m.access & crate::access::ACC_SYNTHETIC == 0
+                {
+                    continue;
+                }
+                if snap.contains_key(&(m.dex_idx, m.code_off)) {
+                    continue;
+                }
+                let Some(dex) = self.dex(m.dex_idx) else {
+                    continue;
+                };
+                let raw = dex.raw();
+                let off = m.code_off as usize;
+                if off + 16 > raw.len() {
+                    continue;
+                }
+                let u2 = |o: usize| u16::from_le_bytes([raw[o], raw[o + 1]]) as usize;
+                let u4 = |o: usize| {
+                    u32::from_le_bytes([raw[o], raw[o + 1], raw[o + 2], raw[o + 3]]) as usize
+                };
+                let tries = u2(off + 6);
+                let insns = u4(off + 12);
+                let mut end = off + 16 + 2 * insns;
+                if tries > 0 {
+                    // pad to 4-align + try_item[tries] + handler blobs
+                    // (uleb-coded; slack covers realistic accessor shapes).
+                    end = end.next_multiple_of(4) + 8 * tries + 256 + 64 * tries;
+                }
+                let end = end.min(raw.len());
+                let slice: std::sync::Arc<[u8]> = raw[off..end].into();
+                bytes_total += slice.len();
+                snap.insert((m.dex_idx, m.code_off), slice);
+            }
+        }
+        if std::env::var("DDC_WALL").is_ok() {
+            eprintln!(
+                "[wall] accessor snapshot: {} entries, {} KB",
+                snap.len(),
+                bytes_total / 1024
+            );
+        }
+        let _ = self.accessor_code.set(snap);
+    }
+
+    /// Snapshotted accessor code_item bytes, when the snapshot was taken.
+    /// Parse with `CodeItem::parse(&bytes, 0)`.
+    pub fn accessor_code(&self, dex_idx: usize, code_off: u32) -> Option<std::sync::Arc<[u8]>> {
+        self.accessor_code.get()?.get(&(dex_idx, code_off)).cloned()
+    }
+
     pub fn arm_retirement(&self) {
         self.retire_armed
             .store(true, std::sync::atomic::Ordering::Release);

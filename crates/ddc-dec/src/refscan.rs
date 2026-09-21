@@ -167,7 +167,7 @@ fn scan_image(
     for idx in 0..dex.method_count() {
         let m = dex.method(idx as u32);
         let mut hits: Vec<u32> = Vec::new();
-        let mut push = |s: u32, hits: &mut Vec<u32>| {
+        let push = |s: u32, hits: &mut Vec<u32>| {
             if s != NONE && !hits.contains(&s) {
                 hits.push(s);
             }
@@ -205,7 +205,7 @@ fn scan_image(
     };
 
     let raw = dex.raw();
-    let mut record = |slot: u32, referrer: &str, dead: &mut Vec<bool>| {
+    let record = |slot: u32, referrer: &str, dead: &mut Vec<bool>| {
         if slot == NONE || dead[slot as usize] {
             return;
         }

@@ -79,31 +79,41 @@ impl CodeItem {
             });
         }
 
-        // encoded_catch_handler_list: uleb size, then handlers back to back.
-        let list_off = c.pos;
-        let n_handlers = c.read_uleb128()? as usize;
-        let uleb_len = c.pos - list_off;
-        let mut handlers: Vec<CatchHandler> = Vec::with_capacity(n_handlers);
-        // handler byte offset (from list start) → handler index.
-        let mut idx_by_off: HashMap<usize, usize> = HashMap::new();
-        for _ in 0..n_handlers {
-            let hoff = c.pos - list_off;
-            let h = Self::parse_handler(c)?;
-            idx_by_off.insert(hoff, handlers.len());
-            handlers.push(h);
-        }
+        // encoded_catch_handler_list: uleb size, then handlers back to
+        // back. Present ONLY when tries exist (spec 8.3.1): the
+        // unconditional read used to consume whatever bytes followed the
+        // item — harmless inside a live image, fatal for exact-sized
+        // snapshot slices (parse bailed at the bound → accessor inlining
+        // silently off corpus-wide → 187 un-inlined `g.l.i(..)` shadow
+        // refs in reqable's flutter g.java alone).
+        let mut handlers: Vec<CatchHandler> = Vec::new();
+        if tries_size != 0 {
+            let list_off = c.pos;
+            let n_handlers = c.read_uleb128()? as usize;
+            let uleb_len = c.pos - list_off;
+            handlers.reserve(n_handlers);
+            // handler byte offset (from list start) → handler index.
+            let mut idx_by_off: HashMap<usize, usize> = HashMap::new();
+            for _ in 0..n_handlers {
+                let hoff = c.pos - list_off;
+                let h = Self::parse_handler(c)?;
+                idx_by_off.insert(hoff, handlers.len());
+                handlers.push(h);
+            }
 
-        // Resolve each try's handler_off. The spec's offsets are from the
-        // list start (the uleb size included in the offset space); some
-        // writers count from after it — accept both, then the first handler.
-        for t in tries.iter_mut() {
-            let raw = t.handler_idx;
-            t.handler_idx = idx_by_off
-                .get(&raw)
-                .or_else(|| idx_by_off.get(&(raw + uleb_len)))
-                .or_else(|| idx_by_off.get(&raw.saturating_sub(uleb_len)))
-                .copied()
-                .unwrap_or(0);
+            // Resolve each try's handler_off. The spec's offsets are from
+            // the list start (the uleb size included in the offset space);
+            // some writers count from after it — accept both, then the
+            // first handler.
+            for t in tries.iter_mut() {
+                let raw = t.handler_idx;
+                t.handler_idx = idx_by_off
+                    .get(&raw)
+                    .or_else(|| idx_by_off.get(&(raw + uleb_len)))
+                    .or_else(|| idx_by_off.get(&raw.saturating_sub(uleb_len)))
+                    .copied()
+                    .unwrap_or(0);
+            }
         }
 
         Some(CodeItem {

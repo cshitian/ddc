@@ -42,6 +42,15 @@ fn walk_budget_override() -> Option<u64> {
     })
 }
 
+fn walk_work_override() -> Option<u64> {
+    static T: std::sync::OnceLock<Option<u64>> = std::sync::OnceLock::new();
+    *T.get_or_init(|| {
+        std::env::var("DDC_WALKWORK")
+            .ok()
+            .and_then(|v| v.parse().ok())
+    })
+}
+
 fn walk_ms_override() -> Option<u64> {
     static T: std::sync::OnceLock<Option<u64>> = std::sync::OnceLock::new();
     *T.get_or_init(|| std::env::var("DDC_WALKMS").ok().and_then(|v| v.parse().ok()))
@@ -57,6 +66,7 @@ fn handler_types_for(cfg: &DexCfg, bid: usize) -> Vec<Option<std::sync::Arc<str>
 
 /// Decompile one method. `Err` only for malformed input; unsupported
 /// constructs degrade to comments inside the statement tree.
+
 pub fn decompile_method(
     pool: &DexPool,
     class: &PoolClass,
@@ -629,11 +639,23 @@ pub fn decompile_method(
     // the process) never finishes — Telegram's full run wrote every file
     // yet hung for 300+ seconds on 25 such classes.
     let walk_budget: u64 = walk_budget_override().unwrap_or(8 * n as u64 + 128);
-    // Wall-clock guard for the walk: legit methods finish far under this
-    // (weibo's largest legit monster ~150ms); the exponential explorations
-    // (Telegram sendMessage family) cut to Gotos, same degradation as the
-    // visit budget. Covers cases where per-visit cost makes a visit-count
-    // budget too slow (6ms/visit × 14k visits = minutes).
+    // WORK budget (Σ universe.len() per visit): deterministic bound on
+    // total walk cost — the count budget above under-bounds per-visit
+    // cost for big-block exponential explorations (Telegram family),
+    // which the wall-clock deadline used to catch nondeterministically.
+    // 2M sits 10× above the 4-corpus legit census max (~203k work), so
+    // it never fires on healthy classes (battery outputs stay
+    // byte-identical — the count budget keeps cutting exactly where it
+    // always did) while bounding Telegram-scale explosions at ~2M work
+    // units regardless of machine load.
+    let walk_work_budget: u64 = walk_work_override()
+        .unwrap_or(2_000_000 + 128 * n as u64);
+    // Wall-clock guard — UNCHANGED original 1500ms. (It was briefly
+    // suspected of the run-to-run output flips under worker contention
+    // and scaled up; the real culprit was the shared static DUMMY in
+    // VarTable::var — fixed in jdc-core — and the larger deadlines only
+    // let pathological walks burn seconds longer: weixin +3s at 5.5s,
+    // +3.5s more at 46s. Legit methods finish ~10× under this bound.)
     let walk_deadline = std::time::Instant::now()
         + std::time::Duration::from_millis(
             walk_ms_override().unwrap_or(1500),
@@ -641,6 +663,7 @@ pub fn decompile_method(
     loop {
         jdc_core::structure::set_budget_override(Some(budget));
         jdc_core::structure::set_walk_visit_budget(Some(walk_budget));
+        jdc_core::structure::set_walk_work_budget(Some(walk_work_budget));
         jdc_core::structure::set_walk_deadline(Some(walk_deadline));
         let mut st = Structurer::with_shared_groups(
             &core_cfg,
@@ -654,6 +677,7 @@ pub fn decompile_method(
         let candidate = converter.convert(region);
         jdc_core::structure::set_budget_override(None);
         jdc_core::structure::set_walk_visit_budget(None);
+        jdc_core::structure::set_walk_work_budget(None);
         jdc_core::structure::set_walk_deadline(None);
         let size = {
             let mut c = 0usize;

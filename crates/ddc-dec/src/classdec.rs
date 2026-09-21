@@ -214,6 +214,15 @@ fn collect_enum_constants(
     }
 
     // Pass 1: definitions. (immutable borrow; rewrite comes later)
+    // Rolling reaching-defs of clinit locals for resolving enum-ctor
+    // extra args (resolve_enum_arg); `tainted` flips at the first
+    // non-straight-line statement — past it, linear-scan defs are no
+    // longer provable and Local args reject the enum mode.
+    let mut defs: HashMap<u32, &Expr> = HashMap::default();
+    let mut tainted = false;
+    let self_name: std::sync::Arc<str> = class.name.as_str().into();
+    let self_ty =
+        jdc_core::ir::expr::TypeRef::J(JavaType::Object(class.name.as_str().into()));
     for (i, st) in match &body.body {
         Stmt::Block(v) => v.iter().enumerate(),
         _ => return None,
@@ -234,14 +243,25 @@ fn collect_enum_constants(
                     var_of.insert(*var, const_name.len());
                     const_name.push(n.to_string());
                     const_field.push(String::new());
-                    const_extra.push(args[2..].to_vec());
+                    const_extra.push(resolve_enum_extras(
+                        &args[2..],
+                        &defs,
+                        tainted,
+                        &var_of,
+                        &const_name,
+                        &self_name,
+                        &self_ty,
+                    )?);
                     drop_stmts.push(i);
                 }
             }
         }
+        track_def(st, &mut defs, &mut tainted);
     }
 
     // Pass 2: sputs to the ACC_ENUM fields (direct new or intermediate).
+    let mut defs2: HashMap<u32, &Expr> = HashMap::default();
+    let mut tainted2 = false;
     for (i, st) in match &body.body {
         Stmt::Block(v) => v.iter().enumerate(),
         _ => return None,
@@ -277,7 +297,15 @@ fn collect_enum_constants(
                             let idx = const_name.len();
                             const_name.push(n.to_string());
                             const_field.push(String::new());
-                            const_extra.push(args[2..].to_vec());
+                            const_extra.push(resolve_enum_extras(
+                                &args[2..],
+                                &defs2,
+                                tainted2,
+                                &var_of,
+                                &const_name,
+                                &self_name,
+                                &self_ty,
+                            )?);
                             idx
                         } else {
                             return None;
@@ -289,6 +317,7 @@ fn collect_enum_constants(
                 drop_stmts.push(i);
             }
         }
+        track_def(st, &mut defs2, &mut tainted2);
     }
 
     // Every ACC_ENUM field bound, every intermediate matched.
@@ -308,9 +337,6 @@ fn collect_enum_constants(
         .iter()
         .map(|(v, &i)| (*v, const_name[i].as_str()))
         .collect();
-    let self_name: std::sync::Arc<str> = class.name.as_str().into();
-    let self_ty =
-        jdc_core::ir::expr::TypeRef::J(JavaType::Object(class.name.as_str().into()));
     crate::passes::rewrite_exprs(&mut body.body, &mut |e| {
         crate::passes::deep_rewrite(e, &mut |x| {
             if let Expr::Local { var, .. } = x {
@@ -340,6 +366,10 @@ fn collect_enum_constants(
             keep
         });
     }
+    // The resolved args consumed the clinit locals' readers; prune the
+    // now-dead defs from the remnant (impure inits survive as bare
+    // expression statements — drop_dead_locals' standard contract).
+    crate::passes::drop_dead_locals(&mut body.body);
 
     let out: Vec<EnumConst> = const_field
         .into_iter()
@@ -352,6 +382,132 @@ fn collect_enum_constants(
         })
         .collect();
     Some((out, body))
+}
+
+/// Update the rolling reaching-def map for enum-arg resolution. Only
+/// flat single-target definitions keep the tracking sound; any control
+/// flow taints it (a linear scan can no longer prove WHICH definition
+/// reaches later capture sites).
+fn track_def<'e>(
+    st: &'e Stmt,
+    defs: &mut std::collections::HashMap<u32, &'e Expr>,
+    tainted: &mut bool,
+) {
+    match st {
+        Stmt::LocalDef { var, init, .. } => match init {
+            Some(e) => {
+                defs.insert(*var, e);
+            }
+            None => {
+                defs.remove(var);
+            }
+        },
+        Stmt::ExprStmt(Expr::Assign { target, value, op, .. }) => {
+            if let Expr::Local { var, .. } = &**target {
+                if matches!(op, jdc_core::ir::expr::AssignOp::Plain) {
+                    defs.insert(*var, value);
+                } else {
+                    defs.remove(var);
+                }
+            }
+        }
+        // Plain expression statements (calls) don't define locals.
+        Stmt::ExprStmt(_) => {}
+        _ => *tainted = true,
+    }
+}
+
+/// Resolve every enum-ctor extra arg to a self-contained expression, or
+/// reject the enum mode (None). R8 reuses ONE register across all
+/// constant constructions — revenuecat's LogIntent builds 11 of 12
+/// emoji lists through the same `list` local, reassigned between the
+/// `new Self(.., list)` sites — and enum constants render OUTSIDE the
+/// clinit where no local is in scope: an unresolved `Local` used to
+/// print as the vt-dummy name (`DEBUG(var0)` — per-constant
+/// cannot-find). Each Local is replaced by its reaching pure definition
+/// (recursively) or, when it names an earlier constant's intermediate,
+/// by a static-field reference to that constant. Any expression shape
+/// WITHOUT locals passes through untouched (enum args may be arbitrary
+/// expressions — BinOp/Cast/Method/New — each renders exactly once per
+/// constant, so no duplication concern applies). Only an unresolvable
+/// Local (missing/tainted def, depth > 4) rejects the whole enum
+/// detection; the class then falls back to plain-field rendering, which
+/// always compiles.
+fn resolve_enum_extras(
+    extras: &[Expr],
+    defs: &std::collections::HashMap<u32, &Expr>,
+    tainted: bool,
+    var_of: &std::collections::HashMap<u32, usize>,
+    const_name: &[String],
+    self_name: &std::sync::Arc<str>,
+    self_ty: &jdc_core::ir::expr::TypeRef,
+) -> Option<Vec<Expr>> {
+    extras
+        .iter()
+        .map(|e| {
+            let mut out = e.clone();
+            let mut fail = false;
+            resolve_locals_in(
+                &mut out, defs, tainted, var_of, const_name, self_name, self_ty, 0,
+                &mut fail,
+            );
+            if fail {
+                None
+            } else {
+                Some(out)
+            }
+        })
+        .collect()
+}
+
+#[allow(clippy::too_many_arguments)]
+fn resolve_locals_in(
+    e: &mut Expr,
+    defs: &std::collections::HashMap<u32, &Expr>,
+    tainted: bool,
+    var_of: &std::collections::HashMap<u32, usize>,
+    const_name: &[String],
+    self_name: &std::sync::Arc<str>,
+    self_ty: &jdc_core::ir::expr::TypeRef,
+    depth: u32,
+    fail: &mut bool,
+) {
+    crate::passes::deep_rewrite(e, &mut |x| {
+        if let Expr::Local { var, .. } = x {
+            // An earlier constant's intermediate: a static-field read of
+            // that constant (declared above — backward reference, legal
+            // in enum ctor args).
+            if let Some(&ci) = var_of.get(var) {
+                if let Some(nm) = const_name.get(ci) {
+                    *x = Expr::Field {
+                        owner: None,
+                        cls: self_name.clone(),
+                        name: std::sync::Arc::from(nm.as_str()),
+                        ty: self_ty.clone(),
+                        is_static: true,
+                    };
+                    return;
+                }
+            }
+            if tainted || depth > 4 {
+                *fail = true;
+                return;
+            }
+            let Some(d) = defs.get(var).copied() else {
+                *fail = true;
+                return;
+            };
+            let mut sub = d.clone();
+            resolve_locals_in(
+                &mut sub, defs, tainted, var_of, const_name, self_name, self_ty,
+                depth + 1, fail,
+            );
+            if *fail {
+                return;
+            }
+            *x = sub;
+        }
+    });
 }
 
 /// Render enum-constant constructor arguments via the shared expression

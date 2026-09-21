@@ -38,7 +38,7 @@ pub fn rewrite_exprs<F: FnMut(&mut Expr)>(s: &mut Stmt, f: &mut F) {
     walk_stmt_exprs(s, f);
 }
 
-fn walk_stmt_exprs<F: FnMut(&mut Expr)>(s: &mut Stmt, f: &mut F) {
+pub(crate) fn walk_stmt_exprs<F: FnMut(&mut Expr)>(s: &mut Stmt, f: &mut F) {
     match s {
         Stmt::Block(v) => {
             for x in v.iter_mut() {
@@ -3136,17 +3136,35 @@ pub fn fix_ctor_super_first(body: &mut Stmt) {
         stmts.insert(0, call);
         return;
     }
-    // The structurer can wrap the delegation (with the parameter
-    // null-checks that follow it) in a bare nested block — hoist the
-    // call out of the block to the constructor top.
-    for st in stmts.iter_mut() {
+    // The structurer can wrap the delegation in a bare nested block —
+    // with the parameter null-checks AHEAD of it (weixin's Kotlin
+    // intrinsics shape: `o.h(parcel, "source"); super();` at inner
+    // positions 0/1, flattened to straight-line by cleanup AFTER this
+    // pass, which is why the miss surfaced as 1150 weixin "对super的
+    // 调用必须是构造器中的第一个语句"). Hoist the call from any
+    // position whose predecessors are all straight-line statements; a
+    // delegation behind control flow is the conditional-super family
+    // (needs restructuring, not hoisting) and stays put.
+    let mut found: Option<(usize, usize)> = None;
+    for (i, st) in stmts.iter().enumerate() {
         if let Stmt::Block(inner) = st {
-            if !inner.is_empty() && is_bare_ctor_call(inner.first().unwrap()) {
-                let call = inner.remove(0);
-                stmts.insert(0, call);
-                return;
+            if let Some(p) = inner.iter().position(is_bare_ctor_call) {
+                if inner[..p]
+                    .iter()
+                    .all(|s| matches!(s, Stmt::LocalDef { .. } | Stmt::ExprStmt(_)))
+                {
+                    found = Some((i, p));
+                    break;
+                }
             }
         }
+    }
+    if let Some((i, p)) = found {
+        let call = match &mut stmts[i] {
+            Stmt::Block(inner) => inner.remove(p),
+            _ => unreachable!(),
+        };
+        stmts.insert(0, call);
     }
 }
 
@@ -3740,7 +3758,15 @@ pub fn inline_accessors(s: &mut Stmt, pool: &DexPool) {
             return;
         }
         let Some(dex) = pool.dex(m.dex_idx) else { return };
-        let Some(code) = dex.code_at(m.code_off) else { return };
+        // Snapshot first: the accessor's owning image may already be
+        // retired, and a live read's success would depend on worker
+        // completion interleaving — nondeterministic inlining (whether
+        // the accessor folds at all) between identical runs.
+        let code = match pool.accessor_code(m.dex_idx, m.code_off) {
+            Some(bytes) => ddc_dex::CodeItem::parse(&bytes, 0),
+            None => dex.code_at(m.code_off),
+        };
+        let Some(code) = code else { return };
         let insns: Vec<&Insn> =
             code.insns.iter().filter(|i| !matches!(i.kind, InsnKind::Nop)).collect();
         // Strip the APM trace wrappers (const-only invoke-static).

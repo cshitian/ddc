@@ -1619,6 +1619,11 @@ fn run() -> Result<()> {
     // for the whole run.
     let retire_mode = std::env::var("DDC_NORETIRE").is_err() && !matches!(sink, Sink::Stdout);
     if retire_mode {
+        // Accessor bodies must be snapshotted BEFORE images can retire:
+        // inline_accessors reads them cross-image during worker runs, and
+        // a released image silently skips the inline (run-to-run output
+        // nondeterminism: var-id flips in enum constant args).
+        pool.snapshot_accessor_code();
         pool.arm_retirement();
     }
     let total = targets.len();
