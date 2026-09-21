@@ -3296,6 +3296,192 @@ pub(crate) fn rewrite_inner_ctor_outer_param(
 /// .. : p.u().i()`). Pure defs inline freely. Every other shape aborts:
 /// broken-but-faithful stays the status quo, wrong evaluation counts
 /// would be worse.
+/// Linear `def; delegation(args read def)` shapes. A plain hoist of the
+/// delegation past its prefix would place the call ABOVE a definition
+/// it reads — a forward reference (`super(context2, ..)` with `context2
+/// = ..` below it). javac's attribution for the whole class then
+/// collapses: the undefined identifier cascades into "non-static
+/// super" and even bare `Object` resolution failures, poisoning every
+/// later diagnostic in the file (weibo AppCompatTextView — the root of
+/// a 4.1k-file Object cascade). The original source had the def's
+/// expression INLINE in the delegation args; d8 computed it into a
+/// register first. Inline the def into the args (the def is read
+/// exactly once there — evaluation count preserved even for calls),
+/// and when the register is REASSIGNED later (a fresh generation
+/// sharing the slot), convert that first write into the declaration so
+/// the var stays defined for its later readers. Any shape that cannot
+/// be proven aborts untouched.
+pub fn fix_ctor_delegation_arg_defs(body: &mut Stmt) {
+    let Stmt::Block(stmts) = body else { return };
+    // Only the top-level linear shape; the first statement needs no
+    // repair and control flow ahead of the delegation belongs to the
+    // conditional-super machinery.
+    let Some(pos) = stmts.iter().position(is_bare_ctor_call) else {
+        return;
+    };
+    if pos == 0 {
+        return;
+    }
+    // Vars read by the delegation args, and the total read count (a var
+    // read twice would duplicate a call evaluation on inline).
+    let mut arg_vars: Vec<u32> = Vec::new();
+    let mut total_reads = 0usize;
+    {
+        let Stmt::ExprStmt(Expr::Method { args, .. }) = &stmts[pos] else {
+            return;
+        };
+        for a in args {
+            let mut c = a.clone();
+            deep_rewrite_reads(&mut c, &mut |x| {
+                if let Expr::Local { var: v, .. } = x {
+                    total_reads += 1;
+                    if !arg_vars.contains(v) {
+                        arg_vars.push(*v);
+                    }
+                }
+            });
+        }
+    }
+    if arg_vars.is_empty() || total_reads != arg_vars.len() {
+        return;
+    }
+    // Vars DEFINED anywhere in the prefix (for the init-referenced
+    // check below — an inlined init may not itself read prefix defs).
+    let prefix_defs: Vec<u32> = stmts[..pos]
+        .iter()
+        .filter_map(|s| match s {
+            Stmt::LocalDef { var, init: Some(_), .. } => Some(*var),
+            _ => None,
+        })
+        .collect();
+    // Per referenced var: exactly one prefix def, no other prefix
+    // reader between def and delegation, the def's init reads no
+    // prefix-def var, and the first post-delegation use is a top-level
+    // write (becomes the declaration) or nothing at all.
+    let mut plan: Vec<(u32, usize, Option<usize>)> = Vec::new();
+    for v in arg_vars {
+        let defs: Vec<usize> = stmts[..pos]
+            .iter()
+            .enumerate()
+            .filter(|(i, _)| {
+                matches!(&stmts[*i], Stmt::LocalDef { var, init: Some(_), .. } if *var == v)
+            })
+            .map(|(i, _)| i)
+            .collect();
+        if defs.len() > 1 {
+            return; // ambiguous: multiple prefix defs
+        }
+        let Some(&q) = defs.first() else {
+            continue; // a param: nothing to inline for this var
+        };
+        let init = match &stmts[q] {
+            Stmt::LocalDef { init: Some(e), .. } => e.clone(),
+            _ => return,
+        };
+        if stmts_read_var(&stmts[q + 1..pos], v) != 0 {
+            return; // another reader between the def and the delegation
+        }
+        // The inlined init may not read a prefix-def var either — the
+        // delegation lands ABOVE those defs after the hoist.
+        let mut init_vars: Vec<u32> = Vec::new();
+        deep_rewrite_reads(&mut { init.clone() }, &mut |x| {
+            if let Expr::Local { var: vv, .. } = x {
+                if !init_vars.contains(vv) {
+                    init_vars.push(*vv);
+                }
+            }
+        });
+        if init_vars.iter().any(|iv| prefix_defs.contains(iv)) {
+            return;
+        }
+        match stmts[pos + 1..]
+            .iter()
+            .position(|s| {
+                matches!(s, Stmt::ExprStmt(Expr::Assign { target, .. })
+                    if matches!(&**target, Expr::Local { var: vv, .. } if *vv == v))
+            }) {
+            Some(w) => {
+                // Reads before the re-declaration would be dangling.
+                if stmts_read_var(&stmts[pos + 1..pos + 1 + w], v) != 0 {
+                    return;
+                }
+                plan.push((v, q, Some(pos + 1 + w)));
+            }
+            None => {
+                // No later write: the def must be dead after inline.
+                if stmts_read_var(&stmts[pos + 1..], v) != 0 {
+                    return;
+                }
+                plan.push((v, q, None));
+            }
+        }
+    }
+    if plan.is_empty() {
+        return;
+    }
+    // Inline the def inits into the delegation args.
+    let values: Vec<(u32, Expr)> = plan
+        .iter()
+        .map(|(v, q, _)| match &stmts[*q] {
+            Stmt::LocalDef { var, init: Some(e), .. } => (*var, e.clone()),
+            _ => unreachable!("plan entries carry a LocalDef with init"),
+        })
+        .collect();
+    if let Stmt::ExprStmt(Expr::Method { args, .. }) = &mut stmts[pos] {
+        for a in args {
+            deep_rewrite_reads(a, &mut |x| {
+                if let Expr::Local { var: v, .. } = x {
+                    if let Some((_, e)) = values.iter().find(|(vv, _)| vv == v) {
+                        *x = e.clone();
+                    }
+                }
+            });
+        }
+    }
+    // Convert the first writes into declarations BEFORE removing defs
+    // (removals shift indices); then remove the defs in descending
+    // order.
+    for (v, _, w) in &plan {
+        if let Some(w) = w {
+            if let Stmt::ExprStmt(Expr::Assign { target, value, .. }) = &mut stmts[*w] {
+                if matches!(&**target, Expr::Local { var: vv, .. } if vv == v) {
+                    let taken = std::mem::replace(&mut **value, Expr::Const(ConstVal::Null));
+                    stmts[*w] = Stmt::LocalDef {
+                        var: *v,
+                        init: Some(taken),
+                        is_final: false,
+                        force_type: false,
+                    };
+                }
+            }
+        }
+    }
+    let mut order: Vec<usize> = plan.iter().map(|(_, q, _)| *q).collect();
+    order.sort_unstable();
+    order.reverse();
+    for q in order {
+        stmts.remove(q);
+    }
+}
+
+/// READS of `v` across the statements (assignment targets excluded).
+fn stmts_read_var(stmts: &[Stmt], v: u32) -> usize {
+    let mut n = 0usize;
+    for s in stmts {
+        let mut c = s.clone();
+        walk_stmt_exprs(&mut c, &mut |e| {
+            deep_rewrite_reads(e, &mut |x| {
+                if let Expr::Local { var: vv, .. } = x {
+                    if *vv == v {
+                        n += 1;
+                    }
+                }
+            });
+        });
+    }
+    n
+}
+
 pub fn fix_ctor_conditional_super(body: &mut Stmt) {
     // A single-statement body can arrive UNWRAPPED (bare `If` — the
     // gb6/e throw-guard family); the shape scans need a statement list.

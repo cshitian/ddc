@@ -576,6 +576,7 @@ pub fn decompile_method(
         if class.is_enum() {
             passes::strip_enum_ctor_super(&mut body);
         } else {
+            passes::fix_ctor_delegation_arg_defs(&mut body);
             passes::fix_ctor_conditional_super(&mut body);
             passes::fix_ctor_super_first(&mut body);
             passes::dedupe_ctor_delegations(&mut body);
@@ -771,6 +772,7 @@ pub fn decompile_method(
         if class.is_enum() {
             passes::strip_enum_ctor_super(&mut body);
         } else {
+            passes::fix_ctor_delegation_arg_defs(&mut body);
             passes::fix_ctor_conditional_super(&mut body);
             passes::fix_ctor_super_first(&mut body);
             passes::dedupe_ctor_delegations(&mut body);
