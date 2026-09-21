@@ -188,8 +188,7 @@ fn collect_enum_constants(
         .iter()
         .filter(|f| f.access & crate::access::ACC_ENUM != 0)
         .collect();
-    if const_fields.is_empty() {
-        return None;
+    if const_fields.is_empty() { return None;
     }
     let clinit = class.all_methods().find(|m| &*m.name == "<clinit>")?;
     let mut body = decompile_method(pool, class, clinit).ok().flatten()?;
@@ -210,8 +209,7 @@ fn collect_enum_constants(
     let mut drop_stmts: Vec<usize> = Vec::new();
 
     // Collect (immutable borrows) first; the mutable passes come after.
-    if !matches!(&body.body, Stmt::Block(_)) {
-        return None;
+    if !matches!(&body.body, Stmt::Block(_)) { return None;
     }
 
     // Pass 1: definitions. (immutable borrow; rewrite comes later)
@@ -224,24 +222,41 @@ fn collect_enum_constants(
     let self_name: std::sync::Arc<str> = class.name.as_str().into();
     let self_ty =
         jdc_core::ir::expr::TypeRef::J(JavaType::Object(class.name.as_str().into()));
+    // A REUSED intermediate local: `v = new Self(..); A = v; v = new
+    // Self(..); B = v;` — the first def is a LocalDef, the rest are
+    // Assigns to the same var. Register every def site; pass 2 resolves
+    // a local sput to the def site CURRENT at that statement (rolling),
+    // not to the var (Kotlin EnumEntries enums, RegexOption: 8→7 count
+    // mismatch used to abort the whole promotion).
+    let mut def_site: HashMap<usize, (u32, usize)> = HashMap::default();
     for (i, st) in match &body.body {
         Stmt::Block(v) => v.iter().enumerate(),
         _ => return None,
     } {
-        if let Stmt::LocalDef {
-            var,
-            init: Some(Expr::New { cls: ncls, args, .. }),
-            ..
-        } = st
-        {
+        // (var, New) for both def shapes: LocalDef and Assign-to-local.
+        let def_shape: Option<(u32, &Expr)> = match st {
+            Stmt::LocalDef {
+                var,
+                init: Some(e),
+                ..
+            } => Some((*var, e)),
+            Stmt::ExprStmt(Expr::Assign { target, value, .. }) => {
+                match (&**target, &**value) {
+                    (Expr::Local { var, .. }, e) => Some((*var, e)),
+                    _ => None,
+                }
+            }
+            _ => None,
+        };
+        if let Some((var, Expr::New { cls: ncls, args, .. })) = def_shape {
             if ncls.as_ref() == class.name && args.len() >= 2 {
                 if let (Expr::Const(ConstVal::Str(n)), Expr::Const(ConstVal::Int(_))) =
                     (&args[0], &args[1])
                 {
-                    if java_ident(n).as_ref() != &**n || n.is_empty() {
-                        return None;
+                    if java_ident(n).as_ref() != &**n || n.is_empty() { return None;
                     }
-                    var_of.insert(*var, const_name.len());
+                    var_of.insert(var, const_name.len());
+                    def_site.insert(i, (var, const_name.len()));
                     const_name.push(n.to_string());
                     const_field.push(String::new());
                     const_extra.push(resolve_enum_extras(
@@ -261,12 +276,19 @@ fn collect_enum_constants(
     }
 
     // Pass 2: sputs to the ACC_ENUM fields (direct new or intermediate).
+    // Local sputs resolve through the ROLLING def map (updated at each
+    // def-site statement) — a reused `v` must bind to the constant
+    // defined most recently, not to the var's first registration.
     let mut defs2: HashMap<u32, &Expr> = HashMap::default();
     let mut tainted2 = false;
+    let mut cur_def: HashMap<u32, usize> = HashMap::default();
     for (i, st) in match &body.body {
         Stmt::Block(v) => v.iter().enumerate(),
         _ => return None,
     } {
+        if let Some((var, idx)) = def_site.get(&i) {
+            cur_def.insert(*var, *idx);
+        }
         if let Stmt::ExprStmt(Expr::Assign { target, value, .. }) = st {
             if let Expr::Field {
                 cls,
@@ -281,19 +303,17 @@ fn collect_enum_constants(
                 if !const_fields.iter().any(|f| f.name.as_str() == &**fname) {
                     continue;
                 }
-                if const_field.iter().any(|f| !f.is_empty() && f == &**fname) {
-                    return None; // duplicate assignment
+                if const_field.iter().any(|f| !f.is_empty() && f == &**fname) { return None; // duplicate assignment
                 }
                 let idx = match &**value {
-                    Expr::Local { var, .. } => var_of.get(var).copied()?,
+                    Expr::Local { var, .. } => cur_def.get(var).copied()?,
                     Expr::New { cls: ncls, args, .. }
                         if ncls.as_ref() == class.name && args.len() >= 2 =>
                     {
                         if let (Expr::Const(ConstVal::Str(n)), Expr::Const(ConstVal::Int(_))) =
                             (&args[0], &args[1])
                         {
-                            if java_ident(n).as_ref() != &**n || n.is_empty() {
-                                return None;
+                            if java_ident(n).as_ref() != &**n || n.is_empty() { return None;
                             }
                             let idx = const_name.len();
                             const_name.push(n.to_string());
@@ -322,38 +342,63 @@ fn collect_enum_constants(
     }
 
     // Every ACC_ENUM field bound, every intermediate matched.
-    if const_field.len() != const_fields.len() || const_field.iter().any(|f| f.is_empty()) {
-        return None;
+    if const_field.len() != const_fields.len() || const_field.iter().any(|f| f.is_empty()) { return None;
+    }
+    // Obfuscated enums rename the ACC_ENUM FIELD (d/e/f) while the ctor's
+    // name STRING keeps the source identifier — the promoted constant
+    // must be declared under the FIELD name: every reference in the
+    // pool resolves through it. Using the name string broke all
+    // cross-file references (weixin +2.9k when newly-promoted enums
+    // swapped d/e/f for TEXT_ENTER_EDITING/…).
+    for i in 0..const_name.len() {
+        let field = &const_field[i];
+        if field != &const_name[i] {
+            let id = java_ident(field);
+            if id.is_empty() || id.as_ref() != field.as_str() {
+                return None;
+            }
+            const_name[i] = field.clone();
+        }
     }
     {
         let mut seen: std::collections::HashSet<&str> = std::collections::HashSet::default();
-        if !const_name.iter().all(|c| seen.insert(c.as_str())) {
-            return None;
+        if !const_name.iter().all(|c| seen.insert(c.as_str())) { return None;
         }
     }
 
     // Pass 3: rewrite references to the intermediate locals into the
-    // constant identifiers (static-field reads on Self).
-    let var2name: jdc_core::FxHashMap<u32, &str> = var_of
-        .iter()
-        .map(|(v, &i)| (*v, const_name[i].as_str()))
-        .collect();
-    crate::passes::rewrite_exprs(&mut body.body, &mut |e| {
-        crate::passes::deep_rewrite(e, &mut |x| {
-            if let Expr::Local { var, .. } = x {
-                if let Some(n) = var2name.get(var) {
-                    let name: std::sync::Arc<str> = std::sync::Arc::from(*n);
-                    *x = Expr::Field {
-                        owner: None,
-                        cls: self_name.clone(),
-                        name,
-                        ty: self_ty.clone(),
-                        is_static: true,
-                    };
+    // constant identifiers (static-field reads on Self). POSITION-AWARE:
+    // a REUSED local must read as the constant defined most recently at
+    // that statement — a var-level map made every `arr[k] = v` in the
+    // $VALUES build reference the LAST constant (weixin +2.9k when this
+    // regressed values() contents).
+    {
+        let mut cur: HashMap<u32, usize> = HashMap::default();
+        if let Stmt::Block(vs) = &mut body.body {
+            for (i, st) in vs.iter_mut().enumerate() {
+                if let Some((var, idx)) = def_site.get(&i) {
+                    cur.insert(*var, *idx);
                 }
+                crate::passes::walk_stmt_exprs(st, &mut |e| {
+                    crate::passes::deep_rewrite(e, &mut |x| {
+                        if let Expr::Local { var, .. } = x {
+                            if let Some(&idx) = cur.get(var) {
+                                let name: std::sync::Arc<str> =
+                                    std::sync::Arc::from(const_name[idx].as_str());
+                                *x = Expr::Field {
+                                    owner: None,
+                                    cls: self_name.clone(),
+                                    name,
+                                    ty: self_ty.clone(),
+                                    is_static: true,
+                                };
+                            }
+                        }
+                    });
+                });
             }
-        });
-    });
+        }
+    }
 
     // Pass 4: drop the definitions and their sputs.
     if let Stmt::Block(vs) = &mut body.body {
@@ -1283,20 +1328,90 @@ fn emit_method(
             && matches!(d.args.first(), Some(JavaType::Object(s)) if s.as_ref() == "java/lang/String")
             && matches!(d.args.get(1), Some(JavaType::Int))
         {
+            // The Kotlin default-arg bridge ctor reads name/ordinal in
+            // its `this(str, p2, ..)` delegation only — the LEADING pair
+            // of a this()-delegation drops together with the params, so
+            // those reads do not block the strip (the constants' extra
+            // args match the bridge's user params, not the 2-param user
+            // ctor).
+            let synthetic: Vec<u32> = body
+                .as_ref()
+                .map(|b| {
+                    b.vt
+                        .vars
+                        .iter()
+                        .filter(|v| v.is_param && v.name != "this")
+                        .take(2)
+                        .map(|v| v.id)
+                        .collect()
+                })
+                .unwrap_or_default();
+            // The delegation-leading extension only applies to the
+            // Kotlin default-arg BRIDGE: its descriptor ends with
+            // kotlin/jvm/internal/DefaultConstructorMarker. A REAL user
+            // ctor whose first two params are (String, int) and merely
+            // forwards them must keep its signature (weixin +2.9k when
+            // ungated).
+            let is_bridge = matches!(
+                d.args.last(),
+                Some(JavaType::Object(m)) if m.as_ref() == "kotlin/jvm/internal/DefaultConstructorMarker"
+            );
+            let mut lead = [0usize, 0usize];
             let refs_ok = body.as_ref().is_some_and(|b| {
                 let uses = crate::passes::count_locals_stmts(std::slice::from_ref(&b.body));
-                let synthetic: Vec<u32> = b
-                    .vt
-                    .vars
-                    .iter()
-                    .filter(|v| v.is_param && v.name != "this")
-                    .take(2)
-                    .map(|v| v.id)
-                    .collect();
-                synthetic.iter().all(|id| uses.get(id).copied().unwrap_or(0) == 0)
+                let mut c = b.body.clone();
+                let cls_name = class.name.as_str();
+                crate::passes::walk_stmt_exprs(&mut c, &mut |e| {
+                    if let Expr::Method { name: mn, cls: mc, args, is_special, .. } = e {
+                        if &**mn == "<init>" && *is_special && mc.as_ref() == cls_name {
+                            for (k, a) in args.iter().enumerate() {
+                                if let Expr::Local { var: v, .. } = a {
+                                    if let Some(pi) = synthetic.iter().position(|p| p == v) {
+                                        if k == pi && k < 2 {
+                                            lead[pi] += 1;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+                synthetic.iter().enumerate().all(|(pi, id)| {
+                    let total = uses.get(id).copied().unwrap_or(0);
+                    if is_bridge {
+                        total == lead[pi]
+                    } else {
+                        total == 0
+                    }
+                })
             });
             if refs_ok {
                 arg0 = 2;
+                // Drop the leading (name, ordinal) args of the this()
+                // delegations.
+                if let (Some(b), true) = (body.as_mut(), is_bridge) {
+                    let cls_name = class.name.as_str();
+                    let syn = synthetic;
+                    crate::passes::walk_stmt_exprs(&mut b.body, &mut |e| {
+                        if let Expr::Method { name: mn, cls: mc, args, is_special, .. } = e {
+                            if &**mn == "<init>" && *is_special && mc.as_ref() == cls_name {
+                                let mut drop_n = 0;
+                                for a in args.iter().take(2) {
+                                    if let Expr::Local { var: v, .. } = a {
+                                        if syn.contains(v) && drop_n == v - syn[0] {
+                                            drop_n += 1;
+                                            continue;
+                                        }
+                                    }
+                                    break;
+                                }
+                                for _ in 0..drop_n {
+                                    args.remove(0);
+                                }
+                            }
+                        }
+                    });
+                }
             }
         }
         let n = d.args.len();
