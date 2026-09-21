@@ -2943,11 +2943,13 @@ fn is_boolean_valued(e: &Expr) -> bool {
     match e {
         Expr::Const(ConstVal::Int(0)) | Expr::Const(ConstVal::Int(1)) => true,
         // Kotlin's non-short-circuit boolean `or`/`and` compiles to `|`/`&`
-        // over boolean locals: both sides boolean-valued makes the whole
-        // expression boolean (`v15 = delete | delete2 | ..` — weixin
-        // SQLiteDatabase 4706 int→bool family).
+        // over boolean locals (`v15 = delete | delete2 | ..`). EITHER side
+        // boolean suffices: `int | boolean` is illegal in source — it is
+        // always a not-yet-booleanized side of a boolean chain (the
+        // loop-carried accumulator `v15 = v20; v20 = v15 | delete3` can
+        // never seed its all_bool fixpoint otherwise).
         Expr::Bin { op: BinOp::Or | BinOp::And, l, r, .. } => {
-            is_boolean_valued(l) && is_boolean_valued(r)
+            is_boolean_valued(l) || is_boolean_valued(r)
         }
         Expr::Bin { op, .. } => matches!(
             op,
