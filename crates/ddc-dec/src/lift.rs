@@ -541,6 +541,25 @@ impl<'a> Lifter<'a> {
         }
     }
 
+    /// Registers still holding a move-object alias of the folded
+    /// construction in `r`. The ctor fold writes one `new C(args)` view
+    /// into every copy of the allocation (keyed by the origin write_pc
+    /// the Move handler propagates from the new-instance site): one
+    /// copy being consumed or materialized must retire the whole set —
+    /// a surviving copy would re-emit the construction.
+    fn folded_new_aliases(&self, r: u16) -> Vec<usize> {
+        let Some(w) = self.write_pc.get(r as usize).copied() else {
+            return Vec::new();
+        };
+        (0..self.regs.len())
+            .filter(|&rr| {
+                rr != r as usize
+                    && self.write_pc.get(rr).copied() == Some(w)
+                    && matches!(self.regs[rr], Reg::Pending(Expr::New { raw: false, .. }))
+            })
+            .collect()
+    }
+
     // -- register access -----------------------------------------------------
 
     /// Read for nesting into another expression (clones the value).
@@ -568,10 +587,23 @@ impl<'a> Lifter<'a> {
                 // result StringBuilder chain printed one `new
                 // StringBuilder()` per append). Materialize when a later
                 // read exists; inline the last use, keeping
-                // `foo(new Bar(...))` nesting. `New { raw: true }` is
+                // `foo(new Bar())` nesting. `New { raw: true }` is
                 // always exempt: the constructor fold consumes the raw
                 // view at the invoke-direct site.
-                let alloc = matches!(&e, Expr::NewArray { .. })
+                //
+                // A folded construction ALIASED into a second register
+                // (move-object) counts as a later read too — one `new
+                // C(args)` cannot be inlined at one alias and survive as
+                // a pending copy on the other. Materialize so both
+                // aliases share the single construction var.
+                let alias_needs_share = matches!(&e, Expr::New { raw: false, .. })
+                    && self.folded_new_aliases(r).iter().any(|&rr| {
+                        self.final_read
+                            .iter()
+                            .any(|&(pc2, r2)| r2 == rr as u16 && pc2 >= self.cur_pc)
+                    });
+                let alloc = alias_needs_share
+                    || matches!(&e, Expr::NewArray { .. })
                     || (matches!(&e, Expr::New { raw: false, .. })
                         && !self.final_read.contains(&(self.cur_pc, r)));
                 if alloc {
@@ -591,8 +623,19 @@ impl<'a> Lifter<'a> {
                     if matches!(&e, Expr::NewArray { .. })
                         || matches!(&e, Expr::New { raw: false, .. })
                     {
+                        let aliases = if matches!(&e, Expr::New { raw: false, .. }) {
+                            self.folded_new_aliases(r)
+                        } else {
+                            Vec::new()
+                        };
                         if let Some(slot) = self.regs.get_mut(r as usize) {
                             *slot = Reg::Undef;
+                        }
+                        // Consuming the last use retires the aliased
+                        // copies too (none of them is read again — the
+                        // share branch above materialized otherwise).
+                        for rr in aliases {
+                            self.regs[rr] = Reg::Undef;
                         }
                     }
                     e
@@ -611,8 +654,19 @@ impl<'a> Lifter<'a> {
     fn read_term(&mut self, r: u16) -> Expr {
         match self.regs.get(r as usize).cloned().unwrap_or(Reg::Undef) {
             Reg::PendingCall(e) | Reg::Pending(e) => {
+                // Terms terminate the block: no later read can follow, so a
+                // folded construction consumed here retires its aliased
+                // copies as well.
+                let aliases = if matches!(&e, Expr::New { raw: false, .. }) {
+                    self.folded_new_aliases(r)
+                } else {
+                    Vec::new()
+                };
                 if (r as usize) < self.regs.len() {
                     self.regs[r as usize] = Reg::Undef;
+                }
+                for rr in aliases {
+                    self.regs[rr] = Reg::Undef;
                 }
                 self.pending_call = None;
                 e
@@ -720,6 +774,12 @@ impl<'a> Lifter<'a> {
         if (r as usize) < self.regs.len() {
             self.regs[r as usize] = Reg::Live(v);
         }
+        // A folded construction materialized from ONE alias binds every
+        // alias to the same var — the copies would otherwise re-emit the
+        // construction at their own read (or orphan at block exit).
+        for rr in self.folded_new_aliases(r) {
+            self.regs[rr] = Reg::Live(v);
+        }
         v
     }
 
@@ -823,10 +883,19 @@ impl<'a> Lifter<'a> {
                 }
                 InsnKind::Move { dst, src } => {
                     // Impure / call values are consumed once: materialize the
-                    // source so both registers share one evaluation.
+                    // source so both registers share one evaluation. A raw
+                    // `new-instance` view is exempt (as at block exit): the
+                    // ctor fold consumes it at the invoke-direct site, and
+                    // the invoke-range receiver shuffle (`new-instance v0;
+                    // move-object v5, v0; invoke/range {v5..}`) must keep it
+                    // pending — materializing here emitted an empty `new C()`
+                    // while the real construction orphaned at the receiver
+                    // (Kotlin default-arg ctors: every enum constant got an
+                    // empty shell).
                     let src_state = self.regs.get(*src as usize).cloned().unwrap_or(Reg::Undef);
                     if matches!(src_state, Reg::PendingCall(_))
-                        || matches!(&src_state, Reg::Pending(e) if has_side_effects(e))
+                        || matches!(&src_state, Reg::Pending(e)
+                            if has_side_effects(e) && !matches!(e, Expr::New { raw: true, .. }))
                     {
                         self.materialize(*src);
                     }
@@ -1322,18 +1391,55 @@ impl<'a> Lifter<'a> {
             }) = &recv_state
             {
                 if nc == &cls {
-                    let ty = TypeRef::J(JavaType::Object(cls.clone()));
-                    self.write(
-                        recv_reg,
-                        Expr::New {
-                            cls: cls.clone(),
-                            ty,
-                            args,
-                            raw: false,
-                        },
-                        pc,
-                        false,
-                    );
+                    let folded = Expr::New {
+                        cls: cls.clone(),
+                        ty: TypeRef::J(JavaType::Object(cls.clone())),
+                        args,
+                        raw: false,
+                    };
+                    // The raw pending may live in SEVERAL registers:
+                    // `move-object` copies it for the invoke-range
+                    // receiver shuffle. Writing only the receiver left
+                    // the original register's raw view behind, so the
+                    // following `sput v0` inlined an EMPTY `new C()`
+                    // while the real construction orphaned at the
+                    // receiver. Carry the fold to every alias, keyed by
+                    // the origin write_pc the Move handler propagates.
+                    let origin = self.write_pc.get(recv_reg as usize).copied();
+                    let aliases: Vec<usize> = origin
+                        .map(|w| {
+                            (0..self.regs.len())
+                                .filter(|&r| {
+                                    r != recv_reg as usize
+                                        && self.write_pc.get(r).copied() == Some(w)
+                                        && matches!(
+                                            &self.regs[r],
+                                            Reg::Pending(Expr::New { raw: true, cls: c, .. })
+                                                if c == nc
+                                        )
+                                })
+                                .collect()
+                        })
+                        .unwrap_or_default();
+                    self.write(recv_reg, folded.clone(), pc, false);
+                    // write()'s size cap may have materialized the
+                    // construction into a local — share that var with the
+                    // aliases instead of pending copies of the same
+                    // allocation.
+                    match self.regs.get(recv_reg as usize) {
+                        Some(Reg::Live(v)) => {
+                            let v = *v;
+                            for r in aliases {
+                                self.regs[r] = Reg::Live(v);
+                            }
+                        }
+                        _ => {
+                            for r in aliases {
+                                self.regs[r] = Reg::Pending(folded.clone());
+                                self.write_pc[r] = pc;
+                            }
+                        }
+                    }
                     return Ok(());
                 }
             }

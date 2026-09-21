@@ -775,7 +775,7 @@ fn emit_class_body(
             if emitted_any {
                 out.push('\n');
             }
-            if emit_method(pool, class, ctx, m_ref, depth + 1, out)? {
+            if emit_method(pool, class, ctx, m_ref, depth + 1, true, out)? {
                 emitted_any = true;
             } else {
                 out.truncate(mark);
@@ -787,7 +787,7 @@ fn emit_class_body(
         if emitted_any {
             out.push('\n');
         }
-        if emit_method(pool, class, ctx, m, depth + 1, out)? {
+        if emit_method(pool, class, ctx, m, depth + 1, enum_consts.is_some(), out)? {
             emitted_any = true;
         } else {
             out.truncate(mark);
@@ -833,7 +833,7 @@ fn emit_class_body(
         if emitted_any {
             out.push('\n');
         }
-        if emit_method(pool, class, ctx, clinit, depth + 1, out)? {
+        if emit_method(pool, class, ctx, clinit, depth + 1, false, out)? {
             emitted_any = true;
         } else {
             out.truncate(mark);
@@ -1009,12 +1009,16 @@ fn render_static_value(pool: &DexPool, v: &StaticValue, owner: &str) -> Option<S
 /// whether anything was written (skips: no descriptor, deferred to a
 /// monitored thread). The old shape returned a per-method String that
 /// the caller copied in — one extra full copy of every method body.
+/// `enum_promoted`: the class rendered as a true `enum` declaration
+/// (constants in the header), which changes what a ctor signature may
+/// declare.
 fn emit_method(
     pool: &DexPool,
     class: &PoolClass,
     ctx: &DexCtx<'_>,
     m: &PoolMethod,
     depth: usize,
+    enum_promoted: bool,
     out: &mut String,
 ) -> anyhow::Result<bool> {
     let ind = indent(depth);
@@ -1055,7 +1059,7 @@ fn emit_method(
     }
 
     // Body (needed for parameter names even for abstract methods).
-    let body = decompile_method(pool, class, m).ok().flatten();
+    let mut body = decompile_method(pool, class, m).ok().flatten();
     let param_names: Vec<String> = body
         .as_ref()
         .map(|b| {
@@ -1073,6 +1077,77 @@ fn emit_method(
                 .map(|i| format!("p{}", i + 1))
                 .collect()
         });
+
+    // Non-static member-inner ctor: the synthetic outer instance rides
+    // as args[0] (typed as the direct enclosing class). Every emission
+    // site already passes it implicitly — qualified `outer.new Inner(..)`,
+    // `this.new Inner(..)` from inside the outer, `super(..)` after
+    // skip_outer_arg — so the signature drops the param and the body's
+    // references become `Outer.this`. Without this, every construction
+    // site fails javac arity ("无法将类…构造器…应用到给定类型" — the
+    // guava androidx inner-class families, d8 capture lambdas).
+    let mut inner_arg0 = 0usize;
+    if is_init {
+        let tail = class.name.rsplit('$').next().unwrap_or("");
+        let digit_simple = !tail.is_empty() && tail.chars().all(|c| c.is_ascii_digit());
+        if let Some(d) = desc.as_ref() {
+            if let Some(JavaType::Object(outer)) = d.args.first() {
+                // The direct enclosing class: nesting annotation when
+                // present, else the `$`-chain parent (find_outer_name —
+                // d8 lambdas are `Outer$$ExternalSyntheticLambdaN`, where
+                // a plain rsplit leaves a trailing `$`). It must agree
+                // with the this$0 type for the rewrite to fire.
+                let enclosing: Option<String> = class
+                    .nesting
+                    .enclosing_class
+                    .clone()
+                    .or_else(|| crate::find_outer_name(pool, &class.name));
+                let direct = enclosing.as_deref() == Some(outer.as_ref());
+                if direct && !digit_simple && ctx.class_has_this0(&class.name) {
+                    let param0 = body.as_ref().and_then(|b| {
+                        b.vt.vars
+                            .iter()
+                            .find(|v| v.is_param && v.name != "this")
+                            .map(|v| v.id)
+                    });
+                    let written = match (&body, param0) {
+                        (Some(b), Some(p0)) => crate::passes::local_is_written(&b.body, p0),
+                        _ => false,
+                    };
+                    if let (Some(p0), false) = (param0, written) {
+                        if let Some(b) = body.as_mut() {
+                            // this()-delegations to the SAME class drop the
+                            // outer arg (all of its ctors share the strip);
+                            // a super target joins when it is an inner of
+                            // the same enclosing family.
+                            let mut eligible: Vec<String> = vec![class.name.clone()];
+                            if let Some(sup) = &class.super_name {
+                                let sup_enclosing =
+                                    crate::find_outer_name(pool, sup);
+                                if sup_enclosing.as_deref() == Some(outer.as_ref())
+                                    && ctx.class_has_this0(sup)
+                                {
+                                    eligible.push(sup.clone());
+                                }
+                            }
+                            let renamed = crate::apply_class_rename(outer);
+                            let display = dotted(renamed.as_ref());
+                            let ty =
+                                jdc_core::ir::expr::TypeRef::J(JavaType::Object(outer.clone()));
+                            crate::passes::rewrite_inner_ctor_outer_param(
+                                &mut b.body,
+                                p0,
+                                &display,
+                                &ty,
+                                &eligible,
+                            );
+                            inner_arg0 = 1;
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     if is_clinit {
         // `static { ... }` — the caller strips the method name/params.
@@ -1114,10 +1189,42 @@ fn emit_method(
             sig.push_str(&java_ident(mname));
         }
         sig.push('(');
+        // A promoted enum ctor's dex descriptor carries the compiler-
+        // synthesized `(String name, int ordinal)` prefix — JLS forbids
+        // declaring those (they are implicit in the `A(args)` constant
+        // declarations the promotion emits, and strip_enum_ctor_super
+        // already removed the `super(name, ordinal, ..)` delegation).
+        // Skip the pair in the signature, or every constant declaration
+        // fails javac arity ("无法将枚举…构造器…应用到给定类型"). Only
+        // when the body never reads the two params — code that genuinely
+        // uses them keeps the declared form.
+        let mut arg0 = 0;
+        if enum_promoted
+            && is_init
+            && matches!(d.args.first(), Some(JavaType::Object(s)) if s.as_ref() == "java/lang/String")
+            && matches!(d.args.get(1), Some(JavaType::Int))
+        {
+            let refs_ok = body.as_ref().is_some_and(|b| {
+                let uses = crate::passes::count_locals_stmts(std::slice::from_ref(&b.body));
+                let synthetic: Vec<u32> = b
+                    .vt
+                    .vars
+                    .iter()
+                    .filter(|v| v.is_param && v.name != "this")
+                    .take(2)
+                    .map(|v| v.id)
+                    .collect();
+                synthetic.iter().all(|id| uses.get(id).copied().unwrap_or(0) == 0)
+            });
+            if refs_ok {
+                arg0 = 2;
+            }
+        }
         let n = d.args.len();
         let varargs = a & ACC_VARARGS != 0 && n > 0;
-        for (i, arg) in d.args.iter().enumerate() {
-            if i > 0 {
+        let arg0 = arg0 + inner_arg0;
+        for (i, arg) in d.args.iter().enumerate().skip(arg0) {
+            if i > arg0 {
                 sig.push_str(", ");
             }
             let name = param_names

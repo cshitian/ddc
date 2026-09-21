@@ -3192,6 +3192,80 @@ fn is_bare_ctor_call(s: &Stmt) -> bool {
     matches!(s, Stmt::ExprStmt(e) if is_delegation_expr(e))
 }
 
+/// Is the local ever ASSIGNED (write position: `x = ..`, `++x`)?
+/// Distinct from a read count: a ctor's synthetic outer param is only
+/// ever read; a param that gets written must stay declared.
+pub(crate) fn local_is_written(body: &Stmt, var: u32) -> bool {
+    let mut hit = false;
+    let mut c = body.clone();
+    walk_stmt_exprs(&mut c, &mut |e| {
+        if !hit {
+            deep_rewrite(e, &mut |x| {
+                if hit {
+                    return;
+                }
+                match x {
+                    Expr::Assign { target, .. }
+                        if matches!(&**target, Expr::Local { var: v, .. } if *v == var) =>
+                    {
+                        hit = true;
+                    }
+                    Expr::PreIncDec { e, .. } | Expr::PostIncDec { e, .. }
+                        if matches!(&**e, Expr::Local { var: v, .. } if *v == var) =>
+                    {
+                        hit = true;
+                    }
+                    _ => {}
+                }
+            });
+        }
+    });
+    hit
+}
+
+/// Source-form normalization for a non-static member-inner constructor.
+/// The dex descriptor carries the synthetic outer instance as args[0]
+/// (typed as the direct enclosing class); the emitter's qualified
+/// `outer.new Inner(..)` / `this.new Inner(..)` sites pass it
+/// implicitly and `super(..)` delegations drop it, so the signature
+/// loses the param — and the body must stop referencing it: plain uses
+/// become `Outer.this` (a `this.this$0 = p` assignment becomes
+/// `this.this$0 = Outer.this`, exactly the runtime value), and
+/// this()-delegations to `eligible` classes drop the leading param arg.
+pub(crate) fn rewrite_inner_ctor_outer_param(
+    body: &mut Stmt,
+    param0: u32,
+    outer_display: &str,
+    outer_ty: &TypeRef,
+    eligible: &[String],
+) {
+    // this()/super() delegations (and lost-alloc construction calls):
+    // the leading arg IS the synthetic outer exactly when it is the
+    // param itself.
+    walk_stmt_exprs(body, &mut |e| {
+        if let Expr::Method { name, cls, args, .. } = e {
+            if &**name == "<init>"
+                && eligible.iter().any(|c| c.as_str() == cls.as_ref())
+                && args.first().is_some_and(|a| matches!(a, Expr::Local { var: v, .. } if *v == param0))
+            {
+                args.remove(0);
+            }
+        }
+    });
+    // Every remaining read of the param becomes `Outer.this`.
+    let text = format!("{outer_display}.this");
+    let ty = outer_ty.clone();
+    walk_stmt_exprs(body, &mut |e| {
+        deep_rewrite_reads(e, &mut |x| {
+            if let Expr::Local { var: v, .. } = x {
+                if *v == param0 {
+                    *x = Expr::RawT(text.clone(), ty.clone());
+                }
+            }
+        });
+    });
+}
+
 /// Ctors whose delegation is buried in control flow or behind arg
 /// computations — the "对super的调用必须是构造器中的第一个语句" family
 /// that plain hoisting cannot reach (weixin 264 / weibo 116 / reqable 71
@@ -3378,7 +3452,7 @@ fn count_locals_expr(e: &Expr) -> std::collections::HashMap<u32, usize> {
     m
 }
 
-fn count_locals_stmts(ss: &[Stmt]) -> std::collections::HashMap<u32, usize> {
+pub(crate) fn count_locals_stmts(ss: &[Stmt]) -> std::collections::HashMap<u32, usize> {
     let mut m = std::collections::HashMap::new();
     for s in ss {
         let mut c = s.clone();
