@@ -10,6 +10,7 @@ use crate::PoolField;
 use crate::ctx::{java_type_to_generic, DexCtx};
 use crate::method::decompile_method;
 use crate::{desc_type, DexPool, PoolClass, PoolMethod, StaticValue};
+use ddc_dex::insn::InsnKind;
 
 #[derive(Debug, Clone)]
 pub struct ClassOptions {
@@ -675,6 +676,44 @@ fn emit_class_body(
     }
 
     // Fields.
+    // Kotlin `object`/lazy singletons: the dex static value for INSTANCE
+    // is null while the clinit assigns it — rendering `= null` as the
+    // field initializer made the clinit assignment illegal ("无法为
+    // static final 变量 INSTANCE 分配值", okio SegmentPool family). A
+    // static final whose static value is null AND which the clinit
+    // sputs renders as a blank final. Scan the clinit's raw SPuts once.
+    let clinit_sputs: Option<jdc_core::FxHashSet<(std::sync::Arc<str>, std::sync::Arc<str>)>> =
+        // Gate: only classes with a null-valued final static can produce
+        // a blank final — skip the clinit decode otherwise (decoding it
+        // for every class cost seconds on 98k-class corpora).
+        (|| {
+            let has_null_final = class.static_fields.iter().enumerate().any(|(i, f)| {
+                f.access & crate::access::ACC_FINAL != 0
+                    && matches!(class.static_values.get(i), Some(StaticValue::Null))
+            });
+            if !has_null_final {
+                return None;
+            }
+            let m = class.all_methods().find(|m| &*m.name == "<clinit>")?;
+            let dex = pool.dex(m.dex_idx)?;
+            let ci = dex.code_at(m.code_off)?;
+            let mut set: jdc_core::FxHashSet<(
+                std::sync::Arc<str>,
+                std::sync::Arc<str>,
+            )> = jdc_core::FxHashSet::default();
+            for ins in &ci.insns {
+                if let InsnKind::SPut { field_idx, .. } = ins.kind {
+                    let fid = dex.field(field_idx);
+                    // clinit only writes own-class fields here; match
+                    // (name, type) against the field list below.
+                    set.insert((
+                        std::sync::Arc::from(dex.string(fid.name_idx)),
+                        std::sync::Arc::from(dex.type_name(fid.type_idx)),
+                    ));
+                }
+            }
+            Some(set)
+        })();
     let mut field_emitted = false;
     for (i, f) in class.static_fields.iter().enumerate() {
         // Enum constant fields became the header list above.
@@ -685,10 +724,25 @@ fn emit_class_body(
             out.push('\n');
         }
         field_emitted = true;
+        // A blank-final: static final, null static value, clinit-assigned.
+        let blank_final = f.access & crate::access::ACC_FINAL != 0
+            && matches!(class.static_values.get(i), Some(StaticValue::Null))
+            && clinit_sputs
+                .as_ref()
+                .is_some_and(|s| {
+                    s.contains(&(
+                        std::sync::Arc::from(f.name.as_str()),
+                        std::sync::Arc::from(f.desc.as_str()),
+                    ))
+                });
         emit_field(
             pool,
             f,
-            class.static_values.get(i),
+            if blank_final {
+                None
+            } else {
+                class.static_values.get(i)
+            },
             &class.name,
             out,
             depth + 1,
