@@ -3688,6 +3688,34 @@ pub fn fix_ctor_delegation_arg_defs(body: &mut Stmt) {
     }
 }
 
+/// An INT-typed method returning a boolean value: the register held the
+/// boolean test result in one generation and the `if (v) 1 else 0` int
+/// in another; booleanize picks the boolean generation and the plain
+/// `return v;` breaks ("boolean无法转换为int", weixin Handle
+/// onPausableTransaction — the source was `if (v) 1 else 0`). Wrap the
+/// return in the recovering conditional.
+pub fn fix_int_returns(vt: &VarTable, body: &mut Stmt) {
+    walk_mut_deep(body, &mut |st| {
+        if let Stmt::Return(Some(e)) = st {
+            let is_bool = match e {
+                Expr::Local { var, .. } => {
+                    (*var as usize) < vt.vars.len()
+                        && vt.vars[*var as usize].ty.erased() == JavaType::Boolean
+                }
+                Expr::Method { desc, .. } => desc.ret == JavaType::Boolean,
+                _ => false,
+            };
+            if is_bool {
+                *e = Expr::Cond {
+                    c: Box::new(e.clone()),
+                    t: Box::new(Expr::Const(ConstVal::Int(1))),
+                    f: Box::new(Expr::Const(ConstVal::Int(0))),
+                };
+            }
+        }
+    });
+}
+
 /// Dangling `break L<id>`: a Goto whose paired Label/Labeled-wrap was
 /// lost to structure degradation prints `break L<id>;` against an
 /// undeclared label ("未定义的标签", weibo 371/lark 85/weixin 535).

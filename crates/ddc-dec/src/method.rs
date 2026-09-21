@@ -760,6 +760,9 @@ pub fn decompile_method(
     passes::inline_accessors(&mut body, pool);
     passes::infer_types(&mut vt, &mut body, &desc.ret, &env);
     passes::booleanize(&mut vt, &mut body, matches!(desc.ret, JavaType::Boolean));
+    if matches!(desc.ret, JavaType::Int | JavaType::Long | JavaType::Short | JavaType::Byte) {
+        passes::fix_int_returns(&vt, &mut body);
+    }
     passes::insert_object_narrowing_casts(&vt, &mut body);
     passes::apply_local_names(&mut vt, &body);
     passes::remove_kotlin_checks(&mut body);
