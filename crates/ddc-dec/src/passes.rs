@@ -577,13 +577,147 @@ fn walk_all<F: FnMut(&Stmt)>(s: &Stmt, f: &mut F) {
 /// Bind catch parameters: the handler's first statement (a bare LocalDef
 /// from move-exception) becomes the catch variable.
 pub fn bind_catches(s: &mut Stmt, vt: &mut VarTable) {
+    // Vars defined anywhere in the method (params + LocalDefs +
+    // assign targets): a catch body reading a var OUTSIDE this set is
+    // the unmaterialized move-exception register (the lifter minted it
+    // without a defining statement).
+    let mut defined: jdc_core::FxHashSet<u32> = jdc_core::FxHashSet::default();
+    for v in &vt.vars {
+        if v.is_param {
+            defined.insert(v.id);
+        }
+    }
+    collect_defined_locals(s, &mut defined);
+    let reads_all = count_locals_stmts(std::slice::from_ref(s));
+    // Vars with a real assignment (LocalDef-with-init or assign target):
+    // a var only ever READ is either the unmaterialized move-exception
+    // register or a bare declaration awaiting its hoisted assignment.
+    let mut assigned: jdc_core::FxHashSet<u32> = jdc_core::FxHashSet::default();
+    collect_assigned_locals(s, &mut assigned);
+    let mut fallback_bound: Vec<u32> = Vec::new();
+    bind_catches_walk(s, vt, &defined, &reads_all, &assigned, &mut fallback_bound);
+    // The catch parameter IS the declaration now: drop the bare
+    // `Throwable th;` hoists for vars the fallback bound.
+    if !fallback_bound.is_empty() {
+        remove_bare_decls(s, &fallback_bound);
+    }
+}
+
+fn collect_defined_locals(s: &Stmt, out: &mut jdc_core::FxHashSet<u32>) {
+    crate::passes::walk_all(s, &mut |st| {
+        match st {
+            Stmt::LocalDef { var, .. } => {
+                out.insert(*var);
+            }
+            Stmt::ExprStmt(Expr::Assign { target, .. }) => {
+                if let Expr::Local { var, .. } = &**target {
+                    out.insert(*var);
+                }
+            }
+            _ => {}
+        }
+    });
+}
+
+
+/// First read of a local that is defined nowhere in the method (and is
+/// not a parameter) inside the catch body — the unmaterialized
+/// move-exception register.
+
+/// Vars carrying a real assignment (init or write target).
+fn collect_assigned_locals(s: &Stmt, out: &mut jdc_core::FxHashSet<u32>) {
+    crate::passes::walk_all(s, &mut |st| {
+        match st {
+            Stmt::LocalDef { var, init: Some(_), .. } => {
+                out.insert(*var);
+            }
+            Stmt::ExprStmt(Expr::Assign { target, .. }) => {
+                if let Expr::Local { var, .. } = &**target {
+                    out.insert(*var);
+                }
+            }
+            _ => {}
+        }
+    });
+}
+
+/// First `throw <local>` var in the catch body that is never assigned
+/// anywhere and is exception-typed — the unmaterialized move-exception.
+fn first_thrown_unassigned_local(
+    body: &Stmt,
+    vt: &VarTable,
+    assigned: &jdc_core::FxHashSet<u32>,
+) -> Option<u32> {
+    let mut found: Option<u32> = None;
+    let mut c = body.clone();
+    walk_all(&mut c, &mut |st| {
+        if let Stmt::Throw(th) = st {
+            if let Expr::Local { var, .. } = th {
+                let v = *var;
+                if !assigned.contains(&v) {
+                    if let JavaType::Object(o) = vt.var(v).ty.erased() {
+                        if o.as_ref() == "java/lang/Throwable" {
+                            found = Some(v);
+                        }
+                    }
+                }
+            }
+        }
+    });
+    found
+}
+
+/// Remove bare `LocalDef{var, init: None}` declarations for the given
+/// vars (the catch parameter is their declaration now).
+fn remove_bare_decls(s: &mut Stmt, vars: &[u32]) {
+    let vars: jdc_core::FxHashSet<u32> = vars.iter().copied().collect();
+    walk_mut_deep(s, &mut |st| {
+        if let Stmt::Block(v) = st {
+            v.retain(|x| {
+                !matches!(x, Stmt::LocalDef { var, init: None, .. } if vars.contains(var))
+            });
+        }
+    });
+}
+
+fn first_undefined_local_read(
+    body: &Stmt,
+    defined: &jdc_core::FxHashSet<u32>,
+) -> Option<u32> {
+    let mut found: Option<u32> = None;
+    let mut c = body.clone();
+    crate::passes::walk_stmt_exprs(&mut c, &mut |e| {
+        if found.is_none() {
+            deep_rewrite(e, &mut |x| {
+                if found.is_none() {
+                    if let Expr::Local { var, .. } = x {
+                        if !defined.contains(var) {
+                            found = Some(*var);
+                        }
+                    }
+                }
+            });
+        }
+    });
+    found
+}
+
+#[allow(clippy::too_many_arguments)]
+fn bind_catches_walk(
+    s: &mut Stmt,
+    vt: &mut VarTable,
+    defined: &jdc_core::FxHashSet<u32>,
+    reads_all: &std::collections::HashMap<u32, usize>,
+    assigned: &jdc_core::FxHashSet<u32>,
+    fallback_bound: &mut Vec<u32>,
+) {
     match s {
         Stmt::Try {
             body,
             catches,
             finally,
         } => {
-            bind_catches(body, vt);
+            bind_catches_walk(body, vt, defined, reads_all, assigned, fallback_bound);
             for c in catches.iter_mut() {
                 if c.var == u32::MAX {
                     let stored = match c.body.as_ref() {
@@ -612,17 +746,88 @@ pub fn bind_catches(s: &mut Stmt, vt: &mut VarTable) {
                         }
                         rewrite_local_refs(c.body.as_mut(), v, new_var);
                         c.var = new_var;
+                    } else if let Some(v) = first_undefined_local_read(c.body.as_ref(), defined)
+                        .filter(|v| {
+                            // Bind only a var read NOWHERE outside this
+                            // catch: ensure_declared would hoist an
+                            // outside-read var to a method local, and
+                            // consuming it as the catch parameter would
+                            // scope it too narrowly.
+                            let in_catch = count_locals_stmts(std::slice::from_ref(c.body.as_ref()));
+                            reads_all.get(v).copied().unwrap_or(0)
+                                == in_catch.get(v).copied().unwrap_or(0)
+                        })
+                        .filter(|v| {
+                            // And only an EXCEPTION-typed var: the
+                            // move-exception registers carry the handler
+                            // type — a plain local pending its hoisted
+                            // declaration (StringBuilder sb) must not be
+                            // consumed as the catch parameter (reqable
+                            // amazon: the declaration vanished and its
+                            // outer readers broke).
+                            let ty = vt.var(*v).ty.erased();
+                            let exc = c
+                                .exc
+                                .first()
+                                .cloned()
+                                .unwrap_or_else(|| "java/lang/Throwable".into());
+                            matches!(&ty, JavaType::Object(o)
+                                if o.as_ref() == exc.as_ref()
+                                    || o.as_ref() == "java/lang/Throwable")
+                        })
+                    {
+                        // The handler's first statement is not the
+                        // move-exception def (the d8 synchronized pattern
+                        // leads with MonitorExit): the register the lifter
+                        // minted for move-exception is still READ in the
+                        // body (`throw th;`) with no defining statement
+                        // anywhere. Bind IT as the catch parameter —
+                        // otherwise emit printed `catch (Throwable ignored)`
+                        // over an undeclared `throw th` (definite-assignment
+                        // failure, 6.4k weibo sites).
+                        c.var = v;
+                        fallback_bound.push(v);
+                    } else if let Some(v) =
+                        first_thrown_unassigned_local(c.body.as_ref(), vt, assigned)
+                            .filter(|v| {
+                                let in_catch =
+                                    count_locals_stmts(std::slice::from_ref(c.body.as_ref()));
+                                reads_all.get(v).copied().unwrap_or(0)
+                                    == in_catch.get(v).copied().unwrap_or(0)
+                            })
+                            .filter(|v| {
+                                // Same exception-type gate: the hoisted
+                                // `Throwable th;` declares the var but the
+                                // move-exception never assigned it.
+                                let ty = vt.var(*v).ty.erased();
+                                let exc = c
+                                    .exc
+                                    .first()
+                                    .cloned()
+                                    .unwrap_or_else(|| "java/lang/Throwable".into());
+                                matches!(&ty, JavaType::Object(o)
+                                    if o.as_ref() == exc.as_ref()
+                                        || o.as_ref() == "java/lang/Throwable")
+                            })
+                    {
+                        // Declared-never-assigned: `Throwable th;` hoisted
+                        // by an earlier phase, the catch body's `throw th`
+                        // its only use — the move-exception assignment was
+                        // never materialized. Bind th as the catch
+                        // parameter and drop the bare declaration.
+                        c.var = v;
+                        fallback_bound.push(v);
                     }
                 }
-                bind_catches(&mut c.body, vt);
+                bind_catches_walk(&mut c.body, vt, defined, reads_all, assigned, fallback_bound);
             }
             if let Some(f) = finally {
-                bind_catches(f.as_mut(), vt);
+                bind_catches_walk(f.as_mut(), vt, defined, reads_all, assigned, fallback_bound);
             }
         }
         Stmt::Block(v) => {
             for x in v.iter_mut() {
-                bind_catches(x, vt);
+                bind_catches_walk(x, vt, defined, reads_all, assigned, fallback_bound);
             }
         }
         Stmt::If {
@@ -630,29 +835,29 @@ pub fn bind_catches(s: &mut Stmt, vt: &mut VarTable) {
             else_stmt,
             ..
         } => {
-            bind_catches(then_stmt, vt);
+            bind_catches_walk(then_stmt, vt, defined, reads_all, assigned, fallback_bound);
             if let Some(e) = else_stmt {
-                bind_catches(e, vt);
+                bind_catches_walk(e, vt, defined, reads_all, assigned, fallback_bound);
             }
         }
-        Stmt::While { body, .. } | Stmt::DoWhile { body, .. } => bind_catches(body, vt),
+        Stmt::While { body, .. } | Stmt::DoWhile { body, .. } => bind_catches_walk(body, vt, defined, reads_all, assigned, fallback_bound),
         Stmt::For { init, body, .. } => {
             for x in init.iter_mut() {
-                bind_catches(x, vt);
+                bind_catches_walk(x, vt, defined, reads_all, assigned, fallback_bound);
             }
-            bind_catches(body, vt);
+            bind_catches_walk(body, vt, defined, reads_all, assigned, fallback_bound);
         }
         Stmt::ForEach { body, .. }
         | Stmt::Labeled { body, .. }
-        | Stmt::Synchronized { body, .. } => bind_catches(body, vt),
+        | Stmt::Synchronized { body, .. } => bind_catches_walk(body, vt, defined, reads_all, assigned, fallback_bound),
         Stmt::Switch { cases, default, .. } => {
             for c in cases.iter_mut() {
                 for x in c.body.iter_mut() {
-                    bind_catches(x, vt);
+                    bind_catches_walk(x, vt, defined, reads_all, assigned, fallback_bound);
                 }
             }
             if let Some(d) = default {
-                bind_catches(d, vt);
+                bind_catches_walk(d, vt, defined, reads_all, assigned, fallback_bound);
             }
         }
         _ => {}
