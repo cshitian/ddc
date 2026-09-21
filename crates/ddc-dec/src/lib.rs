@@ -1260,13 +1260,19 @@ pub fn install_case_renames(pool: &DexPool) {
 /// class, not a package, not a nested-class prefix, not another rule's
 /// target).
 fn class_pkg_collision_renames(pool: &DexPool, map: &mut HashMap<String, String>) {
-    // Every package that exists in the pool (the prefix before the last
-    // '/' of some class) — one pass, then O(1) collision lookups.
-    let pkgs: jdc_core::FxHashSet<String> = pool
-        .order
-        .iter()
-        .filter_map(|n| n.rsplit_once('/').map(|(p, _)| p.to_string()))
-        .collect();
+    // Every package that exists in the pool — ALL ancestor prefixes of
+    // every class path, not just direct parents: Java sees package
+    // `z` as existing when any class lives at `z/a/b` (the weibo
+    // `com.sina.weibo.z` interface collides with a subpackage-only
+    // `z/` that has no directly-resident class).
+    let mut pkgs: jdc_core::FxHashSet<String> = jdc_core::FxHashSet::default();
+    for n in &pool.order {
+        let mut rest = n.as_str();
+        while let Some(i) = rest.rfind('/') {
+            rest = &rest[..i];
+            pkgs.insert(rest.to_string());
+        }
+    }
     for name in &pool.order {
         let Some((pkg, simple)) = name.rsplit_once('/') else {
             continue;
