@@ -569,6 +569,7 @@ pub fn decompile_method(
         passes::fix_primitive_assign_casts(&vt, &mut body, &desc.ret);
         passes::fix_primitive_arg_bridges(&mut body, &vt, pool);
         passes::fix_bool_xor(&mut body, &vt, matches!(desc.ret, JavaType::Boolean));
+        passes::fix_int_operand_bridges(&mut body, &vt);
         passes::apply_local_names(&mut vt, &body);
     passes::deshadow_locals(&mut vt, pool);
         passes::remove_kotlin_checks(&mut body);
@@ -832,8 +833,23 @@ pub fn decompile_method(
     // v131` — weixin ConstraintLayout ×1.4k); with nothing converted
     // the fixpoint walk is pure decomp-time cost (the weixin 16→24s
     // regression).
-    if passes::booleanize(&mut vt, &mut body, matches!(desc.ret, JavaType::Boolean)) > 0 {
-        passes::split_generations(&mut vt, &mut body);
+    // Booleanize ↔ split fixpoint, bounded, ENDING on a booleanize:
+    // each split MINTS fresh generation vars that inherit the stale int
+    // type while receiving boolean values (`int v264_g160_g7_g3 =
+    // !v200` with `!= 0` reads — weixin bool→int assign family, 2.8k
+    // lines). Only a FOLLOWING booleanize retypes them and folds their
+    // `v != 0` reads; a trailing split would leave the folds undone.
+    {
+        let rb = matches!(desc.ret, JavaType::Boolean);
+        let mut rounds = 0;
+        loop {
+            let c = passes::booleanize(&mut vt, &mut body, rb);
+            rounds += 1;
+            if c == 0 || rounds >= 3 {
+                break;
+            }
+            passes::split_generations(&mut vt, &mut body);
+        }
     }
     if matches!(desc.ret, JavaType::Int | JavaType::Long | JavaType::Short | JavaType::Byte) {
         passes::fix_int_returns(&vt, &mut body);
@@ -843,6 +859,7 @@ pub fn decompile_method(
     passes::fix_primitive_assign_casts(&vt, &mut body, &desc.ret);
     passes::fix_primitive_arg_bridges(&mut body, &vt, pool);
     passes::fix_bool_xor(&mut body, &vt, matches!(desc.ret, JavaType::Boolean));
+    passes::fix_int_operand_bridges(&mut body, &vt);
     passes::apply_local_names(&mut vt, &body);
     passes::deshadow_locals(&mut vt, pool);
     passes::remove_kotlin_checks(&mut body);
