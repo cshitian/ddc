@@ -87,6 +87,10 @@ impl<'a> Ctx for DexCtx<'a> {
         self.pool as *const DexPool as u64
     }
 
+    fn obscured_simple(&self, internal: &str) -> Option<String> {
+        crate::classdec::obscured_render_pub(internal)
+    }
+
     fn class_name(&self) -> &str {
         &self.class.name
     }

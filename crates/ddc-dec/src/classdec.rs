@@ -140,28 +140,56 @@ fn decompile_class_impl(
         out.push_str("// synthetic\n");
     }
     let (pkg, _) = split_name(&class.name);
+    // Two-pass import assembly: the body renders FIRST (into a temp
+    // buffer) with the obscured render state installed — expression
+    // positions DISCOVER additional obscured refs on the fly — then the
+    // file assembles as provenance + package + imports + body. The one
+    // extra body copy is the price of correct import placement.
+    let mut obscured_map = compute_obscured_renders(pool, class);
+    // Same-package simple-name collisions: an import shadows every
+    // same-package use of that simple in this file — drop those from
+    // the map (their refs stay qualified, erroring honestly).
+    let blocked: jdc_core::FxHashSet<String> = pool
+        .package_simples()
+        .get(&pkg)
+        .cloned()
+        .unwrap_or_default();
+    obscured_map.retain(|_internal, simple| !blocked.contains(simple));
+    set_obscured_state(class.name.clone(), obscured_map.clone(), blocked.clone());
+    let mut body_buf = String::with_capacity(out.capacity() / 2);
+    let body_res = emit_class_body(pool, class, &ctx, opts, &mut body_buf, 0);
+    let recorded = take_recorded_and_clear();
+    body_res?;
     if !pkg.is_empty() {
         out.push('\n');
         out.push_str("package ");
         let dotted = pkg.replace('/', ".");
         out.push_str(&sanitize_fq(&dotted));
         out.push_str(";\n");
-        // Obscured supertypes: an FQN whose second-to-last segment equals
-        // the class's OWN simple name renders ambiguously in the
-        // extends/implements clause (JLS 6.4.2 — `class j3 implements
-        // j3.g` resolves j3 as the class itself: cyclic inheritance, and
-        // javac's attribution for the whole package collapses — the
-        // Object-cascade root, weixin 15k files). A single-type import
-        // resolves it: render the simple name.
-        // (obscured-super import emission: see round-73 notes — works
-        // for headers but EXPOSES the body-level obscuring family,
-        // net +9k; reverted until the full A2 import layer.)
+        // Imports: the metadata map plus the expression-level
+        // discoveries, pool-known only (an import of an unknown class
+        // is a hard error), display-renamed, sorted for determinism.
+        let mut import_set: jdc_core::FxHashSet<String> =
+            obscured_map.keys().cloned().collect();
+        for r in recorded {
+            if pool.get(&r).is_some() {
+                let simple = r.rsplit('/').next().unwrap_or("");
+                if !blocked.contains(simple) {
+                    import_set.insert(r);
+                }
+            }
+        }
+        let mut imports: Vec<String> = import_set
+            .iter()
+            .map(|internal| crate::classdec::dotted(&crate::apply_class_rename(internal)))
+            .collect();
+        imports.sort();
+        for display in imports {
+            out.push_str(&format!("import {};\n", display));
+        }
     }
     out.push('\n');
-    // Emit straight into `out`: the intermediate body buffer copied the
-    // whole rendered class (corpus-average ~10KB) a second time — pure
-    // memmove traffic; the error path discards `out` either way.
-    emit_class_body(pool, class, &ctx, opts, &mut out, 0)?;
+    out.push_str(&body_buf);
     Ok(out)
 }
 
@@ -1700,7 +1728,148 @@ pub fn type_name(pool: &DexPool, t: &JavaType) -> String {
 
 /// `com/foo/Outer$Inner` → `com.foo.Outer.Inner` — each `$` dots only when
 /// its left side names a known class (literal `$` top-level names survive).
+// ---------------------------------------------------------------------------
+// The per-class import map (JLS 6.4.2 obscuring repair).
+//
+// A referenced FQN whose FIRST segment equals an in-scope class simple
+// name binds the qualifier to the CLASS, not the package — `class j3
+// implements j3.g` is cyclic inheritance and collapses javac's
+// attribution for the whole package (the Object-cascade root, weixin
+// 84 files + contagion). The repair: emit `import j3.g;` and render
+// the SIMPLE name in every type position. The set is populated per
+// class from a metadata pre-scan (supertypes, field types, method
+// signature descriptors) and read by print_class_name and the
+// DexCtx::obscured_simple implementation (which jdc-core's shorten /
+// java_type_name consult).
+struct ObscureState {
+    /// The ROOT class being rendered (its simple name is the obscuring
+    /// in-scope name).
+    class: String,
+    /// Metadata pre-scan results: internal → simple render.
+    map: jdc_core::FxHashMap<String, String>,
+    /// Expression-level obscured refs DISCOVERED during the body render
+    /// (their imports emit at assembly time).
+    recorded: jdc_core::FxHashSet<String>,
+    /// Simple names of the CURRENT PACKAGE's own classes: importing a
+    /// name that collides would SHADOW every same-package use of it in
+    /// this file (JLS 7.5.1) — those refs stay qualified (obscured,
+    /// erroring) rather than corrupt.
+    blocked: jdc_core::FxHashSet<String>,
+}
+
+thread_local! {
+    static OBSCURE: std::cell::RefCell<Option<ObscureState>> =
+        const { std::cell::RefCell::new(None) };
+}
+
+/// Install the per-class render state (call at class render entry).
+pub(crate) fn set_obscured_state(
+    class: String,
+    map: jdc_core::FxHashMap<String, String>,
+    blocked: jdc_core::FxHashSet<String>,
+) {
+    OBSCURE.with(|m| {
+        *m.borrow_mut() = Some(ObscureState {
+            class,
+            map,
+            recorded: jdc_core::FxHashSet::default(),
+            blocked,
+        });
+    });
+}
+
+/// Take the recorded expression-level refs and clear the state.
+pub(crate) fn take_recorded_and_clear() -> jdc_core::FxHashSet<String> {
+    OBSCURE.with(|m| {
+        m.borrow_mut()
+            .take()
+            .map(|st| st.recorded)
+            .unwrap_or_default()
+    })
+}
+
+/// Render-time lookup: the metadata map first; otherwise an
+/// expression-level ref whose first segment equals the root class's
+/// simple name — record it (its import emits at assembly) and render
+/// the simple name NOW.
+pub(crate) fn obscured_render_pub(internal: &str) -> Option<String> {
+    OBSCURE.with(|m| {
+        let mut st = m.borrow_mut();
+        let st = st.as_mut()?;
+        if let Some(simple) = st.map.get(internal) {
+            return Some(simple.clone());
+        }
+        let first = internal.split('/').next().unwrap_or("");
+        let own = st.class.rsplit('/').next().unwrap_or("");
+        if first == own && internal.split('/').count() >= 2 {
+            let simple = internal.rsplit('/').next().unwrap_or("").to_string();
+            if !simple.is_empty() && !st.blocked.contains(&simple) {
+                st.recorded.insert(internal.to_string());
+                return Some(simple);
+            }
+        }
+        None
+    })
+}
+
+/// The pre-scan: internal names referenced by the class's metadata
+/// (supertypes, field types, method descriptors) whose first segment
+/// equals the class's own simple name and which exist in the pool —
+/// these get imports and simple-name renders.
+fn compute_obscured_renders(pool: &DexPool, class: &PoolClass) -> jdc_core::FxHashMap<String, String> {
+    let own_simple = class.name.rsplit('/').next().unwrap_or("");
+    if own_simple.is_empty() {
+        return jdc_core::FxHashMap::default();
+    }
+    let mut refs: jdc_core::FxHashSet<String> = jdc_core::FxHashSet::default();
+    for sup in class.interfaces.iter() {
+        refs.insert(sup.clone());
+    }
+    if let Some(sup) = &class.super_name {
+        refs.insert(sup.clone());
+    }
+    for f in class.static_fields.iter().chain(class.instance_fields.iter()) {
+        if let JavaType::Object(n) = crate::desc_type(&f.desc) {
+            refs.insert(n.to_string());
+        }
+    }
+    for m in class.all_methods() {
+        if let Some(d) = m.parsed_desc() {
+            for a in d.args.iter() {
+                if let JavaType::Object(n) = a {
+                    refs.insert(n.to_string());
+                }
+            }
+            if let JavaType::Object(n) = &d.ret {
+                refs.insert(n.to_string());
+            }
+        }
+    }
+    let mut out: jdc_core::FxHashMap<String, String> = jdc_core::FxHashMap::default();
+    for r in refs {
+        // First segment == the class's own simple name: the qualified
+        // render would be obscured. The name must exist in the pool for
+        // the import to resolve. The KEY stays internal (renders look
+        // refs up by internal name), but the import line and the
+        // simple name use the RENAMED display — a collision-renamed
+        // class renders under its display name and an import of the
+        // internal name does not resolve.
+        let first = r.split('/').next().unwrap_or("");
+        if first == own_simple && r.split('/').count() >= 2 && pool.get(&r).is_some() {
+            let display = crate::apply_class_rename(&r);
+            let simple = display.rsplit('/').next().unwrap_or("").to_string();
+            if !simple.is_empty() {
+                out.insert(r.clone(), simple);
+            }
+        }
+    }
+    out
+}
+
 pub fn print_class_name(pool: &DexPool, internal: &str) -> String {
+    if let Some(simple) = obscured_render_pub(internal) {
+        return sanitize_ref(&simple);
+    }
     let cow = crate::apply_class_rename(internal);
     let internal: &str = &cow;
     // Flat EMISSION UNITS: a digit-tail member (anonymous / d8-lambda

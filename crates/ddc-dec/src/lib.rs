@@ -229,6 +229,8 @@ pub struct DexPool {
     /// driver fills this BEFORE `arm_retirement`; progressive/lazy pools
     /// never retire and fall through to live reads.
     accessor_code: std::sync::OnceLock<AccessorSnapshots>,
+    /// Cached package → direct-class simple names (import-collision gate).
+    pkg_simples: std::sync::OnceLock<jdc_core::FxHashMap<String, jdc_core::FxHashSet<String>>>,
 }
 
 /// Raw code_item bytes of every synthetic-static accessor, keyed by
@@ -273,6 +275,7 @@ impl DexPool {
             children: std::sync::OnceLock::new(),
             ref_caches: Vec::new(),
             accessor_code: std::sync::OnceLock::new(),
+            pkg_simples: std::sync::OnceLock::new(),
         }
     }
 
@@ -531,6 +534,24 @@ impl DexPool {
 
     pub fn dex_count(&self) -> usize {
         self.dexes.len()
+    }
+
+    /// Package → simple names of its direct classes, cached once per
+    /// pool (the import-collision gate consults it per class — the
+    /// uncached scan was O(classes²) and 10×'d weixin's wall time).
+    pub fn package_simples(&self) -> &jdc_core::FxHashMap<String, jdc_core::FxHashSet<String>> {
+        self.pkg_simples.get_or_init(|| {
+            let mut m: jdc_core::FxHashMap<String, jdc_core::FxHashSet<String>> =
+                jdc_core::FxHashMap::default();
+            for n in &self.order {
+                if let Some((pkg, simple)) = n.rsplit_once('/') {
+                    m.entry(pkg.to_string())
+                        .or_default()
+                        .insert(simple.to_string());
+                }
+            }
+            m
+        })
     }
 
     pub fn class_names(&self) -> impl Iterator<Item = &str> {
