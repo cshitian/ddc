@@ -3069,15 +3069,57 @@ pub fn fix_bool_xor(body: &mut Stmt, vt: &VarTable, ret_bool: bool) {
         }
         _ => {}
     });
+    fn ity(e: &Expr, vt: &VarTable) -> bool {
+        matches!(
+            match e {
+                Expr::Local { var, .. } => vt.var(*var).ty.erased(),
+                other => other.type_ref().erased(),
+            },
+            JavaType::Int | JavaType::Short | JavaType::Byte | JavaType::Char
+        )
+    }
     walk_stmt_exprs(body, &mut |e| {
         deep_rewrite(e, &mut |x| {
-            if let Expr::Bin { op: BinOp::Xor, l, r, .. } = x {
-                if is_one(r) && bty(l, vt) {
-                    let taken = std::mem::replace(l, Box::new(Expr::Const(ConstVal::Null)));
-                    *x = Expr::Un { op: UnOp::Not, e: taken };
-                } else if is_one(l) && bty(r, vt) {
-                    let taken = std::mem::replace(r, Box::new(Expr::Const(ConstVal::Null)));
-                    *x = Expr::Un { op: UnOp::Not, e: taken };
+            if let Expr::Bin { op, l, r, ty } = x {
+                match op {
+                    BinOp::Xor => {
+                        if is_one(r) && bty(l, vt) {
+                            let taken = std::mem::replace(l, Box::new(Expr::Const(ConstVal::Null)));
+                            *x = Expr::Un { op: UnOp::Not, e: taken };
+                        } else if is_one(l) && bty(r, vt) {
+                            let taken = std::mem::replace(r, Box::new(Expr::Const(ConstVal::Null)));
+                            *x = Expr::Un { op: UnOp::Not, e: taken };
+                        }
+                    }
+                    // Kotlin's non-short-circuit `or`/`and` over 0/1
+                    // ints mixes generations once booleanize converts
+                    // one side (`delete | delete2` with delete int,
+                    // delete2 boolean — "boolean无法转换为int" at the
+                    // OPERAND, weixin SQLiteDatabase ×3.3k lines). The
+                    // int side is a 0/1 encoding: compare it, keeping
+                    // the chain boolean end to end.
+                    BinOp::Or | BinOp::And => {
+                        if bty(l, vt) && ity(r, vt) {
+                            let taken = std::mem::replace(r, Box::new(Expr::Const(ConstVal::Null)));
+                            **r = Expr::Bin {
+                                op: BinOp::Ne,
+                                l: taken,
+                                r: Box::new(Expr::Const(ConstVal::Int(0))),
+                                ty: Some(TypeRef::J(JavaType::Boolean)),
+                            };
+                            *ty = Some(TypeRef::J(JavaType::Boolean));
+                        } else if ity(l, vt) && bty(r, vt) {
+                            let taken = std::mem::replace(l, Box::new(Expr::Const(ConstVal::Null)));
+                            **l = Expr::Bin {
+                                op: BinOp::Ne,
+                                l: taken,
+                                r: Box::new(Expr::Const(ConstVal::Int(0))),
+                                ty: Some(TypeRef::J(JavaType::Boolean)),
+                            };
+                            *ty = Some(TypeRef::J(JavaType::Boolean));
+                        }
+                    }
+                    _ => {}
                 }
             }
         });
@@ -4510,9 +4552,31 @@ fn split_needed(vt: &VarTable, target: u32, value: &Expr) -> bool {
     // Locals consult the VarTable: the embedded ty is a lift-time
     // snapshot, stale after booleanize converts a copy SOURCE (the
     // post-booleanize re-split below relies on seeing `v131` as the
-    // boolean it became).
+    // boolean it became). Bitwise Or/And/Xor over boolean operands
+    // carry the same staleness at the EXPRESSION level (dex lowered
+    // Kotlin's non-short-circuit `or` to int `|` — the embedded Bin ty
+    // stays Int after booleanize converts the operands): `int v18 =
+    // delete | delete2` must split the target generation.
+    fn side_bool(e: &Expr, vt: &VarTable) -> bool {
+        match e {
+            Expr::Local { var, .. } if (*var as usize) < vt.vars.len() => {
+                matches!(vt.var(*var).ty.erased(), JavaType::Boolean)
+            }
+            Expr::Const(ConstVal::Int(0 | 1)) => true,
+            Expr::Bin { op: BinOp::Or | BinOp::And | BinOp::Xor, l, r, .. } => {
+                side_bool(l, vt) && side_bool(r, vt)
+            }
+            other => matches!(other.type_ref().erased(), JavaType::Boolean),
+        }
+    }
     let value_ty = match value {
         Expr::Local { var, ty } if (*var as usize) < vt.vars.len() => vt.var(*var).ty.erased(),
+        Expr::Bin {
+            op: BinOp::Or | BinOp::And | BinOp::Xor,
+            l,
+            r,
+            ..
+        } if side_bool(l, vt) && side_bool(r, vt) => JavaType::Boolean,
         other => other.type_ref().erased(),
     };
     if vt_is_ref(&declared) && vt_is_ref(&value_ty) {
