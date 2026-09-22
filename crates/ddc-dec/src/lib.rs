@@ -1496,11 +1496,21 @@ fn obscuring_class_renames(
             None => "",
         }
     }
+    // Root package first segments (segments some class lives under).
+    let mut root_segs: jdc_core::FxHashSet<&str> = jdc_core::FxHashSet::default();
+    for n in &pool.order {
+        if let Some(i) = n.find('/') {
+            root_segs.insert(&n[..i]);
+        }
+    }
     let mut cands: Vec<&String> = Vec::new();
     for name in &pool.order {
         let simple = name.rsplit('/').next().unwrap_or(name);
         let pkg = pkg_of(name);
-        if simple.is_empty() || simple.contains('$') {
+        if simple.is_empty() || simple.contains('$') || pkg.is_empty() {
+            continue;
+        }
+        if !root_segs.contains(simple) {
             continue;
         }
         if map.get(name).is_some_and(|v| v != name) {
@@ -1510,15 +1520,9 @@ fn obscuring_class_renames(
         // a/a/b/c/l/a shadowed the FQN refs `a.a.a.a2` that its own
         // package files render for cross-subpackage targets (the
         // starts_with("a/") skip left the WHOLE a-tree unrenamed —
-        // 找不到符号 类 a chains). Same-package refs render simple and
-        // cannot be obscured; the refsegs gate below already requires
-        // a cross-package FQN ref for the trigger.
-        if pkg_segs
-            .get(pkg)
-            .is_some_and(|segs| segs.contains(simple))
-        {
-            cands.push(name);
-        }
+        // 找不到符号 类 a chains). The two-stage refsegs gates below
+        // require an actual cross-package FQN ref for the trigger.
+        cands.push(name);
     }
     let ncands = cands.len();
     if std::env::var("DDC_STATS").is_ok() {
@@ -1543,9 +1547,17 @@ fn obscuring_class_renames(
     let pkg_simples = pool.package_simples();
     let mut taken_displays: jdc_core::FxHashSet<String> = map.values().cloned().collect();
     let mut renamed = 0usize;
+    // Stage 1: descriptor-level hits rename now; the rest queue for the
+    // BODY-level image scan (weixin pc5's `invoke-static Ln91/f;.a` —
+    // 7.8k+6.6k error lines the descriptor gate cannot see).
+    let mut stage2: Vec<&String> = Vec::new();
     for name in cands {
         let pkg = pkg_of(name);
         let simple = name.rsplit('/').next().unwrap_or(name);
+        if !pkg_segs.get(pkg).is_some_and(|segs| segs.contains(simple)) {
+            stage2.push(name);
+            continue;
+        }
         let siblings = pkg_simples.get(pkg);
         let mut k = 1u32;
         loop {
@@ -1578,9 +1590,51 @@ fn obscuring_class_renames(
             }
         }
     }
+    let mut body_renamed = 0usize;
+    if !stage2.is_empty() && pool_majority_materialized(pool) {
+        let stage2_pkgs: jdc_core::FxHashSet<String> =
+            stage2.iter().map(|n| pkg_of(n).to_string()).collect();
+        let body_segs = crate::refscan::body_ref_segments(&pool.dexes, &stage2_pkgs);
+        for name in stage2 {
+            let pkg = pkg_of(name);
+            let simple = name.rsplit('/').next().unwrap_or(name);
+            if !body_segs
+                .get(pkg)
+                .is_some_and(|segs| segs.contains(simple))
+            {
+                continue;
+            }
+            let siblings = pkg_simples.get(pkg);
+            let mut k = 1u32;
+            loop {
+                k += 1;
+                let new_simple = format!("{simple}{k}");
+                let cand = format!("{pkg}/{new_simple}");
+                let clash = !prefix_free(&cand)
+                    || taken_displays.contains(&cand)
+                    || pkg_segs
+                        .get(pkg)
+                        .is_some_and(|segs| segs.contains(new_simple.as_str()))
+                    || body_segs
+                        .get(pkg)
+                        .is_some_and(|segs| segs.contains(new_simple.as_str()))
+                    || siblings.is_some_and(|s| {
+                        s.iter()
+                            .any(|p| p.eq_ignore_ascii_case(&new_simple) && *p != simple)
+                    });
+                if !clash {
+                    taken_displays.insert(cand.clone());
+                    map.insert(name.clone(), cand);
+                    renamed += 1;
+                    body_renamed += 1;
+                    break;
+                }
+            }
+        }
+    }
     if std::env::var("DDC_STATS").is_ok() {
         eprintln!(
-            "[renames] obscuring-class renames: {renamed} (pkgs-with-segs={}, cands={ncands})",
+            "[renames] obscuring-class renames: {renamed} (body-gated {body_renamed}; pkgs-with-segs={}, cands={ncands})",
             pkg_segs.len()
         );
     }

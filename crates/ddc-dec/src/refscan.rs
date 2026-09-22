@@ -411,3 +411,174 @@ fn scan_image(
     }
     dead
 }
+
+/// Per-package first segments of CROSS-package references found at
+/// BODY level (instruction operands, signatures, supers) — the
+/// descriptor-only refsegs scan misses body-only references (weixin
+/// pc5's `invoke-static Ln91/f;.a` — 7.8k `n91.f` errors + 6.6k
+/// `uc6.f` survived the descriptor gate). Only classes whose package
+/// is in `cand_pkgs` are attributed (the obscuring-rename candidates'
+/// packages); annotations/static-values/call-site linker args are not
+/// walked (signatures + insns carry the mass; a miss leaks one rename
+/// back to the descriptor-gated status quo, never a wrong rename).
+pub fn body_ref_segments(
+    dexes: &[Arc<DexFile>],
+    cand_pkgs: &HashSet<String>,
+) -> HashMap<String, HashSet<String>> {
+    if cand_pkgs.is_empty() {
+        return HashMap::default();
+    }
+    let nthreads = std::thread::available_parallelism()
+        .map(|n| n.get())
+        .unwrap_or(1)
+        .min(4)
+        .min(dexes.len().max(1));
+    let chunk = dexes.len().div_ceil(nthreads).max(1);
+    let merged: std::sync::Mutex<HashMap<String, HashSet<String>>> =
+        std::sync::Mutex::new(HashMap::default());
+    std::thread::scope(|scope| {
+        let handles: Vec<_> = dexes
+            .chunks(chunk)
+            .map(|group| {
+                let merged = &merged;
+                scope.spawn(move || {
+                    for dex in group {
+                        let part = scan_image_segments(dex, cand_pkgs);
+                        let mut m = merged.lock().unwrap();
+                        for (k, v) in part {
+                            m.entry(k).or_default().extend(v);
+                        }
+                    }
+                })
+            })
+            .collect();
+        for h in handles {
+            let _ = h.join();
+        }
+    });
+    merged.into_inner().unwrap_or_default()
+}
+
+fn pkg_of(n: &str) -> &str {
+    match n.rsplit_once('/') {
+        Some((p, _)) => p,
+        None => "",
+    }
+}
+
+fn scan_image_segments(
+    dex: &DexFile,
+    cand_pkgs: &HashSet<String>,
+) -> HashMap<String, HashSet<String>> {
+    // Per-type (pkg, first-seg), interned as owned strings once.
+    let n = dex.type_count() as usize;
+    let mut tpkg: Vec<Box<str>> = Vec::with_capacity(n);
+    let mut tseg: Vec<Box<str>> = Vec::with_capacity(n);
+    for idx in 0..n {
+        let name = dex.type_name(idx as u32);
+        let mut b = name.strip_prefix('[').unwrap_or(name).to_string();
+        while b.starts_with('[') {
+            b.remove(0);
+        }
+        let inner = b
+            .strip_prefix('L')
+            .and_then(|s| s.strip_suffix(';'))
+            .unwrap_or("");
+        tpkg.push(
+            match inner.rfind('/') {
+                Some(j) => inner[..j].into(),
+                None => Box::from(""),
+            },
+        );
+        tseg.push(
+            match inner.find('/') {
+                Some(i) => inner[..i].into(),
+                None => Box::from(""),
+            },
+        );
+    }
+    let mut out: HashMap<String, HashSet<String>> = HashMap::default();
+    for cd in &dex.class_defs {
+        let referrer = dex.class_name(cd.class_idx);
+        let rp = pkg_of(&referrer);
+        if rp.is_empty() || !cand_pkgs.contains(rp) {
+            continue;
+        }
+        let mut segs: HashSet<String> = HashSet::default();
+        let mut note = |t: u32, segs: &mut HashSet<String>| {
+            let i = t as usize;
+            let Some(p) = tpkg.get(i) else { return };
+            if p.is_empty() || p.as_ref() == rp {
+                return;
+            }
+            if let Some(s) = tseg.get(i) {
+                if !s.is_empty() {
+                    segs.insert(s.to_string());
+                }
+            }
+        };
+        note(cd.superclass_idx, &mut segs);
+        for i in dex.interfaces_of(cd) {
+            note(i, &mut segs);
+        }
+        let data = dex.class_data(cd);
+        for f in data.static_fields.iter().chain(data.instance_fields.iter()) {
+            let fr = dex.field(f.field_idx);
+            note(fr.class_idx, &mut segs);
+            note(fr.type_idx, &mut segs);
+        }
+        for m in data.direct_methods.iter().chain(data.virtual_methods.iter()) {
+            let mr = dex.method(m.method_idx);
+            note(mr.class_idx, &mut segs);
+            let proto = dex.proto(mr.proto_idx);
+            note(proto.return_type_idx, &mut segs);
+            for &t in dex.proto_params(mr.proto_idx) {
+                note(t, &mut segs);
+            }
+            let Some(code) = (m.code_off != 0)
+                .then(|| dex.code_insns_bytes_at(m.code_off))
+                .flatten()
+            else {
+                continue;
+            };
+            ddc_dex::insn::scan_instructions(code, &mut |op, pc, bytes| {
+                let unit = |i: usize| -> u32 {
+                    bytes
+                        .get(2 * i..2 * i + 2)
+                        .map(|b| u16::from_le_bytes([b[0], b[1]]) as u32)
+                        .unwrap_or(NONE)
+                };
+                match op {
+                    0x1c | 0x1f | 0x20 | 0x22..=0x25 | 0xff => {
+                        note(unit(pc + 1), &mut segs);
+                    }
+                    0x52..=0x6d => {
+                        let f = dex.field(unit(pc + 1));
+                        note(f.class_idx, &mut segs);
+                        note(f.type_idx, &mut segs);
+                    }
+                    0x6e..=0x72 | 0x74..=0x78 | 0xfa | 0xfb => {
+                        let mr = dex.method(unit(pc + 1));
+                        note(mr.class_idx, &mut segs);
+                        let proto = dex.proto(mr.proto_idx);
+                        note(proto.return_type_idx, &mut segs);
+                        for &t in dex.proto_params(mr.proto_idx) {
+                            note(t, &mut segs);
+                        }
+                    }
+                    _ => {}
+                }
+            });
+        }
+        if !segs.is_empty() {
+            out.entry(referrer_pkg_string(&referrer))
+                .or_default()
+                .extend(segs);
+        }
+    }
+    out
+}
+
+fn referrer_pkg_string(referrer: &str) -> String {
+    pkg_of(referrer).to_string()
+}

@@ -1911,7 +1911,14 @@ pub(crate) fn obscured_render_pub(internal: &str) -> Option<String> {
         let first = internal.split('/').next().unwrap_or("");
         let own = st.class.rsplit('/').next().unwrap_or("");
         if first == own && internal.split('/').count() >= 2 {
-            let simple = internal.rsplit('/').next().unwrap_or("").to_string();
+            // A NESTED internal's in-scope simple name is its `$` tail
+            // (`x/a$b` imports/renders as `b`) — the slash-tail left the
+            // `$` in the render (`t2$a` flat against a nested emission).
+            let simple = internal
+                .rsplit(['/', '$'])
+                .next()
+                .unwrap_or("")
+                .to_string();
             if !simple.is_empty() && !st.blocked.contains(&simple) {
                 st.recorded.insert(internal.to_string());
                 return Some(simple);
@@ -1965,8 +1972,20 @@ fn compute_obscured_renders(pool: &DexPool, class: &PoolClass) -> jdc_core::FxHa
         // internal name does not resolve.
         let first = r.split('/').next().unwrap_or("");
         if first == own_simple && r.split('/').count() >= 2 && pool.get(&r).is_some() {
+            // Own-family refs (the class itself, its nested members)
+            // render through member scope — an import would be redundant
+            // (self-import) or shadow a same-package sibling named like
+            // the tail (`import t.t2.a` hijacks every bare `a` that
+            // meant sibling class t.a — lark t/t2).
+            if r == class.name || r.starts_with(&format!("{}$", class.name)) {
+                continue;
+            }
             let display = crate::apply_class_rename(&r);
-            let simple = display.rsplit('/').next().unwrap_or("").to_string();
+            let simple = display
+                .rsplit(['/', '$'])
+                .next()
+                .unwrap_or("")
+                .to_string();
             if !simple.is_empty() {
                 out.insert(r.clone(), simple);
             }
