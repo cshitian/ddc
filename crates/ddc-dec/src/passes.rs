@@ -2841,6 +2841,7 @@ pub fn fix_incomparable_equality(body: &mut Stmt, vt: &VarTable, pool: &crate::D
             _ => false,
         }
     };
+    let is_ref = |t: &JavaType| matches!(t, JavaType::Object(_) | JavaType::Array(_));
     walk_stmt_exprs(body, &mut |e| {
         deep_rewrite(e, &mut |x| {
             if let Expr::Bin {
@@ -2852,6 +2853,19 @@ pub fn fix_incomparable_equality(body: &mut Stmt, vt: &VarTable, pool: &crate::D
             {
                 let lt = side_ty(l, vt);
                 let rt = side_ty(r, vt);
+                // `obj != 0` → `obj != null` with FINAL types: the
+                // lift-time null_side_rewrite ran before infer_types
+                // (its obj table saw the pre-inference int), leaving
+                // `sQLiteClosable != 0` — "二元运算符 '!=' 的操作数
+                // 类型错误" ×700 weixin.
+                if is_ref(&lt) && matches!(&**r, Expr::Const(ConstVal::Int(0))) {
+                    **r = Expr::Const(ConstVal::Null);
+                    return;
+                }
+                if is_ref(&rt) && matches!(&**l, Expr::Const(ConstVal::Int(0))) {
+                    **l = Expr::Const(ConstVal::Null);
+                    return;
+                }
                 if incomparable(&lt, &rt) {
                     let taken = std::mem::replace(l, Box::new(Expr::Const(ConstVal::Null)));
                     **l = Expr::Cast {

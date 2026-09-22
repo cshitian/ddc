@@ -51,11 +51,6 @@ fn walk_work_override() -> Option<u64> {
     })
 }
 
-fn walk_ms_override() -> Option<u64> {
-    static T: std::sync::OnceLock<Option<u64>> = std::sync::OnceLock::new();
-    *T.get_or_init(|| std::env::var("DDC_WALKMS").ok().and_then(|v| v.parse().ok()))
-}
-
 fn handler_types_for(cfg: &DexCfg, bid: usize) -> Vec<Option<std::sync::Arc<str>>> {
     cfg.blocks[bid]
         .handlers
@@ -621,6 +616,7 @@ pub fn decompile_method(
     let core_cfg = cfg.to_core();
     #[allow(unused_assignments)]
     let mut body: Option<Stmt> = None;
+    let mut prev_size: Option<usize> = None;
     // Copy budget scales with graph size: many-block methods are where the
     // exponential tail-copy blowups live (weibo: 389 methods >100 blocks
     // = 40% of all CPU at budget 512). Starting lower converges without
@@ -643,6 +639,25 @@ pub fn decompile_method(
     if trace_on() {
         eprintln!("[mshape] {}.{} blocks={}", class.name, m.name, n);
     }
+    // Deterministic giant-method stub: at ~2.1k+ CFG blocks a single
+    // structuring walk can burn 9s+ of wall time (weibo Gson doRead:
+    // 2,179/3,230 blocks — per-visit dominator-pass cost scales far
+    // faster than the Σ universe.len() charge model can bound, and the
+    // spread across CFG shapes defeats any charge calibration). Healthy
+    // methods below the line (JsonUserInfoTypeAdapter, 1,997 blocks)
+    // structure fully, so stubbing beats both alternatives: burning the
+    // class watchdog DROPS the whole file (every referrer cannot-finds)
+    // and the old wall-clock deadline flipped output nondeterministically
+    // under worker contention.
+    if n >= 2_100 {
+        return Ok(Some(stub_body(
+            format!(
+                "$DDC: method too large ({} blocks) — body elided for determinism",
+                n
+            ),
+            desc,
+        )));
+    }
     #[cfg(feature = "visit-stats")]
     {
         jdc_core::structure::reset_visit_stats();
@@ -661,28 +676,23 @@ pub fn decompile_method(
     // total walk cost — the count budget above under-bounds per-visit
     // cost for big-block exponential explorations (Telegram family),
     // which the wall-clock deadline used to catch nondeterministically.
-    // 2M sits 10× above the 4-corpus legit census max (~203k work), so
-    // it never fires on healthy classes (battery outputs stay
-    // byte-identical — the count budget keeps cutting exactly where it
-    // always did) while bounding Telegram-scale explosions at ~2M work
-    // units regardless of machine load.
+    // A visit's REAL cost grows with the universe (dominator-style
+    // passes: weibo doRead n=2179 burned 15µs per charge unit vs 5µs at
+    // n=1533), so a flat charge budget still lets giants run 9s+ per
+    // rung and trip the class watchdog (dropped files — every referrer
+    // cannot-finds — are strictly worse than walk-cut degradation).
     let walk_work_budget: u64 = walk_work_override()
-        .unwrap_or(2_000_000 + 128 * n as u64);
-    // Wall-clock guard — UNCHANGED original 1500ms. (It was briefly
-    // suspected of the run-to-run output flips under worker contention
-    // and scaled up; the real culprit was the shared static DUMMY in
-    // VarTable::var — fixed in jdc-core — and the larger deadlines only
-    // let pathological walks burn seconds longer: weixin +3s at 5.5s,
-    // +3.5s more at 46s. Legit methods finish ~10× under this bound.)
-    let walk_deadline = std::time::Instant::now()
-        + std::time::Duration::from_millis(
-            walk_ms_override().unwrap_or(1500),
-        );
+        .unwrap_or(600_000 + 128 * n as u64);
+    // No wall-clock deadline here: the work budget above bounds walk
+    // cost deterministically, and the old 1500ms guard flipped
+    // borderline giants (weixin vm/a0.n, 28.5k nodes) between full body
+    // and exploded stub run-to-run under worker contention. The
+    // class-level 5s watchdog in classdec remains as the hang safety
+    // net for pathological CFGs.
     loop {
         jdc_core::structure::set_budget_override(Some(budget));
         jdc_core::structure::set_walk_visit_budget(Some(walk_budget));
         jdc_core::structure::set_walk_work_budget(Some(walk_work_budget));
-        jdc_core::structure::set_walk_deadline(Some(walk_deadline));
         let mut st = Structurer::with_shared_groups(
             &core_cfg,
             &results,
@@ -690,13 +700,21 @@ pub fn decompile_method(
             Default::default(),
             Default::default(),
         );
+        let tw0 = std::time::Instant::now();
         let region = st.structure_method();
+        let tw1 = std::time::Instant::now();
         let mut converter = Converter::with_precomputed_ref(&core_cfg, &results, &groups, &dom);
         let candidate = converter.convert(region);
+        let tw2 = std::time::Instant::now();
+        if trace_on() {
+            eprintln!(
+                "[rung] {}.{} budget={} walk={:?} convert={:?}",
+                class.name, m.name, budget, tw1 - tw0, tw2 - tw1
+            );
+        }
         jdc_core::structure::set_budget_override(None);
         jdc_core::structure::set_walk_visit_budget(None);
         jdc_core::structure::set_walk_work_budget(None);
-        jdc_core::structure::set_walk_deadline(None);
         let size = {
             let mut c = 0usize;
             passes::count_stmts_deep(&candidate, &mut c);
@@ -709,6 +727,37 @@ pub fn decompile_method(
             body = Some(candidate);
             break;
         }
+        // Giant short-circuit: deep in the ladder (budget ≤ 64), a tree
+        // still 3× over the guard will not shrink under further copy-budget
+        // halving (weixin cdp/l1.w: 72,782 nodes at 64, ~2.8s of walk PER
+        // rung) — stub now instead of burning two more rungs and tripping
+        // the classdec 5s watchdog, which DROPS the whole file (every
+        // referrer cannot-finds — strictly worse than one stubbed body).
+        // Deterministic: driven by measured size, not wall-clock.
+        if budget <= 64 && size > 3 * TREE_GUARD {
+            return Ok(Some(stub_body(
+                format!(
+                    "$DDC: statement tree exploded ({} nodes) — pathological CFG, body elided",
+                    size
+                ),
+                desc,
+            )));
+        }
+        // No-progress short-circuit: the copy budget only bounds tail
+        // duplication — if halving it did not shrink the tree at all,
+        // further rungs cannot either (weixin vm/a0.n sits at ~28.5k
+        // across every rung, burning a full work-budget walk each).
+        // Deterministic, and saves the giant methods ~3 rungs of walk.
+        if budget <= 32 && prev_size.is_some_and(|p| size >= p) {
+            return Ok(Some(stub_body(
+                format!(
+                    "$DDC: statement tree exploded ({} nodes) — pathological CFG, body elided",
+                    size
+                ),
+                desc,
+            )));
+        }
+        prev_size = Some(size);
         if budget <= 16 {
             return Ok(Some(stub_body(
                 format!(

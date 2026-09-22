@@ -54,7 +54,12 @@ pub fn decompile_class(
         let opts2 = opts.clone();
         let (tx, rx) = std::sync::mpsc::channel::<Result<String, String>>();
         let name = class.name.clone();
-        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+        // 10s: pure insurance — the structurer's walk budgets and the
+        // ladder giant short-circuit bound pathological methods
+        // deterministically now (weixin cdp/l1: 4.2s single-class), but
+        // full-run worker contention can ~2× that; the old 5s dropped
+        // l1's file entirely (every referrer cannot-finds).
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
         let _ = std::thread::Builder::new()
             .stack_size(64 * 1024 * 1024)
             .spawn(move || {
