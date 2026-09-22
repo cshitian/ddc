@@ -2999,15 +2999,22 @@ pub fn fix_bool_xor(body: &mut Stmt, vt: &VarTable, ret_bool: bool) {
 
 /// Boolean inference: vars only ever assigned 0/1/comparisons/booleans and
 /// read in conditions become `boolean`, with `v != 0` → `v` in conditions.
-pub fn booleanize(vt: &mut VarTable, body: &mut Stmt, ret_bool: bool) {
+/// Returns the number of vars converted (0 = nothing changed — the
+/// caller skips the post-booleanize re-split, which only has work when
+/// a conversion exposed a mixed-kind register).
+pub fn booleanize(vt: &mut VarTable, body: &mut Stmt, ret_bool: bool) -> usize {
     // Booleans propagate through local chains (`v17 = v24` where v24
     // itself became boolean in the first round) — iterate to a fixpoint;
     // the common corpus converts nothing and exits after one round.
+    let mut total = 0usize;
     for _ in 0..4 {
-        if booleanize_round(vt, body, ret_bool) == 0 {
+        let n = booleanize_round(vt, body, ret_bool);
+        if n == 0 {
             break;
         }
+        total += n;
     }
+    total
 }
 
 fn booleanize_round(vt: &mut VarTable, body: &mut Stmt, ret_bool: bool) -> usize {

@@ -1193,10 +1193,14 @@ fn nested_collision_renames(
         // guard only kept RENAMED tails off package segments; pre-
         // existing shadows need the rename too, family-gated: fire only
         // when this family's own descriptors reference the segment.
-        let pkg_shadow = !orphan
-            && fam_segs
-                .get(root)
-                .is_some_and(|segs| segs.contains(tail));
+        // Orphans INCLUDED: an `Outer$$x` orphan normalizes to the
+        // nested display `x` (k=1 invisible rename), and a clean tail
+        // renders BARE in the family file — same package shadow as a
+        // true nested (weixin li/u0$$r → `class r` hijacked `r.a` for
+        // root package r).
+        let pkg_shadow = fam_segs
+            .get(root)
+            .is_some_and(|segs| segs.contains(tail));
         let clash = chain.iter().any(|c| c == tail) || field_clash || pkg_shadow;
         if !orphan && !clash {
             continue;

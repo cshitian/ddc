@@ -774,8 +774,15 @@ pub fn decompile_method(
     passes::inline_accessors(&mut body, pool);
     passes::infer_types(&mut vt, &mut body, &desc.ret, &env);
     passes::split_generations(&mut vt, &mut body);
-    passes::booleanize(&mut vt, &mut body, matches!(desc.ret, JavaType::Boolean));
-    passes::split_generations(&mut vt, &mut body);
+    // Post-booleanize re-split, gated on a nonzero conversion count:
+    // conversions expose register reuse across boolean/numeric kinds no
+    // earlier pass could see (`int v150` copying converted `boolean
+    // v131` — weixin ConstraintLayout ×1.4k); with nothing converted
+    // the fixpoint walk is pure decomp-time cost (the weixin 16→24s
+    // regression).
+    if passes::booleanize(&mut vt, &mut body, matches!(desc.ret, JavaType::Boolean)) > 0 {
+        passes::split_generations(&mut vt, &mut body);
+    }
     if matches!(desc.ret, JavaType::Int | JavaType::Long | JavaType::Short | JavaType::Byte) {
         passes::fix_int_returns(&vt, &mut body);
     }
