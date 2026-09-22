@@ -4346,7 +4346,20 @@ fn split_needed(vt: &VarTable, target: u32, value: &Expr) -> bool {
         // Primitive/reference mix: the value generation has a kind the
         // target can never accept — split (the declared type stays with
         // the old generation's readers).
-        vt_is_ref(&declared) != vt_is_ref(&value_ty)
+        if vt_is_ref(&declared) != vt_is_ref(&value_ty) {
+            return true;
+        }
+        // Boolean/numeric mix: `boolean` and `int` have NO cast between
+        // them in Java, so a register reused across the kinds can only
+        // be expressed as two generations (weixin ConstraintLayout
+        // `boolean v60; int v56; v60 = v56;` — 9.5k bool↔int lines once
+        // the obscuring suppression lifted). 0/1 constants are the
+        // boolean encoding, not a numeric generation — never split on
+        // those (booleanize owns them).
+        let d_bool = matches!(declared, JavaType::Boolean);
+        let v_bool = matches!(value_ty, JavaType::Boolean);
+        let zero_one = matches!(value, Expr::Const(ConstVal::Int(0 | 1)));
+        d_bool != v_bool && !zero_one
     }
 }
 

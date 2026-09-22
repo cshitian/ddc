@@ -471,7 +471,7 @@ fn scan_image_segments(
     cand_pkgs: &HashSet<String>,
 ) -> HashMap<String, HashSet<String>> {
     // Per-type (pkg, first-seg), interned as owned strings once.
-    let n = dex.type_count() as usize;
+    let n = dex.type_count();
     let mut tpkg: Vec<Box<str>> = Vec::with_capacity(n);
     let mut tseg: Vec<Box<str>> = Vec::with_capacity(n);
     for idx in 0..n {
@@ -505,7 +505,7 @@ fn scan_image_segments(
             continue;
         }
         let mut segs: HashSet<String> = HashSet::default();
-        let mut note = |t: u32, segs: &mut HashSet<String>| {
+        let note = |t: u32, segs: &mut HashSet<String>| {
             let i = t as usize;
             let Some(p) = tpkg.get(i) else { return };
             if p.is_empty() || p.as_ref() == rp {

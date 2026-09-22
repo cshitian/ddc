@@ -284,7 +284,9 @@ fn dst_regs(kind: &InsnKind) -> Vec<u16> {
 /// generation: walking the register's events in pc order, a read is
 /// final when no other read of the same register precedes its next WRITE
 /// (a write starts a new generation — the old value is dead there).
-fn compute_final_reads(ins: &[Insn]) -> jdc_core::FxHashSet<(u32, u16)> {
+pub(crate) fn compute_final_reads(
+    ins: &[Insn],
+) -> std::sync::Arc<jdc_core::FxHashSet<(u32, u16)>> {
     use jdc_core::FxHashMap as HashMap;
     // reg → (pc, is_read) events, pc order (ins is already pc-sorted).
     let mut events: HashMap<u16, Vec<(u32, bool)>> = HashMap::default();
@@ -321,7 +323,7 @@ fn compute_final_reads(ins: &[Insn]) -> jdc_core::FxHashSet<(u32, u16)> {
             }
         }
     }
-    out
+    std::sync::Arc::new(out)
 }
 
 pub struct Lifter<'a> {
@@ -350,7 +352,7 @@ pub struct Lifter<'a> {
     /// may only be inlined at a final read; a register reused for a
     /// call result and read again (greet → move-result v0 → println(v0))
     /// is a new generation, not another use of the allocation.
-    final_read: jdc_core::FxHashSet<(u32, u16)>,
+    final_read: std::sync::Arc<jdc_core::FxHashSet<(u32, u16)>>,
     /// Method-level feature flags, merged in place as features are seen
     /// (build_block consumes the lifter, so the flags must escape via a
     /// shared reference rather than a field read afterwards).
@@ -381,7 +383,7 @@ impl<'a> Lifter<'a> {
             pending_call: None,
             code_units: env.code_units,
             cur_pc: 0,
-            final_read: jdc_core::FxHashSet::default(),
+            final_read: std::sync::Arc::new(jdc_core::FxHashSet::default()),
             mflags,
         }
     }
@@ -857,18 +859,19 @@ impl<'a> Lifter<'a> {
         mut self,
         ins: &[Insn],
         handler_types: &[Option<std::sync::Arc<str>>],
+        final_read: std::sync::Arc<jdc_core::FxHashSet<(u32, u16)>>,
     ) -> BResult<(BlockResult, OutState)> {
         let payloads = &self.env.code.payloads;
-        // Block-scoped event analysis, unconditionally: `ins` is ONE
-        // BLOCK's slice, but the register generation a read belongs to
-        // spans blocks — a post-fold `New` view created in an earlier
-        // block is READ here, so gating on "this block has no
-        // new-instance/new-array" (d9bbb2a) silently flipped every such
-        // read from inline to materialize: cross-block `foo(new Bar())`
-        // nesting lost, statement counts inflated, and the changed var
-        // structure fed forward_single_use a def-reference cycle
-        // (weixin input/b4: ~300k recursion frames, 64MB stack abort).
-        self.final_read = compute_final_reads(ins);
+        // METHOD-wide final-read set (computed once by the caller over
+        // the full instruction stream). The block-scoped computation
+        // this replaced marked a block's LAST read of a register as
+        // final even when LATER BLOCKS read the same generation: the
+        // alloc inlined-and-consumed at the block tail, and the
+        // downstream reads minted fresh never-assigned int locals
+        // (`new c(..).e = new HashMap();` + `v28.e` with `int v28` —
+        // weixin tf5/e, the dominant 无法取消引用int shape once the
+        // obscuring cascades stopped suppressing it).
+        self.final_read = final_read;
         for ins in ins {
             self.cur_pc = ins.pc;
             match &ins.kind {

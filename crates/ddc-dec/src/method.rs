@@ -88,6 +88,11 @@ pub fn decompile_method(
     // Pool-cached Arc class names: the closure ran dex.class_name
     // (fresh String) per exception range of every method.
     let cfg = DexCfg::build(&mut code, &|ty| pool.type_name_arc(m.dex_idx, ty));
+    // Method-wide final-read set for the alloc-inline decisions (the
+    // per-block computation mistook a block-tail read for the
+    // generation's last read — cross-block alloc consumers minted
+    // never-assigned int locals).
+    let method_final_reads = crate::lift::compute_final_reads(&cfg.insns);
     let n = cfg.blocks.len();
     let env = MethodEnv {
         pool,
@@ -364,7 +369,7 @@ pub fn decompile_method(
         let htypes = &handler_types[bid];
         let block_ins = cfg.block_ins(&cfg.blocks[bid]);
         let lifter = Lifter::new(&env, &mut vt, ins, bid, &mut stable_vars, &mut mflags);
-        let rebuilt = match lifter.build_block(block_ins, htypes) {
+        let rebuilt = match lifter.build_block(block_ins, htypes, method_final_reads.clone()) {
             Ok((r, out)) => {
                 results[bid] = r;
                 let changed = match &out_states[bid] {
