@@ -2712,6 +2712,71 @@ pub fn insert_object_narrowing_casts(vt: &VarTable, body: &mut Stmt) {
     });
 }
 
+/// `==`/`!=` between UNRELATED class types is a compile error in Java
+/// ("不可比较的类型: f0和a") while dex if-eqObj happily compares any two
+/// references (weixin fn1/w1 ×298 files). One side takes an `(Object)`
+/// witness cast — legal against anything. Interfaces and subtype-related
+/// pairs are already comparable and stay untouched; java/lang/Object and
+/// arrays-of it likewise.
+pub fn fix_incomparable_equality(body: &mut Stmt, vt: &VarTable, pool: &crate::DexPool) {
+    fn side_ty(e: &Expr, vt: &VarTable) -> JavaType {
+        match e {
+            Expr::Local { var, .. } if (*var as usize) < vt.vars.len() => {
+                vt.var(*var).ty.erased()
+            }
+            other => other.type_ref().erased(),
+        }
+    }
+    let incomparable = |a: &JavaType, b: &JavaType| -> bool {
+        use JavaType::{Array, Object};
+        match (a, b) {
+            (Object(x), Object(y)) => {
+                if x == y || x.as_ref() == "java/lang/Object" || y.as_ref() == "java/lang/Object"
+                {
+                    return false;
+                }
+                let xi = pool.get(x).map(|c| c.is_interface()).unwrap_or(true);
+                let yi = pool.get(y).map(|c| c.is_interface()).unwrap_or(true);
+                // Unknown classes (framework, not in pool): a cast is
+                // harmless but usually unnecessary — treat as comparable
+                // to stay conservative.
+                if xi || yi {
+                    return false;
+                }
+                !pool.is_subtype(x, y) && !pool.is_subtype(y, x)
+            }
+            (Array(_), Object(y)) | (Object(y), Array(_)) => {
+                y.as_ref() != "java/lang/Object"
+                    && y.as_ref() != "java/lang/Cloneable"
+                    && y.as_ref() != "java/io/Serializable"
+                    && !pool.get(y).map(|c| c.is_interface()).unwrap_or(false)
+            }
+            _ => false,
+        }
+    };
+    walk_stmt_exprs(body, &mut |e| {
+        deep_rewrite(e, &mut |x| {
+            if let Expr::Bin {
+                op: BinOp::Eq | BinOp::Ne,
+                l,
+                r,
+                ..
+            } = x
+            {
+                let lt = side_ty(l, vt);
+                let rt = side_ty(r, vt);
+                if incomparable(&lt, &rt) {
+                    let taken = std::mem::replace(l, Box::new(Expr::Const(ConstVal::Null)));
+                    **l = Expr::Cast {
+                        ty: TypeRef::J(JavaType::Object("java/lang/Object".into())),
+                        e: taken,
+                    };
+                }
+            }
+        });
+    });
+}
+
 /// Primitive bridges at CALL/CTOR argument positions. Dex slots are
 /// untyped category-1 integers: the verifier happily passes a Z-slot to
 /// a `(B)` formal (weibo's Meituan-Robust hotpatch boilerplate boxes
@@ -3090,7 +3155,7 @@ fn booleanize_round(vt: &mut VarTable, body: &mut Stmt, ret_bool: bool) -> usize
         let i = *var as usize;
         if i < n {
             assigned_any[i] = true;
-            if !is_boolean_valued(value) {
+            if !is_boolean_valued(value, vt) {
                 all_bool[i] = false;
             }
             // Chain edges for the context closure below: `v17 = v24`
@@ -3167,7 +3232,7 @@ fn booleanize_round(vt: &mut VarTable, body: &mut Stmt, ret_bool: bool) -> usize
     boolean_vars.len()
 }
 
-fn is_boolean_valued(e: &Expr) -> bool {
+fn is_boolean_valued(e: &Expr, vt: &VarTable) -> bool {
     match e {
         Expr::Const(ConstVal::Int(0)) | Expr::Const(ConstVal::Int(1)) => true,
         // Kotlin's non-short-circuit boolean `or`/`and` compiles to `|`/`&`
@@ -3177,16 +3242,28 @@ fn is_boolean_valued(e: &Expr) -> bool {
         // loop-carried accumulator `v15 = v20; v20 = v15 | delete3` can
         // never seed its all_bool fixpoint otherwise).
         Expr::Bin { op: BinOp::Or | BinOp::And, l, r, .. } => {
-            is_boolean_valued(l) || is_boolean_valued(r)
+            is_boolean_valued(l, vt) || is_boolean_valued(r, vt)
         }
         Expr::Bin { op, .. } => matches!(
             op,
             BinOp::Eq | BinOp::Ne | BinOp::Lt | BinOp::Ge | BinOp::Gt | BinOp::Le
         ),
         Expr::InstanceOf { .. } => true,
-        Expr::Local { ty, .. } => ty.erased() == JavaType::Boolean,
+        // The VarTable is the authority: the embedded Local ty is a
+        // lift-time snapshot and goes STALE across booleanize rounds —
+        // a converted copy source kept its partners int (`v150 = v131`
+        // boolean→int, weixin ConstraintLayout ×1.4k files) because the
+        // all_bool fixpoint consulted the stale Int.
+        Expr::Local { var, ty } => {
+            let t = if (*var as usize) < vt.vars.len() {
+                vt.var(*var).ty.erased()
+            } else {
+                ty.erased()
+            };
+            t == JavaType::Boolean
+        }
         Expr::Method { desc, .. } => desc.ret == JavaType::Boolean,
-        Expr::Cond { t, f, .. } => is_boolean_valued(t) && is_boolean_valued(f),
+        Expr::Cond { t, f, .. } => is_boolean_valued(t, vt) && is_boolean_valued(f, vt),
         Expr::Un { op: UnOp::Not, .. } => true,
         _ => false,
     }
@@ -4336,7 +4413,14 @@ fn split_needed(vt: &VarTable, target: u32, value: &Expr) -> bool {
     }
     let declared = vt.vars[target as usize].ty.erased();
     let vt_is_ref = |t: &JavaType| matches!(t, JavaType::Object(_) | JavaType::Array(_));
-    let value_ty = value.type_ref().erased();
+    // Locals consult the VarTable: the embedded ty is a lift-time
+    // snapshot, stale after booleanize converts a copy SOURCE (the
+    // post-booleanize re-split below relies on seeing `v131` as the
+    // boolean it became).
+    let value_ty = match value {
+        Expr::Local { var, ty } if (*var as usize) < vt.vars.len() => vt.var(*var).ty.erased(),
+        other => other.type_ref().erased(),
+    };
     if vt_is_ref(&declared) && vt_is_ref(&value_ty) {
         // Both references: split only when incompatible — different
         // classes where neither side is Object.

@@ -226,8 +226,7 @@ fn collect_enum_constants(
         .iter()
         .filter(|f| f.access & crate::access::ACC_ENUM != 0)
         .collect();
-    if const_fields.is_empty() { return None;
-    }
+    if const_fields.is_empty() { return None; }
     let clinit = class.all_methods().find(|m| &*m.name == "<clinit>")?;
     let mut body = decompile_method(pool, class, clinit).ok().flatten()?;
 
@@ -252,8 +251,7 @@ fn collect_enum_constants(
     let mut drop_stmts: Vec<usize> = Vec::new();
 
     // Collect (immutable borrows) first; the mutable passes come after.
-    if !matches!(&body.body, Stmt::Block(_)) { return None;
-    }
+    if !matches!(&body.body, Stmt::Block(_)) { return None; }
 
     // Pass 1: definitions. (immutable borrow; rewrite comes later)
     // Rolling reaching-defs of clinit locals for resolving enum-ctor
@@ -296,8 +294,7 @@ fn collect_enum_constants(
                 if let (Expr::Const(ConstVal::Str(n)), Expr::Const(ConstVal::Int(ord0))) =
                     (&args[0], &args[1])
                 {
-                    if java_ident(n).as_ref() != &**n || n.is_empty() { return None;
-                    }
+                    if java_ident(n).as_ref() != &**n || n.is_empty() { return None; }
                     var_of.insert(var, const_name.len());
                     def_site.insert(i, (var, const_name.len()));
                     const_ord.push(*ord0 as i64);
@@ -347,7 +344,7 @@ fn collect_enum_constants(
                 if !const_fields.iter().any(|f| f.name.as_str() == &**fname) {
                     continue;
                 }
-                if const_field.iter().any(|f| !f.is_empty() && f == &**fname) { return None; // duplicate assignment
+                if const_field.iter().any(|f| !f.is_empty() && f == &**fname) { { return None; } // duplicate assignment
                 }
                 let idx = match &**value {
                     Expr::Local { var, .. } => cur_def.get(var).copied()?,
@@ -357,8 +354,7 @@ fn collect_enum_constants(
                         if let (Expr::Const(ConstVal::Str(n)), Expr::Const(ConstVal::Int(ord0))) =
                             (&args[0], &args[1])
                         {
-                            if java_ident(n).as_ref() != &**n || n.is_empty() { return None;
-                            }
+                            if java_ident(n).as_ref() != &**n || n.is_empty() { return None; }
                             let idx = const_name.len();
                             const_ord.push(*ord0 as i64);
                             const_name.push(n.to_string());
@@ -374,7 +370,7 @@ fn collect_enum_constants(
                             )?);
                             idx
                         } else {
-                            return None;
+                            { return None; }
                         }
                     }
                     _ => return None,
@@ -396,7 +392,13 @@ fn collect_enum_constants(
         defs2_owned.iter().map(|(k, v)| (*k, v)).collect();
 
     // Every ACC_ENUM field bound, every intermediate matched.
-    if const_field.len() != const_fields.len() || const_field.iter().any(|f| f.is_empty()) { return None;
+    // Every ACC_ENUM FIELD must be bound to a constant. The converse
+    // need not hold: R8 drops the FIELD of a constant nothing reads
+    // externally while the $VALUES array keeps it (weixin lite/api/n's
+    // ON_DESTROY — a pass-1 local with no pass-2 sput). Field-less
+    // constants keep their ctor-string source name.
+    if const_field.iter().filter(|f| !f.is_empty()).count() != const_fields.len() {
+               return None;
     }
     // Obfuscated enums rename the ACC_ENUM FIELD (d/e/f) while the ctor's
     // name STRING keeps the source identifier — the promoted constant
@@ -406,18 +408,17 @@ fn collect_enum_constants(
     // swapped d/e/f for TEXT_ENTER_EDITING/…).
     for i in 0..const_name.len() {
         let field = &const_field[i];
-        if field != &const_name[i] {
+        if !field.is_empty() && field != &const_name[i] {
             let id = java_ident(field);
             if id.is_empty() || id.as_ref() != field.as_str() {
-                return None;
+                { return None; }
             }
             const_name[i] = field.clone();
         }
     }
     {
         let mut seen: std::collections::HashSet<&str> = std::collections::HashSet::default();
-        if !const_name.iter().all(|c| seen.insert(c.as_str())) { return None;
-        }
+        if !const_name.iter().all(|c| seen.insert(c.as_str())) { return None; }
     }
 
     // Synthetic constants: entries built INLINE inside the $VALUES
@@ -565,15 +566,60 @@ fn collect_enum_constants(
         ));
     }
     merged.sort_by_key(|(o, _)| *o);
-    for (i, (o, _)) in merged.iter().enumerate() {
-        if *o != i as i64 {
-            // Sparse or colliding ordinals: the declaration order cannot
-            // reproduce the dex ordinals — fall back to the desugared
-            // render rather than emit silently-wrong ordinal positions.
-            return None;
+    // Ordinals must be UNIQUE and ASCENDING; gaps are legal — R8 drops
+    // unused constants wholesale (weixin lite/api/n starts at ordinal
+    // 1). Java derives ordinal() from declaration position, so a gap
+    // shifts every later constant. Pad each gap with a synthetic
+    // constant (`_r<k>`) to keep positions faithful — only when no
+    // constant carries extra ctor args (a pad cannot invent them).
+    // The synthetic values()/valueOf() the true-enum render suppresses
+    // then see the pad (values() drift vs the dex $VALUES array — the
+    // compilable-and-ordinal-faithful side of the trade).
+    let has_extras = merged.iter().any(|(_, c)| !c.extra_args.is_empty());
+    let mut member_taken: jdc_core::FxHashSet<String> = merged
+        .iter()
+        .map(|(_, c)| c.name.clone())
+        .chain(
+            class
+                .static_fields
+                .iter()
+                .chain(class.instance_fields.iter())
+                .map(|f| f.name.to_string()),
+        )
+        .chain(class.all_methods().map(|m| m.name.to_string()))
+        .collect();
+    let mut padded: Vec<EnumConst> = Vec::with_capacity(merged.len());
+    let mut expect: i64 = 0;
+    let mut pad_k = 0u32;
+    for (ord, c) in merged {
+        if ord < expect {
+            { return None; } // duplicate/colliding ordinals — unfaithful
         }
+        if ord > expect {
+            if has_extras {
+                { return None; } // cannot synthesize the missing ctor args
+            }
+            while expect < ord {
+                let pname = loop {
+                    let cand = format!("_r{pad_k}");
+                    pad_k += 1;
+                    if !member_taken.contains(&cand) {
+                        member_taken.insert(cand.clone());
+                        break cand;
+                    }
+                };
+                padded.push(EnumConst {
+                    field: pname.clone(),
+                    name: pname,
+                    extra_args: Vec::new(),
+                });
+                expect += 1;
+            }
+        }
+        expect = ord + 1;
+        padded.push(c);
     }
-    let out: Vec<EnumConst> = merged.into_iter().map(|(_, c)| c).collect();
+    let out = padded;
     Some((out, body))
 }
 
@@ -1056,6 +1102,77 @@ fn emit_class_body(
             out.truncate(mark);
         }
     }
+    // Inherited-ctor bridges: dex method refs resolve through the
+    // hierarchy, so `new C(args)` against a class C with NO declared
+    // <init> legally targets the SUPERCLASS ctor (weixin tenpay
+    // `new m(map)` — m declares nothing, i.<init>(HashMap) does). Java
+    // has no inherited constructors: without a bridge, C's implicit
+    // default ctor is the only one and every arg-carrying construction
+    // fails ("无法将类 m中的构造器 m应用到给定类型; 需要: 没有参数").
+    // Mirror the nearest ctor-declaring ancestor's public/protected
+    // ctors as thin `super(..)` delegations.
+    if !class.is_interface()
+        && enum_consts.is_none()
+        && !class.all_methods().any(|m| &*m.name == "<init>")
+    {
+        if let Some(mut sup) = class.super_name.clone() {
+            loop {
+                if sup == "java/lang/Object" {
+                    break;
+                }
+                let Some(sc) = pool.get(&sup) else { break };
+                let ctors: Vec<&PoolMethod> = sc
+                    .all_methods()
+                    .filter(|m| &*m.name == "<init>")
+                    .collect();
+                if !ctors.is_empty() {
+                    for sm in ctors {
+                        if sm.access & crate::access::ACC_PRIVATE != 0
+                            || (sm.access
+                                & (crate::access::ACC_PUBLIC | crate::access::ACC_PROTECTED)
+                                == 0)
+                        {
+                            continue; // private/package-private: no legal bridge
+                        }
+                        let Some(d) = sm.parsed_desc() else { continue };
+                        let mods = if sm.access & crate::access::ACC_PUBLIC != 0 {
+                            "public "
+                        } else {
+                            "protected "
+                        };
+                        if emitted_any {
+                            out.push('\n');
+                        }
+                        out.push_str(&format!("    {}", "    ".repeat(depth)));
+                        out.push_str(mods);
+                        out.push_str(&java_ident(&simple));
+                        out.push('(');
+                        let mut names = Vec::with_capacity(d.args.len());
+                        for (i, a) in d.args.iter().enumerate() {
+                            if i > 0 {
+                                out.push_str(", ");
+                            }
+                            out.push_str(&type_name(pool, a));
+                            let nm = format!("p{}", i + 1);
+                            out.push(' ');
+                            out.push_str(&nm);
+                            names.push(nm);
+                        }
+                        out.push_str(") {\n");
+                        out.push_str(&format!("    {}    super({});\n", "    ".repeat(depth), names.join(", ")));
+                        out.push_str(&format!("    {}}}\n", "    ".repeat(depth)));
+                        emitted_any = true;
+                    }
+                    break;
+                }
+                match &sc.super_name {
+                    Some(n) => sup = n.clone(),
+                    None => break,
+                }
+            }
+        }
+    }
+
     // Static initializer. INTERFACES cannot carry a `static { }` block in
     // Java — their clinit only assigns constants, which static_values (or
     // the `= null` default) already render as field initializers; skip
