@@ -3093,6 +3093,72 @@ pub fn fix_int_operand_bridges(body: &mut Stmt, vt: &VarTable) {
     }
     walk_stmt_exprs(body, &mut |e| {
         deep_rewrite(e, &mut |x| {
+            // Field / array-store positions: the target's type is
+            // descriptor-backed (authoritative); a boolean value into
+            // an int slot bridges `(b ? 1 : 0)` (with a narrowing cast
+            // for byte/short/char slots), an int value into a boolean
+            // slot bridges `v != 0` (weixin `this.L[v3x] = max3`,
+            // `g2x.d = p1x` — 785 field + ~700 array lines).
+            if let Expr::Assign { target, value, op: AssignOp::Plain } = x {
+                let tgt_ty: Option<JavaType> = match &**target {
+                    Expr::Field { ty, .. } => Some(ty.erased()),
+                    Expr::ArrayIndex { array, .. } => {
+                        match array.type_ref().erased() {
+                            JavaType::Array(el) => Some(el.as_ref().clone()),
+                            _ => None,
+                        }
+                    }
+                    _ => None,
+                };
+                if let Some(t) = tgt_ty {
+                    let tgt_int = matches!(
+                        t,
+                        JavaType::Int
+                            | JavaType::Short
+                            | JavaType::Byte
+                            | JavaType::Char
+                            | JavaType::Long
+                    );
+                    if tgt_int && side_bool(value, vt) && !side_int(value, vt) {
+                        let taken = std::mem::replace(
+                            value,
+                            Box::new(Expr::Const(ConstVal::Null)),
+                        );
+                        let mut wrapped = wrap(taken);
+                        if !matches!(t, JavaType::Int | JavaType::Long) {
+                            wrapped = Box::new(Expr::Cast {
+                                ty: TypeRef::J(t.clone()),
+                                e: wrapped,
+                            });
+                        }
+                        *value = wrapped;
+                    } else if matches!(t, JavaType::Boolean)
+                        && side_int(value, vt)
+                        && !side_bool(value, vt)
+                    {
+                        let taken = std::mem::replace(
+                            value,
+                            Box::new(Expr::Const(ConstVal::Null)),
+                        );
+                        **value = Expr::Bin {
+                            op: BinOp::Ne,
+                            l: taken,
+                            r: Box::new(Expr::Const(ConstVal::Int(0))),
+                            ty: Some(TypeRef::J(JavaType::Boolean)),
+                        };
+                    }
+                }
+            }
+            // A boolean-typed array INDEX is a reused register holding
+            // an int (`this.L[v3x]` — boolean无法转换为int at the index
+            // position): bridge it in reads and writes alike.
+            if let Expr::ArrayIndex { index, .. } = x {
+                if side_bool(index, vt) && !side_int(index, vt) {
+                    let taken =
+                        std::mem::replace(index, Box::new(Expr::Const(ConstVal::Null)));
+                    *index = wrap(taken);
+                }
+            }
             if let Expr::Bin { op, l, r, .. } = x {
                 let int_kind = matches!(
                     op,
