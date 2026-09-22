@@ -15,17 +15,12 @@ categories = ["command-line-utilities", "development-tools::debugging"]
 [workspace.dependencies]
 ddc-dex = { path = "crates/ddc-dex", version = "0.2.2" }
 ddc-dec = { path = "crates/ddc-dec", version = "0.1.8" }
-jdc-core = "0.2.3"
+jdc-core = "0.2.4"
 anyhow = "1"
 
 [profile.release]
 debug = true
 lto = "fat"
 codegen-units = 1
-
-# Local dev pin for jdc-core changes (REMOVE before publishing — the
-# released ddc builds against the registry crate).
-[patch.crates-io]
-jdc-core = { path = "../jdc-core" }
 
 
