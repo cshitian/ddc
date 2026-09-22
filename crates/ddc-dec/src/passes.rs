@@ -3018,6 +3018,41 @@ pub fn fix_primitive_arg_bridges(body: &mut Stmt, vt: &VarTable, pool: &crate::D
 /// negation (`!b`) — weibo kotlin-stdlib `return v2 ^ 1;` ("二元运算符
 /// '^' 的操作数类型错误"), and `x ^ true` shapes. Java only types `^`
 /// for same-category operands.
+/// Rename locals whose name equals a ROOT PACKAGE first segment: a
+/// package-qualified render (`v2.n.a` — the FQN fallback a twin-shadowed
+/// same-package ref must take) binds its first identifier lexically, and
+/// a local `v2` in scope captures it (weixin v2/i: 找不到符号 变量 n on a
+/// legit `v2.n.a(this, 0)`). Method-scope renames carry no registry
+/// surface — every use renders through this same vt — unlike class/field
+/// renames, whose reference coverage blew up five times before.
+pub fn deshadow_locals(vt: &mut VarTable, pool: &crate::DexPool) {
+    let segs = pool.root_pkg_segs();
+    if segs.is_empty() || !vt.vars.iter().any(|v| segs.contains(&*v.name)) {
+        return;
+    }
+    let mut taken: jdc_core::FxHashSet<String> =
+        vt.vars.iter().map(|v| v.name.clone()).collect();
+    for v in vt.vars.iter_mut() {
+        if !segs.contains(&*v.name) {
+            continue;
+        }
+        let mut k = 0u32;
+        let cand = loop {
+            k += 1;
+            let c = if k == 1 {
+                format!("{}x", v.name)
+            } else {
+                format!("{}x{}", v.name, k)
+            };
+            if !taken.contains(&c) {
+                break c;
+            }
+        };
+        taken.insert(cand.clone());
+        v.name = cand;
+    }
+}
+
 pub fn fix_bool_xor(body: &mut Stmt, vt: &VarTable, ret_bool: bool) {
     fn is_one(e: &Expr) -> bool {
         matches!(e, Expr::Const(ConstVal::Int(1)))

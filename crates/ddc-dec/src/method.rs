@@ -570,6 +570,7 @@ pub fn decompile_method(
         passes::fix_primitive_arg_bridges(&mut body, &vt, pool);
         passes::fix_bool_xor(&mut body, &vt, matches!(desc.ret, JavaType::Boolean));
         passes::apply_local_names(&mut vt, &body);
+    passes::deshadow_locals(&mut vt, pool);
         passes::remove_kotlin_checks(&mut body);
         passes::rewrite_kotlin_facades(&mut body, pool);
         passes::platform_constants(&mut body);
@@ -842,6 +843,7 @@ pub fn decompile_method(
     passes::fix_primitive_arg_bridges(&mut body, &vt, pool);
     passes::fix_bool_xor(&mut body, &vt, matches!(desc.ret, JavaType::Boolean));
     passes::apply_local_names(&mut vt, &body);
+    passes::deshadow_locals(&mut vt, pool);
     passes::remove_kotlin_checks(&mut body);
     passes::rewrite_kotlin_facades(&mut body, pool);
     passes::platform_constants(&mut body);

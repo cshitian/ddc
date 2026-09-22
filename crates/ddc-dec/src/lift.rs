@@ -111,9 +111,13 @@ impl<'a> MethodEnv<'a> {
         // to a one-char name beside a real field) resolve differently per
         // site in source — run the shared rename registry so every
         // reference prints the same display name as the declaration.
-        let name = jdc_core::rename::field_display(&owner, raw, self.dex.type_name(f.type_idx))
-            .map(std::sync::Arc::from)
-            .unwrap_or_else(|| std::sync::Arc::from(raw));
+        let name = if jdc_core::rename::owner_has_renames(&owner) {
+            jdc_core::rename::field_display(&owner, raw, self.dex.type_name(f.type_idx))
+                .map(std::sync::Arc::from)
+                .unwrap_or_else(|| std::sync::Arc::from(raw))
+        } else {
+            std::sync::Arc::from(raw)
+        };
         (owner, name, self.java_type(f.type_idx))
     }
     pub fn method_ref(
@@ -134,7 +138,7 @@ impl<'a> MethodEnv<'a> {
         // weibo render one `ERROR________`) need the shared member-rename
         // registry so declarations and call sites agree. Cold path only:
         // clean corpora never rebuild the descriptor string.
-        let name = if jdc_core::rename::member_rename_active() {
+        let name = if jdc_core::rename::owner_has_renames(&owner) {
             let raw = self.dex.string(m.name_idx);
             jdc_core::rename::field_display(&owner, raw, &desc.to_string())
                 .map(std::sync::Arc::from)

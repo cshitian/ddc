@@ -231,6 +231,10 @@ pub struct DexPool {
     accessor_code: std::sync::OnceLock<AccessorSnapshots>,
     /// Cached package → direct-class simple names (import-collision gate).
     pkg_simples: std::sync::OnceLock<jdc_core::FxHashMap<String, jdc_core::FxHashSet<String>>>,
+    /// First path segments of all packages (`v2` for `v2/n`): local or
+    /// field names equal to one capture package-qualified renders
+    /// (`v2.n.a`) — deshadow_locals consults this.
+    root_segs: std::sync::OnceLock<jdc_core::FxHashSet<String>>,
     /// Kotlin multi-file facade parts → public facade (see
     /// `kotlin_facade_map`).
     kotlin_facades: std::sync::OnceLock<jdc_core::FxHashMap<String, String>>,
@@ -279,6 +283,7 @@ impl DexPool {
             ref_caches: Vec::new(),
             accessor_code: std::sync::OnceLock::new(),
             pkg_simples: std::sync::OnceLock::new(),
+            root_segs: std::sync::OnceLock::new(),
             kotlin_facades: std::sync::OnceLock::new(),
         }
     }
@@ -538,6 +543,16 @@ impl DexPool {
 
     pub fn dex_count(&self) -> usize {
         self.dexes.len()
+    }
+
+    /// First path segments of every package in the pool (cached once).
+    pub fn root_pkg_segs(&self) -> &jdc_core::FxHashSet<String> {
+        self.root_segs.get_or_init(|| {
+            self.order
+                .iter()
+                .filter_map(|n| n.find('/').map(|i| n[..i].to_string()))
+                .collect()
+        })
     }
 
     /// Package → simple names of its direct classes, cached once per
@@ -1373,7 +1388,7 @@ pub fn install_case_renames(pool: &DexPool) {
     obscuring_class_renames(pool, &mut map, &pkg_segs);
     nested_collision_renames(pool, &mut map, &fam_segs);
     jdc_core::rename::set_class_renames(map);
-    jdc_core::rename::set_field_renames(member_collision_renames(pool));
+    jdc_core::rename::set_field_renames(combined_field_renames(pool));
 }
 
 /// A top-level class `P/s` whose simple name equals the FIRST PACKAGE
@@ -1989,6 +2004,140 @@ fn suffix_unique(base: &str, taken: &mut jdc_core::FxHashSet<String>) -> String 
 /// Install member renames (call with the class rename install, before
 /// workers spawn).
 pub fn install_field_renames(pool: &DexPool) {
-    jdc_core::rename::set_field_renames(member_collision_renames(pool));
+    jdc_core::rename::set_field_renames(combined_field_renames(pool));
+}
+
+/// member_collision_renames + field_deshadow_renames, collision-registry
+/// entries winning per (owner, name, desc).
+fn combined_field_renames(
+    pool: &DexPool,
+) -> HashMap<std::sync::Arc<str>, Vec<jdc_core::rename::FieldRename>> {
+    let mut base = member_collision_renames(pool);
+    let extra = field_deshadow_renames(pool);
+    let mut merged = 0usize;
+    for (owner, v) in extra {
+        let e = base.entry(owner).or_default();
+        for fr in v {
+            if !e.iter().any(|x| x.name == fr.name && x.desc == fr.desc) {
+                e.push(fr);
+                merged += 1;
+            }
+        }
+    }
+    if std::env::var("DDC_STATS").is_ok() {
+        eprintln!("[renames] field-deshadow renames: {merged}");
+    }
+    base
+}
+
+/// Field deshadow (JLS 6.4.2, expression position): a FIELD whose display
+/// name equals a root package first segment captures package-qualified
+/// renders inside its family's file — androidx z2's field `j` binds the
+/// `j` of `j.a.a` (找不到符号 变量 a). Rename through the field registry
+/// (declaration and every reference funnel through field_display).
+/// Gate: only when the family actually references that segment
+/// (family_ref_segments body scan) or the segment is the family's OWN
+/// package root (same-package refs fall back to `root.x` FQN renders) —
+/// ungated field renames are the six-times-falsified blast radius.
+fn field_deshadow_renames(
+    pool: &DexPool,
+) -> HashMap<std::sync::Arc<str>, Vec<jdc_core::rename::FieldRename>> {
+    let mut out: HashMap<std::sync::Arc<str>, Vec<jdc_core::rename::FieldRename>> =
+        HashMap::default();
+    let root_segs = pool.root_pkg_segs();
+    if root_segs.is_empty() {
+        return out;
+    }
+    // Candidate fields per family (display, original name, desc).
+    let mut cand: HashMap<
+        String,
+        Vec<(String, String, String)>,
+    > = HashMap::default();
+    for name in &pool.order {
+        let Some(pc) = pool.get_if_materialized(name) else {
+            continue;
+        };
+        for f in pc.static_fields.iter().chain(pc.instance_fields.iter()) {
+            let disp = crate::classdec::java_ident(&f.name).into_owned();
+            if root_segs.contains(&disp) {
+                cand
+                    .entry(name.clone())
+                    .or_default()
+                    .push((disp, f.name.clone(), f.desc.clone()));
+            }
+        }
+    }
+    if cand.is_empty() {
+        return out;
+    }
+    let cand_set: jdc_core::FxHashSet<String> = cand.keys().cloned().collect();
+    let t0 = std::time::Instant::now();
+    let fam_segs = crate::refscan::family_ref_segments(&pool.dexes, &cand_set);
+    if std::env::var("DDC_STATS").is_ok() {
+        eprintln!(
+            "[renames] field-deshadow scan: cands={} scan={:?}",
+            cand_set.len(),
+            t0.elapsed()
+        );
+    }
+    for (fam, fields) in cand {
+        let own_root = fam.find('/').map(|i| fam[..i].to_string());
+        let scanned = fam_segs.get(&fam);
+        let hits: Vec<(String, String, String)> = fields
+            .into_iter()
+            .filter(|(disp, _, _)| {
+                scanned.is_some_and(|s| s.contains(disp))
+                    || own_root.as_deref() == Some(disp.as_str())
+            })
+            .collect();
+        if hits.is_empty() {
+            continue;
+        }
+        // Names already taken in the family's member scope: field and
+        // method displays plus direct nested-class tails (member types
+        // share the lexical scope of the rendered file). Built only for
+        // hit families — the per-family setup must stay off the 175k-
+        // candidate loop (an O(pool.order) nested scan there cost 60s on
+        // weixin).
+        let mut taken: jdc_core::FxHashSet<String> = jdc_core::FxHashSet::default();
+        if let Some(pc) = pool.get_if_materialized(&fam) {
+            for f in pc.static_fields.iter().chain(pc.instance_fields.iter()) {
+                taken.insert(crate::classdec::java_ident(&f.name).into_owned());
+            }
+            for m in pc.direct_methods.iter().chain(pc.virtual_methods.iter()) {
+                taken.insert(crate::classdec::java_ident(&m.name).into_owned());
+            }
+        }
+        for child in pool.children_of(&fam) {
+            if let Some(tail) = child.rsplit('$').next() {
+                if !tail.is_empty() {
+                    taken.insert(tail.to_string());
+                }
+            }
+        }
+        for (disp, name, desc) in hits {
+            let mut k = 0u32;
+            let new_disp = loop {
+                k += 1;
+                let c = if k == 1 {
+                    format!("{disp}x")
+                } else {
+                    format!("{disp}x{k}")
+                };
+                if !taken.contains(&c) && !root_segs.contains(&c) {
+                    break c;
+                }
+            };
+            taken.insert(new_disp.clone());
+            out.entry(std::sync::Arc::from(fam.as_str()))
+                .or_default()
+                .push(jdc_core::rename::FieldRename {
+                    name: std::sync::Arc::from(name.as_str()),
+                    desc: std::sync::Arc::from(desc.as_str()),
+                    display: std::sync::Arc::from(new_disp.as_str()),
+                });
+        }
+    }
+    out
 }
 pub use jdc_core::rename::apply_class_rename;
