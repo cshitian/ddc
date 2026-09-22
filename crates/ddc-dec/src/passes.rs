@@ -3534,8 +3534,380 @@ pub(crate) fn rewrite_inner_ctor_outer_param(
 /// sharing the slot), convert that first write into the declaration so
 /// the var stays defined for its later readers. Any shape that cannot
 /// be proven aborts untouched.
+/// Count WRITE positions of `var` (assign / inc-dec targets) — the
+/// shape-C validator needs exact counts, not just presence.
+fn stmts_count_writes(stmts: &[Stmt], var: u32) -> usize {
+    let mut n = 0usize;
+    for s in stmts {
+        let mut c = s.clone();
+        walk_stmt_exprs(&mut c, &mut |e| {
+            deep_rewrite(e, &mut |x| match x {
+                Expr::Assign { target, .. }
+                    if matches!(&**target, Expr::Local { var: v, .. } if *v == var) =>
+                {
+                    n += 1;
+                }
+                Expr::PreIncDec { e, .. } | Expr::PostIncDec { e, .. }
+                    if matches!(&**e, Expr::Local { var: v, .. } if *v == var) =>
+                {
+                    n += 1;
+                }
+                _ => {}
+            });
+        });
+    }
+    n
+}
+
+/// Collect every local WRITTEN in `stmts` — the complement inside a
+/// ctor prefix is the param set (the only locals a pre-delegation arg
+/// expression may read).
+fn prefix_written_vars(stmts: &[Stmt]) -> jdc_core::FxHashSet<u32> {
+    let mut set = jdc_core::FxHashSet::default();
+    for s in stmts {
+        let mut c = s.clone();
+        walk_stmt_exprs(&mut c, &mut |e| {
+            deep_rewrite(e, &mut |x| match x {
+                Expr::Assign { target, .. } => {
+                    if let Expr::Local { var, .. } = &**target {
+                        set.insert(*var);
+                    }
+                }
+                Expr::PreIncDec { e, .. } | Expr::PostIncDec { e, .. } => {
+                    if let Expr::Local { var, .. } = &**e {
+                        set.insert(*var);
+                    }
+                }
+                _ => {}
+            });
+        });
+        if let Stmt::LocalDef { var, .. } = s {
+            set.insert(*var);
+        }
+    }
+    set
+}
+
+/// Is `e` safe to evaluate INSIDE a ctor-delegation argument (before
+/// this/super exists)? Params/consts/pure ops only — no instance-field
+/// reads, no `this`, no captures.
+fn pre_this_safe(e: &Expr, prefix_vars: &jdc_core::FxHashSet<u32>) -> bool {
+    match e {
+        Expr::Local { var, .. } => !prefix_vars.contains(var),
+        Expr::Const(_) => true,
+        Expr::Cast { e, .. } => pre_this_safe(e, prefix_vars),
+        Expr::Bin { l, r, .. } => {
+            pre_this_safe(l, prefix_vars) && pre_this_safe(r, prefix_vars)
+        }
+        Expr::Cond { c, t, f } => {
+            pre_this_safe(c, prefix_vars)
+                && pre_this_safe(t, prefix_vars)
+                && pre_this_safe(f, prefix_vars)
+        }
+        Expr::Field { owner, is_static, .. } => {
+            *is_static
+                && owner
+                    .as_ref()
+                    .is_none_or(|o| pre_this_safe(o, prefix_vars))
+        }
+        Expr::Method {
+            owner,
+            args,
+            is_static,
+            ..
+        } => {
+            args.iter().all(|a| pre_this_safe(a, prefix_vars))
+                && match owner {
+                    Some(o) => pre_this_safe(o, prefix_vars),
+                    None => *is_static,
+                }
+        }
+        _ => false,
+    }
+}
+
+/// `s` is exactly one plain assignment to local `v` (optionally wrapped
+/// in a singleton Block): the branch shape of a Kotlin default-arg
+/// override.
+fn single_assign_to_v(s: &Stmt, v: u32) -> Option<Expr> {
+    match s {
+        Stmt::ExprStmt(Expr::Assign {
+            target,
+            op: AssignOp::Plain,
+            value,
+        }) if matches!(&**target, Expr::Local { var: vv, .. } if *vv == v) => {
+            Some((**value).clone())
+        }
+        Stmt::Block(xs) if xs.len() == 1 => single_assign_to_v(&xs[0], v),
+        _ => None,
+    }
+}
+
+/// Kotlin default-argument BRIDGE ctors (shape C of the delegation
+/// family): `<init>(params.., int mask, DefaultConstructorMarker)`
+/// computes each defaulted arg into a local — `v = p; if ((mask&bit)
+/// != 0) { v = DEFAULT; }` — then delegates `this(.., v, ..)`. Java
+/// allows NOTHING before the delegation, so the computations must fold
+/// INTO the args (`this(.., (mask&bit) != 0 ? DEFAULT : p, ..)`).
+/// Unfolded, the hoist passes lift the delegation above the raw local
+/// reads: "找不到符号 变量 str2/v4/creationExtras2" — 2.5k root files
+/// across weixin/lark/weibo (weixin MvvmObserverOwner$..Observer, lark
+/// SimpleArrayMap/LongSparseArray). Per-var provability: exactly one
+/// top-level base write, an optional single conditional override whose
+/// branches are lone assignments, no other prefix touch of the var,
+/// nothing after the delegation touches it, and the folded expression
+/// is pre-this-safe. Unprovable vars stay untouched (partial folds are
+/// strictly better — the rest was broken before too).
+/// Flatten nested plain Blocks among the top-level statements. The
+/// structurer hands ctor bodies as region-nested blocks (`Block([def,
+/// Block([assign, if]), Block([delegate, return])])` — the Kotlin
+/// bridge shape), and every delegation-repair pass scans the TOP level
+/// only. Straight-line nesting flattens without semantics; control
+/// flow lives inside If/While/etc. arms, never as a direct member.
+fn flatten_top_blocks(stmts: &mut Vec<Stmt>) {
+    fn rec(s: Stmt, out: &mut Vec<Stmt>) {
+        match s {
+            Stmt::Block(inner) => {
+                for x in inner {
+                    rec(x, out);
+                }
+            }
+            other => out.push(other),
+        }
+    }
+    if !stmts.iter().any(|s| matches!(s, Stmt::Block(_))) {
+        return;
+    }
+    let mut out: Vec<Stmt> = Vec::with_capacity(stmts.len());
+    for s in std::mem::take(stmts) {
+        rec(s, &mut out);
+    }
+    *stmts = out;
+}
+
+fn fold_default_arg_bridge(stmts: &mut Vec<Stmt>) -> bool {
+    flatten_top_blocks(stmts);
+    let Some(pos) = stmts.iter().position(is_bare_ctor_call) else {
+        return false;
+    };
+    if pos == 0 {
+        return false;
+    }
+    let Stmt::ExprStmt(Expr::Method { args, .. }) = &stmts[pos] else {
+        return false;
+    };
+    let mut arg_vars: Vec<u32> = Vec::new();
+    let mut reads = 0usize;
+    for a in args {
+        let mut c = a.clone();
+        deep_rewrite_reads(&mut c, &mut |x| {
+            if let Expr::Local { var, .. } = x {
+                reads += 1;
+                if !arg_vars.contains(var) {
+                    arg_vars.push(*var);
+                }
+            }
+        });
+    }
+    if arg_vars.is_empty() || reads != arg_vars.len() {
+        return false; // a var read twice would duplicate evaluation
+    }
+    // The bridge ENDS at the delegation: nothing after may touch the
+    // arg vars (reads OR writes).
+    for &v in &arg_vars {
+        if stmts_read_var(&stmts[pos + 1..], v) != 0
+            || stmts_count_writes(&stmts[pos + 1..], v) != 0
+        {
+            return false;
+        }
+    }
+    let prefix_vars = prefix_written_vars(&stmts[..pos]);
+    let mut repl: Vec<(u32, Expr)> = Vec::new();
+    let mut drop: Vec<usize> = Vec::new();
+    for &v in &arg_vars {
+        // Exact prefix shape for v.
+        let mut base: Option<(usize, Expr)> = None;
+        let mut decl: Option<usize> = None;
+        let mut condf: Option<(usize, Expr, Option<Expr>, Option<Expr>)> = None;
+        let mut ok = true;
+        for (i, s) in stmts[..pos].iter().enumerate() {
+            match s {
+                Stmt::LocalDef { var, init, .. } if *var == v => match init {
+                    None => {
+                        if decl.is_some() {
+                            ok = false;
+                            break;
+                        }
+                        decl = Some(i);
+                    }
+                    Some(e) => {
+                        if base.is_some() {
+                            ok = false;
+                            break;
+                        }
+                        base = Some((i, e.clone()));
+                    }
+                },
+                Stmt::ExprStmt(Expr::Assign {
+                    target,
+                    op: AssignOp::Plain,
+                    value,
+                }) if matches!(&**target, Expr::Local { var: vv, .. } if *vv == v) => {
+                    if base.is_some() {
+                        ok = false;
+                        break;
+                    }
+                    base = Some((i, (**value).clone()));
+                }
+                Stmt::If {
+                    cond,
+                    then_stmt,
+                    else_stmt,
+                } => {
+                    let t = single_assign_to_v(then_stmt, v);
+                    let f = else_stmt.as_ref().and_then(|b| single_assign_to_v(b, v));
+                    let then_touches = t.is_some()
+                        || stmts_read_var(std::slice::from_ref(&**then_stmt), v) != 0
+                        || stmts_count_writes(std::slice::from_ref(&**then_stmt), v) != 0;
+                    let else_touches = else_stmt.as_ref().is_some_and(|b| {
+                        f.is_some()
+                            || stmts_read_var(std::slice::from_ref(b), v) != 0
+                            || stmts_count_writes(std::slice::from_ref(b), v) != 0
+                    });
+                    if !then_touches && !else_touches {
+                        continue; // unrelated if
+                    }
+                    // Both branches must be lone assignments (a branch
+                    // with its own delegation/return is the conditional-
+                    // super machinery's shape, not this one), the cond
+                    // must not read v, and only one override per var.
+                    if condf.is_some()
+                        || base.is_none()
+                        || (then_touches && t.is_none())
+                        || (else_touches && f.is_none())
+                    {
+                        ok = false;
+                        break;
+                    }
+                    let cond_stmt = Stmt::ExprStmt(cond.clone());
+                    if stmts_read_var(std::slice::from_ref(&cond_stmt), v) != 0 {
+                        ok = false;
+                        break;
+                    }
+                    condf = Some((i, cond.clone(), t, f));
+                }
+                _ => {}
+            }
+        }
+        if !ok {
+            continue;
+        }
+        let Some((bi, be)) = base else { continue };
+        // Exact write/read accounting: base (+then/else) writes, zero
+        // prefix reads.
+        let want_writes = 1
+            + condf
+                .as_ref()
+                .map(|(_, _, t, f)| t.is_some() as usize + f.is_some() as usize)
+                .unwrap_or(0);
+        if stmts_count_writes(&stmts[..pos], v) != want_writes
+            || stmts_read_var(&stmts[..pos], v) != 0
+        {
+            continue;
+        }
+        let rep = match condf {
+            Some((ci, c, t, f)) => {
+                drop.push(ci);
+                match (t, f) {
+                    (Some(t), Some(f)) => Expr::Cond {
+                        c: Box::new(c),
+                        t: Box::new(t),
+                        f: Box::new(f),
+                    },
+                    (Some(t), None) => Expr::Cond {
+                        c: Box::new(c),
+                        t: Box::new(t),
+                        f: Box::new(be.clone()),
+                    },
+                    (None, Some(f)) => Expr::Cond {
+                        c: Box::new(c),
+                        t: Box::new(be.clone()),
+                        f: Box::new(f),
+                    },
+                    (None, None) => unreachable!("condf requires a branch assign"),
+                }
+            }
+            None => be.clone(),
+        };
+        if !pre_this_safe(&rep, &prefix_vars) {
+            continue;
+        }
+        drop.push(bi);
+        if let Some(d) = decl {
+            drop.push(d);
+        }
+        repl.push((v, rep));
+    }
+    if repl.is_empty() {
+        return false;
+    }
+    if let Stmt::ExprStmt(Expr::Method { args, .. }) = &mut stmts[pos] {
+        for a in args.iter_mut() {
+            deep_rewrite_reads(a, &mut |x| {
+                if let Expr::Local { var, .. } = x {
+                    if let Some((_, e)) = repl.iter().find(|(vv, _)| vv == var) {
+                        *x = e.clone();
+                    }
+                }
+            });
+        }
+    }
+    drop.sort_unstable();
+    drop.dedup();
+    for i in drop.into_iter().rev() {
+        stmts.remove(i);
+    }
+    true
+}
+
+/// Rewrite static member references on Kotlin multi-file facade PARTS
+/// (`StringsKt__StringsKt.trim(..)`) to the public facade the parts are
+/// compiled into (`StringsKt.trim(..)`): the parts are package-private,
+/// so every cross-package call site is "在kotlin.text中不是公共的; 无法
+/// 从外部程序包中对其进行访问" (lark 1.4k root files; weibo's 8.4k-line
+/// Kt cluster). Static members resolve through the facade by
+/// inheritance (the map is gated on the extends chain).
+pub fn rewrite_kotlin_facades(body: &mut Stmt, pool: &crate::DexPool) {
+    let map = pool.kotlin_facade_map();
+    if map.is_empty() {
+        return;
+    }
+    walk_stmt_exprs(body, &mut |e| {
+        match e {
+            Expr::Method {
+                cls, is_static, ..
+            } if *is_static => {
+                if let Some(base) = map.get(cls.as_ref()) {
+                    *cls = std::sync::Arc::from(base.as_str());
+                }
+            }
+            Expr::Field {
+                cls, is_static, ..
+            } if *is_static => {
+                if let Some(base) = map.get(cls.as_ref()) {
+                    *cls = std::sync::Arc::from(base.as_str());
+                }
+            }
+            _ => {}
+        }
+    });
+}
+
 pub fn fix_ctor_delegation_arg_defs(body: &mut Stmt) {
     let Stmt::Block(stmts) = body else { return };
+    // Shape C first: the Kotlin default-arg bridge (computations +
+    // conditional overrides folded into the delegation args).
+    fold_default_arg_bridge(stmts);
     // Only the top-level linear shape; the first statement needs no
     // repair and control flow ahead of the delegation belongs to the
     // conditional-super machinery.
@@ -4420,7 +4792,8 @@ fn merge_at(stmts: &mut Vec<Stmt>, if_pos: usize) -> bool {
     /// when the branch has no delegation at all (pure remainder); Dirty
     /// otherwise (nested/conditional delegation — out of scope).
     enum Br {
-        Call(usize, Vec<(u32, Expr)>),
+        /// (call index, pre-call defs, def statement indices)
+        Call(usize, Vec<(u32, Expr)>, Vec<usize>),
         Clean,
         Dirty,
     }
@@ -4439,9 +4812,13 @@ fn merge_at(stmts: &mut Vec<Stmt>, if_pos: usize) -> bool {
             return Br::Dirty; // two delegations in one branch
         }
         let mut defs: Vec<(u32, Expr)> = Vec::new();
-        for s in list.iter().take(c) {
+        let mut def_idxs: Vec<usize> = Vec::new();
+        for (i, s) in list.iter().enumerate().take(c) {
             match def_of(s) {
-                Some((v, e)) => defs.push((v, e.clone())),
+                Some((v, e)) => {
+                    defs.push((v, e.clone()));
+                    def_idxs.push(i);
+                }
                 None => match s {
                     // Side-effect statements and bare decls ahead of the
                     // delegation ride along into the remainder.
@@ -4450,7 +4827,7 @@ fn merge_at(stmts: &mut Vec<Stmt>, if_pos: usize) -> bool {
                 },
             }
         }
-        Br::Call(c, defs)
+        Br::Call(c, defs, def_idxs)
     }
     /// Prelude single-assignment if/else → `v = c ? e1 : e2` def.
     fn cond_def_of(s: &Stmt) -> Option<(u32, Expr)> {
@@ -4547,21 +4924,29 @@ fn merge_at(stmts: &mut Vec<Stmt>, if_pos: usize) -> bool {
     // Exactly: two Call branches (merge with ternaries) or one Call +
     // one Clean (single-delegation throw-guard). Owned branch payloads.
     enum Side {
-        Call { at: usize, defs: Vec<(u32, Expr)> },
+        Call {
+            at: usize,
+            defs: Vec<(u32, Expr)>,
+            def_idxs: Vec<usize>,
+        },
         Clean,
     }
     let (t_side, e_side, two_sided) = match (split_branch(&then_list), split_branch(&else_list)) {
-        (Br::Call(tc, td), Br::Call(ec, ed)) => (
-            Side::Call { at: tc, defs: td },
-            Side::Call { at: ec, defs: ed },
+        (Br::Call(tc, td, ti), Br::Call(ec, ed, ei)) => (
+            Side::Call { at: tc, defs: td, def_idxs: ti },
+            Side::Call { at: ec, defs: ed, def_idxs: ei },
             true,
         ),
-        (Br::Call(tc, td), Br::Clean) => {
-            (Side::Call { at: tc, defs: td }, Side::Clean, false)
-        }
-        (Br::Clean, Br::Call(ec, ed)) => {
-            (Side::Clean, Side::Call { at: ec, defs: ed }, false)
-        }
+        (Br::Call(tc, td, ti), Br::Clean) => (
+            Side::Call { at: tc, defs: td, def_idxs: ti },
+            Side::Clean,
+            false,
+        ),
+        (Br::Clean, Br::Call(ec, ed, ei)) => (
+            Side::Clean,
+            Side::Call { at: ec, defs: ed, def_idxs: ei },
+            false,
+        ),
         _ => return false,
     };
     // The delegation nodes (two-sided: both; single: one).
@@ -4695,13 +5080,18 @@ fn merge_at(stmts: &mut Vec<Stmt>, if_pos: usize) -> bool {
     };
     // Remainder statements per branch (extras + post-call tail; a Clean
     // branch contributes all of its statements).
+    // The consumed defs LEAVE the remainder: their expressions were
+    // inlined into the merged delegation args, and a dead `v = E` left
+    // after the call both reads wrong and trips the u_t1/u_t2 guards
+    // (ContinuationImpl's branch-local `context = null / getContext()`
+    // — the coroutine family's 对this的调用必须是第一个语句 root).
     let branch_remainder = |list: &[&Stmt], side: &Side| -> Vec<Stmt> {
         match side {
             Side::Clean => list.iter().map(|s| (*s).clone()).collect(),
-            Side::Call { at, .. } => {
+            Side::Call { at, def_idxs, .. } => {
                 list.iter()
                     .enumerate()
-                    .filter(|(i, _)| *i != *at)
+                    .filter(|(i, _)| *i != *at && !def_idxs.contains(i))
                     .map(|(_, s)| (*s).clone())
                     .collect()
             }

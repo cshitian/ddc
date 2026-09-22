@@ -567,6 +567,7 @@ pub fn decompile_method(
         passes::insert_object_narrowing_casts(&vt, &mut body);
         passes::apply_local_names(&mut vt, &body);
         passes::remove_kotlin_checks(&mut body);
+        passes::rewrite_kotlin_facades(&mut body, pool);
         passes::platform_constants(&mut body);
         passes::drop_dead_locals(&mut body);
     passes::ensure_declared(&mut body, &vt);
@@ -582,6 +583,10 @@ pub fn decompile_method(
             passes::fix_ctor_super_first(&mut body);
             passes::dedupe_ctor_delegations(&mut body);
         }
+        // The delegation merges/hoists can leave prelude decls dead
+        // (their defs were inlined into the merged call) — the dropper
+        // ran BEFORE the ctor passes, so re-run it on their output.
+        passes::drop_dead_locals(&mut body);
     }
         passes::strip_trailing_void_return(&mut body);
         passes::cleanup(&mut body);
@@ -768,6 +773,7 @@ pub fn decompile_method(
     passes::insert_object_narrowing_casts(&vt, &mut body);
     passes::apply_local_names(&mut vt, &body);
     passes::remove_kotlin_checks(&mut body);
+    passes::rewrite_kotlin_facades(&mut body, pool);
     passes::platform_constants(&mut body);
     passes::drop_dead_locals(&mut body);
     passes::ensure_declared(&mut body, &vt);
@@ -783,6 +789,10 @@ pub fn decompile_method(
             passes::fix_ctor_super_first(&mut body);
             passes::dedupe_ctor_delegations(&mut body);
         }
+        // The delegation merges/hoists can leave prelude decls dead
+        // (their defs were inlined into the merged call) — the dropper
+        // ran BEFORE the ctor passes, so re-run it on their output.
+        passes::drop_dead_locals(&mut body);
     }
     if &*m.name == "<clinit>" {
         passes::strip_clinit_returns(&mut body);

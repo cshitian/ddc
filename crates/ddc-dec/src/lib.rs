@@ -231,6 +231,9 @@ pub struct DexPool {
     accessor_code: std::sync::OnceLock<AccessorSnapshots>,
     /// Cached package → direct-class simple names (import-collision gate).
     pkg_simples: std::sync::OnceLock<jdc_core::FxHashMap<String, jdc_core::FxHashSet<String>>>,
+    /// Kotlin multi-file facade parts → public facade (see
+    /// `kotlin_facade_map`).
+    kotlin_facades: std::sync::OnceLock<jdc_core::FxHashMap<String, String>>,
 }
 
 /// Raw code_item bytes of every synthetic-static accessor, keyed by
@@ -276,6 +279,7 @@ impl DexPool {
             ref_caches: Vec::new(),
             accessor_code: std::sync::OnceLock::new(),
             pkg_simples: std::sync::OnceLock::new(),
+            kotlin_facades: std::sync::OnceLock::new(),
         }
     }
 
@@ -548,6 +552,54 @@ impl DexPool {
                     m.entry(pkg.to_string())
                         .or_default()
                         .insert(simple.to_string());
+                }
+            }
+            m
+        })
+    }
+
+    /// Kotlin multi-file class facades: the compiler splits a file facade
+    /// (`kotlin.text.StringsKt`) into package-private parts
+    /// (`StringsKt__StringsKt`, `StringsKt__StringsJVMKt`) and call sites
+    /// target the PARTS directly. Java cannot access a package-private
+    /// class cross-package ("StringsKt__StringsKt在kotlin.text中不是公共的"
+    /// — 1.4k lark root errors), but the public facade EXTENDS the parts,
+    /// so static members resolve through it: rewrite the reference's owner
+    /// class to the facade. part → base, gated on base existing, being
+    /// public, and transitively extending the part (static inheritance is
+    /// the resolution guarantee).
+    pub fn kotlin_facade_map(&self) -> &jdc_core::FxHashMap<String, String> {
+        self.kotlin_facades.get_or_init(|| {
+            let mut m: jdc_core::FxHashMap<String, String> = jdc_core::FxHashMap::default();
+            for name in &self.order {
+                let Some(i) = name.find("__") else { continue };
+                let base = &name[..i];
+                if base.is_empty() || self.get(base).is_none() {
+                    continue;
+                }
+                let pub_base = self
+                    .get(base)
+                    .is_some_and(|c| c.access & 0x1 != 0);
+                if !pub_base {
+                    continue;
+                }
+                // base must transitively extend the part.
+                let mut cur = self.get(base).and_then(|c| c.super_name.clone());
+                let mut hops = 0u32;
+                let mut reaches = false;
+                while let Some(c) = cur {
+                    if c == *name {
+                        reaches = true;
+                        break;
+                    }
+                    if hops >= 8 {
+                        break;
+                    }
+                    hops += 1;
+                    cur = self.get(&c).and_then(|cc| cc.super_name.clone());
+                }
+                if reaches {
+                    m.insert(name.clone(), base.to_string());
                 }
             }
             m
@@ -1035,7 +1087,11 @@ pub fn case_rename_map(pool: &DexPool) -> HashMap<String, String> {
 /// constructor names, file names and every type reference stay
 /// consistent through apply_class_rename. All are pure display
 /// renames keyed by internal name.
-fn nested_collision_renames(pool: &DexPool, map: &mut HashMap<String, String>) {
+fn nested_collision_renames(
+    pool: &DexPool,
+    map: &mut HashMap<String, String>,
+    fam_segs: &SegMap,
+) {
     // Ancestors before descendants: a parent's rename must be in the
     // map when its children compute their display chains.
     let mut names: Vec<&String> = pool.order.iter().collect();
@@ -1065,6 +1121,10 @@ fn nested_collision_renames(pool: &DexPool, map: &mut HashMap<String, String>) {
     // skip the gate AND the rule — the multi-second image scan must not
     // stall single-class queries; the full-decompile pipeline always
     // materializes everything before installing renames.
+    // Round-59 Design B stands: ungated field-clash renames were
+    // retried AFTER the package-obscuring rules landed (weibo gate,
+    // DDC_FC_UNGATED A/B) and still exploded to the 500k error cap —
+    // fifth falsification of the ungated rename route.
     let local_ok: jdc_core::FxHashSet<String> = if pool_majority_materialized(pool) {
         refscan::local_ok(&pool.dexes, &field_clash_cands(pool, map))
     } else {
@@ -1122,7 +1182,20 @@ fn nested_collision_renames(pool: &DexPool, map: &mut HashMap<String, String>) {
         // refscan above. PoC: in-file rename of flutter g's `enum i`
         // took the class from 2452 errors to 1.
         let field_clash = local_ok.contains(name.as_str());
-        let clash = chain.iter().any(|c| c == tail) || field_clash;
+        // Package shadow (JLS 6.4.2 at nested level): a nested type
+        // DISPLAYED with a simple name equal to the first segment of a
+        // package its FAMILY references binds every `s.x` qualified ref
+        // in the root file to the member type — the family's own outer
+        // rename can EXPOSE this (e/b → e/b2 un-collided the nested `b`,
+        // which then hijacked `b.b2` — 循环继承). The round-47 candidate
+        // guard only kept RENAMED tails off package segments; pre-
+        // existing shadows need the rename too, family-gated: fire only
+        // when this family's own descriptors reference the segment.
+        let pkg_shadow = !orphan
+            && fam_segs
+                .get(root)
+                .is_some_and(|segs| segs.contains(tail));
+        let clash = chain.iter().any(|c| c == tail) || field_clash || pkg_shadow;
         if !orphan && !clash {
             continue;
         }
@@ -1131,7 +1204,7 @@ fn nested_collision_renames(pool: &DexPool, map: &mut HashMap<String, String>) {
         // tail from being obscured again. Computed lazily so progressive
         // pools don't materialize parents for rules that don't rename.
         let mut enc_fields: jdc_core::FxHashSet<String> = jdc_core::FxHashSet::default();
-        if field_clash {
+        if field_clash || pkg_shadow {
             if let Some(pc) = pool.get(&parent) {
                 for f in pc.static_fields.iter().chain(pc.instance_fields.iter()) {
                     enc_fields.insert(crate::classdec::java_ident(&f.name).into_owned());
@@ -1164,8 +1237,15 @@ fn nested_collision_renames(pool: &DexPool, map: &mut HashMap<String, String>) {
             // family to visible `X17` renames, breaking every lucky
             // `g0.r`-style resolution corpus-wide (+2911 `变量 r` — the
             // orphan rule is ungated by design, predating LOCAL-OK).
-            if field_clash {
+            if field_clash || pkg_shadow {
                 if pkg_segments.contains(&cand_tail) {
+                    continue;
+                }
+                if pkg_shadow
+                    && fam_segs
+                        .get(root)
+                        .is_some_and(|segs| segs.contains(cand_tail.as_str()))
+                {
                     continue;
                 }
                 if let Some((root_pkg, _)) = root.rsplit_once('/') {
@@ -1257,15 +1337,241 @@ fn pool_majority_materialized(pool: &DexPool) -> bool {
 /// Compute and install the registry (call before worker threads spawn).
 pub fn install_case_renames(pool: &DexPool) {
     let mut map = case_rename_map(pool);
+    // Cross-package reference first segments (descriptor level). Lazy
+    // (progressive-browse) pools skip the scan — materializing every
+    // class must not stall single-class queries; the obscuring rules
+    // then simply never fire (browse mode has no whole-program javac).
+    let (pkg_segs, fam_segs) = if pool_majority_materialized(pool) {
+        ref_segments(pool)
+    } else {
+        (
+            jdc_core::FxHashMap::default(),
+            jdc_core::FxHashMap::default(),
+        )
+    };
     // Package-leaf shadows FIRST: the nested-collision renames compute
     // display chains off the (renamed) parent display names — running
     // them before the parent rename left both rules minting the same
     // display (`a2` twice in weibo's AIDL families).
     pkg_leaf_shadow_renames(pool, &mut map);
     class_pkg_collision_renames(pool, &mut map);
-    nested_collision_renames(pool, &mut map);
+    obscuring_class_renames(pool, &mut map, &pkg_segs);
+    nested_collision_renames(pool, &mut map, &fam_segs);
     jdc_core::rename::set_class_renames(map);
     jdc_core::rename::set_field_renames(member_collision_renames(pool));
+}
+
+/// A top-level class `P/s` whose simple name equals the FIRST PACKAGE
+/// SEGMENT of types that other classes in P reference cross-package.
+/// Such a reference renders as the FQN `s.rest...`, and javac binds the
+/// first segment to the nearest type in scope — the same-package class
+/// `P/s` (JLS 6.4.2): `n91.f.a(x)` inside pc5/bd looks up member `f` OF
+/// CLASS pc5.n91 (weixin's n0/n91/uc6/vc6 protobuf cluster: ~12k root
+/// files, ~90k cascade lines; weibo's `a.g.b.a.b` chains root the same
+/// way — class a beside subpackage a/ inside package a/g/b). No Java
+/// syntax escapes an obscured first segment (imports can bypass it, but
+/// single-type imports are blocked exactly where obfuscated leaf names
+/// collide with same-package siblings), so the class moves: the r66
+/// rename mechanism at a new trigger. Gated on DESCRIPTOR-level refs of
+/// the candidate's own package (supers/fields/protos) — body-only refs
+/// are missed by design; the import layer covers unblocked leaves there.
+/// Descriptor-level cross-package reference first segments, aggregated
+/// per PACKAGE (top-level obscurers: every file in P shares the scope)
+/// and per FAMILY root (nested obscurers: a nested simple name is in
+/// scope only inside its own root file). Raw `L..;` scans — no JavaType
+/// parsing. Body-level refs are missed by design (the import layer
+/// catches unblocked leaves there); descriptors cover supers, field
+/// types and method protos — the header positions whose breakage starts
+/// the error-type cascades.
+/// Package (or family) → first segments of the cross-package types its
+/// classes reference at descriptor level. Obscuring-rename trigger sets.
+type SegMap<'a> = jdc_core::FxHashMap<&'a str, jdc_core::FxHashSet<&'a str>>;
+
+fn ref_segments(pool: &DexPool) -> (SegMap<'_>, SegMap<'_>) {
+    fn pkg_of(n: &str) -> &str {
+        match n.rsplit_once('/') {
+            Some((p, _)) => p,
+            None => "",
+        }
+    }
+    fn note<'a>(
+        pkg_segs: &mut jdc_core::FxHashMap<&'a str, jdc_core::FxHashSet<&'a str>>,
+        fam_segs: &mut jdc_core::FxHashMap<&'a str, jdc_core::FxHashSet<&'a str>>,
+        pkg: &'a str,
+        fam: &'a str,
+        t: &'a str,
+    ) {
+        if !t.contains('/') {
+            return; // root-package target: unreferenceable from named pkgs
+        }
+        let _ = pkg; // same-package refs COUNT: ddc renders headers/field
+                     // types fully qualified (print_class_name), so `a.g.b.a.b`
+                     // inside package a/g/b is obscured by class a/g/b/a just
+                     // like a cross-package FQN (weibo's whole `a`-tree family).
+        let seg = t.split('/').next().unwrap_or("");
+        if !seg.is_empty() {
+            pkg_segs.entry(pkg).or_default().insert(seg);
+            fam_segs.entry(fam).or_default().insert(seg);
+        }
+    }
+    fn scan<'a>(
+        pkg_segs: &mut jdc_core::FxHashMap<&'a str, jdc_core::FxHashSet<&'a str>>,
+        fam_segs: &mut jdc_core::FxHashMap<&'a str, jdc_core::FxHashSet<&'a str>>,
+        pkg: &'a str,
+        fam: &'a str,
+        desc: &'a str,
+    ) {
+        let b = desc.as_bytes();
+        let mut i = 0usize;
+        while i < b.len() {
+            if b[i] == b'L' {
+                if let Some(end) = desc[i + 1..].find(';') {
+                    note(pkg_segs, fam_segs, pkg, fam, &desc[i + 1..i + 1 + end]);
+                    i += end + 2;
+                    continue;
+                }
+            }
+            i += 1;
+        }
+    }
+    let mut pkg_segs: jdc_core::FxHashMap<&str, jdc_core::FxHashSet<&str>> =
+        jdc_core::FxHashMap::default();
+    let mut fam_segs: jdc_core::FxHashMap<&str, jdc_core::FxHashSet<&str>> =
+        jdc_core::FxHashMap::default();
+    for name in &pool.order {
+        let Some(c) = pool.get(name) else { continue };
+        let pkg = pkg_of(name);
+        let fam = match name.find('$') {
+            Some(i) => &name[..i],
+            None => name.as_str(),
+        };
+        if let Some(sup) = &c.super_name {
+            note(&mut pkg_segs, &mut fam_segs, pkg, fam, sup);
+        }
+        for sup in c.interfaces.iter() {
+            note(&mut pkg_segs, &mut fam_segs, pkg, fam, sup);
+        }
+        for f in c.static_fields.iter().chain(c.instance_fields.iter()) {
+            scan(&mut pkg_segs, &mut fam_segs, pkg, fam, &f.desc);
+        }
+        for m in c.direct_methods.iter().chain(c.virtual_methods.iter()) {
+            scan(&mut pkg_segs, &mut fam_segs, pkg, fam, &m.desc);
+        }
+    }
+    (pkg_segs, fam_segs)
+}
+
+/// A top-level class `P/s` whose simple name equals the FIRST PACKAGE
+/// SEGMENT of types that classes in P reference cross-package. Such a
+/// reference renders as the FQN `s.rest...`, and javac binds the first
+/// segment to the nearest type in scope — the same-package class `P/s`
+/// (JLS 6.4.2, no package fallback — verified): `n91.f.a(x)` inside
+/// pc5/bd looks up member `f` OF CLASS pc5.n91 (weixin's n0/n91/uc6/vc6
+/// protobuf cluster: ~12k root files, ~90k cascade lines; weibo's
+/// `a.g.b.a.b` chains root the same way). No Java syntax escapes an
+/// obscured first segment, so the class moves: the r66 rename mechanism
+/// at a new trigger, gated on DESCRIPTOR-level refs of the candidate's
+/// package (body-only refs go to the import layer). Nested obscurers
+/// (a nested simple name shadowing a package inside its family file)
+/// are the companion trigger in nested_collision_renames.
+fn obscuring_class_renames(
+    pool: &DexPool,
+    map: &mut HashMap<String, String>,
+    pkg_segs: &SegMap,
+) {
+    fn pkg_of(n: &str) -> &str {
+        match n.rsplit_once('/') {
+            Some((p, _)) => p,
+            None => "",
+        }
+    }
+    let mut cands: Vec<&String> = Vec::new();
+    for name in &pool.order {
+        let simple = name.rsplit('/').next().unwrap_or(name);
+        let pkg = pkg_of(name);
+        if simple.is_empty() || simple.contains('$') {
+            continue;
+        }
+        if map.get(name).is_some_and(|v| v != name) {
+            continue; // an earlier rule moved it
+        }
+        // A class inside package s: refs to s/* from there render
+        // same-package simple (leaf-shadow / class-pkg rules own the
+        // subpackage shapes).
+        if pkg == simple || pkg.starts_with(&format!("{simple}/")) {
+            continue;
+        }
+        if pkg_segs
+            .get(pkg)
+            .is_some_and(|segs| segs.contains(simple))
+        {
+            cands.push(name);
+        }
+    }
+    let ncands = cands.len();
+    if std::env::var("DDC_STATS").is_ok() {
+        eprintln!(
+            "[renames] obscuring candidates={ncands} pkgs-with-segs={}",
+            pkg_segs.len()
+        );
+    }
+    if cands.is_empty() {
+        return;
+    }
+    // Fast collision oracle: sorted names + prefix range scan (the r66
+    // candidate loop's `order.iter().any(starts_with)` is O(n) per
+    // candidate — this rule can mint tens of thousands of renames).
+    let mut sorted: Vec<&String> = pool.order.iter().collect();
+    sorted.sort_unstable();
+    let prefix_free = |cand: &str| -> bool {
+        // No class named cand, nothing nested under cand$..., no package cand/...
+        let idx = sorted.partition_point(|n| n.as_str() < cand);
+        !sorted[idx..].first().is_some_and(|n| n.starts_with(cand))
+    };
+    let pkg_simples = pool.package_simples();
+    let mut taken_displays: jdc_core::FxHashSet<String> = map.values().cloned().collect();
+    let mut renamed = 0usize;
+    for name in cands {
+        let pkg = pkg_of(name);
+        let simple = name.rsplit('/').next().unwrap_or(name);
+        let siblings = pkg_simples.get(pkg);
+        let mut k = 1u32;
+        loop {
+            k += 1;
+            let new_simple = format!("{simple}{k}");
+            let cand = if pkg.is_empty() {
+                new_simple.clone()
+            } else {
+                format!("{pkg}/{new_simple}")
+            };
+            // Exact/prefix pool clash, another rule's display target, the
+            // package's own referenced segments (the new name must not
+            // obscure ANOTHER package the same files reference), or a
+            // case-insensitive clash with a same-package sibling
+            // (case-insensitive filesystems fold the files).
+            let clash = !prefix_free(&cand)
+                || taken_displays.contains(&cand)
+                || pkg_segs
+                    .get(pkg)
+                    .is_some_and(|segs| segs.contains(new_simple.as_str()))
+                || siblings.is_some_and(|s| {
+                    s.iter()
+                        .any(|p| p.eq_ignore_ascii_case(&new_simple) && *p != simple)
+                });
+            if !clash {
+                taken_displays.insert(cand.clone());
+                map.insert(name.clone(), cand);
+                renamed += 1;
+                break;
+            }
+        }
+    }
+    if std::env::var("DDC_STATS").is_ok() {
+        eprintln!(
+            "[renames] obscuring-class renames: {renamed} (pkgs-with-segs={}, cands={ncands})",
+            pkg_segs.len()
+        );
+    }
 }
 
 /// A class named `P/s` while OTHER classes live under `P/s/` — the dex

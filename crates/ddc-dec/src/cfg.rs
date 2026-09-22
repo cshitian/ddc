@@ -72,6 +72,25 @@ impl DexCfg {
             for t in insn_targets(ins) {
                 leaders.push(t);
             }
+            // Switch CASE targets are control-flow leaders too. Ordinary
+            // switches get their case heads for free (each case ends in
+            // `goto break`, and a branch's fall-through is a leader) —
+            // but the weixin protobuf `op()` shape ends every case in a
+            // direct `return`, so NOTHING else marks the heads: all case
+            // bodies fused into one block, every switch edge resolved to
+            // that single block, and the structurer emitted empty
+            // `case 1..6: break;` with the bodies linearized after the
+            // switch (returns dropped — semantics change). The payload
+            // LOCATION is data; the offsets INSIDE it are targets.
+            match &ins.kind {
+                InsnKind::PackedSwitch { payload_pc, .. }
+                | InsnKind::SparseSwitch { payload_pc, .. } => {
+                    for t in switch_targets(code.payloads.get(payload_pc), ins.pc) {
+                        leaders.push(t);
+                    }
+                }
+                _ => {}
+            }
         }
         // Try boundaries and handler entries.
         let mut ranges: Vec<ExcRange> = Vec::new();
