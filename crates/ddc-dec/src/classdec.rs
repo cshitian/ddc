@@ -2009,6 +2009,31 @@ pub(crate) fn set_obscured_state(
     });
 }
 
+/// Simple names this class's file renders through the import layer
+/// (metadata map values + dynamically recorded nested tails). A method
+/// local with one of these names captures the imported simple name in
+/// expression position (locals beat single-type imports — `h.e` binds
+/// a local int `h`, 无法取消引用int); deshadow_locals renames them.
+/// Empty when no render state is installed (progressive paths).
+pub(crate) fn obscured_simples_snapshot() -> jdc_core::FxHashSet<String> {
+    OBSCURE.with(|m| {
+        let mut out = jdc_core::FxHashSet::default();
+        let Ok(st) = m.try_borrow() else { return out };
+        let Some(st) = st.as_ref() else { return out };
+        for simple in st.map.values() {
+            out.insert(simple.clone());
+        }
+        for internal in &st.recorded {
+            if let Some(tail) = internal.rsplit(['/', '$']).next() {
+                if !tail.is_empty() {
+                    out.insert(tail.to_string());
+                }
+            }
+        }
+        out
+    })
+}
+
 /// Take the recorded expression-level refs and clear the state.
 pub(crate) fn take_recorded_and_clear() -> jdc_core::FxHashSet<String> {
     OBSCURE.with(|m| {

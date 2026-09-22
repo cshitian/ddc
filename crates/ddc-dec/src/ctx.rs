@@ -17,11 +17,47 @@ use crate::{desc_type, DexPool, PoolClass};
 pub struct DexCtx<'a> {
     pub pool: &'a DexPool,
     pub class: &'a PoolClass,
+    /// Field display names visible in this class's lexical scope by
+    /// INHERITANCE or ENCLOSURE (supers/interfaces of the class and of
+    /// every `$`-outer, transitively). `declares_field` only saw own
+    /// fields: an inherited int `h` captured the class ref `h.e`
+    /// (无法取消引用int, weixin v2/j family) because the shadow check
+    /// missed it and the simple render stayed unqualified.
+    inherited_fields: jdc_core::FxHashSet<String>,
 }
 
 impl<'a> DexCtx<'a> {
     pub fn new(pool: &'a DexPool, class: &'a PoolClass) -> Self {
-        DexCtx { pool, class }
+        let inherited_fields = {
+            let mut set: jdc_core::FxHashSet<String> = jdc_core::FxHashSet::default();
+            let mut level = class.name.clone();
+            loop {
+                let mut queue = vec![level.clone()];
+                let mut seen: jdc_core::FxHashSet<String> =
+                    jdc_core::FxHashSet::default();
+                let mut hops = 0u32;
+                while let Some(c) = queue.pop() {
+                    if hops >= 64 || !seen.insert(c.clone()) {
+                        continue;
+                    }
+                    hops += 1;
+                    let Some(pc) = pool.get(&c) else { continue };
+                    if c != class.name {
+                        for f in pc.static_fields.iter().chain(pc.instance_fields.iter()) {
+                            set.insert(crate::classdec::java_ident(&f.name).into_owned());
+                        }
+                    }
+                    if let Some(sup) = &pc.super_name {
+                        queue.push(sup.clone());
+                    }
+                    queue.extend(pc.interfaces.iter().cloned());
+                }
+                let Some(i) = level.rfind('$') else { break };
+                level.truncate(i);
+            }
+            set
+        };
+        DexCtx { pool, class, inherited_fields }
     }
 
     fn find_class(&self, internal: &str) -> Option<&PoolClass> {
@@ -254,6 +290,10 @@ impl<'a> Ctx for DexCtx<'a> {
     }
 
     fn declares_field(&self, internal: &str, name: &str) -> bool {
+        if internal == self.class.name {
+            return self.inherited_fields.contains(name)
+                || self.class.field_flags_of(name).is_some();
+        }
         self.find_class(internal)
             .map(|pc| pc.field_flags_of(name).is_some())
             .unwrap_or(false)

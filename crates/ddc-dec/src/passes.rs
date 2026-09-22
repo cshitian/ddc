@@ -3027,13 +3027,18 @@ pub fn fix_primitive_arg_bridges(body: &mut Stmt, vt: &VarTable, pool: &crate::D
 /// renames, whose reference coverage blew up five times before.
 pub fn deshadow_locals(vt: &mut VarTable, pool: &crate::DexPool) {
     let segs = pool.root_pkg_segs();
-    if segs.is_empty() || !vt.vars.iter().any(|v| segs.contains(&*v.name)) {
+    // Import-layer simples: the file renders `import p.h;` + bare `h.e`
+    // for obscured refs — a local `h` captures that simple name (locals
+    // beat imports in expression position; 无法取消引用int family).
+    let obscured = crate::classdec::obscured_simples_snapshot();
+    let hit = |name: &str| segs.contains(name) || obscured.contains(name);
+    if (segs.is_empty() && obscured.is_empty()) || !vt.vars.iter().any(|v| hit(&v.name)) {
         return;
     }
     let mut taken: jdc_core::FxHashSet<String> =
         vt.vars.iter().map(|v| v.name.clone()).collect();
     for v in vt.vars.iter_mut() {
-        if !segs.contains(&*v.name) {
+        if !hit(&v.name) {
             continue;
         }
         let mut k = 0u32;
