@@ -2712,6 +2712,226 @@ pub fn insert_object_narrowing_casts(vt: &VarTable, body: &mut Stmt) {
     });
 }
 
+/// Primitive bridges at CALL/CTOR argument positions. Dex slots are
+/// untyped category-1 integers: the verifier happily passes a Z-slot to
+/// a `(B)` formal (weibo's Meituan-Robust hotpatch boilerplate boxes
+/// boolean params via `new Byte(zreg)` — 4.2k+ `对于Byte(boolean),
+/// 找不到合适的构造器`), and obfuscated/Kotlin code passes 0/1 slots to
+/// `(Z)` formals (`int无法转换为boolean` at call sites). Java source
+/// cannot express either — bridge at the IR level:
+///   Boolean actual → numeric formal:  `(byte) (b ? 1 : 0)`
+///   numeric actual → Boolean formal:  `x != 0`
+/// The target method is DESCRIPTOR-bound (bytecode method_ref), so a
+/// cast/compare to the exact formal type cannot flip overload
+/// resolution the way r57's inferred object casts did — the rendered
+/// call selects the same signature the dex named.
+pub fn fix_primitive_arg_bridges(body: &mut Stmt, vt: &VarTable, pool: &crate::DexPool) {
+    fn val_ty(e: &Expr, vt: &VarTable) -> JavaType {
+        match e {
+            Expr::Local { var, .. } => vt.var(*var).ty.erased(),
+            other => other.type_ref().erased(),
+        }
+    }
+    #[allow(clippy::type_complexity)]
+    let is_bool = |t: &JavaType| matches!(t, JavaType::Boolean);
+    let is_num = |t: &JavaType| {
+        matches!(
+            t,
+            JavaType::Byte | JavaType::Short | JavaType::Int | JavaType::Char
+                | JavaType::Long | JavaType::Float | JavaType::Double
+        )
+    };
+    // BORROWED-arg form: returns the bridged replacement without
+    // consuming the original (a `mem::replace` + `Option` dance dropped
+    // the argument on the None path — every Boolean→Boolean arg became
+    // a literal `null`: 61k 引用不明确 in one battery run).
+    fn bridge(actual: &JavaType, formal: &JavaType, arg: &Expr) -> Option<Expr> {
+        if matches!(actual, JavaType::Boolean)
+            && matches!(
+                formal,
+                JavaType::Byte | JavaType::Short | JavaType::Int | JavaType::Char
+                    | JavaType::Long | JavaType::Float | JavaType::Double
+            )
+        {
+            Some(Expr::Cast {
+                ty: TypeRef::J(formal.clone()),
+                e: Box::new(Expr::Cond {
+                    c: Box::new(arg.clone()),
+                    t: Box::new(Expr::Const(ConstVal::Int(1))),
+                    f: Box::new(Expr::Const(ConstVal::Int(0))),
+                }),
+            })
+        } else if matches!(formal, JavaType::Boolean)
+            && matches!(
+                actual,
+                JavaType::Byte | JavaType::Short | JavaType::Int | JavaType::Char
+                    | JavaType::Long | JavaType::Float | JavaType::Double
+            )
+        {
+            Some(Expr::Bin {
+                op: BinOp::Ne,
+                l: Box::new(arg.clone()),
+                r: Box::new(Expr::Const(ConstVal::Int(0))),
+                ty: Some(TypeRef::J(JavaType::Boolean)),
+            })
+        } else {
+            None
+        }
+    }
+    // Ctors: formal types via the pool (unanimous across same-arity
+    // overloads, else skip — ambiguity must not guess).
+    let ctor_formals = |cls: &str, n: usize| -> Option<Vec<JavaType>> {
+        let c = pool.get(cls)?;
+        let mut out: Option<Vec<JavaType>> = None;
+        for m in c.all_methods() {
+            if &*m.name != "<init>" {
+                continue;
+            }
+            let Some(d) = m.parsed_desc() else { continue };
+            if d.args.len() != n {
+                continue;
+            }
+            match &out {
+                None => out = Some(d.args.clone()),
+                Some(prev) if *prev != d.args => return None,
+                Some(_) => {}
+            }
+        }
+        out
+    };
+    walk_stmt_exprs(body, &mut |e| {
+        deep_rewrite(e, &mut |x| match x {
+            Expr::Method {
+                cls, desc, args, is_static, ..
+            } => {
+                if args.len() != desc.args.len() {
+                    return;
+                }
+                let _ = (cls, is_static);
+                for (a, f) in args.iter_mut().zip(desc.args.iter()) {
+                    if !is_bool(&val_ty(a, vt)) && !is_num(&val_ty(a, vt)) {
+                        continue;
+                    }
+                    if !is_bool(f) && !is_num(f) {
+                        continue;
+                    }
+                    if matches!(a, Expr::Cast { .. }) {
+                        continue;
+                    }
+                    if let Some(b) = bridge(&val_ty(a, vt), f, a) {
+                        *a = b;
+                    }
+                }
+            }
+            Expr::New { cls, args, arg_tys, .. } => {
+                let formals_owned = if arg_tys.len() == args.len() && !arg_tys.is_empty() {
+                    Some(arg_tys.clone())
+                } else {
+                    ctor_formals(cls, args.len())
+                };
+                if let Some(formals) = formals_owned {
+                    for (a, f) in args.iter_mut().zip(formals.iter()) {
+                        if matches!(a, Expr::Cast { .. }) {
+                            continue;
+                        }
+                        if !is_bool(f) && !is_num(f) {
+                            continue;
+                        }
+                        if let Some(b) = bridge(&val_ty(a, vt), f, a) {
+                            *a = b;
+                        }
+                    }
+                }
+            }
+            _ => {}
+        });
+    });
+}
+
+/// `b ^ 1` / `1 ^ b` with a BOOLEAN operand is the bytecode's boolean
+/// negation (`!b`) — weibo kotlin-stdlib `return v2 ^ 1;` ("二元运算符
+/// '^' 的操作数类型错误"), and `x ^ true` shapes. Java only types `^`
+/// for same-category operands.
+pub fn fix_bool_xor(body: &mut Stmt, vt: &VarTable, ret_bool: bool) {
+    fn is_one(e: &Expr) -> bool {
+        matches!(e, Expr::Const(ConstVal::Int(1)))
+    }
+    fn bty(e: &Expr, vt: &VarTable) -> bool {
+        matches!(
+            match e {
+                Expr::Local { var, .. } => vt.var(*var).ty.erased(),
+                other => other.type_ref().erased(),
+            },
+            JavaType::Boolean
+        )
+    }
+    // Int-typed `x ^ 1` in a BOOLEAN sink is the compiler's `!x` over a
+    // 0/1 slot: rewrite to `x == 0` (the booleanize return-wrap misses
+    // Xor shapes — weibo ArraysKt `return v2 ^ 1;` against a boolean
+    // return, "int无法转换为boolean").
+    fn inv_of_xor(x: &Expr, vt: &VarTable) -> Option<Expr> {
+        if let Expr::Bin { op: BinOp::Xor, l, r, .. } = x {
+            let (int_side, one_side) = if is_one(r) {
+                (l, r)
+            } else if is_one(l) {
+                (r, l)
+            } else {
+                return None;
+            };
+            let _ = one_side;
+            if !bty(int_side, vt) {
+                return Some(Expr::Bin {
+                    op: BinOp::Eq,
+                    l: int_side.clone(),
+                    r: Box::new(Expr::Const(ConstVal::Int(0))),
+                    ty: Some(TypeRef::J(JavaType::Boolean)),
+                });
+            }
+        }
+        None
+    }
+    walk_mut_deep(body, &mut |st| match st {
+        Stmt::Return(Some(e)) if ret_bool => {
+            if let Some(r) = inv_of_xor(e, vt) {
+                *e = r;
+            }
+        }
+        Stmt::ExprStmt(Expr::Assign { target, value, op: AssignOp::Plain, .. }) => {
+            let tgt_bool = match &**target {
+                Expr::Local { var, .. } => matches!(vt.var(*var).ty.erased(), JavaType::Boolean),
+                Expr::Field { ty, .. } => matches!(ty.erased(), JavaType::Boolean),
+                _ => false,
+            };
+            if tgt_bool {
+                if let Some(r) = inv_of_xor(value, vt) {
+                    **value = r;
+                }
+            }
+        }
+        Stmt::LocalDef { var, init: Some(value), .. }
+            if matches!(vt.var(*var).ty.erased(), JavaType::Boolean) =>
+        {
+            if let Some(r) = inv_of_xor(value, vt) {
+                *value = r;
+            }
+        }
+        _ => {}
+    });
+    walk_stmt_exprs(body, &mut |e| {
+        deep_rewrite(e, &mut |x| {
+            if let Expr::Bin { op: BinOp::Xor, l, r, .. } = x {
+                if is_one(r) && bty(l, vt) {
+                    let taken = std::mem::replace(l, Box::new(Expr::Const(ConstVal::Null)));
+                    *x = Expr::Un { op: UnOp::Not, e: taken };
+                } else if is_one(l) && bty(r, vt) {
+                    let taken = std::mem::replace(r, Box::new(Expr::Const(ConstVal::Null)));
+                    *x = Expr::Un { op: UnOp::Not, e: taken };
+                }
+            }
+        });
+    });
+}
+
 /// Boolean inference: vars only ever assigned 0/1/comparisons/booleans and
 /// read in conditions become `boolean`, with `v != 0` → `v` in conditions.
 pub fn booleanize(vt: &mut VarTable, body: &mut Stmt, ret_bool: bool) {

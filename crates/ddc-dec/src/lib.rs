@@ -1130,6 +1130,8 @@ fn nested_collision_renames(
     } else {
         jdc_core::FxHashSet::default()
     };
+    let mut taken_sibling_displays: jdc_core::FxHashSet<String> =
+        map.values().cloned().collect();
     for name in names {
         if !name.contains('$') || map.contains_key(name) {
             continue;
@@ -1249,9 +1251,18 @@ fn nested_collision_renames(
                     continue;
                 }
                 if let Some((root_pkg, _)) = root.rsplit_once('/') {
-                    if pool.has_name(&format!("{root_pkg}/{cand_tail}")) {
+                    let sib = format!("{root_pkg}/{cand_tail}");
+                    if pool.has_name(&sib) || taken_sibling_displays.contains(&sib)
+                    {
+                        // A top-level sibling exists — or an EARLIER rule
+                        // minted that display (obscuring_class_renames
+                        // moved ssosdk/b → ssosdk/b2 while this loop was
+                        // about to mint nested $b → b2: two `b2`s in one
+                        // scope, member type outranks the package sibling
+                        // and hijacked every bare `b2.b(..)` call).
                         continue;
                     }
+                    taken_sibling_displays.insert(sib);
                 }
             }
             let cand = format!("{disp_parent}${cand_tail}");
@@ -1495,12 +1506,13 @@ fn obscuring_class_renames(
         if map.get(name).is_some_and(|v| v != name) {
             continue; // an earlier rule moved it
         }
-        // A class inside package s: refs to s/* from there render
-        // same-package simple (leaf-shadow / class-pkg rules own the
-        // subpackage shapes).
-        if pkg == simple || pkg.starts_with(&format!("{simple}/")) {
-            continue;
-        }
+        // NB: NO "class lives under the s tree" exclusion. weibo's
+        // a/a/b/c/l/a shadowed the FQN refs `a.a.a.a2` that its own
+        // package files render for cross-subpackage targets (the
+        // starts_with("a/") skip left the WHOLE a-tree unrenamed —
+        // 找不到符号 类 a chains). Same-package refs render simple and
+        // cannot be obscured; the refsegs gate below already requires
+        // a cross-package FQN ref for the trigger.
         if pkg_segs
             .get(pkg)
             .is_some_and(|segs| segs.contains(simple))
@@ -1687,6 +1699,23 @@ fn member_collision_renames(
 ) -> HashMap<std::sync::Arc<str>, Vec<jdc_core::rename::FieldRename>> {
     let mut out: HashMap<std::sync::Arc<str>, Vec<jdc_core::rename::FieldRename>> =
         HashMap::default();
+    // Direct nested tails per base class (`C$a` → a for base C), for
+    // the companion-field rule below.
+    let mut child_tails: jdc_core::FxHashMap<&str, Vec<&str>> =
+        jdc_core::FxHashMap::default();
+    for n in &pool.order {
+        if let Some(i) = n.find('$') {
+            let base = &n[..i];
+            let rest = &n[i + 1..];
+            let tail = match rest.find('$') {
+                Some(j) => &rest[..j],
+                None => rest,
+            };
+            if !tail.is_empty() {
+                child_tails.entry(base).or_default().push(tail);
+            }
+        }
+    }
     for name in &pool.order {
         let Some(pc) = pool.get_if_materialized(name) else {
             continue;
@@ -1752,6 +1781,78 @@ fn member_collision_renames(
                         desc: std::sync::Arc::from(f.desc.as_str()),
                         display: std::sync::Arc::from(display.as_str()),
                     });
+            }
+        }
+        // ---- companion-holder fields vs nested types (JLS 6.4.2 in
+        // expression context): Kotlin compiles `object`/companion
+        // holders as a static field whose name EQUALS the nested class
+        // it instances (`static final j$a a`), and static members of the
+        // nested are invoked as `j.a.c(..)` — but `j.a` in an EXPRESSION
+        // resolves to the FIELD (variables outrank member types), so the
+        // call becomes a member lookup on the instance type... which is
+        // the same class, yet javac reports 找不到符号 for statics
+        // reached through the shadowed path, and the whole file
+        // error-types (weibo feed/business/j: 654 errors + closure
+        // cascade; the nested-side rename for this is the LOCAL-OK-gated
+        // rule that explodes ungated — the FIELD side is safe because
+        // dex field refs always carry the declaring class, so this
+        // registry keys every consumer). Gate: the nested class has
+        // static members (companion shape) and the field's descriptor
+        // is exactly the nested type.
+        if let Some(tails) = child_tails.get(name.as_str()) {
+            for tail in tails {
+                let nested = format!("{name}${tail}");
+                let Some(nc) = pool.get_if_materialized(&nested) else {
+                    continue;
+                };
+                // Only CLEAN tails render dotted (`j.a`); flat-rendered
+                // tails (`j$1`) carry the `$` and never clash.
+                if !clean_member_tail(tail) {
+                    continue;
+                }
+                let has_statics = nc
+                    .static_fields
+                    .iter()
+                    .chain(nc.instance_fields.iter())
+                    .any(|f| f.is_static)
+                    || nc.all_methods().any(|m| m.access & crate::access::ACC_STATIC != 0);
+                if !has_statics {
+                    continue;
+                }
+                // STRICT companion shape: the field's descriptor IS the
+                // nested type (`static final j$a a`). The relaxed form
+                // (any same-named field beside a statics-bearing nested)
+                // minted thousands of renames on weibo and exploded the
+                // battery to the 500k cap — the field funnel does not
+                // hold at that scale (改名面 vs 引用覆盖面, again).
+                let want_desc = format!("L{nested};");
+                for f in pc.static_fields.iter().chain(pc.instance_fields.iter()) {
+                    if f.desc != want_desc {
+                        continue;
+                    }
+                    let disp = crate::classdec::java_ident(&f.name).into_owned();
+                    if disp != crate::classdec::java_ident(tail) {
+                        continue;
+                    }
+                    // Already renamed by the duplicate-group rule above?
+                    let already = out
+                        .get(&std::sync::Arc::from(name.as_str()))
+                        .is_some_and(|v| {
+                            v.iter().any(|fr| *fr.name == *f.name && *fr.desc == *f.desc)
+                        });
+                    if already {
+                        continue;
+                    }
+                    let display = suffix_unique(&disp, &mut f_taken);
+                    f_taken.insert(display.clone());
+                    out.entry(std::sync::Arc::from(name.as_str()))
+                        .or_default()
+                        .push(jdc_core::rename::FieldRename {
+                            name: std::sync::Arc::from(f.name.as_str()),
+                            desc: std::sync::Arc::from(f.desc.as_str()),
+                            display: std::sync::Arc::from(display.as_str()),
+                        });
+                }
             }
         }
         // ---- methods: display key = sanitized name + erased params ----

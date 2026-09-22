@@ -1009,6 +1009,7 @@ impl<'a> Lifter<'a> {
                             cls,
                             ty,
                             args: vec![],
+                            arg_tys: Vec::new(),
                             raw: true,
                         },
                         ins.pc,
@@ -1416,6 +1417,7 @@ impl<'a> Lifter<'a> {
                     let folded = Expr::New {
                         cls: cls.clone(),
                         ty: TypeRef::J(JavaType::Object(cls.clone())),
+                        arg_tys: md.args.clone(),
                         args,
                         raw: false,
                     };

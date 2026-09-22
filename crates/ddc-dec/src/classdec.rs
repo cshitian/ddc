@@ -243,6 +243,11 @@ fn collect_enum_constants(
     let mut const_name: Vec<String> = Vec::new();
     let mut const_field: Vec<String> = Vec::new();
     let mut const_extra: Vec<Vec<Expr>> = Vec::new();
+    // Declared ordinal per constant (the ctor's int arg) — the merge at
+    // the end orders field-bound and synthetic constants by it and
+    // demands a dense 0..n run (Java derives ordinals from declaration
+    // position).
+    let mut const_ord: Vec<i64> = Vec::new();
     let mut var_of: HashMap<u32, usize> = HashMap::default(); // local id -> const idx
     let mut drop_stmts: Vec<usize> = Vec::new();
 
@@ -288,13 +293,14 @@ fn collect_enum_constants(
         };
         if let Some((var, Expr::New { cls: ncls, args, .. })) = def_shape {
             if ncls.as_ref() == class.name && args.len() >= 2 {
-                if let (Expr::Const(ConstVal::Str(n)), Expr::Const(ConstVal::Int(_))) =
+                if let (Expr::Const(ConstVal::Str(n)), Expr::Const(ConstVal::Int(ord0))) =
                     (&args[0], &args[1])
                 {
                     if java_ident(n).as_ref() != &**n || n.is_empty() { return None;
                     }
                     var_of.insert(var, const_name.len());
                     def_site.insert(i, (var, const_name.len()));
+                    const_ord.push(*ord0 as i64);
                     const_name.push(n.to_string());
                     const_field.push(String::new());
                     const_extra.push(resolve_enum_extras(
@@ -348,12 +354,13 @@ fn collect_enum_constants(
                     Expr::New { cls: ncls, args, .. }
                         if ncls.as_ref() == class.name && args.len() >= 2 =>
                     {
-                        if let (Expr::Const(ConstVal::Str(n)), Expr::Const(ConstVal::Int(_))) =
+                        if let (Expr::Const(ConstVal::Str(n)), Expr::Const(ConstVal::Int(ord0))) =
                             (&args[0], &args[1])
                         {
                             if java_ident(n).as_ref() != &**n || n.is_empty() { return None;
                             }
                             let idx = const_name.len();
+                            const_ord.push(*ord0 as i64);
                             const_name.push(n.to_string());
                             const_field.push(String::new());
                             const_extra.push(resolve_enum_extras(
@@ -378,6 +385,15 @@ fn collect_enum_constants(
         }
         track_def(st, &mut defs2, &mut tainted2);
     }
+    // Own the reaching-def values: defs2 borrows body.body, and the
+    // synthetic-constant scan below mutates the $VALUES array in place.
+    let defs2_owned: std::collections::HashMap<u32, Expr> = defs2
+        .iter()
+        .map(|(k, v)| (*k, (*v).clone()))
+        .collect();
+    drop(defs2);
+    let defs2: std::collections::HashMap<u32, &Expr> =
+        defs2_owned.iter().map(|(k, v)| (*k, v)).collect();
 
     // Every ACC_ENUM field bound, every intermediate matched.
     if const_field.len() != const_fields.len() || const_field.iter().any(|f| f.is_empty()) { return None;
@@ -401,6 +417,75 @@ fn collect_enum_constants(
     {
         let mut seen: std::collections::HashSet<&str> = std::collections::HashSet::default();
         if !const_name.iter().all(|c| seen.insert(c.as_str())) { return None;
+        }
+    }
+
+    // Synthetic constants: entries built INLINE inside the $VALUES
+    // array (`new Self("NAME", ord, ..)` with no ACC_ENUM field — R8
+    // drops the field when nothing outside reads it; weixin u2/i's
+    // "CONSTANT"). Promote them so the header declares the constant:
+    // the raw `new` in the array is "无法实例化枚举类", and every
+    // constant after the gap carries a SHIFTED ordinal (e was 2 in the
+    // dex, renders as position 1).
+    let mut synth: Vec<(i64, String, Vec<Expr>)> = Vec::new();
+    {
+        let self_cls: &str = class.name.as_str();
+        if let Stmt::Block(vs) = &mut body.body {
+            for st in vs.iter_mut() {
+                crate::passes::walk_stmt_exprs(st, &mut |e| {
+                    crate::passes::deep_rewrite(e, &mut |x| {
+                        let Expr::NewArray { elem, init: Some(list), .. } = x else {
+                            return;
+                        };
+                        if elem.erased() != JavaType::Object(self_cls.into()) {
+                            return;
+                        }
+                        for slot in list.iter_mut() {
+                            let (n, ord, rest) = match slot {
+                                Expr::New { cls, args, raw: false, .. }
+                                    if cls.as_ref() == self_cls && args.len() >= 2 =>
+                                {
+                                    match (&args[0], &args[1]) {
+                                        (
+                                            Expr::Const(ConstVal::Str(sv)),
+                                            Expr::Const(ConstVal::Int(o)),
+                                        ) => (sv.to_string(), *o as i64, args[2..].to_vec()),
+                                        _ => continue,
+                                    }
+                                }
+                                _ => continue,
+                            };
+                            if java_ident(&n).as_ref() != n.as_str() || n.is_empty() {
+                                continue;
+                            }
+                            if const_name.contains(&n)
+                                || synth.iter().any(|(_, s2, _)| *s2 == n)
+                            {
+                                continue;
+                            }
+                            let Some(extras) = resolve_enum_extras(
+                                &rest,
+                                &defs2,
+                                tainted2,
+                                &var_of,
+                                &const_name,
+                                &self_name,
+                                &self_ty,
+                            ) else {
+                                continue;
+                            };
+                            *slot = Expr::Field {
+                                owner: None,
+                                cls: self_name.clone(),
+                                name: std::sync::Arc::from(n.as_str()),
+                                ty: self_ty.clone(),
+                                is_static: true,
+                            };
+                            synth.push((ord, n, extras));
+                        }
+                    });
+                });
+            }
         }
     }
 
@@ -455,16 +540,40 @@ fn collect_enum_constants(
     // expression statements — drop_dead_locals' standard contract).
     crate::passes::drop_dead_locals(&mut body.body);
 
-    let out: Vec<EnumConst> = const_field
+    let mut merged: Vec<(i64, EnumConst)> = const_ord
         .into_iter()
-        .zip(const_name)
-        .zip(const_extra)
-        .map(|((field, name), extra_args)| EnumConst {
-            field,
-            name,
-            extra_args,
-        })
+        .zip(
+            const_field
+                .into_iter()
+                .zip(const_name)
+                .zip(const_extra)
+                .map(|((field, name), extra_args)| EnumConst {
+                    field,
+                    name,
+                    extra_args,
+                }),
+        )
         .collect();
+    for (ord, name, extra_args) in synth {
+        merged.push((
+            ord,
+            EnumConst {
+                field: name.clone(),
+                name,
+                extra_args,
+            },
+        ));
+    }
+    merged.sort_by_key(|(o, _)| *o);
+    for (i, (o, _)) in merged.iter().enumerate() {
+        if *o != i as i64 {
+            // Sparse or colliding ordinals: the declaration order cannot
+            // reproduce the dex ordinals — fall back to the desugared
+            // render rather than emit silently-wrong ordinal positions.
+            return None;
+        }
+    }
+    let out: Vec<EnumConst> = merged.into_iter().map(|(_, c)| c).collect();
     Some((out, body))
 }
 

@@ -565,6 +565,8 @@ pub fn decompile_method(
         passes::infer_types(&mut vt, &mut body, &desc.ret, &env);
         passes::split_generations(&mut vt, &mut body);
         passes::insert_object_narrowing_casts(&vt, &mut body);
+        passes::fix_primitive_arg_bridges(&mut body, &vt, pool);
+        passes::fix_bool_xor(&mut body, &vt, matches!(desc.ret, JavaType::Boolean));
         passes::apply_local_names(&mut vt, &body);
         passes::remove_kotlin_checks(&mut body);
         passes::rewrite_kotlin_facades(&mut body, pool);
@@ -771,6 +773,8 @@ pub fn decompile_method(
         passes::fix_int_returns(&vt, &mut body);
     }
     passes::insert_object_narrowing_casts(&vt, &mut body);
+    passes::fix_primitive_arg_bridges(&mut body, &vt, pool);
+    passes::fix_bool_xor(&mut body, &vt, matches!(desc.ret, JavaType::Boolean));
     passes::apply_local_names(&mut vt, &body);
     passes::remove_kotlin_checks(&mut body);
     passes::rewrite_kotlin_facades(&mut body, pool);
