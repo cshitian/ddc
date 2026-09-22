@@ -193,6 +193,20 @@ impl PoolClass {
 }
 
 /// Multi-DEX class pool: classes from all images, first definition wins.
+/// One facade-map entry: the public base plus, for PARTIALLY covered
+/// parts, the exact static members the base declares (None = the whole
+/// part rewrites; Some = per-member gate). Single map = one hash probe
+/// per static reference (two maps measured +2.4s on weibo).
+type FacadeTarget = (
+    String,
+    Option<
+        std::sync::Arc<(
+            jdc_core::FxHashSet<(String, String)>,
+            jdc_core::FxHashSet<String>,
+        )>,
+    >,
+);
+
 pub struct DexPool {
     /// Images as Arcs: `dex()` hands out snapshots whose borrows stay
     /// valid for the Arc's lifetime (decompile workers hold them), while
@@ -235,9 +249,10 @@ pub struct DexPool {
     /// field names equal to one capture package-qualified renders
     /// (`v2.n.a`) — deshadow_locals consults this.
     root_segs: std::sync::OnceLock<jdc_core::FxHashSet<String>>,
+    /// Partially-covered facade parts (see kotlin_facade_partial_map).
     /// Kotlin multi-file facade parts → public facade (see
     /// `kotlin_facade_map`).
-    kotlin_facades: std::sync::OnceLock<jdc_core::FxHashMap<String, String>>,
+    kotlin_facades: std::sync::OnceLock<jdc_core::FxHashMap<String, FacadeTarget>>,
 }
 
 /// Raw code_item bytes of every synthetic-static accessor, keyed by
@@ -583,23 +598,26 @@ impl DexPool {
     /// class to the facade. part → base, gated on base existing, being
     /// public, and transitively extending the part (static inheritance is
     /// the resolution guarantee).
-    pub fn kotlin_facade_map(&self) -> &jdc_core::FxHashMap<String, String> {
+    pub fn kotlin_facade_map(&self) -> &jdc_core::FxHashMap<String, FacadeTarget> {
         self.kotlin_facades.get_or_init(|| {
-            let mut m: jdc_core::FxHashMap<String, String> = jdc_core::FxHashMap::default();
+            let t_fb = std::time::Instant::now();
+            let mut m: jdc_core::FxHashMap<String, FacadeTarget> =
+                jdc_core::FxHashMap::default();
+            let mut npartial = 0usize;
             for name in &self.order {
                 let Some(i) = name.find("__") else { continue };
                 let base = &name[..i];
-                if base.is_empty() || self.get(base).is_none() {
+                if base.is_empty() {
                     continue;
                 }
-                let pub_base = self
-                    .get(base)
-                    .is_some_and(|c| c.access & 0x1 != 0);
-                if !pub_base {
+                let Some(basec) = self.get(base) else {
+                    continue;
+                };
+                if basec.access & crate::access::ACC_PUBLIC == 0 {
                     continue;
                 }
-                // base must transitively extend the part.
-                let mut cur = self.get(base).and_then(|c| c.super_name.clone());
+                // base must transitively extend the part...
+                let mut cur = basec.super_name.clone();
                 let mut hops = 0u32;
                 let mut reaches = false;
                 while let Some(c) = cur {
@@ -613,9 +631,82 @@ impl DexPool {
                     hops += 1;
                     cur = self.get(&c).and_then(|cc| cc.super_name.clone());
                 }
+                // ...OR cover the part's static members: the Kotlin
+                // compiler MERGES every part's statics into the public
+                // facade, but the facade's super chain only includes ONE
+                // part — lark's `CollectionsKt extends
+                // CollectionsKt___CollectionsKt` leaves
+                // `CollectionsKt__CollectionsJVMKt` uncovered (463
+                // 不是公共的 errors). Member coverage (name+desc for
+                // methods, name for fields) is the precise rewrite
+                // condition: every reference through the facade then
+                // resolves exactly as through the part.
                 if reaches {
-                    m.insert(name.clone(), base.to_string());
+                    m.insert(name.clone(), (base.to_string(), None));
+                    continue;
                 }
+                // Member-coverage fallback: the Kotlin compiler MERGES
+                // the parts' statics into the public facade, but R8 can
+                // sever the super chain (lark: `CollectionsKt extends
+                // CollectionsKt___CollectionsKt extends
+                // kotlin/collections/s` — `__CollectionsJVMKt` is off
+                // the chain, 463 不是公共的 errors) and may drop facade
+                // members no direct facade call needed. Map at (name,
+                // desc) granularity then: covered members rewrite, the
+                // rest keep the part owner (a latent error either way —
+                // Java cannot access the package-private part).
+                let Some(part) = self.get(name) else {
+                    continue;
+                };
+                let base_methods: jdc_core::FxHashSet<(&str, &str)> = basec
+                    .direct_methods
+                    .iter()
+                    .chain(basec.virtual_methods.iter())
+                    .map(|mm| (&*mm.name, &*mm.desc))
+                    .collect();
+                let base_fields: jdc_core::FxHashSet<&str> =
+                    basec.static_fields.iter().map(|f| &*f.name).collect();
+                let mut methods: jdc_core::FxHashSet<(String, String)> =
+                    jdc_core::FxHashSet::default();
+                let mut fields: jdc_core::FxHashSet<String> =
+                    jdc_core::FxHashSet::default();
+                let mut all = true;
+                for mm in part
+                    .direct_methods
+                    .iter()
+                    .chain(part.virtual_methods.iter())
+                    .filter(|mm| mm.access & crate::access::ACC_STATIC != 0)
+                {
+                    if base_methods.contains(&(&*mm.name, &*mm.desc)) {
+                        methods.insert((mm.name.to_string(), mm.desc.to_string()));
+                    } else {
+                        all = false;
+                    }
+                }
+                for pf in &part.static_fields {
+                    if base_fields.contains(&*pf.name) {
+                        fields.insert(pf.name.to_string());
+                    } else {
+                        all = false;
+                    }
+                }
+                if all {
+                    m.insert(name.clone(), (base.to_string(), None));
+                } else if !methods.is_empty() || !fields.is_empty() {
+                    npartial += 1;
+                    m.insert(
+                        name.clone(),
+                        (base.to_string(), Some(std::sync::Arc::new((methods, fields)))),
+                    );
+                }
+            }
+            if std::env::var("DDC_STATS").is_ok() {
+                eprintln!(
+                    "[renames] facade map: entries={} partial={} build={:?}",
+                    m.len(),
+                    npartial,
+                    t_fb.elapsed()
+                );
             }
             m
         })

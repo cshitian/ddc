@@ -581,6 +581,7 @@ pub fn decompile_method(
     // super() call is still "super must be first statement".
     if &*m.name == "<init>" {
         if class.is_enum() {
+            passes::fold_enum_default_arg_bridge(&mut body);
             passes::strip_enum_ctor_super(&mut body);
         } else {
             passes::fix_ctor_delegation_arg_defs(&mut body);
@@ -854,6 +855,7 @@ pub fn decompile_method(
     // super() call is still "super must be first statement".
     if &*m.name == "<init>" {
         if class.is_enum() {
+            passes::fold_enum_default_arg_bridge(&mut body);
             passes::strip_enum_ctor_super(&mut body);
         } else {
             passes::fix_ctor_delegation_arg_defs(&mut body);

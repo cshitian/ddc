@@ -4367,22 +4367,53 @@ pub fn rewrite_kotlin_facades(body: &mut Stmt, pool: &crate::DexPool) {
     walk_stmt_exprs(body, &mut |e| {
         match e {
             Expr::Method {
-                cls, is_static, ..
+                cls,
+                name,
+                desc,
+                is_static,
+                ..
             } if *is_static => {
-                if let Some(base) = map.get(cls.as_ref()) {
-                    *cls = std::sync::Arc::from(base.as_str());
+                if let Some((base, cover)) = map.get(cls.as_ref()) {
+                    let hit = match cover {
+                        None => true,
+                        Some(c) => c.0.contains(&(name.to_string(), desc.to_string())),
+                    };
+                    if hit {
+                        *cls = std::sync::Arc::from(base.as_str());
+                    }
                 }
             }
             Expr::Field {
-                cls, is_static, ..
+                cls,
+                name,
+                is_static,
+                ..
             } if *is_static => {
-                if let Some(base) = map.get(cls.as_ref()) {
-                    *cls = std::sync::Arc::from(base.as_str());
+                if let Some((base, cover)) = map.get(cls.as_ref()) {
+                    let hit = match cover {
+                        None => true,
+                        Some(c) => c.1.contains(name.as_ref()),
+                    };
+                    if hit {
+                        *cls = std::sync::Arc::from(base.as_str());
+                    }
                 }
             }
             _ => {}
         }
     });
+}
+
+/// Kotlin default-arg bridge fold for ENUM ctors: the synthetic
+/// `(String, int, .., int, DefaultConstructorMarker)` ctor computes
+/// defaulted args then chains `this(..)` mid-body — Java requires the
+/// delegation first (对this的调用必须是构造器中的第一个语句, lark's
+/// UserCustomStatusExtraParams$* family, 752 lines). Same fold the
+/// class-ctor path runs; the enum branch of the pipeline used to skip
+/// it (only strip_enum_ctor_super ran there).
+pub fn fold_enum_default_arg_bridge(body: &mut Stmt) {
+    let Stmt::Block(stmts) = body else { return };
+    fold_default_arg_bridge(stmts);
 }
 
 pub fn fix_ctor_delegation_arg_defs(body: &mut Stmt) {
