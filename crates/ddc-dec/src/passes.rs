@@ -2712,6 +2712,93 @@ pub fn insert_object_narrowing_casts(vt: &VarTable, body: &mut Stmt) {
     });
 }
 
+/// Numeric narrowing/widening mismatches at Assign / LocalDef / Return
+/// positions get an explicit cast: dex int-to-byte / long-to-int flows
+/// are implicit in the register machine, Java rejects them ("从long
+/// 转换到int可能会有损失" — okio Buffer ×321 weibo lines). Casts at
+/// these three positions are descriptor-faithful and cannot shift
+/// overload resolution (the r57 args-position lesson). Boolean/numeric
+/// mixes are NOT castable in Java and stay with the generation-split
+/// machinery.
+pub fn fix_primitive_assign_casts(vt: &VarTable, body: &mut Stmt, ret_ty: &JavaType) {
+    fn numlike(t: &JavaType) -> bool {
+        matches!(
+            t,
+            JavaType::Byte
+                | JavaType::Short
+                | JavaType::Int
+                | JavaType::Char
+                | JavaType::Long
+                | JavaType::Float
+                | JavaType::Double
+        )
+    }
+    fn val_ty(e: &Expr, vt: &VarTable) -> JavaType {
+        match e {
+            Expr::Local { var, .. } if (*var as usize) < vt.vars.len() => {
+                vt.var(*var).ty.erased()
+            }
+            other => other.type_ref().erased(),
+        }
+    }
+    fn wrap(ty: &JavaType, value: &mut Expr) {
+        if matches!(value, Expr::Cast { .. }) {
+            return;
+        }
+        if val_ty_static(value) == *ty {
+            return;
+        }
+        let taken = std::mem::replace(value, Expr::Const(ConstVal::Null));
+        *value = Expr::Cast {
+            ty: TypeRef::J(ty.clone()),
+            e: Box::new(taken),
+        };
+    }
+    fn val_ty_static(e: &Expr) -> JavaType {
+        e.type_ref().erased()
+    }
+    walk_mut_deep(body, &mut |st| match st {
+        Stmt::ExprStmt(Expr::Assign {
+            target,
+            op: AssignOp::Plain,
+            value,
+        }) => {
+            let tt = match &**target {
+                Expr::Local { var, .. } if (*var as usize) < vt.vars.len() => {
+                    vt.var(*var).ty.erased()
+                }
+                Expr::Field { ty, .. } => ty.erased(),
+                _ => return,
+            };
+            if !numlike(&tt) || !numlike(&val_ty(value, vt)) {
+                return;
+            }
+            wrap(&tt, value);
+        }
+        Stmt::LocalDef {
+            var,
+            init: Some(value),
+            ..
+        } => {
+            if (*var as usize) >= vt.vars.len() {
+                return;
+            }
+            let tt = vt.var(*var).ty.erased();
+            if !numlike(&tt) || !numlike(&val_ty(value, vt)) {
+                return;
+            }
+            wrap(&tt, value);
+        }
+        Stmt::Return(Some(e)) => {
+            if !numlike(ret_ty) || !numlike(&val_ty(e, vt)) {
+                return;
+            }
+            wrap(ret_ty, e);
+        }
+        _ => {}
+    });
+}
+
 /// `==`/`!=` between UNRELATED class types is a compile error in Java
 /// ("不可比较的类型: f0和a") while dex if-eqObj happily compares any two
 /// references (weixin fn1/w1 ×298 files). One side takes an `(Object)`
