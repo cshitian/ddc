@@ -3715,6 +3715,240 @@ pub fn fix_int_returns(vt: &VarTable, body: &mut Stmt) {
     });
 }
 
+/// Generation splitting: when an assignment's value type is
+/// INCOMPATIBLE with the var's declared type, mint a FRESH var for the
+/// new generation instead of widening (widening was measured twice as
+/// net-negative — every use-site cast gap re-triggers javac's
+/// error-type contagion). Reads after the split point follow the
+/// active generation; control-flow joins intersect; loops run a
+/// 3-round fixpoint so the back-edge carries the tail generation to
+/// the head reads (the loop-state-tuple shape, qf5/v0's
+/// `u0 = (qf5.u0) get;` … `u0 = looper2;`).
+///
+/// Split condition (reference incompatibility or a primitive/value
+/// mix — the instanceof-corruption shape): both specific references of
+/// different classes, or prim→ref. NOT numeric-vs-numeric (promotion
+/// handles those) and NOT Object targets (assignable — the narrowing
+/// cast pass covers the value side).
+pub fn split_generations(vt: &mut VarTable, body: &mut Stmt) {
+    let mut counter: u32 = 0;
+    let mut gen: std::collections::HashMap<u32, u32> = std::collections::HashMap::default();
+    split_walk_stmt(body, vt, &mut gen, &mut counter);
+}
+
+/// Should the assignment `target = value` split the target?
+fn split_needed(vt: &VarTable, target: u32, value: &Expr) -> bool {
+    let n = vt.vars.len();
+    if target as usize >= n {
+        return false;
+    }
+    let declared = vt.vars[target as usize].ty.erased();
+    let vt_is_ref = |t: &JavaType| matches!(t, JavaType::Object(_) | JavaType::Array(_));
+    let value_ty = value.type_ref().erased();
+    if vt_is_ref(&declared) && vt_is_ref(&value_ty) {
+        // Both references: split only when incompatible — different
+        // classes where neither side is Object.
+        let obj = JavaType::Object("java/lang/Object".into());
+        declared != value_ty && declared != obj && value_ty != obj
+    } else {
+        // Primitive/reference mix: the value generation has a kind the
+        // target can never accept — split (the declared type stays with
+        // the old generation's readers).
+        vt_is_ref(&declared) != vt_is_ref(&value_ty)
+    }
+}
+
+fn rewrite_gen_reads(e: &mut Expr, gen: &std::collections::HashMap<u32, u32>, vt: &VarTable) {
+    deep_rewrite(e, &mut |x| {
+        if let Expr::Local { var, ty } = x {
+            if let Some(&to) = gen.get(var) {
+                if to != *var {
+                    *var = to;
+                    *ty = vt.var(to).ty.clone();
+                }
+            }
+        }
+    });
+}
+
+fn do_split(
+    vt: &mut VarTable,
+    target: &mut Expr,
+    old: u32,
+    value_ty: &JavaType,
+    gen: &mut std::collections::HashMap<u32, u32>,
+    counter: &mut u32,
+) {
+    *counter += 1;
+    let info = &vt.vars[old as usize];
+    let id = vt.vars.len() as u32;
+    let name = format!("{}_g{}", info.name, counter);
+    let slot = info.slot;
+    let is_param = info.is_param;
+    vt.vars.push(jdc_core::var::VarInfo {
+        id,
+        slot,
+        name,
+        ty: TypeRef::J(value_ty.clone()),
+        is_param,
+        range_start: 0,
+        range_end: u16::MAX,
+        synthetic_name: true,
+    });
+    while vt.by_slot.len() <= slot as usize {
+        vt.by_slot.push(Vec::new());
+    }
+    vt.by_slot[slot as usize].push((0, u16::MAX, id));
+    gen.insert(old, id);
+    if let Expr::Local { var, ty, .. } = target {
+        *var = id;
+        *ty = TypeRef::J(value_ty.clone());
+    }
+}
+
+fn split_walk_stmt(
+    st: &mut Stmt,
+    vt: &mut VarTable,
+    gen: &mut std::collections::HashMap<u32, u32>,
+    counter: &mut u32,
+) {
+    match st {
+        Stmt::Block(v) => {
+            for x in v.iter_mut() {
+                split_walk_stmt(x, vt, gen, counter);
+            }
+        }
+        Stmt::ExprStmt(e) => {
+            rewrite_gen_reads(e, gen, vt);
+            if let Expr::Assign {
+                target,
+                value,
+                op: AssignOp::Plain,
+                ..
+            } = e
+            {
+                if let Expr::Local { var, .. } = &**target {
+                    let old = *var;
+                    if split_needed(vt, old, value) {
+                        let value_ty = value.type_ref().erased();
+                        do_split(vt, target, old, &value_ty, gen, counter);
+                    }
+                }
+            }
+        }
+        Stmt::LocalDef { var, init, .. } => {
+            if let Some(e) = init {
+                rewrite_gen_reads(e, gen, vt);
+                if split_needed(vt, *var, e) {
+                    // The DEF mints its own generation: retarget the def
+                    // to a fresh var (the bare decl of the ORIGINAL stays
+                    // for its earlier readers).
+                    let value_ty = e.type_ref().erased();
+                    let old = *var;
+                    let mut fake = Expr::Local {
+                        var: old,
+                        ty: vt.vars[old as usize].ty.clone(),
+                    };
+                    do_split(vt, &mut fake, old, &value_ty, gen, counter);
+                    if let Expr::Local { var: nv, .. } = fake {
+                        *var = nv;
+                    }
+                }
+            }
+        }
+        Stmt::If {
+            cond,
+            then_stmt,
+            else_stmt,
+            ..
+        } => {
+            rewrite_gen_reads(cond, gen, vt);
+            let mut g_then = gen.clone();
+            split_walk_stmt(then_stmt, vt, &mut g_then, counter);
+            let mut g_else = gen.clone();
+            if let Some(e) = else_stmt {
+                split_walk_stmt(e, vt, &mut g_else, counter);
+            }
+            // Join: keep only splits BOTH paths produced (an absent else
+            // is a fall-through path that keeps the pre-if generation).
+            gen.retain(|k, v| g_then.get(k) == Some(v) && g_else.get(k) == Some(v));
+        }
+        Stmt::While { cond, body, .. } | Stmt::DoWhile { cond, body, .. } => {
+            // 3-round fixpoint: round N walks the cond+body with the
+            // accumulated gen — the back-edge carries the tail
+            // generation into the head reads of the next round.
+            let entry = gen.clone();
+            for _ in 0..3 {
+                rewrite_gen_reads(cond, gen, vt);
+                split_walk_stmt(body, vt, gen, counter);
+            }
+            // After the loop the pre-loop generation is what a
+            // zero-iteration execution left — conservative.
+            *gen = entry;
+        }
+        Stmt::For { init, body, .. } => {
+            for x in init.iter_mut() {
+                split_walk_stmt(x, vt, gen, counter);
+            }
+            let entry = gen.clone();
+            for _ in 0..3 {
+                split_walk_stmt(body, vt, gen, counter);
+            }
+            *gen = entry;
+        }
+        Stmt::ForEach { body, .. } => {
+            let entry = gen.clone();
+            for _ in 0..3 {
+                split_walk_stmt(body, vt, gen, counter);
+            }
+            *gen = entry;
+        }
+        Stmt::Switch { cases, default, .. } => {
+            let entry = gen.clone();
+            for c in cases.iter_mut() {
+                let mut g_case = entry.clone();
+                for x in c.body.iter_mut() {
+                    split_walk_stmt(x, vt, &mut g_case, counter);
+                }
+                gen.retain(|k, v| g_case.get(k) == Some(v));
+            }
+            if let Some(d) = default {
+                let mut g_def = entry.clone();
+                split_walk_stmt(d, vt, &mut g_def, counter);
+                gen.retain(|k, v| g_def.get(k) == Some(v));
+            }
+        }
+        Stmt::Try {
+            body,
+            catches,
+            finally,
+        } => {
+            let entry = gen.clone();
+            let mut g_try = entry.clone();
+            split_walk_stmt(body, vt, &mut g_try, counter);
+            let mut g_all = g_try.clone();
+            for c in catches.iter_mut() {
+                // The handler runs with the PRE-try state (the exception
+                // may fire anywhere in the try).
+                let mut g_c = entry.clone();
+                split_walk_stmt(&mut c.body, vt, &mut g_c, counter);
+                g_all.retain(|k, v| g_c.get(k) == Some(v));
+            }
+            *gen = g_all;
+            if let Some(f) = finally {
+                split_walk_stmt(f, vt, gen, counter);
+            }
+        }
+        Stmt::Synchronized { body, .. } | Stmt::Labeled { body, .. } => {
+            split_walk_stmt(body, vt, gen, counter);
+        }
+        Stmt::Return(Some(e)) | Stmt::Throw(e) => {
+            rewrite_gen_reads(e, gen, vt);
+        }
+        _ => {}
+    }
+}
+
 /// Dangling `break L<id>`: a Goto whose paired Label/Labeled-wrap was
 /// lost to structure degradation prints `break L<id>;` against an
 /// undeclared label ("未定义的标签", weibo 371/lark 85/weixin 535).

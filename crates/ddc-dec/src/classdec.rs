@@ -146,6 +146,16 @@ fn decompile_class_impl(
         let dotted = pkg.replace('/', ".");
         out.push_str(&sanitize_fq(&dotted));
         out.push_str(";\n");
+        // Obscured supertypes: an FQN whose second-to-last segment equals
+        // the class's OWN simple name renders ambiguously in the
+        // extends/implements clause (JLS 6.4.2 — `class j3 implements
+        // j3.g` resolves j3 as the class itself: cyclic inheritance, and
+        // javac's attribution for the whole package collapses — the
+        // Object-cascade root, weixin 15k files). A single-type import
+        // resolves it: render the simple name.
+        // (obscured-super import emission: see round-73 notes — works
+        // for headers but EXPOSES the body-level obscuring family,
+        // net +9k; reverted until the full A2 import layer.)
     }
     out.push('\n');
     // Emit straight into `out`: the intermediate body buffer copied the
@@ -668,6 +678,10 @@ fn emit_class_body(
         head.push_str("class ");
         head.push_str(&java_ident(&simple));
     }
+    // The obscured-super import was emitted at the package line; the
+    // clause must render the SIMPLE name (the qualified form binds to
+    // the class itself even with the import present).
+    let render_super = |sup: &String| -> String { print_class_name(pool, sup) };
     if is_iface {
         // A @interface cannot declare extends at all (JLS 9.6): the dex
         // interface table lists java/lang/annotation/Annotation for
@@ -682,7 +696,7 @@ fn emit_class_body(
         if let Some(sup) = &class.super_name {
             if sup != "java/lang/Object" && !is_enum {
                 head.push_str(" extends ");
-                head.push_str(&print_class_name(pool, sup));
+                head.push_str(&render_super(sup));
             }
         }
         if !class.interfaces.is_empty() {
