@@ -3058,6 +3058,87 @@ pub fn deshadow_locals(vt: &mut VarTable, pool: &crate::DexPool) {
     }
 }
 
+/// Receiver rescue: a Field/Method receiver whose final vt type is
+/// PRIMITIVE can never hold the member (structurer tail-copy regions
+/// can map the receiver register onto a boolean/int generation —
+/// wcdb HandleOperation's `v10_g2.finalizeStatement()` where the
+/// statement var is right there; weixin deref-int/bool families,
+/// ~2.5k lines). The member descriptor's owner class is authoritative:
+/// when EXACTLY ONE var in the method has that type (or a subtype),
+/// swap the receiver to it. The pre-rescue output is a guaranteed
+/// compile error AND runtime NPE, so the unambiguous swap cannot make
+/// it worse; ambiguous sites stay untouched.
+pub fn rescue_primitive_receivers(body: &mut Stmt, vt: &VarTable, pool: &crate::DexPool) {
+    fn prim(t: &JavaType) -> bool {
+        matches!(
+            t,
+            JavaType::Int
+                | JavaType::Long
+                | JavaType::Short
+                | JavaType::Byte
+                | JavaType::Char
+                | JavaType::Float
+                | JavaType::Double
+                | JavaType::Boolean
+        )
+    }
+    walk_stmt_exprs(body, &mut |e| {
+        deep_rewrite(e, &mut |x| {
+            // Phase 1 (read-only): primitive-typed Local receiver?
+            let recv_var = {
+                let o: &Expr = match &*x {
+                    Expr::Method { owner: Some(o), .. } => o,
+                    Expr::Field { owner: Some(o), is_static: false, .. } => o,
+                    _ => return,
+                };
+                let Expr::Local { var, ty } = o else {
+                    return;
+                };
+                let vt_ty = if (*var as usize) < vt.vars.len() {
+                    vt.var(*var).ty.erased()
+                } else {
+                    ty.erased()
+                };
+                if !prim(&vt_ty) {
+                    return;
+                }
+                *var
+            };
+            let cls: std::sync::Arc<str> = match &*x {
+                Expr::Method { cls, .. } | Expr::Field { cls, .. } => cls.clone(),
+                _ => return,
+            };
+            // Phase 2: unique var of the owner type (exact or subtype).
+            let mut cand: Option<u32> = None;
+            for v in &vt.vars {
+                if let JavaType::Object(n) = v.ty.erased() {
+                    if n.as_ref() == cls.as_ref()
+                        || pool.is_subtype(n.as_ref(), cls.as_ref())
+                    {
+                        if cand.is_some() {
+                            return; // ambiguous — leave untouched
+                        }
+                        cand = Some(v.id);
+                    }
+                }
+            }
+            let Some(id) = cand else { return };
+            // Phase 3: swap.
+            let o: &mut Box<Expr> = match x {
+                Expr::Method { owner: Some(o), .. } => o,
+                Expr::Field { owner: Some(o), is_static: false, .. } => o,
+                _ => return,
+            };
+            if let Expr::Local { var, ty } = &mut **o {
+                if *var == recv_var {
+                    *var = id;
+                    *ty = vt.vars[id as usize].ty.clone();
+                }
+            }
+        });
+    });
+}
+
 /// Int-context operand bridge: a BOOLEAN-typed side of an int-kind Bin
 /// (bitwise, arithmetic, comparison against a numeric) becomes
 /// `(b ? 1 : 0)` — the dex-level truth (booleans ARE 0/1 ints there;
