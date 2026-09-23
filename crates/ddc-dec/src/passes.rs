@@ -6794,20 +6794,71 @@ fn merge_at(stmts: &mut Vec<Stmt>, if_pos: usize) -> bool {
         Br::Call(c, defs, def_idxs)
     }
     /// Prelude single-assignment if/else → `v = c ? e1 : e2` def.
-    fn cond_def_of(s: &Stmt) -> Option<(u32, Expr)> {
+    fn cond_def_of(s: &Stmt, scope: &[Stmt]) -> Option<(u32, Expr)> {
         let Stmt::If { cond, then_stmt, else_stmt: Some(e), .. } = s else {
             return None;
         };
-        fn one(b: &Stmt) -> Option<(u32, &Expr)> {
+        fn one<'x>(b: &'x Stmt, scope: &[Stmt]) -> Option<(u32, &'x Expr)> {
             let l = flat_list(b);
             if l.len() == 1 {
-                def_of(l[0])
-            } else {
-                None
+                return def_of(l[0]);
             }
+            // A [w = E; v = w] forwarding PAIR — the shape the
+            // structurer leaves when E is impure (`c v5 = new c(..);
+            // v6 = v5`) and forward_single_use's adjacency pass missed
+            // it (a duplicated read elsewhere in its raw body broke the
+            // single-read gate). Collapse to `v = E`, gated on w being
+            // method-unique: the merge DROPS this branch, so any other
+            // read/write of w would dangle (lark gp2/d Kotlin default-
+            // arg bridge, this-not-first family).
+            if l.len() == 2 {
+                let (w, ex) = def_of(l[0])?;
+                let Stmt::ExprStmt(Expr::Assign {
+                    target,
+                    op: AssignOp::Plain,
+                    value,
+                }) = l[1]
+                else {
+                    return None;
+                };
+                let Expr::Local { var: tv, .. } = &**target else {
+                    return None;
+                };
+                let Expr::Local { var: rv, .. } = &**value else {
+                    return None;
+                };
+                if *rv != w || *tv == w {
+                    return None;
+                }
+                // stmts_count_writes only sees Expr-level assigns; the
+                // pair's own def is often an init-bearing LocalDef, so
+                // count those separately for the uniqueness gate.
+                let mut ldef_writes = 0usize;
+                for st in scope {
+                    walk_all(st, &mut |x| {
+                        if let Stmt::LocalDef {
+                            var,
+                            init: Some(_),
+                            ..
+                        } = x
+                        {
+                            if *var == w {
+                                ldef_writes += 1;
+                            }
+                        }
+                    });
+                }
+                if stmts_read_var(scope, w) != 1
+                    || stmts_count_writes(scope, w) + ldef_writes != 1
+                {
+                    return None;
+                }
+                return Some((*tv, ex));
+            }
+            None
         }
-        let (v1, e1) = one(then_stmt)?;
-        let (v2, e2) = one(e)?;
+        let (v1, e1) = one(then_stmt, scope)?;
+        let (v2, e2) = one(e, scope)?;
         if v1 != v2 {
             return None;
         }
@@ -6834,7 +6885,7 @@ fn merge_at(stmts: &mut Vec<Stmt>, if_pos: usize) -> bool {
                     pidx.insert(v, i);
                 }
             }
-            Stmt::If { .. } => match cond_def_of(s) {
+            Stmt::If { .. } => match cond_def_of(s, stmts) {
                 Some((v, e)) => {
                     pmap.insert(v, e);
                     pidx.insert(v, i);
@@ -7205,7 +7256,7 @@ fn merge_at(stmts: &mut Vec<Stmt>, if_pos: usize) -> bool {
                 Expr::Local { var, .. } => Some(*var),
                 _ => None,
             },
-            Stmt::If { .. } => cond_def_of(s).map(|(v, _)| v),
+            Stmt::If { .. } => cond_def_of(s, stmts).map(|(v, _)| v),
             _ => None,
         };
         if let Some(v) = consumed {
