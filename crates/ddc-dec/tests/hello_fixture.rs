@@ -68,8 +68,9 @@ fn decompiles_hello_main() {
         "main not decompiled cleanly:\n{}",
         out
     );
+    // The idiom pass folds the static counter update to `counter++`.
     assert!(
-        out.contains("counter = counter + 1;"),
+        out.contains("counter++;"),
         "static field update missing:\n{}",
         out
     );

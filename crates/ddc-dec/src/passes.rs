@@ -3385,7 +3385,7 @@ pub fn idiom_compounds(body: &mut Stmt, vt: &VarTable) {
         let tgt = match &**target {
             Expr::Local { var, .. } => Tgt::Loc(*var),
             Expr::Field { owner, .. }
-                if matches!(owner, None)
+                if owner.is_none()
                     || matches!(&**owner.as_ref().unwrap(), Expr::This) =>
             {
                 Tgt::Fld
