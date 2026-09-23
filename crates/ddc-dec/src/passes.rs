@@ -2807,10 +2807,13 @@ pub fn insert_object_narrowing_casts(vt: &VarTable, body: &mut Stmt) {
     let is_top_object = |e: &Expr| -> bool {
         value_ty(e) == JavaType::Object("java/lang/Object".into())
     };
-    // A specific reference target type (a class other than java/lang/Object).
+    // A specific reference target type (a class other than
+    // java/lang/Object, or an array — `String[] v = obj` needs the
+    // cast exactly like `String v = obj`).
     let specific_ref = |ty: &TypeRef| -> Option<TypeRef> {
         match ty.erased() {
             JavaType::Object(c) if c.as_ref() != "java/lang/Object" => Some(ty.clone()),
+            JavaType::Array(_) => Some(ty.clone()),
             _ => None,
         }
     };
@@ -2849,6 +2852,34 @@ pub fn insert_object_narrowing_casts(vt: &VarTable, body: &mut Stmt) {
             }
         }
         _ => {}
+    });
+    // Descriptor-exact formal casts at CALL args: the dex already
+    // resolved the target method, so casting a top-Object actual to
+    // its declared formal cannot shift overload resolution (the r57
+    // args lesson applies to GUESSED casts, not descriptor-exact
+    // ones). `"source_type:".concat(obj2)`, `new my0.j(obj2, ..)` —
+    // Object无法转换为String family.
+    walk_stmt_exprs(body, &mut |e| {
+        deep_rewrite(e, &mut |x| {
+            if let Expr::Method { desc, args, is_dynamic, .. } = x {
+                if *is_dynamic {
+                    return;
+                }
+                for (i, a) in args.iter_mut().enumerate() {
+                    let Some(formal) = desc.args.get(i) else {
+                        continue;
+                    };
+                    let Some(t) = specific_ref(&TypeRef::J(formal.clone())) else {
+                        continue;
+                    };
+                    if !castable(a) {
+                        continue;
+                    }
+                    let v = std::mem::replace(a, Expr::Const(ConstVal::Null));
+                    *a = Expr::Cast { ty: t, e: Box::new(v) };
+                }
+            }
+        });
     });
 }
 
