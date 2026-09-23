@@ -1512,9 +1512,31 @@ impl<'a> Lifter<'a> {
         }
 
         let is_interface = matches!(kind, InvokeKind::Interface);
+        // `super.` only when the receiver is THIS. R8/d8 desugar an
+        // inner-class/lambda `outer.super.m()` into a STATIC synthetic
+        // accessor `w(Outer p) { invoke-special p, Super.m() }` — a
+        // nonvirtual call on a PARAMETER. The `super` keyword is illegal
+        // there ("无法从静态上下文中引用非静态 变量 super", weixin 318 +
+        // lark 176), and Java cannot express special dispatch on an
+        // arbitrary instance, so a plain call on the receiver is the
+        // only legal render.
+        // The receiver may reach here as Expr::This, the Raw("\u{3}")
+        // placeholder, or — most often — the `this` LOCAL (read_nest of
+        // register v0; the VarInfo is named "this" and emit prints the
+        // keyword). All three are the this-receiver; anything else (a
+        // real parameter/local) is not.
+        let recv_is_this = match &recv_expr {
+            Some(Expr::This) => true,
+            Some(Expr::Raw(t)) => t == "\u{3}" || t == "this",
+            Some(Expr::Local { var, .. }) => {
+                (*var as usize) < self.vt.vars.len() && self.vt.vars[*var as usize].name == "this"
+            }
+            _ => false,
+        };
         let is_super = match kind {
-            InvokeKind::Super => true,
-            InvokeKind::Direct if !is_static => cls.as_ref() != self.env.class_name.as_str(),
+            InvokeKind::Super | InvokeKind::Direct => {
+                recv_is_this && cls.as_ref() != self.env.class_name.as_str()
+            }
             _ => false,
         };
         let owner: Option<Box<Expr>> = match recv_expr {
