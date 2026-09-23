@@ -856,6 +856,9 @@ pub fn decompile_method(
     if matches!(desc.ret, JavaType::Int | JavaType::Long | JavaType::Short | JavaType::Byte) {
         passes::fix_int_returns(&vt, &mut body);
     }
+    if matches!(desc.ret, JavaType::Boolean) {
+        passes::fix_bool_returns(&vt, &mut body);
+    }
     passes::insert_object_narrowing_casts(&vt, &mut body);
     passes::fix_incomparable_equality(&mut body, &vt, pool);
     passes::fix_primitive_assign_casts(&vt, &mut body, &desc.ret);

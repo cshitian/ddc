@@ -2445,6 +2445,20 @@ pub fn infer_types(vt: &mut VarTable, body: &mut Stmt, ret: &JavaType, env: &Met
     // `Boolean bool19` receiving `bool19.d = x`).
     let mut derefed: Vec<bool> = vec![false; vt.vars.len()];
     mark_derefs(body, &mut derefed);
+    // Array-indexed vars: their resolved type must be an ARRAY when
+    // the evidence has one (`num4[v68]` with Integer-typed num4 —
+    // 需要数组但找到Integer family); member derefs keep the class
+    // preference below.
+    let mut arr_derefed: Vec<bool> = vec![false; vt.vars.len()];
+    visit_all_exprs(body, &mut |x| {
+        if let Expr::ArrayIndex { array, .. } = x {
+            if let Expr::Local { var, .. } = &**array {
+                if (*var as usize) < arr_derefed.len() {
+                    arr_derefed[*var as usize] = true;
+                }
+            }
+        }
+    });
     const FINAL_JDK: &[&str] = &[
         "java/lang/Boolean",
         "java/lang/String",
@@ -2490,7 +2504,20 @@ pub fn infer_types(vt: &mut VarTable, body: &mut Stmt, ret: &JavaType, env: &Met
                     continue;
                 }
             }
-                        // Strong definitions outrank weak expectations. A
+                        // Array-dereferenced vars prefer array evidence (an
+            // Integer producer cannot be indexed).
+            if arr_derefed[i] {
+                let arr = strong
+                    .iter()
+                    .chain(all.iter())
+                    .find(|t| matches!(t, JavaType::Array(_)))
+                    .cloned();
+                if let Some(t) = arr {
+                    vt.vars[i].ty = TypeRef::J(t);
+                    continue;
+                }
+            }
+            // Strong definitions outrank weak expectations. A
             // dereferenced var prefers a real class over final JDK
             // boxes (Boolean can never carry `.d = x`).
             let deref_pick = || {
@@ -2684,6 +2711,21 @@ fn expr_evidence<F: FnMut(u32, JavaType)>(e: &Expr, f: &mut F) {
                 }
             }
             let _ = ty;
+        }
+        // `v != null` / `v == null`: the register holds a reference at
+        // that point — weak Object evidence keeps int-typed generations
+        // from winning the pool (yq0/g1's `v95_g12 != null` with int
+        // v95_g12 — 二元运算符 '!=' 546-line family).
+        Expr::Bin { op, l, r, .. }
+            if matches!(op, BinOp::Eq | BinOp::Ne)
+                && (matches!(&**r, Expr::Const(ConstVal::Null))
+                    || matches!(&**l, Expr::Const(ConstVal::Null))) =>
+        {
+            for side in [l, r] {
+                if let Expr::Local { var, .. } = &**side {
+                    f(*var, JavaType::Object("java/lang/Object".into()));
+                }
+            }
         }
         Expr::ArrayIndex { array, .. } => {
             if let Expr::Local { var, ty, .. } = &**array {
@@ -5212,6 +5254,48 @@ pub fn fix_ctor_delegation_arg_defs(body: &mut Stmt) {
 /// `return v;` breaks ("boolean无法转换为int", weixin Handle
 /// onPausableTransaction — the source was `if (v) 1 else 0`). Wrap the
 /// return in the recovering conditional.
+/// Mirror of fix_int_returns: a BOOLEAN method returning a numeric-
+/// typed value (register reuse left an int generation) wraps it
+/// `x != 0` — the dex branch encoding, and the only legal Java form
+/// (kh5/a `return v116_g53;` int无法转换为boolean family).
+pub fn fix_bool_returns(vt: &VarTable, body: &mut Stmt) {
+    walk_mut_deep(body, &mut |st| {
+        if let Stmt::Return(Some(e)) = st {
+            let numeric = match &*e {
+                Expr::Local { var, ty } => {
+                    let t = if (*var as usize) < vt.vars.len() {
+                        vt.var(*var).ty.erased()
+                    } else {
+                        ty.erased()
+                    };
+                    matches!(
+                        t,
+                        JavaType::Int
+                            | JavaType::Long
+                            | JavaType::Short
+                            | JavaType::Byte
+                            | JavaType::Char
+                    )
+                }
+                other => matches!(
+                    other.type_ref().erased(),
+                    JavaType::Int | JavaType::Long | JavaType::Short | JavaType::Byte
+                        | JavaType::Char
+                ),
+            };
+            if numeric {
+                let taken = e.clone();
+                *e = Expr::Bin {
+                    op: BinOp::Ne,
+                    l: Box::new(taken),
+                    r: Box::new(Expr::Const(ConstVal::Int(0))),
+                    ty: Some(TypeRef::J(JavaType::Boolean)),
+                };
+            }
+        }
+    });
+}
+
 pub fn fix_int_returns(vt: &VarTable, body: &mut Stmt) {
     walk_mut_deep(body, &mut |st| {
         if let Stmt::Return(Some(e)) = st {
