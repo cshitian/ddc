@@ -591,12 +591,19 @@ fn referrer_pkg_string(referrer: &str) -> String {
 /// Same-package refs are NOT collected (their shadow handling goes
 /// through the FQN fallback, whose first segment is the family's own
 /// package root — the caller adds that unconditionally).
+/// (cross-package first segments per family, own-nested tails
+/// referenced per family root).
+pub type SegMaps = (
+    HashMap<String, HashSet<String>>,
+    HashMap<String, HashSet<String>>,
+);
+
 pub fn family_ref_segments(
     dexes: &[Arc<DexFile>],
     cand: &HashSet<String>,
-) -> HashMap<String, HashSet<String>> {
+) -> SegMaps {
     if cand.is_empty() {
-        return HashMap::default();
+        return (HashMap::default(), HashMap::default());
     }
     let nthreads = std::thread::available_parallelism()
         .map(|n| n.get())
@@ -604,8 +611,8 @@ pub fn family_ref_segments(
         .min(4)
         .min(dexes.len().max(1));
     let chunk = dexes.len().div_ceil(nthreads).max(1);
-    let merged: std::sync::Mutex<HashMap<String, HashSet<String>>> =
-        std::sync::Mutex::new(HashMap::default());
+    let merged: std::sync::Mutex<SegMaps> =
+        std::sync::Mutex::new((HashMap::default(), HashMap::default()));
     std::thread::scope(|scope| {
         let handles: Vec<_> = dexes
             .chunks(chunk)
@@ -613,14 +620,23 @@ pub fn family_ref_segments(
                 let merged = &merged;
                 scope.spawn(move || {
                     let mut part: HashMap<String, HashSet<String>> = HashMap::default();
+                    let mut part_nest: HashMap<String, HashSet<String>> =
+                        HashMap::default();
                     for dex in group {
-                        for (k, v) in scan_family_segments(dex, cand) {
+                        let (a, b) = scan_family_segments(dex, cand);
+                        for (k, v) in a {
                             part.entry(k).or_default().extend(v);
+                        }
+                        for (k, v) in b {
+                            part_nest.entry(k).or_default().extend(v);
                         }
                     }
                     let mut m = merged.lock().unwrap();
                     for (k, v) in part {
-                        m.entry(k).or_default().extend(v);
+                        m.0.entry(k).or_default().extend(v);
+                    }
+                    for (k, v) in part_nest {
+                        m.1.entry(k).or_default().extend(v);
                     }
                 })
             })
@@ -632,10 +648,7 @@ pub fn family_ref_segments(
     merged.into_inner().unwrap_or_default()
 }
 
-fn scan_family_segments(
-    dex: &DexFile,
-    cand: &HashSet<String>,
-) -> HashMap<String, HashSet<String>> {
+fn scan_family_segments(dex: &DexFile, cand: &HashSet<String>) -> SegMaps {
     let n = dex.type_count();
     let mut tseg: Vec<Box<str>> = Vec::with_capacity(n);
     let mut tpkg_empty: Vec<bool> = Vec::with_capacity(n);
@@ -658,26 +671,51 @@ fn scan_family_segments(
         );
     }
     let mut out: HashMap<String, HashSet<String>> = HashMap::default();
+    let mut out_nest: HashMap<String, HashSet<String>> = HashMap::default();
     for cd in &dex.class_defs {
         let referrer = dex.class_name(cd.class_idx);
         if !cand.contains(&referrer) {
             continue;
         }
         let rp = pkg_of(&referrer);
+        // Family root for own-nested detection (`a/b/C$x` → `a/b/C`).
+        let rroot = match referrer.find('$') {
+            Some(i) => &referrer[..i],
+            None => referrer.as_str(),
+        };
         let mut segs: HashSet<String> = HashSet::default();
-        let note = |t: u32, segs: &mut HashSet<String>| {
+        let mut nest: HashSet<String> = HashSet::default();
+        let note = |t: u32, segs: &mut HashSet<String>, nest: &mut HashSet<String>| {
             let i = t as usize;
             if tpkg_empty.get(i).copied().unwrap_or(true) {
                 return;
             }
-            // Cross-package only; own-package refs are the caller's
-            // unconditional root-segment addition.
             let name = dex.type_name(t);
             let inner = name
                 .trim_start_matches('[')
                 .strip_prefix('L')
                 .and_then(|s| s.strip_suffix(';'))
                 .unwrap_or("");
+            // Own-family nested ref (`C$x` from inside C's family):
+            // record the DIRECT tail under the family root — the
+            // private-field-vs-nested-class deshadow trigger requires
+            // the body to actually reference the nested type.
+            if let Some(d) = inner.find('$') {
+                let root = &inner[..d];
+                if root == rroot {
+                    let rest = &inner[d + 1..];
+                    let tail = match rest.find('$') {
+                        Some(j) => &rest[..j],
+                        None => rest,
+                    };
+                    if !tail.is_empty() {
+                        nest.insert(tail.to_string());
+                    }
+                    return;
+                }
+            }
+            // Cross-package only; own-package refs are the caller's
+            // unconditional root-segment addition.
             if let Some(j) = inner.rfind('/') {
                 if &inner[..j] == rp {
                     return;
@@ -689,23 +727,23 @@ fn scan_family_segments(
                 }
             }
         };
-        note(cd.superclass_idx, &mut segs);
+        note(cd.superclass_idx, &mut segs, &mut nest);
         for i in dex.interfaces_of(cd) {
-            note(i, &mut segs);
+            note(i, &mut segs, &mut nest);
         }
         let data = dex.class_data(cd);
         for f in data.static_fields.iter().chain(data.instance_fields.iter()) {
             let fr = dex.field(f.field_idx);
-            note(fr.class_idx, &mut segs);
-            note(fr.type_idx, &mut segs);
+            note(fr.class_idx, &mut segs, &mut nest);
+            note(fr.type_idx, &mut segs, &mut nest);
         }
         for m in data.direct_methods.iter().chain(data.virtual_methods.iter()) {
             let mr = dex.method(m.method_idx);
-            note(mr.class_idx, &mut segs);
+            note(mr.class_idx, &mut segs, &mut nest);
             let proto = dex.proto(mr.proto_idx);
-            note(proto.return_type_idx, &mut segs);
+            note(proto.return_type_idx, &mut segs, &mut nest);
             for &t in dex.proto_params(mr.proto_idx) {
-                note(t, &mut segs);
+                note(t, &mut segs, &mut nest);
             }
             let Some(code) = (m.code_off != 0)
                 .then(|| dex.code_insns_bytes_at(m.code_off))
@@ -722,20 +760,20 @@ fn scan_family_segments(
                 };
                 match op {
                     0x1c | 0x1f | 0x20 | 0x22..=0x25 | 0xff => {
-                        note(unit(pc + 1), &mut segs);
+                        note(unit(pc + 1), &mut segs, &mut nest);
                     }
                     0x52..=0x6d => {
                         let f = dex.field(unit(pc + 1));
-                        note(f.class_idx, &mut segs);
-                        note(f.type_idx, &mut segs);
+                        note(f.class_idx, &mut segs, &mut nest);
+                        note(f.type_idx, &mut segs, &mut nest);
                     }
                     0x6e..=0x72 | 0x74..=0x78 | 0xfa | 0xfb => {
                         let mr = dex.method(unit(pc + 1));
-                        note(mr.class_idx, &mut segs);
+                        note(mr.class_idx, &mut segs, &mut nest);
                         let proto = dex.proto(mr.proto_idx);
-                        note(proto.return_type_idx, &mut segs);
+                        note(proto.return_type_idx, &mut segs, &mut nest);
                         for &t in dex.proto_params(mr.proto_idx) {
-                            note(t, &mut segs);
+                            note(t, &mut segs, &mut nest);
                         }
                     }
                     _ => {}
@@ -745,8 +783,17 @@ fn scan_family_segments(
         if !segs.is_empty() {
             out.entry(referrer.to_string()).or_default().extend(segs);
         }
+        if !nest.is_empty() {
+            // Keyed by the FAMILY ROOT: every member of the family
+            // renders in the root's file scope where the collision
+            // bites.
+            out_nest
+                .entry(rroot.to_string())
+                .or_default()
+                .extend(nest);
+        }
     }
-    out
+    (out, out_nest)
 }
 
 

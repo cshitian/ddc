@@ -7091,10 +7091,22 @@ pub fn inline_accessors(s: &mut Stmt, pool: &DexPool, host: &str) {
                 }
                 if let Some(owner) = args.get(arg).cloned().map(Box::new) {
                     let ty = TypeRef::J(desc_type(&field_ty));
+                    // The inlined read must consult the member rename
+                    // registry like every lifted field ref does — the
+                    // raw dex name desynced from renamed declarations
+                    // (lark uu4/f$b's `a`→`ax6`: 找不到符号 变量 a ×4.4k
+                    // when the nested-collision deshadow fired).
+                    let name = jdc_core::rename::field_display(
+                        &field_cls,
+                        &field,
+                        &field_ty,
+                    )
+                    .map(std::sync::Arc::from)
+                    .unwrap_or_else(|| field.into());
                     *e = Expr::Field {
                         owner: Some(owner),
                         cls: field_cls.into(),
-                        name: field.into(),
+                        name,
                         ty,
                         is_static: false,
                     };
@@ -7104,8 +7116,18 @@ pub fn inline_accessors(s: &mut Stmt, pool: &DexPool, host: &str) {
                 if !inline_ref_ok(pool, host, &tcls, Some((&tname, true))) {
                     return;
                 }
+                // Same registry duty as FieldRead: the forwarded member
+                // must render under its renamed display, not the raw
+                // dex name.
+                let disp = jdc_core::rename::field_display(
+                    &tcls,
+                    &tname,
+                    &tdesc.to_string(),
+                )
+                .map(std::sync::Arc::from)
+                .unwrap_or_else(|| tname.into());
                 *cls = tcls.into();
-                *name = tname.into();
+                *name = disp;
                 *desc = std::sync::Arc::new(tdesc);
                 if instance && !args.is_empty() {
                     // The first param (the receiver) becomes the owner.

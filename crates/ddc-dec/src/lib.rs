@@ -2150,7 +2150,7 @@ fn field_deshadow_renames(
     // Candidate fields per family (display, original name, desc).
     let mut cand: HashMap<
         String,
-        Vec<(String, String, String)>,
+        Vec<(String, String, String, u32)>,
     > = HashMap::default();
     for name in &pool.order {
         let Some(pc) = pool.get_if_materialized(name) else {
@@ -2162,7 +2162,7 @@ fn field_deshadow_renames(
                 cand
                     .entry(name.clone())
                     .or_default()
-                    .push((disp, f.name.clone(), f.desc.clone()));
+                    .push((disp, f.name.clone(), f.desc.clone(), f.access));
             }
         }
     }
@@ -2171,7 +2171,8 @@ fn field_deshadow_renames(
     }
     let cand_set: jdc_core::FxHashSet<String> = cand.keys().cloned().collect();
     let t0 = std::time::Instant::now();
-    let fam_segs = crate::refscan::family_ref_segments(&pool.dexes, &cand_set);
+    let (fam_segs, fam_nest) =
+        crate::refscan::family_ref_segments(&pool.dexes, &cand_set);
     if std::env::var("DDC_STATS").is_ok() {
         eprintln!(
             "[renames] field-deshadow scan: cands={} scan={:?}",
@@ -2182,12 +2183,24 @@ fn field_deshadow_renames(
     for (fam, fields) in cand {
         let own_root = fam.find('/').map(|i| fam[..i].to_string());
         let scanned = fam_segs.get(&fam);
+        // NO nested-tail collision trigger here: a private field named
+        // like a nested class does capture `Fam.b.member` in expression
+        // position (lark LKEvent static-ctx family, ~1k lines), but
+        // renaming it is corpus-toxic even gated private+body-
+        // referenced — lark +32k (43,643 renames), weixin/weibo −200.
+        // Eighth falsification of loose rename gates: the resolution
+        // perturbation surface of mass field renames dwarfs the target
+        // family. The fam_nest scan stays wired for a future
+        // render-side fix (the capture is only unfixable INSIDE the
+        // family file; foreign files could import the nested type).
+        let _ = &fam_nest;
         let hits: Vec<(String, String, String)> = fields
             .into_iter()
-            .filter(|(disp, _, _)| {
+            .filter(|(disp, _, _, _access)| {
                 scanned.is_some_and(|s| s.contains(disp))
                     || own_root.as_deref() == Some(disp.as_str())
             })
+            .map(|(d, n, de, _)| (d, n, de))
             .collect();
         if hits.is_empty() {
             continue;
@@ -2207,10 +2220,13 @@ fn field_deshadow_renames(
                 taken.insert(crate::classdec::java_ident(&m.name).into_owned());
             }
         }
+        let mut nested_tails: jdc_core::FxHashSet<String> =
+            jdc_core::FxHashSet::default();
         for child in pool.children_of(&fam) {
             if let Some(tail) = child.rsplit('$').next() {
                 if !tail.is_empty() {
                     taken.insert(tail.to_string());
+                    nested_tails.insert(tail.to_string());
                 }
             }
         }
