@@ -592,7 +592,7 @@ pub fn decompile_method(
         } else {
             passes::fix_ctor_delegation_arg_defs(&mut body);
             passes::fix_ctor_conditional_super(&mut body);
-            passes::fix_ctor_super_first(&mut body);
+            passes::fix_ctor_super_first(&mut body, &vt);
             passes::dedupe_ctor_delegations(&mut body);
         }
         // The delegation merges/hoists can leave prelude decls dead
@@ -890,7 +890,7 @@ pub fn decompile_method(
         } else {
             passes::fix_ctor_delegation_arg_defs(&mut body);
             passes::fix_ctor_conditional_super(&mut body);
-            passes::fix_ctor_super_first(&mut body);
+            passes::fix_ctor_super_first(&mut body, &vt);
             passes::dedupe_ctor_delegations(&mut body);
         }
         // The delegation merges/hoists can leave prelude decls dead

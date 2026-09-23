@@ -4793,14 +4793,156 @@ pub fn strip_enum_const_inits(s: &mut Stmt, class: &crate::PoolClass) {
 /// (`this.b = p1;`) or other field writes before the invokesuper in the
 /// bytecode, which lifts as-is into an uncompilable statement order —
 /// hoist the bare delegation call to position 0 (jadx does the same).
-pub fn fix_ctor_super_first(body: &mut Stmt) {
+/// Does the expression touch `this` (explicit, implicit-instance member
+/// access, or super)? Such a def cannot be inlined into a delegation
+/// that must run BEFORE the supertype constructor.
+fn contains_this_access(e: &Expr) -> bool {
+    let mut hit = false;
+    visit_exprs(e, &mut |x| {
+        if hit {
+            return;
+        }
+        match x {
+            Expr::This => hit = true,
+            Expr::Field { owner, is_static: false, .. } => {
+                if owner.is_none() || matches!(&**owner.as_ref().unwrap(), Expr::This) {
+                    hit = true;
+                }
+            }
+            Expr::Method { owner, is_static: false, .. } => {
+                if owner.is_none() || matches!(&**owner.as_ref().unwrap(), Expr::This) {
+                    hit = true;
+                }
+            }
+            _ => {}
+        }
+    });
+    hit
+}
+
+/// Inline the transitive straight-line defs of a delegation call's
+/// arg locals into the call, so hoisting it to position 0 leaves no
+/// dangling name (lark ProtoAdapter's `super(str)` with `str` defined
+/// BELOW the hoist point — 找不到符号 变量 str). Returns false when any
+/// arg var has no inlineable def (param-less, missing, this-touching,
+/// or cyclic) — the caller then leaves the call in place: a
+/// not-first-statement error is cheaper than an unresolved name that
+/// poisons every downstream type.
+fn inline_ctor_arg_defs(call: &mut Stmt, prefix: &[&Stmt], vt: &VarTable) -> bool {
+    let Stmt::ExprStmt(cexpr) = call else {
+        return false;
+    };
+    let mut seen: jdc_core::FxHashSet<u32> = jdc_core::FxHashSet::default();
+    for _ in 0..32 {
+        let mut need: Option<u32> = None;
+        visit_exprs(cexpr, &mut |x| {
+            if need.is_none() {
+                if let Expr::Local { var, .. } = x {
+                    if (*var as usize) < vt.vars.len() && !vt.vars[*var as usize].is_param {
+                        need = Some(*var);
+                    }
+                }
+            }
+        });
+        let Some(v) = need else { break };
+        if !seen.insert(v) {
+            return false; // cyclic reuse (`str = .. + str`) — bail
+        }
+        // STRICT single-occurrence: v may appear in the prefix exactly
+        // once (its def). Any later assign, mutation call, or second
+        // read means the def's value is not what the call receives
+        // (`stringBuilder.append(..)` mutations would be skipped —
+        // `super(new StringBuilder().toString())` compiled but lost
+        // the message).
+        let mut occ = 0usize;
+        for st in prefix.iter() {
+            visit_all_exprs(st, &mut |x| {
+                if let Expr::Local { var, .. } = x {
+                    if *var == v {
+                        occ += 1;
+                    }
+                }
+            });
+            if occ > 1 {
+                return false;
+            }
+        }
+        if occ != 1 {
+            return false;
+        }
+        let mut def: Option<Expr> = None;
+        for st in prefix.iter().rev() {
+            match st {
+                Stmt::LocalDef { var, init: Some(e), .. } if *var == v => {
+                    def = Some(e.clone());
+                    break;
+                }
+                Stmt::ExprStmt(Expr::Assign { target, value, op: AssignOp::Plain, .. })
+                    if matches!(&**target, Expr::Local { var: tv, .. } if *tv == v) =>
+                {
+                    def = Some(value.as_ref().clone());
+                    break;
+                }
+                _ => {}
+            }
+        }
+        let Some(de) = def else { return false };
+        if contains_this_access(&de) {
+            return false;
+        }
+        // A SELF-REFERENTIAL def (`v = v + 1`) would make the replace
+        // walk recurse into its own freshly-inserted copy forever —
+        // the worker stack overflow that aborted whole corpus runs.
+        let mut self_ref = false;
+        visit_exprs(&de, &mut |x| {
+            if let Expr::Local { var, .. } = x {
+                if *var == v {
+                    self_ref = true;
+                }
+            }
+        });
+        if self_ref {
+            return false;
+        }
+        // Huge defs multiply per read site per round — bound them.
+        let mut de_nodes = 0usize;
+        visit_exprs(&de, &mut |_| de_nodes += 1);
+        if de_nodes > 256 {
+            return false;
+        }
+        deep_rewrite(cexpr, &mut |x| {
+            if let Expr::Local { var, .. } = x {
+                if *var == v {
+                    *x = de.clone();
+                }
+            }
+        });
+        // Exponential blowup guard: a var read twice doubles its def
+        // per round, compounding across the transitive chain — cap the
+        // expression size (a 2^k node tree overflowed the worker stack
+        // process-wide).
+        let mut nodes = 0usize;
+        visit_exprs(cexpr, &mut |_| nodes += 1);
+        if nodes > 2_048 {
+            return false;
+        }
+    }
+    true
+}
+
+pub fn fix_ctor_super_first(body: &mut Stmt, vt: &VarTable) {
     let Stmt::Block(stmts) = body else { return };
     if stmts.is_empty() || is_bare_ctor_call(stmts.first().unwrap()) {
         return;
     }
     // Top-level delegation call.
     if let Some(pos) = stmts.iter().position(is_bare_ctor_call) {
-        let call = stmts.remove(pos);
+        let mut call = stmts[pos].clone();
+        let prefix: Vec<&Stmt> = stmts[..pos].iter().collect();
+        if !inline_ctor_arg_defs(&mut call, &prefix, vt) {
+            return;
+        }
+        stmts.remove(pos);
         stmts.insert(0, call);
         return;
     }
@@ -4828,10 +4970,23 @@ pub fn fix_ctor_super_first(body: &mut Stmt) {
         }
     }
     if let Some((i, p)) = found {
-        let call = match &mut stmts[i] {
-            Stmt::Block(inner) => inner.remove(p),
+        let mut call = match &stmts[i] {
+            Stmt::Block(inner) => inner[p].clone(),
             _ => unreachable!(),
         };
+        let mut prefix: Vec<&Stmt> = stmts[..i].iter().collect();
+        if let Stmt::Block(inner) = &stmts[i] {
+            prefix.extend(inner[..p].iter());
+        }
+        if !inline_ctor_arg_defs(&mut call, &prefix, vt) {
+            return;
+        }
+        match &mut stmts[i] {
+            Stmt::Block(inner) => {
+                inner.remove(p);
+            }
+            _ => unreachable!(),
+        }
         stmts.insert(0, call);
     }
 }
