@@ -572,7 +572,7 @@ pub fn decompile_method(
         passes::fix_int_operand_bridges(&mut body, &vt);
         passes::fix_ref_array_null_consts(&mut body);
         passes::idiom_compounds(&mut body, &vt);
-        passes::rescue_primitive_receivers(&mut body, &vt, pool);
+        passes::rescue_primitive_receivers(&mut body, &vt, pool, &desc.ret);
         passes::apply_local_names(&mut vt, &body);
     passes::deshadow_locals(&mut vt, pool);
         passes::remove_kotlin_checks(&mut body);
@@ -580,6 +580,7 @@ pub fn decompile_method(
         passes::platform_constants(&mut body);
         passes::drop_dead_locals(&mut body);
     passes::ensure_declared(&mut body, &vt);
+    passes::rescue_arg_return_swaps(&mut body, &vt, pool, &desc.ret);
     // AFTER the declaration hoisting: ensure_declared inserts bare
     // top-of-method declarations, and a local declaration ahead of the
     // super() call is still "super must be first statement".
@@ -868,7 +869,7 @@ pub fn decompile_method(
     passes::fix_int_operand_bridges(&mut body, &vt);
     passes::fix_ref_array_null_consts(&mut body);
     passes::idiom_compounds(&mut body, &vt);
-    passes::rescue_primitive_receivers(&mut body, &vt, pool);
+    passes::rescue_primitive_receivers(&mut body, &vt, pool, &desc.ret);
     passes::apply_local_names(&mut vt, &body);
     passes::deshadow_locals(&mut vt, pool);
     passes::remove_kotlin_checks(&mut body);
@@ -876,6 +877,7 @@ pub fn decompile_method(
     passes::platform_constants(&mut body);
     passes::drop_dead_locals(&mut body);
     passes::ensure_declared(&mut body, &vt);
+    passes::rescue_arg_return_swaps(&mut body, &vt, pool, &desc.ret);
     // AFTER the declaration hoisting: ensure_declared inserts bare
     // top-of-method declarations, and a local declaration ahead of the
     // super() call is still "super must be first statement".

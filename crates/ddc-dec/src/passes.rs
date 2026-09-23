@@ -3244,7 +3244,12 @@ pub fn deshadow_locals(vt: &mut VarTable, pool: &crate::DexPool) {
 /// swap the receiver to it. The pre-rescue output is a guaranteed
 /// compile error AND runtime NPE, so the unambiguous swap cannot make
 /// it worse; ambiguous sites stay untouched.
-pub fn rescue_primitive_receivers(body: &mut Stmt, vt: &VarTable, pool: &crate::DexPool) {
+pub fn rescue_primitive_receivers(
+    body: &mut Stmt,
+    vt: &VarTable,
+    pool: &crate::DexPool,
+    ret_ty: &JavaType,
+) {
     fn prim(t: &JavaType) -> bool {
         match t {
             JavaType::Int
@@ -3356,6 +3361,126 @@ pub fn rescue_primitive_receivers(body: &mut Stmt, vt: &VarTable, pool: &crate::
             }
         });
     });
+
+}
+
+/// Scope-safe arg/return swaps for mistyped generations — runs AFTER
+/// ensure_declared hoists every declaration to the method top, so the
+/// top_ids visibility precondition holds by construction (the r134
+/// falsification: swapping in a block-scoped var broke lexically).
+/// Same-slot + type-match + uniqueness gates as the receiver rescue.
+pub fn rescue_arg_return_swaps(
+    body: &mut Stmt,
+    vt: &VarTable,
+    pool: &crate::DexPool,
+    ret_ty: &JavaType,
+) {
+    // SCOPE-SAFE arg/return swap: a primitive-typed actual against a
+    // specific-reference formal (or a reference-returning `return`) is
+    // a mistyped generation — the r134 falsification showed the swap
+    // target MUST be lexically visible at the use site, so candidates
+    // are restricted to params + TOP-LEVEL declared locals (a hoisted
+    // decl is visible to javac name resolution everywhere in the
+    // method) AND same-slot (same dex register lineage) AND unique.
+    let mut top_ids: jdc_core::FxHashSet<u32> = jdc_core::FxHashSet::default();
+    for v in &vt.vars {
+        if v.is_param {
+            top_ids.insert(v.id);
+        }
+    }
+    if let Stmt::Block(stmts) = body {
+        for st in stmts.iter() {
+            if let Stmt::LocalDef { var, .. } = st {
+                top_ids.insert(*var);
+            }
+        }
+    }
+    let ret_wants_ref = match ret_ty {
+        JavaType::Object(n) => n.as_ref() != "java/lang/Object",
+        JavaType::Array(_) => true,
+        _ => false,
+    };
+    let try_swap = |a: &mut Expr, want: &JavaType| {
+        let Expr::Local { var, ty } = &mut *a else {
+            return;
+        };
+        if (*var as usize) >= vt.vars.len() {
+            return;
+        }
+        let avt = vt.var(*var).ty.erased();
+        let avt_ref = matches!(avt, JavaType::Object(_) | JavaType::Array(_));
+        let want_arr = matches!(want, JavaType::Array(_));
+        // Only swap a primitive-typed actual (an Object actual gets the
+        // descriptor-exact cast instead — never both).
+        if avt_ref && !(avt == JavaType::Object("java/lang/Object".into())) {
+            return;
+        }
+        if avt_ref && !matches!(want, JavaType::Object(_)) {
+            return;
+        }
+        let slot = vt.var(*var).slot;
+        let mut hits: Vec<u32> = Vec::new();
+        for v in &vt.vars {
+            if v.slot != slot || !top_ids.contains(&v.id) || v.id == *var {
+                continue;
+            }
+            let t = v.ty.erased();
+            let ok = match (&t, want) {
+                (JavaType::Object(n), JavaType::Object(w)) => {
+                    n.as_ref() == w.as_ref()
+                        || pool.is_subtype(n.as_ref(), w.as_ref())
+                }
+                (JavaType::Array(_), JavaType::Array(_)) => want_arr,
+                _ => false,
+            };
+            if ok {
+                hits.push(v.id);
+            }
+        }
+        hits.sort_unstable();
+        hits.dedup();
+        if hits.len() == 1 {
+            let id = hits[0];
+            *var = id;
+            *ty = vt.vars[id as usize].ty.clone();
+        }
+    };
+    walk_stmt_exprs(body, &mut |e| {
+        deep_rewrite(e, &mut |x| {
+            match x {
+                Expr::Method { desc, args, is_dynamic: false, .. } => {
+                    for (i, a) in args.iter_mut().enumerate() {
+                        if let Some(f) = desc.args.get(i) {
+                            if matches!(f, JavaType::Object(n) if n.as_ref() != "java/lang/Object")
+                                || matches!(f, JavaType::Array(_))
+                            {
+                                try_swap(a, f);
+                            }
+                        }
+                    }
+                }
+                Expr::New { arg_tys, args, .. } => {
+                    for (i, a) in args.iter_mut().enumerate() {
+                        if let Some(f) = arg_tys.get(i) {
+                            if matches!(f, JavaType::Object(n) if n.as_ref() != "java/lang/Object")
+                                || matches!(f, JavaType::Array(_))
+                            {
+                                try_swap(a, f);
+                            }
+                        }
+                    }
+                }
+                _ => {}
+            }
+        });
+    });
+    if ret_wants_ref {
+        walk_mut_deep(body, &mut |st| {
+            if let Stmt::Return(Some(e)) = st {
+                try_swap(e, ret_ty);
+            }
+        });
+    }
 }
 
 /// Reference-array initializers take null, not 0: dex fill-array-data
