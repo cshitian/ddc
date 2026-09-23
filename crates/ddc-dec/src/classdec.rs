@@ -231,7 +231,14 @@ fn collect_enum_constants(
         .iter()
         .filter(|f| f.access & crate::access::ACC_ENUM != 0)
         .collect();
-    if const_fields.is_empty() { return None; }
+    // No ACC_ENUM constant fields: R8 drops them ALL when nothing
+    // outside reads them (weixin sp2/ji — only the synthetic $VALUES
+    // array survives). An ACC_ENUM CLASS still promotes: the synthetic-
+    // constant scan below lifts the constants out of the array literal.
+    // Non-enum classes have no business here.
+    if const_fields.is_empty() && class.access & crate::access::ACC_ENUM == 0 {
+        return None;
+    }
     let clinit = class.all_methods().find(|m| &*m.name == "<clinit>")?;
     let mut body = decompile_method(pool, class, clinit).ok().flatten()?;
 
@@ -569,6 +576,9 @@ fn collect_enum_constants(
                 extra_args,
             },
         ));
+    }
+    if merged.is_empty() {
+        return None; // nothing extracted — keep the desugared form
     }
     merged.sort_by_key(|(o, _)| *o);
     // Ordinals must be UNIQUE and ASCENDING; gaps are legal — R8 drops
