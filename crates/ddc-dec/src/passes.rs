@@ -2338,6 +2338,24 @@ pub fn infer_types(vt: &mut VarTable, body: &mut Stmt, ret: &JavaType, env: &Met
             // mismatched types (`sb7 = compareTo10` in a Kotlin when).
             // Literals stay weak.
             if let Expr::Assign { target, value, .. } = e {
+                // A field WRITE through a local (`v.f = x`, dex iput)
+                // proves v is a reference of the field's declaring
+                // class AT THAT POINT — an iput on a boolean register
+                // cannot exist in valid dex. Strong: it must outrank a
+                // strong boolean copy chain into the same reused slot
+                // (weixin coroutine state machines).
+                if let Expr::Field { owner: Some(o), cls, is_static: false, .. } = &**target {
+                    if cls.is_empty() {
+                        // array-length pseudo-field: no declaring class
+                    } else if let Expr::Local { var, .. } = &**o {
+                        ev(
+                            &mut evidence,
+                            *var,
+                            JavaType::Object(cls.clone()),
+                            true,
+                        );
+                    }
+                }
                 if let Expr::Local { var, .. } = &**target {
                     let strong = match &**value {
                         Expr::Const(_) => false,
@@ -2419,6 +2437,25 @@ pub fn infer_types(vt: &mut VarTable, body: &mut Stmt, ret: &JavaType, env: &Met
     // Return-position locals take the declared return type (also inside
     // nested returns — handled by the walk above).
 
+        // Vars dereferenced as field/method receivers or arrays: their
+    // resolved type must be a dereferenceable class — a boxed Boolean
+    // in the strong set (Kotlin Result registers hold `Boolean | impl`
+    // across coroutine case arms) must lose to the real class even
+    // when the Boolean evidence comes first (weixin ry0/h2's
+    // `Boolean bool19` receiving `bool19.d = x`).
+    let mut derefed: Vec<bool> = vec![false; vt.vars.len()];
+    mark_derefs(body, &mut derefed);
+    const FINAL_JDK: &[&str] = &[
+        "java/lang/Boolean",
+        "java/lang/String",
+        "java/lang/Integer",
+        "java/lang/Long",
+        "java/lang/Short",
+        "java/lang/Byte",
+        "java/lang/Character",
+        "java/lang/Float",
+        "java/lang/Double",
+    ];
     for (i, evs) in evidence.iter().enumerate() {
         let info = &vt.vars[i];
         if info.is_param {
@@ -2453,10 +2490,34 @@ pub fn infer_types(vt: &mut VarTable, body: &mut Stmt, ret: &JavaType, env: &Met
                     continue;
                 }
             }
-            // Strong definitions outrank weak expectations.
-            if let Some(t) = pick_object(&strong).or_else(|| pick_object(&all)) {
+                        // Strong definitions outrank weak expectations. A
+            // dereferenced var prefers a real class over final JDK
+            // boxes (Boolean can never carry `.d = x`).
+            let deref_pick = || {
+                if !derefed[i] {
+                    return None;
+                }
+                strong
+                    .iter()
+                    .find(|t| {
+                        matches!(t, JavaType::Object(n)
+                            if !n.is_empty()
+                                && n.as_ref() != "java/lang/Object"
+                                && !FINAL_JDK.contains(&n.as_ref()))
+                    })
+                    .cloned()
+            };
+            if let Some(t) = deref_pick()
+                .or_else(|| pick_object(&strong))
+                .or_else(|| pick_object(&all))
+            {
                 vt.vars[i].ty = TypeRef::J(t);
             }
+        } else if let Some(t) = pick_object(&strong) {
+            // A strong reference definition (typed producer or field
+            // write) outranks a strong boolean copy: Boolean assigns
+            // INTO an Object slot legally, never the reverse.
+            vt.vars[i].ty = TypeRef::J(t);
         } else if strong.contains(&JavaType::Boolean) {
             // A boolean-typed SOURCE assigned into the variable is a
             // definition (`v26 = p1` with boolean p1); the 0/1 literals
@@ -2540,7 +2601,10 @@ fn coerce_num_consts(body: &mut Stmt, types: &[&TypeRef]) {
 
 fn pick_object(evs: &[JavaType]) -> Option<JavaType> {
     evs.iter()
-        .find(|t| t.is_reference() && !matches!(t, JavaType::Object(n) if n.as_ref() == "java/lang/Object"))
+        .find(|t| {
+            t.is_reference()
+                && !matches!(t, JavaType::Object(n) if n.is_empty() || n.as_ref() == "java/lang/Object")
+        })
         .cloned()
 }
 
@@ -2598,14 +2662,24 @@ fn expr_evidence<F: FnMut(u32, JavaType)>(e: &Expr, f: &mut F) {
         }
         Expr::Field {
             owner,
+            cls,
             ty,
             is_static,
             ..
         } => {
-            if !*is_static {
+            if !*is_static && !cls.is_empty() {
                 if let Some(o) = owner {
                     if let Expr::Local { var, .. } = &**o {
-                        f(*var, JavaType::Object("java/lang/Object".into()));
+                        // The field ref's declaring class is dex-exact
+                        // evidence — the old hardcoded Object let a
+                        // boolean copy chain outvote it (weixin ry0/h2's
+                        // `Boolean bool19` receiving `bool19.d = x` —
+                        // the 339-line 找不到符号 变量 d family).
+                        // EMPTY cls = the array-length pseudo-field
+                        // (lift models `a.length` as Field{cls:""}) —
+                        // Object("") evidence poisoned pick_object into
+                        // empty-typed declarations and `() x` casts.
+                        f(*var, JavaType::Object(cls.clone()));
                     }
                 }
             }
@@ -3460,9 +3534,15 @@ pub fn booleanize(vt: &mut VarTable, body: &mut Stmt, ret_bool: bool) -> usize {
     // Booleans propagate through local chains (`v17 = v24` where v24
     // itself became boolean in the first round) — iterate to a fixpoint;
     // the common corpus converts nothing and exits after one round.
+    // The deref disqualifier set is structural (positions, not types) —
+    // compute ONCE per call, not per round (12 full walks on big
+    // methods cost weibo +60% wall).
+    let n0 = vt.vars.len();
+    let mut derefed = vec![false; n0];
+    mark_derefs(body, &mut derefed);
     let mut total = 0usize;
     for _ in 0..4 {
-        let n = booleanize_round(vt, body, ret_bool);
+        let n = booleanize_round(vt, body, ret_bool, &derefed);
         if n == 0 {
             break;
         }
@@ -3471,7 +3551,60 @@ pub fn booleanize(vt: &mut VarTable, body: &mut Stmt, ret_bool: bool) -> usize {
     total
 }
 
-fn booleanize_round(vt: &mut VarTable, body: &mut Stmt, ret_bool: bool) -> usize {
+/// Mark vars used in DEREF positions (field/method receiver, array
+/// base) — allocation-free recursion (visit_all_exprs allocates a
+/// child Vec per statement; two callers run this per method).
+fn mark_deref_expr(e: &Expr, derefed: &mut [bool]) {
+    match e {
+        Expr::Field { owner: Some(o), is_static: false, .. }
+        | Expr::Method { owner: Some(o), .. } => {
+            if let Expr::Local { var, .. } = &**o {
+                if (*var as usize) < derefed.len() {
+                    derefed[*var as usize] = true;
+                }
+            }
+        }
+        Expr::ArrayIndex { array, .. } => {
+            if let Expr::Local { var, .. } = &**array {
+                if (*var as usize) < derefed.len() {
+                    derefed[*var as usize] = true;
+                }
+            }
+        }
+        _ => {}
+    }
+    for_each_child(e, &mut |c| mark_deref_expr(c, derefed));
+}
+
+fn mark_derefs(body: &Stmt, derefed: &mut [bool]) {
+    walk_all(body, &mut |st| {
+        match st {
+            Stmt::ExprStmt(e) | Stmt::Throw(e) | Stmt::MonitorEnter(e) | Stmt::MonitorExit(e) => {
+                mark_deref_expr(e, derefed);
+            }
+            Stmt::Return(Some(e)) => mark_deref_expr(e, derefed),
+            Stmt::LocalDef { init: Some(e), .. } => mark_deref_expr(e, derefed),
+            Stmt::If { cond, .. } | Stmt::While { cond, .. } | Stmt::DoWhile { cond, .. } => {
+                mark_deref_expr(cond, derefed);
+            }
+            Stmt::For { init, .. } => {
+                for x in init {
+                    mark_derefs(x, derefed);
+                }
+            }
+            Stmt::Switch { selector, .. } => mark_deref_expr(selector, derefed),
+            Stmt::ForEach { iterable, .. } => mark_deref_expr(iterable, derefed),
+            _ => {}
+        }
+    });
+}
+
+fn booleanize_round(
+    vt: &mut VarTable,
+    body: &mut Stmt,
+    ret_bool: bool,
+    derefed: &[bool],
+) -> usize {
     let n = vt.vars.len();
     let mut in_cond = vec![false; n];
 
@@ -3660,6 +3793,9 @@ fn booleanize_round(vt: &mut VarTable, body: &mut Stmt, ret_bool: bool) -> usize
     let mut boolean_vars: HashSet<u32> = HashSet::default();
     for i in 0..n {
         if vt.vars[i].is_param {
+            continue;
+        }
+        if derefed[i] {
             continue;
         }
         if !in_cond[i] && !(reads.get(&(i as u32)).copied().unwrap_or(0) == 0) {
