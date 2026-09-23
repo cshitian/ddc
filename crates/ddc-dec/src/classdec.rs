@@ -1188,6 +1188,98 @@ fn emit_class_body(
         }
     }
 
+    // Referenced-but-undeclared inherited-ctor bridges. The block above
+    // covers a class with NO declared ctor; this covers a class that
+    // DECLARES ctors but is missing one that dex callers reach THROUGH
+    // it. Dex resolves a `<init>` method-ref up the superclass chain, so
+    // a subclass `super(2, recv, owner, name, sig, flags)` may target
+    // `m.<init>(int,Object,Class,String,String,int)` that `m`
+    // (FunctionReferenceImpl) does NOT declare — its super `l` does.
+    // Java has no inherited ctors, so without a bridge on `m` every such
+    // subclass fails ("无法将类 m中的构造器 m应用到给定类型"). Mirror each
+    // referenced sig C lacks from the nearest ancestor declaring it, as a
+    // thin `super(..)` delegation. Ref-gated (only sigs actually called
+    // through C) so ordinary classes gain nothing.
+    if !class.is_interface()
+        && enum_consts.is_none()
+        && class.all_methods().any(|m| &*m.name == "<init>")
+    {
+        if let Some(refs) = pool.ctor_ref_sigs(&class.name) {
+            fn arg_sig(d: &str) -> &str {
+                let lo = d.find('(').map(|i| i + 1).unwrap_or(0);
+                let hi = d.find(')').unwrap_or(d.len());
+                &d[lo..hi]
+            }
+            let declared: jdc_core::FxHashSet<&str> = class
+                .all_methods()
+                .filter(|m| &*m.name == "<init>")
+                .map(|m| arg_sig(&m.desc))
+                .collect();
+            let mut missing: Vec<&String> = refs
+                .iter()
+                .filter(|s| !declared.contains(s.as_str()))
+                .collect();
+            missing.sort();
+            for sig in missing {
+                // Nearest ancestor declaring a public/protected <init>
+                // with this exact arg signature.
+                let mut sup = class.super_name.clone();
+                let mut found: Option<&PoolMethod> = None;
+                while let Some(s) = sup {
+                    if s == "java/lang/Object" {
+                        break;
+                    }
+                    let Some(sc) = pool.get(&s) else { break };
+                    if let Some(sm) = sc.all_methods().find(|m| {
+                        &*m.name == "<init>"
+                            && arg_sig(&m.desc) == sig.as_str()
+                            && m.access & crate::access::ACC_PRIVATE == 0
+                            && m.access
+                                & (crate::access::ACC_PUBLIC | crate::access::ACC_PROTECTED)
+                                != 0
+                    }) {
+                        found = Some(sm);
+                        break;
+                    }
+                    sup = sc.super_name.clone();
+                }
+                let Some(sm) = found else { continue };
+                let Some(d) = sm.parsed_desc() else { continue };
+                let mods = if sm.access & crate::access::ACC_PUBLIC != 0 {
+                    "public "
+                } else {
+                    "protected "
+                };
+                if emitted_any {
+                    out.push('\n');
+                }
+                out.push_str(&format!("    {}", "    ".repeat(depth)));
+                out.push_str(mods);
+                out.push_str(&java_ident(&simple));
+                out.push('(');
+                let mut names = Vec::with_capacity(d.args.len());
+                for (i, a) in d.args.iter().enumerate() {
+                    if i > 0 {
+                        out.push_str(", ");
+                    }
+                    out.push_str(&type_name(pool, a));
+                    let nm = format!("p{}", i + 1);
+                    out.push(' ');
+                    out.push_str(&nm);
+                    names.push(nm);
+                }
+                out.push_str(") {\n");
+                out.push_str(&format!(
+                    "    {}    super({});\n",
+                    "    ".repeat(depth),
+                    names.join(", ")
+                ));
+                out.push_str(&format!("    {}}}\n", "    ".repeat(depth)));
+                emitted_any = true;
+            }
+        }
+    }
+
     // Static initializer. INTERFACES cannot carry a `static { }` block in
     // Java — their clinit only assigns constants, which static_values (or
     // the `= null` default) already render as field initializers; skip

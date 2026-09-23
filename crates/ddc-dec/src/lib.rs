@@ -253,6 +253,14 @@ pub struct DexPool {
     /// Kotlin multi-file facade parts → public facade (see
     /// `kotlin_facade_map`).
     kotlin_facades: std::sync::OnceLock<jdc_core::FxHashMap<String, FacadeTarget>>,
+    /// Per class internal name: the set of `<init>` ARGUMENT descriptors
+    /// (the `(..)` inner text) REFERENCED through that class anywhere in
+    /// the pool. Dex resolves a `<init>` method-ref up the superclass
+    /// chain, so a subclass `super(..)` may target `C.<init>(sig)` that C
+    /// does NOT declare (an ancestor does) — Java has no inherited ctors,
+    /// so C needs a bridge. Computed once from the method-id tables
+    /// (parsed, survive image retirement). See `inherited_ctor_bridges`.
+    ctor_refs: std::sync::OnceLock<jdc_core::FxHashMap<String, jdc_core::FxHashSet<String>>>,
 }
 
 /// Raw code_item bytes of every synthetic-static accessor, keyed by
@@ -300,7 +308,39 @@ impl DexPool {
             pkg_simples: std::sync::OnceLock::new(),
             root_segs: std::sync::OnceLock::new(),
             kotlin_facades: std::sync::OnceLock::new(),
+            ctor_refs: std::sync::OnceLock::new(),
         }
+    }
+
+    /// Referenced `<init>` argument-descriptor set for a class internal
+    /// name (see `ctor_refs`). Builds the whole index on first call by
+    /// scanning every image's method-id table for `<init>` refs — cheap
+    /// (flat table, integer name-idx compare against the interned
+    /// "<init>" string) and done once for the whole decompile.
+    pub fn ctor_ref_sigs(&self, class: &str) -> Option<&jdc_core::FxHashSet<String>> {
+        self.ctor_refs
+            .get_or_init(|| {
+                let mut map: jdc_core::FxHashMap<String, jdc_core::FxHashSet<String>> =
+                    jdc_core::FxHashMap::default();
+                for dex in &self.dexes {
+                    let n = dex.method_count();
+                    for i in 0..n {
+                        let m = dex.method(i as u32);
+                        if dex.string(m.name_idx) != "<init>" {
+                            continue;
+                        }
+                        let desc = dex.proto_desc(m.proto_idx);
+                        let (Some(lo), Some(hi)) = (desc.find('('), desc.find(')')) else {
+                            continue;
+                        };
+                        map.entry(dex.class_name(m.class_idx))
+                            .or_default()
+                            .insert(desc[lo + 1..hi].to_string());
+                    }
+                }
+                map
+            })
+            .get(class)
     }
 
     /// Shared `MethodDescriptor` of a proto (one parse per image).
