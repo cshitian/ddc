@@ -5897,6 +5897,87 @@ fn do_split(
     }
 }
 
+/// Undo a DIVERGED generation split: rewrite every occurrence of the
+/// freshly-minted generation `from` back to the pre-if var `to` within
+/// `s` (both read positions and assignment targets, plus LocalDef var
+/// fields). At a control-flow join only splits BOTH branches produced
+/// survive (the phi merges on the shared var); a gen one branch minted
+/// alone does not. But `do_split` already rewrote that branch's write
+/// target IN PLACE, so without this undo the branch stores into a
+/// write-only orphan gen that no confluence reader ever reads — the
+/// value is silently lost AND the orphan renders undeclared (kt5.b
+/// Kotlin default-arg bridge: `v18_g1 = p6x` in then vs `v18 = false`
+/// in else, `this(.., v18, ..)` reads only else's value).
+fn rename_gen_back(s: &mut Stmt, from: u32, to: u32, vt: &VarTable) {
+    if from == to || (to as usize) >= vt.vars.len() {
+        return;
+    }
+    let to_ty = vt.vars[to as usize].ty.clone();
+    walk_mut_deep(s, &mut |st| {
+        if let Stmt::LocalDef { var, .. } = st {
+            if *var == from {
+                *var = to;
+            }
+        }
+    });
+    rewrite_exprs(s, &mut |e| {
+        deep_rewrite(e, &mut |x| {
+            if let Expr::Local { var, ty } = x {
+                if *var == from {
+                    *var = to;
+                    *ty = to_ty.clone();
+                }
+            }
+        });
+    });
+}
+
+/// Remove an undone generation's `by_slot` segment entry so slot-based
+/// resolution can never hand back the now-unreferenced gen id (its
+/// VarInfo stays — ids index `vars` — but nothing may select it).
+fn drop_gen_slot(vt: &mut VarTable, dead: u32) {
+    if (dead as usize) >= vt.vars.len() {
+        return;
+    }
+    let slot = vt.vars[dead as usize].slot as usize;
+    if let Some(seg) = vt.by_slot.get_mut(slot) {
+        seg.retain(|&(_, _, id)| id != dead);
+    }
+}
+
+/// Type gate for `rename_gen_back`: merging gen `v` back onto base `k`
+/// is only safe when the base can carry the gen's value — identical
+/// types, or BOTH primitives (the bool/int register-reuse family that
+/// booleanize + the cast fixers reconcile; the Kotlin bridge case,
+/// kt5.b `int v18` receiving `boolean p6x`). A reference-vs-primitive
+/// or cross-class merge would forge `String k = <boolean>`-style
+/// assignments that never compile (the lark/weibo/reqable regression
+/// of the ungated first cut: +8.4k `不兼容的类型`).
+fn undo_type_safe(vt: &VarTable, k: u32, v: u32) -> bool {
+    if (k as usize) >= vt.vars.len() || (v as usize) >= vt.vars.len() {
+        return false;
+    }
+    let kt = vt.vars[k as usize].ty.erased();
+    let vt_ty = vt.vars[v as usize].ty.erased();
+    if kt == vt_ty {
+        return true;
+    }
+    let is_prim = |t: &JavaType| {
+        matches!(
+            t,
+            JavaType::Int
+                | JavaType::Long
+                | JavaType::Short
+                | JavaType::Byte
+                | JavaType::Char
+                | JavaType::Float
+                | JavaType::Double
+                | JavaType::Boolean
+        )
+    };
+    is_prim(&kt) && is_prim(&vt_ty)
+}
+
 fn split_walk_stmt(
     st: &mut Stmt,
     vt: &mut VarTable,
@@ -5954,11 +6035,62 @@ fn split_walk_stmt(
             ..
         } => {
             rewrite_gen_reads(cond, gen, vt);
+            let then_floor = vt.vars.len() as u32;
             let mut g_then = gen.clone();
             split_walk_stmt(then_stmt, vt, &mut g_then, counter);
+            let else_floor = vt.vars.len() as u32;
             let mut g_else = gen.clone();
             if let Some(e) = else_stmt {
                 split_walk_stmt(e, vt, &mut g_else, counter);
+            }
+            // Undo splits that DIVERGED at this join (see
+            // rename_gen_back), with TWO gates learned the hard way
+            // (first cut regressed lark +8.4k):
+            //  1. the SIBLING KEPT THE BASE — `g_else[k]` equals the
+            //     entry mapping, i.e. only this branch minted a fresh
+            //     gen for k. When both branches split, each orphan is
+            //     declared by ensure_declared at its own value type and
+            //     compiles; renaming them back onto the base would
+            //     force cross-kind assignments (`int k = <boolean>`).
+            //  2. the fresh gen is WRITE-ONLY in the branch — a gen
+            //     read inside its branch renders fine on its own.
+            // The gated shape is the Kotlin default-arg bridge phi
+            // loss: then `v_g = p6x` / else `v = false` / confluence
+            // reads v — the then value was silently dropped AND v_g
+            // rendered undeclared (kt5.b). Undo restores the clean
+            // diamond so fold_default_arg_bridge can fire.
+            let mut undo_then: Vec<(u32, u32)> = g_then
+                .iter()
+                .filter(|(&k, &v)| {
+                    v >= then_floor
+                        && v < else_floor
+                        && g_else.get(&k).copied() == gen.get(&k).copied()
+                        && undo_type_safe(vt, k, v)
+                        && stmts_read_var(std::slice::from_ref(&**then_stmt), v) == 0
+                })
+                .map(|(&k, &v)| (v, k))
+                .collect();
+            undo_then.sort_unstable_by_key(|&(v, _)| std::cmp::Reverse(v));
+            for &(v, k) in &undo_then {
+                rename_gen_back(then_stmt, v, k, vt);
+                drop_gen_slot(vt, v);
+            }
+            if let Some(e) = else_stmt.as_deref_mut() {
+                let mut undo_else: Vec<(u32, u32)> = g_else
+                    .iter()
+                    .filter(|(&k, &v)| {
+                        v >= else_floor
+                            && g_then.get(&k).copied() == gen.get(&k).copied()
+                            && undo_type_safe(vt, k, v)
+                            && stmts_read_var(std::slice::from_ref(&*e), v) == 0
+                    })
+                    .map(|(&k, &v)| (v, k))
+                    .collect();
+                undo_else.sort_unstable_by_key(|&(v, _)| std::cmp::Reverse(v));
+                for &(v, k) in &undo_else {
+                    rename_gen_back(e, v, k, vt);
+                    drop_gen_slot(vt, v);
+                }
             }
             // Join: keep only splits BOTH paths produced (an absent else
             // is a fall-through path that keeps the pre-if generation).
