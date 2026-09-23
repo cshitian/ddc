@@ -748,3 +748,190 @@ fn scan_family_segments(
     }
     out
 }
+
+
+/// Cross-package access widening census.
+///
+/// ART tolerates access patterns Java forbids (R8/d8 keep package-
+/// private and protected members that are invoked cross-package; the
+/// weixin matrix JiffiesSnapshot chain, lark kotlinx.coroutines.k,
+/// protobuf unknownFields). The decompiled source must WIDEN those
+/// declarations or every foreign referrer fails to compile. This scan
+/// collects every type/field/method reference that crosses a package
+/// boundary; the installer filters to the actually non-public ones.
+#[derive(Default)]
+pub struct AccessWidening {
+    /// Internal names needing `public` (includes every `$`-outer prefix
+    /// of a referenced nested class — an inaccessible intermediate is
+    /// "是在不可访问的类或接口中定义的").
+    pub classes: HashSet<String>,
+    /// owner → (method name, proto descriptor).
+    pub methods: HashMap<String, HashSet<(String, String)>>,
+    /// owner → field name.
+    pub fields: HashMap<String, HashSet<String>>,
+}
+
+fn chain_prefixes(internal: &str, out: &mut HashSet<String>) {
+    let mut cur = internal;
+    loop {
+        out.insert(cur.to_string());
+        match cur.rfind('$') {
+            Some(i) if i > 0 => cur = &cur[..i],
+            _ => break,
+        }
+    }
+}
+
+pub fn access_widening_scan(dexes: &[Arc<DexFile>]) -> AccessWidening {
+    let nthreads = std::thread::available_parallelism()
+        .map(|n| n.get())
+        .unwrap_or(1)
+        .min(4)
+        .min(dexes.len().max(1));
+    let chunk = dexes.len().div_ceil(nthreads).max(1);
+    let merged: std::sync::Mutex<AccessWidening> =
+        std::sync::Mutex::new(AccessWidening::default());
+    std::thread::scope(|scope| {
+        let handles: Vec<_> = dexes
+            .chunks(chunk)
+            .map(|group| {
+                let merged = &merged;
+                scope.spawn(move || {
+                    let mut part = AccessWidening::default();
+                    for dex in group {
+                        scan_widening_image(dex, &mut part);
+                    }
+                    let mut m = merged.lock().unwrap();
+                    for c in part.classes {
+                        m.classes.insert(c);
+                    }
+                    for (k, v) in part.methods {
+                        m.methods.entry(k).or_default().extend(v);
+                    }
+                    for (k, v) in part.fields {
+                        m.fields.entry(k).or_default().extend(v);
+                    }
+                })
+            })
+            .collect();
+        for h in handles {
+            let _ = h.join();
+        }
+    });
+    merged.into_inner().unwrap_or_default()
+}
+
+fn scan_widening_image(dex: &DexFile, out: &mut AccessWidening) {
+    let n = dex.type_count();
+    // Per-type: internal class name (arrays stripped) + package.
+    let mut tname: Vec<Box<str>> = Vec::with_capacity(n);
+    let mut tpkg: Vec<Box<str>> = Vec::with_capacity(n);
+    for idx in 0..n {
+        let name = dex.type_name(idx as u32);
+        let mut b = name.strip_prefix('[').unwrap_or(name).to_string();
+        while b.starts_with('[') {
+            b.remove(0);
+        }
+        let inner = b
+            .strip_prefix('L')
+            .and_then(|s| s.strip_suffix(';'))
+            .unwrap_or("");
+        let p = match inner.rfind('/') {
+            Some(j) => &inner[..j],
+            None => "",
+        };
+        tname.push(inner.into());
+        tpkg.push(p.into());
+    }
+    for cd in &dex.class_defs {
+        let referrer = dex.class_name(cd.class_idx);
+        let rp = pkg_of(&referrer);
+        if rp.is_empty() {
+            continue; // default-package refs cannot be expressed anyway
+        }
+        let note_type = |t: u32, out: &mut AccessWidening| {
+            let i = t as usize;
+            let Some(nm) = tname.get(i) else { return };
+            if nm.is_empty() {
+                return;
+            }
+            let Some(p) = tpkg.get(i) else { return };
+            if p.is_empty() || p.as_ref() == rp {
+                return;
+            }
+            chain_prefixes(nm, &mut out.classes);
+        };
+        note_type(cd.superclass_idx, out);
+        for i in dex.interfaces_of(cd) {
+            note_type(i, out);
+        }
+        let data = dex.class_data(cd);
+        for f in data.static_fields.iter().chain(data.instance_fields.iter()) {
+            let fr = dex.field(f.field_idx);
+            note_type(fr.class_idx, out);
+            note_type(fr.type_idx, out);
+        }
+        for m in data.direct_methods.iter().chain(data.virtual_methods.iter()) {
+            let mr = dex.method(m.method_idx);
+            note_type(mr.class_idx, out);
+            let proto = dex.proto(mr.proto_idx);
+            note_type(proto.return_type_idx, out);
+            for &t in dex.proto_params(mr.proto_idx) {
+                note_type(t, out);
+            }
+            let Some(code) = (m.code_off != 0)
+                .then(|| dex.code_insns_bytes_at(m.code_off))
+                .flatten()
+            else {
+                continue;
+            };
+            ddc_dex::insn::scan_instructions(code, &mut |op, pc, bytes| {
+                let unit = |i: usize| -> u32 {
+                    bytes
+                        .get(2 * i..2 * i + 2)
+                        .map(|b| u16::from_le_bytes([b[0], b[1]]) as u32)
+                        .unwrap_or(NONE)
+                };
+                match op {
+                    0x1c | 0x1f | 0x20 | 0x22..=0x25 | 0xff => {
+                        note_type(unit(pc + 1), out);
+                    }
+                    0x52..=0x6d => {
+                        let fr = dex.field(unit(pc + 1));
+                        let owner = dex.class_name(fr.class_idx);
+                        let op_pkg = pkg_of(&owner);
+                        if !op_pkg.is_empty() && op_pkg != rp {
+                            note_type(fr.class_idx, out);
+                            out.fields
+                                .entry(owner.clone())
+                                .or_default()
+                                .insert(dex.string(fr.name_idx).to_string());
+                        }
+                        note_type(fr.type_idx, out);
+                    }
+                    0x6e..=0x72 | 0x74..=0x78 | 0xfa | 0xfb => {
+                        let mr = dex.method(unit(pc + 1));
+                        let owner = dex.class_name(mr.class_idx);
+                        let op_pkg = pkg_of(&owner);
+                        if !op_pkg.is_empty() && op_pkg != rp {
+                            note_type(mr.class_idx, out);
+                            out.methods
+                                .entry(owner.clone())
+                                .or_default()
+                                .insert((
+                                    dex.string(mr.name_idx).to_string(),
+                                    dex.proto_desc(mr.proto_idx).to_string(),
+                                ));
+                        }
+                        let proto = dex.proto(mr.proto_idx);
+                        note_type(proto.return_type_idx, out);
+                        for &t in dex.proto_params(mr.proto_idx) {
+                            note_type(t, out);
+                        }
+                    }
+                    _ => {}
+                }
+            });
+        }
+    }
+}

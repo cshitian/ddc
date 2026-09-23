@@ -815,7 +815,7 @@ fn emit_class_body(
 
     let mut head = String::new();
     let a = class.access;
-    if a & ACC_PUBLIC != 0 {
+    if a & ACC_PUBLIC != 0 || widen_class(&class.name) {
         head.push_str("public ");
     }
     // Inline nested members need their `static` (interfaces/annotations
@@ -1299,7 +1299,7 @@ fn emit_field(
     let ind = indent(depth);
     let mut line = String::new();
     let a = f.access;
-    if a & ACC_PUBLIC != 0 {
+    if a & ACC_PUBLIC != 0 || widen_field(f_class, &f.name) {
         line.push_str("public ");
     } else if a & ACC_PRIVATE != 0 {
         line.push_str("private ");
@@ -1412,7 +1412,7 @@ fn emit_method(
     // Signature.
     let mut sig = String::with_capacity(192);
     let a = m.access;
-    if a & ACC_PUBLIC != 0 {
+    if a & ACC_PUBLIC != 0 || widen_method(&class.name, &m.name, &m.desc) {
         sig.push_str("public ");
     } else if a & ACC_PRIVATE != 0 {
         sig.push_str("private ");
@@ -2041,6 +2041,169 @@ pub(crate) fn take_recorded_and_clear() -> jdc_core::FxHashSet<String> {
             .take()
             .map(|st| st.recorded)
             .unwrap_or_default()
+    })
+}
+
+// ---- cross-package access widening ----------------------------------
+// ART tolerates cross-package access to non-public classes/members that
+// R8/d8 preserved; Java source cannot express it ("是在不可访问的类或
+// 接口中定义的", "k在kotlinx.coroutines中不是公共的", "unknownFields 在
+// l6 中是 protected"). The census scan records every cross-package
+// reference; the installer keeps the non-public targets and the
+// declaration renders widen them to public.
+
+struct WidenState {
+    classes: jdc_core::FxHashSet<String>,
+    methods: jdc_core::FxHashMap<String, jdc_core::FxHashSet<(String, String)>>,
+    fields: jdc_core::FxHashMap<String, jdc_core::FxHashSet<String>>,
+}
+
+static WIDEN: std::sync::OnceLock<WidenState> = std::sync::OnceLock::new();
+
+pub(crate) fn install_access_widening(pool: &crate::DexPool) {
+    let t0 = std::time::Instant::now();
+    let raw = crate::refscan::access_widening_scan(pool.dexes());
+    let mut classes: jdc_core::FxHashSet<String> = jdc_core::FxHashSet::default();
+    for c in &raw.classes {
+        if let Some(pc) = pool.get_if_materialized(c) {
+            if pc.access & crate::access::ACC_PUBLIC == 0 {
+                classes.insert(c.clone());
+            }
+        }
+    }
+    let mut methods: jdc_core::FxHashMap<String, jdc_core::FxHashSet<(String, String)>> =
+        jdc_core::FxHashMap::default();
+    for (owner, set) in &raw.methods {
+        let Some(pc) = pool.get_if_materialized(owner) else {
+            continue;
+        };
+        let is_enum = pc.access & crate::access::ACC_ENUM != 0;
+        let mut keep: jdc_core::FxHashSet<(String, String)> =
+            jdc_core::FxHashSet::default();
+        for (name, desc) in set {
+            // Enum ctors are source-level private-only; clinit is never
+            // referenced. Widening either is a javac "modifier not
+            // allowed here".
+            if name == "<clinit>" || (is_enum && name == "<init>") {
+                continue;
+            }
+            let nonpub = pc
+                .all_methods()
+                .any(|m| &*m.name == name.as_str() && &*m.desc == desc.as_str()
+                    && m.access & crate::access::ACC_PUBLIC == 0);
+            if nonpub {
+                keep.insert((name.clone(), desc.clone()));
+            }
+        }
+        if !keep.is_empty() {
+            methods.insert(owner.clone(), keep);
+        }
+    }
+    // Override-closure DOWN the hierarchy: a widened (public) super
+    // method whose subclass override stays protected/package is
+    // "无法覆盖...更低的访问权限" (lark +823). Every transitive
+    // subclass declaring the same (name, desc) non-public widens too.
+    {
+        let mut subs: jdc_core::FxHashMap<String, Vec<String>> =
+            jdc_core::FxHashMap::default();
+        for name in &pool.order {
+            let Some(pc) = pool.get_if_materialized(name) else {
+                continue;
+            };
+            if let Some(sup) = &pc.super_name {
+                subs.entry(sup.clone()).or_default().push(name.clone());
+            }
+            for i in &pc.interfaces {
+                subs.entry(i.clone()).or_default().push(name.clone());
+            }
+        }
+        let seeds: Vec<(String, String, String)> = methods
+            .iter()
+            .flat_map(|(o, set)| {
+                set.iter().map(|(n, d)| (o.clone(), n.clone(), d.clone()))
+            })
+            .collect();
+        for (owner, mname, mdesc) in seeds {
+            let mut queue: Vec<String> = match subs.get(&owner) {
+                Some(v) => v.clone(),
+                None => continue,
+            };
+            let mut seen: jdc_core::FxHashSet<String> = jdc_core::FxHashSet::default();
+            while let Some(c) = queue.pop() {
+                if !seen.insert(c.clone()) {
+                    continue;
+                }
+                let Some(pc) = pool.get_if_materialized(&c) else {
+                    continue;
+                };
+                let declares_nonpub = pc.all_methods().any(|m| {
+                    &*m.name == mname.as_str()
+                        && &*m.desc == mdesc.as_str()
+                        && m.access & crate::access::ACC_PUBLIC == 0
+                });
+                if declares_nonpub {
+                    methods
+                        .entry(c.clone())
+                        .or_default()
+                        .insert((mname.clone(), mdesc.clone()));
+                }
+                if let Some(v) = subs.get(&c) {
+                    queue.extend(v.iter().cloned());
+                }
+            }
+        }
+    }
+    let mut fields: jdc_core::FxHashMap<String, jdc_core::FxHashSet<String>> =
+        jdc_core::FxHashMap::default();
+    for (owner, set) in &raw.fields {
+        let Some(pc) = pool.get_if_materialized(owner) else {
+            continue;
+        };
+        let keep: jdc_core::FxHashSet<String> = set
+            .iter()
+            .filter(|name| {
+                pc.static_fields
+                    .iter()
+                    .chain(pc.instance_fields.iter())
+                    .any(|f| f.name == name.as_str()
+                        && f.access & crate::access::ACC_PUBLIC == 0)
+            })
+            .cloned()
+            .collect();
+        if !keep.is_empty() {
+            fields.insert(owner.clone(), keep);
+        }
+    }
+    if std::env::var("DDC_STATS").is_ok() {
+        eprintln!(
+            "[renames] access widening: classes={} method-owners={} field-owners={} scan={:?}",
+            classes.len(),
+            methods.len(),
+            fields.len(),
+            t0.elapsed()
+        );
+    }
+    let _ = WIDEN.set(WidenState { classes, methods, fields });
+}
+
+#[inline]
+pub(crate) fn widen_class(internal: &str) -> bool {
+    WIDEN.get().is_some_and(|w| w.classes.contains(internal))
+}
+
+#[inline]
+pub(crate) fn widen_method(owner: &str, name: &str, desc: &str) -> bool {
+    WIDEN.get().is_some_and(|w| {
+        w.methods
+            .get(owner)
+            .is_some_and(|s| s.contains(&(name.to_string(), desc.to_string())))
+    })
+}
+
+#[inline]
+pub(crate) fn widen_field(owner: &str, name: &str) -> bool {
+    WIDEN.get().is_some_and(|w| {
+        w.fields.get(owner).is_some_and(|s| s.contains(name))
     })
 }
 

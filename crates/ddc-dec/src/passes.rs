@@ -3189,6 +3189,17 @@ pub fn fix_int_operand_bridges(body: &mut Stmt, vt: &VarTable) {
                             _ => None,
                         }
                     }
+                    // Local targets: the split/booleanize machinery owns
+                    // the mixed-kind register cases; the residue that
+                    // reached render (boolean无法转换为byte/long, ~360
+                    // lines) gets the same value-side bridge.
+                    Expr::Local { var, .. } => {
+                        if (*var as usize) < vt.vars.len() {
+                            Some(vt.var(*var).ty.erased())
+                        } else {
+                            None
+                        }
+                    }
                     _ => None,
                 };
                 if let Some(t) = tgt_ty {
@@ -6709,7 +6720,75 @@ fn is_kotlin_check(s: &Stmt) -> bool {
 /// calls) tolerated around the core. Only STATIC + SYNTHETIC callees
 /// qualify (compiler-generated bridges: no override semantics, no
 /// side effects beyond the forwarded operation).
-pub fn inline_accessors(s: &mut Stmt, pool: &DexPool) {
+/// Can `host` (internal class name) source-level reference `target`'s
+/// class chain and member? Cross-package inlining of a synthetic
+/// accessor used to EXPOSE package-private targets the raw dex never
+/// referenced cross-package (BuildersKt.launch$default forwards to
+/// kotlinx.coroutines.k.e — the widening census cannot see post-inline
+/// calls; lark's 1,019-line k不是公共的 family). Non-public chain link
+/// or non-public member across packages → the inline must not happen
+/// (the public synthetic bridge stays and compiles).
+fn inline_ref_ok(pool: &DexPool, host: &str, target: &str, member: Option<(&str, bool)>) -> bool {
+    let hpkg = match host.rfind('/') {
+        Some(i) => &host[..i],
+        None => "",
+    };
+    let mut cur = target;
+    loop {
+        let tpkg = match cur.rfind('/') {
+            Some(i) => &cur[..i],
+            None => "",
+        };
+        if tpkg != hpkg {
+            if let Some(pc) = pool.get(cur) {
+                if pc.access & crate::access::ACC_PUBLIC == 0 {
+                    return false;
+                }
+                if cur == target {
+                    if let Some((mname, is_method)) = member {
+                        let ok = if is_method {
+                            pc.all_methods().any(|m| {
+                                &*m.name == mname
+                                    && m.access & crate::access::ACC_PUBLIC != 0
+                            })
+                        } else {
+                            pc.static_fields
+                                .iter()
+                                .chain(pc.instance_fields.iter())
+                                .any(|f| {
+                                    f.name == mname
+                                        && f.access & crate::access::ACC_PUBLIC != 0
+                                })
+                        };
+                        // A member match requires the exact member to be
+                        // public; an absent member (renamed/collapsed)
+                        // stays allowed — the render will show what the
+                        // pool has.
+                        if !ok
+                            && (if is_method {
+                                pc.all_methods().any(|m| &*m.name == mname)
+                            } else {
+                                pc.static_fields
+                                    .iter()
+                                    .chain(pc.instance_fields.iter())
+                                    .any(|f| f.name == mname)
+                            })
+                        {
+                            return false;
+                        }
+                    }
+                }
+            }
+        }
+        match cur.rfind('$') {
+            Some(i) if i > 0 => cur = &cur[..i],
+            _ => break,
+        }
+    }
+    true
+}
+
+pub fn inline_accessors(s: &mut Stmt, pool: &DexPool, host: &str) {
     rewrite_exprs(s, &mut |e| {
         let Expr::Method { cls, name, desc, args, is_static, .. } = e else { return };
         if !*is_static || args.is_empty() {
@@ -6746,6 +6825,9 @@ pub fn inline_accessors(s: &mut Stmt, pool: &DexPool) {
                 }
             }
             Some(Shape::FieldRead { arg, cls: field_cls, field, field_ty }) => {
+                if !inline_ref_ok(pool, host, &field_cls, Some((&field, false))) {
+                    return;
+                }
                 if let Some(owner) = args.get(arg).cloned().map(Box::new) {
                     let ty = TypeRef::J(desc_type(&field_ty));
                     *e = Expr::Field {
@@ -6758,6 +6840,9 @@ pub fn inline_accessors(s: &mut Stmt, pool: &DexPool) {
                 }
             }
             Some(Shape::Forward { cls: tcls, name: tname, desc: tdesc, instance }) => {
+                if !inline_ref_ok(pool, host, &tcls, Some((&tname, true))) {
+                    return;
+                }
                 *cls = tcls.into();
                 *name = tname.into();
                 *desc = std::sync::Arc::new(tdesc);

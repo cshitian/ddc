@@ -560,6 +560,11 @@ impl DexPool {
         self.dexes.len()
     }
 
+    /// Raw image list (install-phase whole-program scans).
+    pub fn dexes(&self) -> &[std::sync::Arc<ddc_dex::DexFile>] {
+        &self.dexes
+    }
+
     /// First path segments of every package in the pool (cached once).
     pub fn root_pkg_segs(&self) -> &jdc_core::FxHashSet<String> {
         self.root_segs.get_or_init(|| {
@@ -1480,6 +1485,9 @@ pub fn install_case_renames(pool: &DexPool) {
     nested_collision_renames(pool, &mut map, &fam_segs);
     jdc_core::rename::set_class_renames(map);
     jdc_core::rename::set_field_renames(combined_field_renames(pool));
+    if pool_majority_materialized(pool) {
+        crate::classdec::install_access_widening(pool);
+    }
 }
 
 /// A top-level class `P/s` whose simple name equals the FIRST PACKAGE

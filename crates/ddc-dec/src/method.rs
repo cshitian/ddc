@@ -561,7 +561,7 @@ pub fn decompile_method(
         }
         passes::forward_single_use(&mut body, &vt);
         passes::cleanup(&mut body);
-        passes::inline_accessors(&mut body, pool);
+        passes::inline_accessors(&mut body, pool, &class.name);
         passes::infer_types(&mut vt, &mut body, &desc.ret, &env);
         passes::split_generations(&mut vt, &mut body);
         passes::insert_object_narrowing_casts(&vt, &mut body);
@@ -825,7 +825,7 @@ pub fn decompile_method(
     }
     passes::forward_single_use(&mut body, &vt);
     passes::cleanup(&mut body);
-    passes::inline_accessors(&mut body, pool);
+    passes::inline_accessors(&mut body, pool, &class.name);
     passes::infer_types(&mut vt, &mut body, &desc.ret, &env);
     passes::split_generations(&mut vt, &mut body);
     // Post-booleanize re-split, gated on a nonzero conversion count:
