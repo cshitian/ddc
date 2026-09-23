@@ -3363,6 +3363,131 @@ pub fn fix_int_operand_bridges(body: &mut Stmt, vt: &VarTable) {
     });
 }
 
+/// Statement-level idiom restoration (readability parity with
+/// jadx/DAD, flagged by the androguard comparison): `v = v + 1` →
+/// `v++`, `v = v op x` → `v op= x`. Local targets only — a compound
+/// field/array target would change how often the receiver expression
+/// evaluates. Var must be the LEFT operand (non-commutative ops;
+/// string-concat order). The ±1 fold requires a numeric vt type
+/// (`s++` on a String is invalid while `s += 1` is not).
+pub fn idiom_compounds(body: &mut Stmt, vt: &VarTable) {
+    walk_mut_deep(body, &mut |st| {
+        let Stmt::ExprStmt(e) = st else { return };
+        let Expr::Assign { target, op: AssignOp::Plain, value } = &mut *e else {
+            return;
+        };
+        // Target: a local, or a bare field (static / this — no complex
+        // receiver whose re-evaluation a compound would elide).
+        enum Tgt {
+            Loc(u32),
+            Fld,
+        }
+        let tgt = match &**target {
+            Expr::Local { var, .. } => Tgt::Loc(*var),
+            Expr::Field { owner, .. }
+                if matches!(owner, None)
+                    || matches!(&**owner.as_ref().unwrap(), Expr::This) =>
+            {
+                Tgt::Fld
+            }
+            _ => return,
+        };
+        let Expr::Bin { op, l, r, .. } = &mut **value else {
+            return;
+        };
+        // The left operand must be the SAME storage as the target.
+        match (&tgt, &**l) {
+            (Tgt::Loc(v), Expr::Local { var, .. }) if *var == *v => {}
+            (Tgt::Fld, Expr::Field { cls: c2, name: n2, .. }) => {
+                let Expr::Field { cls: c1, name: n1, .. } = &**target else {
+                    return;
+                };
+                if c1 != c2 || n1 != n2 {
+                    return;
+                }
+            }
+            _ => return,
+        }
+        // ±1 constant on a numeric var → post-inc/dec.
+        let one = match &**r {
+            Expr::Const(ConstVal::Int(1)) => Some(1i64),
+            Expr::Const(ConstVal::Int(-1)) => Some(-1),
+            Expr::Const(ConstVal::Long(1)) => Some(1),
+            Expr::Const(ConstVal::Long(-1)) => Some(-1),
+            _ => None,
+        };
+        if *op == BinOp::Add || *op == BinOp::Sub {
+            if let Some(mut d) = one {
+                if *op == BinOp::Sub {
+                    d = -d;
+                }
+                let tgt_ty = match &tgt {
+                    Tgt::Loc(v) => vt.var(*v).ty.erased(),
+                    Tgt::Fld => {
+                        let Expr::Field { ty, .. } = &**target else {
+                            return;
+                        };
+                        ty.erased()
+                    }
+                };
+                let numeric = matches!(
+                    tgt_ty,
+                    JavaType::Int
+                        | JavaType::Long
+                        | JavaType::Short
+                        | JavaType::Byte
+                        | JavaType::Char
+                        | JavaType::Float
+                        | JavaType::Double
+                );
+                if numeric {
+                    let wide = matches!(tgt_ty, JavaType::Long);
+                    let inner = match &tgt {
+                        Tgt::Loc(v) => Expr::Local {
+                            var: *v,
+                            ty: vt.var(*v).ty.clone(),
+                        },
+                        Tgt::Fld => (**target).clone(),
+                    };
+                    *e = Expr::PostIncDec {
+                        e: Box::new(inner),
+                        delta: d,
+                        wide,
+                    };
+                    return;
+                }
+            }
+        }
+        let cop = match op {
+            BinOp::Add => AssignOp::Add,
+            BinOp::Sub => AssignOp::Sub,
+            BinOp::Mul => AssignOp::Mul,
+            BinOp::Div => AssignOp::Div,
+            BinOp::Rem => AssignOp::Rem,
+            BinOp::Shl => AssignOp::Shl,
+            BinOp::Shr => AssignOp::Shr,
+            BinOp::Ushr => AssignOp::Ushr,
+            BinOp::And => AssignOp::And,
+            BinOp::Or => AssignOp::Or,
+            BinOp::Xor => AssignOp::Xor,
+            _ => return,
+        };
+        let rhs = std::mem::replace(r, Box::new(Expr::Const(ConstVal::Null)));
+        let new_target = match &tgt {
+            Tgt::Loc(v) => Box::new(Expr::Local {
+                var: *v,
+                ty: vt.var(*v).ty.clone(),
+            }),
+            Tgt::Fld => target.clone(),
+        };
+        *e = Expr::Assign {
+            target: new_target,
+            op: cop,
+            value: rhs,
+        };
+    });
+}
+
 pub fn fix_bool_xor(body: &mut Stmt, vt: &VarTable, ret_bool: bool) {
     fn is_one(e: &Expr) -> bool {
         matches!(e, Expr::Const(ConstVal::Int(1)))

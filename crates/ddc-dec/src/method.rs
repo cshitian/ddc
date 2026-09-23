@@ -570,6 +570,7 @@ pub fn decompile_method(
         passes::fix_primitive_arg_bridges(&mut body, &vt, pool);
         passes::fix_bool_xor(&mut body, &vt, matches!(desc.ret, JavaType::Boolean));
         passes::fix_int_operand_bridges(&mut body, &vt);
+        passes::idiom_compounds(&mut body, &vt);
         passes::rescue_primitive_receivers(&mut body, &vt, pool);
         passes::apply_local_names(&mut vt, &body);
     passes::deshadow_locals(&mut vt, pool);
@@ -861,6 +862,7 @@ pub fn decompile_method(
     passes::fix_primitive_arg_bridges(&mut body, &vt, pool);
     passes::fix_bool_xor(&mut body, &vt, matches!(desc.ret, JavaType::Boolean));
     passes::fix_int_operand_bridges(&mut body, &vt);
+    passes::idiom_compounds(&mut body, &vt);
     passes::rescue_primitive_receivers(&mut body, &vt, pool);
     passes::apply_local_names(&mut vt, &body);
     passes::deshadow_locals(&mut vt, pool);
