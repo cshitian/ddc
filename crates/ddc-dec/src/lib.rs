@@ -935,7 +935,16 @@ pub fn find_outer_name(pool: &DexPool, internal: &str) -> Option<String> {
     // materializing the world.
     if let Some(pc) = pool.get_if_materialized(internal) {
         if let Some(enc) = &pc.nesting.enclosing_class {
-            return Some(enc.clone());
+            // The annotation outer must still EXIST: R8 deletes whole
+            // outer classes and leaves the nestlings as flat `$` files
+            // (weixin matrix JiffiesMonitorFeature deleted,
+            // $JiffiesSnapshot survives) — an unresolved annotation
+            // outer made refs render dotted THROUGH a missing type
+            // ("是在不可访问的类或接口中定义的"). Fall through to the
+            // existence-checked `$` walk.
+            if pool.has_name(enc) {
+                return Some(enc.clone());
+            }
         }
     }
     let mut rest = internal;
