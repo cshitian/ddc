@@ -5319,6 +5319,26 @@ fn pre_this_safe(e: &Expr, prefix_vars: &jdc_core::FxHashSet<u32>) -> bool {
                     None => *is_static,
                 }
         }
+        // Allocation in a delegation arg is legal Java before this()
+        // (the ctor call touches no instance state of THIS class) — the
+        // missing arm sent every `new Date()`-style Kotlin default
+        // through `_ => false`, rejecting the whole fold (lark
+        // Request$AppToApp this-not-first family, ~650 lark lines).
+        // An inner-class construction needing an outer `this` carries
+        // Expr::This in its args, which still fails below.
+        Expr::New { args, .. } => args.iter().all(|a| pre_this_safe(a, prefix_vars)),
+        Expr::NewArray { dims, init, .. } => {
+            dims.iter().all(|d| pre_this_safe(d, prefix_vars))
+                && init
+                    .as_ref()
+                    .map(|l| l.iter().all(|x| pre_this_safe(x, prefix_vars)))
+                    .unwrap_or(true)
+        }
+        // Pure unary/instanceof/array reads.
+        Expr::Un { e, .. } | Expr::InstanceOf { e, .. } => pre_this_safe(e, prefix_vars),
+        Expr::ArrayIndex { array, index } => {
+            pre_this_safe(array, prefix_vars) && pre_this_safe(index, prefix_vars)
+        }
         _ => false,
     }
 }
