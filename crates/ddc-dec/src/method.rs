@@ -563,6 +563,7 @@ pub fn decompile_method(
         passes::cleanup(&mut body);
         passes::inline_accessors(&mut body, pool, &class.name);
         passes::infer_types(&mut vt, &mut body, &desc.ret, &env);
+        passes::fix_ref_null_assigns(&vt, &mut body);
         passes::split_generations(&mut vt, &mut body);
         passes::insert_object_narrowing_casts(&vt, &mut body);
         passes::fix_incomparable_equality(&mut body, &vt, pool);
@@ -580,6 +581,7 @@ pub fn decompile_method(
         passes::rewrite_kotlin_facades(&mut body, pool);
         passes::platform_constants(&mut body);
         passes::drop_dead_locals(&mut body);
+    passes::mark_field_owner_concrete(&mut vt, &mut body);
     passes::ensure_declared(&mut body, &vt);
     passes::rescue_arg_return_swaps(&mut body, &vt, pool, &desc.ret);
     // AFTER the declaration hoisting: ensure_declared inserts bare
@@ -831,6 +833,7 @@ pub fn decompile_method(
     passes::cleanup(&mut body);
     passes::inline_accessors(&mut body, pool, &class.name);
     passes::infer_types(&mut vt, &mut body, &desc.ret, &env);
+    passes::fix_ref_null_assigns(&vt, &mut body);
     passes::split_generations(&mut vt, &mut body);
     // Post-booleanize re-split, gated on a nonzero conversion count:
     // conversions expose register reuse across boolean/numeric kinds no
@@ -878,6 +881,7 @@ pub fn decompile_method(
     passes::rewrite_kotlin_facades(&mut body, pool);
     passes::platform_constants(&mut body);
     passes::drop_dead_locals(&mut body);
+    passes::mark_field_owner_concrete(&mut vt, &mut body);
     passes::ensure_declared(&mut body, &vt);
     passes::rescue_arg_return_swaps(&mut body, &vt, pool, &desc.ret);
     // AFTER the declaration hoisting: ensure_declared inserts bare

@@ -2784,6 +2784,48 @@ fn expr_evidence<F: FnMut(u32, JavaType)>(e: &Expr, f: &mut F) {
     });
 }
 
+/// Mark locals that OWN a non-static field access and whose inferred type
+/// is a concrete `$<digits>` class (a d8/R8-desugared lambda or a Kotlin
+/// suspend-lambda). Emit demotes such a type to its SAM interface in
+/// DECLARED positions (`Function2 v = new Outer$..$1(..)`) for phi-friendly
+/// readability — but interfaces carry no instance fields, so the Kotlin
+/// coroutine `create()` capture writes (`v.L$0 = obj`, also I$/J$) render
+/// "找不到符号 变量 L$0" (weibo MutableScatterMap$..$iterator$1, ~1k).
+/// Forcing the concrete declared type keeps the field access legal; the phi
+/// case is excluded because a disagreed merge stays Object (wide_stack_vars),
+/// never a specific concrete class. Gate mirrors emit's demotion exactly
+/// (last `$` segment all digits) so nothing else changes.
+pub fn mark_field_owner_concrete(vt: &mut VarTable, body: &mut Stmt) {
+    let mut owners: HashSet<u32> = HashSet::default();
+    rewrite_exprs(body, &mut |e| {
+        visit_exprs(e, &mut |x| {
+            if let Expr::Field {
+                owner: Some(o),
+                is_static: false,
+                ..
+            } = x
+            {
+                if let Expr::Local { var, .. } = &**o {
+                    owners.insert(*var);
+                }
+            }
+        });
+    });
+    for var in owners {
+        let i = var as usize;
+        if i >= vt.vars.len() {
+            continue;
+        }
+        if let JavaType::Object(cls) = vt.vars[i].ty.erased() {
+            if let Some(last) = cls.rsplit('$').next() {
+                if !last.is_empty() && last.chars().all(|c| c.is_ascii_digit()) {
+                    vt.force_concrete_vars.insert(var);
+                }
+            }
+        }
+    }
+}
+
 /// Type inference can leave a specific-reference-typed target assigned
 /// from a `java/lang/Object`-typed value: a phi that merged String and
 /// Object then settled on String (`String str4; ... str4 = obj;` where
@@ -3546,6 +3588,50 @@ pub fn rescue_arg_return_swaps(
 /// over a String[]/Object[] slot carries the zero word, and the lifted
 /// `new String[] {0}` is int无法转换为String (qs0/b family). A Const
 /// Int(0) element of a reference-typed array init is the null ref.
+/// `refVar = const 0` (dex `const/4 vN, 0` into a reference register) is
+/// the NULL sentinel, not an int. By the time this runs infer_types has
+/// typed the var a reference (its `.close()`/`.length`/method reads
+/// proved it), so retype the const to Null BEFORE split_generations —
+/// otherwise the ref/primitive mismatch splits off an int generation and
+/// orphans the reference reads (u7.l try-with-resources finally
+/// `v16_g3 = 0; if (v16_g3 != 0) v16_g3.close();` → "无法取消引用int").
+/// `fix_incomparable_equality` already retypes the `refVar != 0`
+/// COMPARISON side (but runs after the split); this covers the ASSIGN
+/// side, which is what triggers the bad split.
+pub fn fix_ref_null_assigns(vt: &VarTable, body: &mut Stmt) {
+    let is_ref_var = |var: u32| -> bool {
+        (var as usize) < vt.vars.len()
+            && matches!(
+                vt.vars[var as usize].ty.erased(),
+                JavaType::Object(_) | JavaType::Array(_)
+            )
+    };
+    walk_mut_deep(body, &mut |st| match st {
+        Stmt::ExprStmt(Expr::Assign {
+            target,
+            value,
+            op: AssignOp::Plain,
+            ..
+        }) => {
+            if let Expr::Local { var, .. } = &**target {
+                if is_ref_var(*var) && matches!(&**value, Expr::Const(ConstVal::Int(0))) {
+                    **value = Expr::Const(ConstVal::Null);
+                }
+            }
+        }
+        Stmt::LocalDef {
+            var,
+            init: Some(e),
+            ..
+        } => {
+            if is_ref_var(*var) && matches!(e, Expr::Const(ConstVal::Int(0))) {
+                *e = Expr::Const(ConstVal::Null);
+            }
+        }
+        _ => {}
+    });
+}
+
 pub fn fix_ref_array_null_consts(body: &mut Stmt) {
     walk_stmt_exprs(body, &mut |e| {
         deep_rewrite(e, &mut |x| {
@@ -3729,6 +3815,20 @@ pub fn fix_int_operand_bridges(body: &mut Stmt, vt: &VarTable) {
                     let taken =
                         std::mem::replace(index, Box::new(Expr::Const(ConstVal::Null)));
                     *index = wrap(taken);
+                }
+            }
+            // A boolean-typed array DIMENSION is the same reused-register
+            // case at the allocation site (`new Object[v200]` where v200
+            // is boolean-typed — weixin AppBrandRuntime, bool→int family):
+            // dex new-array reads the size register as int and booleans
+            // ARE 0/1 ints there, so bridge `(b ? 1 : 0)`.
+            if let Expr::NewArray { dims, .. } = x {
+                for d in dims.iter_mut() {
+                    if side_bool(d, vt) && !side_int(d, vt) {
+                        let taken =
+                            std::mem::replace(d, Expr::Const(ConstVal::Null));
+                        *d = *wrap(Box::new(taken));
+                    }
                 }
             }
             if let Expr::Bin { op, l, r, .. } = x {
