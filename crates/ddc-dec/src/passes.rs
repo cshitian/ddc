@@ -2458,6 +2458,30 @@ pub fn infer_types(vt: &mut VarTable, body: &mut Stmt, ret: &JavaType, env: &Met
                 }
             }
         }
+        // `v != null` is STRONG reference evidence: the lifter only
+        // renders the null form when the dex value view held a
+        // reference register at that pc — an int-typed generation
+        // compared against null is phi-confluence residue (yq0/g1's
+        // `v95_g12 != null`, 546-line 二元运算符 family). Strong Object
+        // makes the resolver retype and split_generations separate the
+        // int writes into their own generation.
+        if let Expr::Bin { op, l, r, .. } = x {
+            if matches!(op, BinOp::Eq | BinOp::Ne)
+                && (matches!(&**r, Expr::Const(ConstVal::Null))
+                    || matches!(&**l, Expr::Const(ConstVal::Null)))
+            {
+                for side in [l, r] {
+                    if let Expr::Local { var, .. } = &**side {
+                        ev(
+                            &mut evidence,
+                            *var,
+                            JavaType::Object("java/lang/Object".into()),
+                            true,
+                        );
+                    }
+                }
+            }
+        }
     });
     const FINAL_JDK: &[&str] = &[
         "java/lang/Boolean",
@@ -3435,6 +3459,26 @@ pub fn fix_int_operand_bridges(body: &mut Stmt, vt: &VarTable) {
                         r: Box::new(Expr::Const(ConstVal::Int(0))),
                         ty: Some(TypeRef::J(JavaType::Boolean)),
                     };
+                }
+            }
+            // Null-vs-int comparison: dex if-eqz/if-nez is type-agnostic
+            // and null IS zero — when the local came out int-typed (phi
+            // confluence residue), rewrite the Null constant to 0
+            // (`v95_g12 != null` → `v95_g12 != 0`, faithful and legal;
+            // yq0/g1 546-line 二元运算符 family).
+            if let Expr::Bin { op, l, r, .. } = x {
+                if matches!(op, BinOp::Eq | BinOp::Ne) {
+                    if matches!(&**r, Expr::Const(ConstVal::Null))
+                        && side_int(l, vt)
+                        && !side_bool(l, vt)
+                    {
+                        **r = Expr::Const(ConstVal::Int(0));
+                    } else if matches!(&**l, Expr::Const(ConstVal::Null))
+                        && side_int(r, vt)
+                        && !side_bool(r, vt)
+                    {
+                        **l = Expr::Const(ConstVal::Int(0));
+                    }
                 }
             }
             // A boolean-typed array INDEX is a reused register holding
