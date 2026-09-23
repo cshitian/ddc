@@ -3322,6 +3322,26 @@ pub fn rescue_primitive_receivers(body: &mut Stmt, vt: &VarTable, pool: &crate::
     });
 }
 
+/// Reference-array initializers take null, not 0: dex fill-array-data
+/// over a String[]/Object[] slot carries the zero word, and the lifted
+/// `new String[] {0}` is int无法转换为String (qs0/b family). A Const
+/// Int(0) element of a reference-typed array init is the null ref.
+pub fn fix_ref_array_null_consts(body: &mut Stmt) {
+    walk_stmt_exprs(body, &mut |e| {
+        deep_rewrite(e, &mut |x| {
+            if let Expr::NewArray { elem, init: Some(list), .. } = x {
+                if matches!(elem.erased(), JavaType::Object(_) | JavaType::Array(_)) {
+                    for slot in list.iter_mut() {
+                        if matches!(&*slot, Expr::Const(ConstVal::Int(0))) {
+                            *slot = Expr::Const(ConstVal::Null);
+                        }
+                    }
+                }
+            }
+        });
+    });
+}
+
 /// Int-context operand bridge: a BOOLEAN-typed side of an int-kind Bin
 /// (bitwise, arithmetic, comparison against a numeric) becomes
 /// `(b ? 1 : 0)` — the dex-level truth (booleans ARE 0/1 ints there;
