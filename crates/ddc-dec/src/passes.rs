@@ -3315,6 +3315,43 @@ pub fn fix_int_operand_bridges(body: &mut Stmt, vt: &VarTable) {
                     }
                 }
             }
+            // Explicit casts across the bool/num line are invalid Java
+            // in BOTH directions: `(byte) this.r` (dex int-to-byte over
+            // a boolean-rendered field — weixin AccInfo writeByte ×207)
+            // becomes `(byte)(r ? 1 : 0)`, and `(boolean) x` over an
+            // int becomes `x != 0`.
+            if let Expr::Cast { ty, e } = x {
+                let t = ty.erased();
+                let t_num = matches!(
+                    t,
+                    JavaType::Int
+                        | JavaType::Short
+                        | JavaType::Byte
+                        | JavaType::Char
+                        | JavaType::Long
+                        | JavaType::Float
+                        | JavaType::Double
+                );
+                if t_num && side_bool(e, vt) && !side_int(e, vt) {
+                    let taken = std::mem::replace(e, Box::new(Expr::Const(ConstVal::Null)));
+                    **e = Expr::Cond {
+                        c: taken,
+                        t: Box::new(Expr::Const(ConstVal::Int(1))),
+                        f: Box::new(Expr::Const(ConstVal::Int(0))),
+                    };
+                } else if matches!(t, JavaType::Boolean)
+                    && side_int(e, vt)
+                    && !side_bool(e, vt)
+                {
+                    let taken = std::mem::replace(e, Box::new(Expr::Const(ConstVal::Null)));
+                    *x = Expr::Bin {
+                        op: BinOp::Ne,
+                        l: taken,
+                        r: Box::new(Expr::Const(ConstVal::Int(0))),
+                        ty: Some(TypeRef::J(JavaType::Boolean)),
+                    };
+                }
+            }
             // A boolean-typed array INDEX is a reused register holding
             // an int (`this.L[v3x]` — boolean无法转换为int at the index
             // position): bridge it in reads and writes alike.
