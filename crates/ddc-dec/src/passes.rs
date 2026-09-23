@@ -3312,6 +3312,43 @@ pub fn rescue_primitive_receivers(body: &mut Stmt, vt: &VarTable, pool: &crate::
             }
             let id = if cands.len() == 1 {
                 cands[0]
+            } else if cands.len() > 1 {
+                // Multiple owner-typed vars: prefer the same-SLOT one
+                // (register lineage), latest generation wins — the
+                // receiver position is scope-insensitive (any method-
+                // scope var renders, the decl hoist covers it).
+                let slot = if (recv_var as usize) < vt.vars.len() {
+                    Some(vt.var(recv_var).slot)
+                } else {
+                    None
+                };
+                let mut hits: Vec<u32> = match slot {
+                    Some(sl) => cands
+                        .iter()
+                        .copied()
+                        .filter(|&c| {
+                            c != recv_var
+                                && (c as usize) < vt.vars.len()
+                                && vt.var(c).slot == sl
+                        })
+                        .collect(),
+                    None => Vec::new(),
+                };
+                if hits.is_empty() {
+                    // No same-slot twin: fall back to the latest
+                    // owner-typed generation (max id).
+                    hits = cands
+                        .iter()
+                        .copied()
+                        .filter(|&c| c != recv_var)
+                        .collect();
+                }
+                hits.sort_unstable();
+                hits.dedup();
+                if hits.is_empty() {
+                    return;
+                }
+                *hits.last().unwrap()
             } else {
                 // Lineage disambiguation by SLOT: register reuse makes
                 // the Boolean/primitive twin and the object version of
