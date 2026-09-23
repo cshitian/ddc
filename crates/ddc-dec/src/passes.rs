@@ -3244,6 +3244,27 @@ pub fn deshadow_locals(vt: &mut VarTable, pool: &crate::DexPool) {
 /// swap the receiver to it. The pre-rescue output is a guaranteed
 /// compile error AND runtime NPE, so the unambiguous swap cannot make
 /// it worse; ambiguous sites stay untouched.
+/// Anonymous/inner-class outer reads: the dex reads `this$0` off the
+/// instance register, which copy materialization can route through a
+/// local (`v41 = this; ... v41.this$0` — weibo HorseRaceDetector$1,
+/// 2,326-line 找不到符号 变量 this$0 family). When the field's
+/// declaring class IS the class being decompiled, the only instance in
+/// scope is `this` — strip the owner so it renders the bare declared
+/// field.
+pub fn fix_this0_owners(body: &mut Stmt, class_name: &str) {
+    walk_stmt_exprs(body, &mut |e| {
+        deep_rewrite(e, &mut |x| {
+            if let Expr::Field { owner: Some(_), cls, name, .. } = x {
+                if name.as_ref() == "this$0" && cls.as_ref() == class_name {
+                    if let Expr::Field { owner, .. } = x {
+                        *owner = None;
+                    }
+                }
+            }
+        });
+    });
+}
+
 pub fn rescue_primitive_receivers(body: &mut Stmt, vt: &VarTable, pool: &crate::DexPool) {
     fn prim(t: &JavaType) -> bool {
         match t {
