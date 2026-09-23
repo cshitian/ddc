@@ -3244,12 +3244,7 @@ pub fn deshadow_locals(vt: &mut VarTable, pool: &crate::DexPool) {
 /// swap the receiver to it. The pre-rescue output is a guaranteed
 /// compile error AND runtime NPE, so the unambiguous swap cannot make
 /// it worse; ambiguous sites stay untouched.
-pub fn rescue_primitive_receivers(
-    body: &mut Stmt,
-    vt: &VarTable,
-    pool: &crate::DexPool,
-    ret_ty: &JavaType,
-) {
+pub fn rescue_primitive_receivers(body: &mut Stmt, vt: &VarTable, pool: &crate::DexPool) {
     fn prim(t: &JavaType) -> bool {
         match t {
             JavaType::Int
@@ -3439,11 +3434,17 @@ pub fn rescue_arg_return_swaps(
         }
         hits.sort_unstable();
         hits.dedup();
-        if hits.len() == 1 {
-            let id = hits[0];
-            *var = id;
-            *ty = vt.vars[id as usize].ty.clone();
+        if hits.is_empty() {
+            return;
         }
+        // Multiple same-slot candidates: the LATEST generation (max id —
+        // split mints in walk order ≈ program order) is the closest
+        // approximation of the register's value at the use site. A
+        // wrong pick still compiles (type-matched by construction);
+        // leaving the primitive actual never does.
+        let id = *hits.last().unwrap();
+        *var = id;
+        *ty = vt.vars[id as usize].ty.clone();
     };
     walk_stmt_exprs(body, &mut |e| {
         deep_rewrite(e, &mut |x| {

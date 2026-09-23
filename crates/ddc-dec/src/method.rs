@@ -572,7 +572,7 @@ pub fn decompile_method(
         passes::fix_int_operand_bridges(&mut body, &vt);
         passes::fix_ref_array_null_consts(&mut body);
         passes::idiom_compounds(&mut body, &vt);
-        passes::rescue_primitive_receivers(&mut body, &vt, pool, &desc.ret);
+        passes::rescue_primitive_receivers(&mut body, &vt, pool);
         passes::apply_local_names(&mut vt, &body);
     passes::deshadow_locals(&mut vt, pool);
         passes::remove_kotlin_checks(&mut body);
@@ -869,7 +869,7 @@ pub fn decompile_method(
     passes::fix_int_operand_bridges(&mut body, &vt);
     passes::fix_ref_array_null_consts(&mut body);
     passes::idiom_compounds(&mut body, &vt);
-    passes::rescue_primitive_receivers(&mut body, &vt, pool, &desc.ret);
+    passes::rescue_primitive_receivers(&mut body, &vt, pool);
     passes::apply_local_names(&mut vt, &body);
     passes::deshadow_locals(&mut vt, pool);
     passes::remove_kotlin_checks(&mut body);
