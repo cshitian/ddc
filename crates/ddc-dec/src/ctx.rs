@@ -64,18 +64,25 @@ impl<'a> DexCtx<'a> {
         self.pool.get(internal)
     }
 
-    /// Structural inner-class evidence: an instance field whose type IS
-    /// the enclosing class (the this$0 outer reference; type-based so it
-    /// survives field renames).
-    fn holds_outer_ref(&self, internal: &str, pc: &PoolClass) -> bool {
+    /// The javac-convention enclosing field: named `this$0` AND typed
+    /// as the outer. The pure type match over-fires on STATIC nested
+    /// classes that legitimately hold an outer-typed field (wcdb
+    /// CancellationSignal$Transport's mCancellationSignal — rendered as
+    /// an inner class, `new Transport(null)` from a static method is
+    /// "需要包含...的封闭实例"). An obfuscated-renamed this$0 falls to
+    /// the static render, which stays compilable: the ctor keeps its
+    /// outer param and every call site passes it explicitly.
+    fn holds_this0(&self, internal: &str, pc: &PoolClass) -> bool {
         let Some(outer) = self.find_outer(internal) else {
             return false;
         };
         pc.instance_fields.iter().any(|f| {
-            f.desc
-                .strip_prefix('L')
-                .and_then(|d| d.strip_suffix(';'))
-                .is_some_and(|ty| ty == outer)
+            f.name == "this$0"
+                && f
+                    .desc
+                    .strip_prefix('L')
+                    .and_then(|d| d.strip_suffix(';'))
+                    .is_some_and(|ty| ty == outer)
         })
     }
 
@@ -205,7 +212,7 @@ impl<'a> Ctx for DexCtx<'a> {
             // nesting annotations at all — without the structural
             // fallback every static nested class rendered as an inner
             // one (`str.new Report(...)` swallowing the first ctor arg).
-            Some(pc) => pc.is_static_nested() || !self.holds_outer_ref(internal, pc),
+            Some(pc) => pc.is_static_nested() || !self.holds_this0(internal, pc),
             None => true,
         }
     }
@@ -213,7 +220,7 @@ impl<'a> Ctx for DexCtx<'a> {
     fn class_has_this0(&self, internal: &str) -> bool {
         // Inner classes without ACC_STATIC carry an enclosing instance.
         match self.find_class(internal) {
-            Some(pc) => !pc.is_static_nested() && self.holds_outer_ref(internal, pc),
+            Some(pc) => !pc.is_static_nested() && self.holds_this0(internal, pc),
             None => false,
         }
     }
