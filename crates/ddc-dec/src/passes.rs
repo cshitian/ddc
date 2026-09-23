@@ -2861,23 +2861,28 @@ pub fn insert_object_narrowing_casts(vt: &VarTable, body: &mut Stmt) {
     // Object无法转换为String family.
     walk_stmt_exprs(body, &mut |e| {
         deep_rewrite(e, &mut |x| {
-            if let Expr::Method { desc, args, is_dynamic, .. } = x {
-                if *is_dynamic {
-                    return;
+            let (args, arg_tys): (&mut Vec<Expr>, &[JavaType]) = match x {
+                Expr::Method { desc, args, is_dynamic: false, .. } => {
+                    (args, desc.args.as_slice())
                 }
-                for (i, a) in args.iter_mut().enumerate() {
-                    let Some(formal) = desc.args.get(i) else {
-                        continue;
-                    };
-                    let Some(t) = specific_ref(&TypeRef::J(formal.clone())) else {
-                        continue;
-                    };
-                    if !castable(a) {
-                        continue;
-                    }
-                    let v = std::mem::replace(a, Expr::Const(ConstVal::Null));
-                    *a = Expr::Cast { ty: t, e: Box::new(v) };
+                // Ctor calls are their own variant — the dex resolved the
+                // exact <init>, so formal casts are just as safe here
+                // (`new r(obj)` — Object无法转换为r family).
+                Expr::New { arg_tys, args, .. } => (args, arg_tys.as_slice()),
+                _ => return,
+            };
+            for (i, a) in args.iter_mut().enumerate() {
+                let Some(formal) = arg_tys.get(i) else {
+                    continue;
+                };
+                let Some(t) = specific_ref(&TypeRef::J(formal.clone())) else {
+                    continue;
+                };
+                if !castable(a) {
+                    continue;
                 }
+                let v = std::mem::replace(a, Expr::Const(ConstVal::Null));
+                *a = Expr::Cast { ty: t, e: Box::new(v) };
             }
         });
     });
