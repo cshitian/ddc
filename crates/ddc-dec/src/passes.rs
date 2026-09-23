@@ -3144,17 +3144,32 @@ pub fn deshadow_locals(vt: &mut VarTable, pool: &crate::DexPool) {
 /// it worse; ambiguous sites stay untouched.
 pub fn rescue_primitive_receivers(body: &mut Stmt, vt: &VarTable, pool: &crate::DexPool) {
     fn prim(t: &JavaType) -> bool {
-        matches!(
-            t,
+        match t {
             JavaType::Int
-                | JavaType::Long
-                | JavaType::Short
-                | JavaType::Byte
-                | JavaType::Char
-                | JavaType::Float
-                | JavaType::Double
-                | JavaType::Boolean
-        )
+            | JavaType::Long
+            | JavaType::Short
+            | JavaType::Byte
+            | JavaType::Char
+            | JavaType::Float
+            | JavaType::Double
+            | JavaType::Boolean => true,
+            // Boxed JDK finals carry no app members either (`bool19.d`
+            // where bool19 came out java/lang/Boolean — the coroutine
+            // Result-register conflation).
+            JavaType::Object(n) => matches!(
+                n.as_ref(),
+                "java/lang/Boolean"
+                    | "java/lang/String"
+                    | "java/lang/Integer"
+                    | "java/lang/Long"
+                    | "java/lang/Short"
+                    | "java/lang/Byte"
+                    | "java/lang/Character"
+                    | "java/lang/Float"
+                    | "java/lang/Double"
+            ),
+            _ => false,
+        }
     }
     walk_stmt_exprs(body, &mut |e| {
         deep_rewrite(e, &mut |x| {
@@ -3182,21 +3197,49 @@ pub fn rescue_primitive_receivers(body: &mut Stmt, vt: &VarTable, pool: &crate::
                 Expr::Method { cls, .. } | Expr::Field { cls, .. } => cls.clone(),
                 _ => return,
             };
-            // Phase 2: unique var of the owner type (exact or subtype).
-            let mut cand: Option<u32> = None;
+            // Phase 2: vars of the owner type (exact or subtype).
+            let mut cands: Vec<u32> = Vec::new();
             for v in &vt.vars {
                 if let JavaType::Object(n) = v.ty.erased() {
                     if n.as_ref() == cls.as_ref()
                         || pool.is_subtype(n.as_ref(), cls.as_ref())
                     {
-                        if cand.is_some() {
-                            return; // ambiguous — leave untouched
-                        }
-                        cand = Some(v.id);
+                        cands.push(v.id);
                     }
                 }
             }
-            let Some(id) = cand else { return };
+            let id = if cands.len() == 1 {
+                cands[0]
+            } else {
+                // Lineage disambiguation by SLOT: register reuse makes
+                // the Boolean/primitive twin and the object version of
+                // one dex register share VarInfo.slot (ry0/h2's
+                // `bool19.d` — the v1-typed twin rides the same
+                // register). Multiple slot matches stay untouched
+                // (deterministic conservatism).
+                if cands.is_empty() {
+                    return;
+                }
+                let slot = if (recv_var as usize) < vt.vars.len() {
+                    vt.var(recv_var).slot
+                } else {
+                    return;
+                };
+                let mut hits: Vec<u32> = cands
+                    .into_iter()
+                    .filter(|&c| {
+                        c != recv_var
+                            && (c as usize) < vt.vars.len()
+                            && vt.var(c).slot == slot
+                    })
+                    .collect();
+                hits.sort_unstable();
+                hits.dedup();
+                if hits.len() != 1 {
+                    return;
+                }
+                hits[0]
+            };
             // Phase 3: swap.
             let o: &mut Box<Expr> = match x {
                 Expr::Method { owner: Some(o), .. } => o,
