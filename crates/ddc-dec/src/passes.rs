@@ -5822,6 +5822,19 @@ pub fn dedupe_ctor_delegations(body: &mut Stmt) {
             _ => {}
         }
     }
+    // Top-level copies first (rec only strips copies NESTED in
+    // blocks/ifs — a duplicate `super()` sitting directly in the body
+    // list fell through its `_` arm: weixin ft5/j's second super()).
+    {
+        let d0r = &d0;
+        let mut idx = 0usize;
+        stmts.retain(|s| {
+            idx += 1;
+            idx == 1
+                || !(matches!(s, Stmt::ExprStmt(e)
+                    if is_delegation_expr(e) && same_delegation(e, d0r)))
+        });
+    }
     for s in stmts.iter_mut().skip(1) {
         rec(s, &d0);
     }
