@@ -1280,6 +1280,77 @@ fn emit_class_body(
         }
     }
 
+    // Framework-ancestor ctor bridge. The two blocks above mirror POOL
+    // ancestors; both stop at a framework (off-pool) superclass. A class
+    // whose DIRECT superclass is a framework type (in android.jar) that
+    // declares a ctor the class lacks also needs a bridge — `super(args)`
+    // resolves against the jar. Only the DIRECT-super-is-framework case is
+    // safe: an intermediate pool ancestor with no matching ctor would
+    // break the `super()` chain (that ancestor needs its own bridge, which
+    // its own refs may not trigger). Covers weixin g3 extends
+    // org.xml.sax.SAXException (`new g3(String)` → SAXException(String)),
+    // the custom-exception / Parcelable family the pool walk can't reach.
+    if !class.is_interface() && enum_consts.is_none() {
+        let direct_fw = class
+            .super_name
+            .as_ref()
+            .map(|s| s != "java/lang/Object" && pool.get(s).is_none())
+            .unwrap_or(false);
+        if direct_fw {
+            if let Some(refs) = pool.ctor_ref_sigs(&class.name) {
+                fn arg_sig(d: &str) -> &str {
+                    let lo = d.find('(').map(|i| i + 1).unwrap_or(0);
+                    let hi = d.find(')').unwrap_or(d.len());
+                    &d[lo..hi]
+                }
+                let declared: jdc_core::FxHashSet<&str> = class
+                    .all_methods()
+                    .filter(|m| &*m.name == "<init>")
+                    .map(|m| arg_sig(&m.desc))
+                    .collect();
+                let mut missing: Vec<&String> = refs
+                    .iter()
+                    .filter(|s| !declared.contains(s.as_str()))
+                    .collect();
+                missing.sort();
+                for sig in missing {
+                    // A no-ctor class already gets Java's default
+                    // `C(){super();}` — never bridge the empty sig for it.
+                    if sig.is_empty() && declared.is_empty() {
+                        continue;
+                    }
+                    let args = split_arg_descs(sig);
+                    if emitted_any {
+                        out.push('\n');
+                    }
+                    out.push_str(&format!("    {}", "    ".repeat(depth)));
+                    out.push_str("public ");
+                    out.push_str(&java_ident(&simple));
+                    out.push('(');
+                    let mut names = Vec::with_capacity(args.len());
+                    for (i, a) in args.iter().enumerate() {
+                        if i > 0 {
+                            out.push_str(", ");
+                        }
+                        out.push_str(&type_name(pool, a));
+                        let nm = format!("p{}", i + 1);
+                        out.push(' ');
+                        out.push_str(&nm);
+                        names.push(nm);
+                    }
+                    out.push_str(") {\n");
+                    out.push_str(&format!(
+                        "    {}    super({});\n",
+                        "    ".repeat(depth),
+                        names.join(", ")
+                    ));
+                    out.push_str(&format!("    {}}}\n", "    ".repeat(depth)));
+                    emitted_any = true;
+                }
+            }
+        }
+    }
+
     // Static initializer. INTERFACES cannot carry a `static { }` block in
     // Java — their clinit only assigns constants, which static_values (or
     // the `= null` default) already render as field initializers; skip
@@ -2050,6 +2121,41 @@ fn join_dotted(pool: &DexPool, names: &[String]) -> String {
 
 /// A printable type name (arrays render with `[]` suffixes). Nested class
 /// names dot their `$` when the outer chain is known to the pool.
+/// Split a concatenated method-descriptor ARGUMENT string
+/// (`"Ljava/lang/String;I[Ljava/lang/Object;"`) into per-parameter
+/// `JavaType`s. Used by the framework-ancestor ctor bridge, where the
+/// referenced sig comes from the method-id table (no pool ancestor
+/// method to read a parsed descriptor from).
+fn split_arg_descs(sig: &str) -> Vec<JavaType> {
+    let mut out = Vec::new();
+    let b = sig.as_bytes();
+    let mut i = 0usize;
+    while i < b.len() {
+        let start = i;
+        while i < b.len() && b[i] == b'[' {
+            i += 1;
+        }
+        if i < b.len() {
+            if b[i] == b'L' {
+                while i < b.len() && b[i] != b';' {
+                    i += 1;
+                }
+                if i < b.len() {
+                    i += 1; // consume ';'
+                }
+            } else {
+                i += 1; // primitive single char
+            }
+        }
+        if i > start {
+            out.push(desc_type(&sig[start..i]));
+        } else {
+            break; // malformed: avoid an infinite loop
+        }
+    }
+    out
+}
+
 pub fn type_name(pool: &DexPool, t: &JavaType) -> String {
     match t {
         JavaType::Void => "void".into(),
