@@ -932,6 +932,18 @@ fn scan_widening_image(dex: &DexFile, out: &mut AccessWidening) {
             else {
                 continue;
             };
+            // A STATIC SYNTHETIC method is a compiler-generated bridge —
+            // overwhelmingly an `access$NNN` accessor that reads/writes an
+            // enclosing class's PRIVATE member on behalf of an inner class.
+            // ddc's inline_accessors inlines the call into the inner class,
+            // turning the (legal, self-access) private read INSIDE the
+            // accessor into a cross-CLASS private access javac rejects
+            // ("X 在 Y 中是 private 访问控制" — the single biggest error
+            // family, 12.4k). The scan sees the field ref as a SELF-access
+            // (owner==referrer) so the cross-package gate misses it; record
+            // it here so install_access_widening widens the target.
+            let in_accessor = m.access_flags & crate::access::ACC_STATIC != 0
+                && m.access_flags & crate::access::ACC_SYNTHETIC != 0;
             ddc_dex::insn::scan_instructions(code, &mut |op, pc, bytes| {
                 let unit = |i: usize| -> u32 {
                     bytes
@@ -947,8 +959,11 @@ fn scan_widening_image(dex: &DexFile, out: &mut AccessWidening) {
                         let fr = dex.field(unit(pc + 1));
                         let owner = dex.class_name(fr.class_idx);
                         let op_pkg = pkg_of(&owner);
-                        if !op_pkg.is_empty() && op_pkg != rp {
+                        let xpkg = !op_pkg.is_empty() && op_pkg != rp;
+                        if xpkg {
                             note_type(fr.class_idx, out);
+                        }
+                        if xpkg || in_accessor {
                             out.fields
                                 .entry(owner.clone())
                                 .or_default()
@@ -960,8 +975,11 @@ fn scan_widening_image(dex: &DexFile, out: &mut AccessWidening) {
                         let mr = dex.method(unit(pc + 1));
                         let owner = dex.class_name(mr.class_idx);
                         let op_pkg = pkg_of(&owner);
-                        if !op_pkg.is_empty() && op_pkg != rp {
+                        let xpkg = !op_pkg.is_empty() && op_pkg != rp;
+                        if xpkg {
                             note_type(mr.class_idx, out);
+                        }
+                        if xpkg || in_accessor {
                             out.methods
                                 .entry(owner.clone())
                                 .or_default()
