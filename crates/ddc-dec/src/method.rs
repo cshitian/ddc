@@ -599,6 +599,7 @@ pub fn decompile_method(
         // exposes) the arm is linear defs and merge_at lifts the this()
         // (lark MmCreateAudioRequest, this-not-first ×456 family).
         passes::fold_bool_value_diamonds(&mut body, &vt);
+        passes::fold_value_diamonds(&mut body);
         passes::fix_ctor_this_aliases(&mut body, &vt);
         if class.is_enum() {
             passes::fold_enum_default_arg_bridge(&mut body);
@@ -931,6 +932,7 @@ pub fn decompile_method(
         // exposes) the arm is linear defs and merge_at lifts the this()
         // (lark MmCreateAudioRequest, this-not-first ×456 family).
         passes::fold_bool_value_diamonds(&mut body, &vt);
+        passes::fold_value_diamonds(&mut body);
         passes::fix_ctor_this_aliases(&mut body, &vt);
         if class.is_enum() {
             passes::fold_enum_default_arg_bridge(&mut body);

@@ -4906,6 +4906,128 @@ pub fn fix_int_operand_bridges(body: &mut Stmt, vt: &VarTable) {
 /// merge_at ternary fold applies. Source-faithful: the original was
 /// `x?.m() ?: false` — one expression; the inlined call stays under
 /// the guard arm, preserving evaluation order and short-circuiting.
+/// General value-diamond fold (fold_bool_value_diamonds for ANY type):
+/// `if (c) { v = a; } else { v = b; }` → `v = c ? a : b;`, plus the
+/// split-pair shape `v = b; if (c) { v = a; }` → the same ternary. The
+/// Kotlin default-arg ctor's mask-guarded per-arg defaults arrive as
+/// diamonds (DocFreshInfo v10x/v14x); folding gives each carrier a
+/// SINGLE-assignment def so the chain-aware delegation inline can hoist
+/// the this() first ("对this的调用必须是构造器中的第一个语句"). Fold
+/// only when both sides are exactly one plain assignment to the SAME
+/// local and the value types are ternary-compatible (equal erased or
+/// both numeric — mixed-category ternaries box/surprise).
+pub fn fold_value_diamonds(body: &mut Stmt) {
+    let Stmt::Block(stmts) = body else { return };
+    fold_diamonds_in(stmts);
+}
+
+fn diamond_types_ok(a: &Expr, b: &Expr) -> bool {
+    fn num(t: &JavaType) -> bool {
+        matches!(
+            t,
+            JavaType::Byte
+                | JavaType::Short
+                | JavaType::Int
+                | JavaType::Char
+                | JavaType::Long
+                | JavaType::Float
+                | JavaType::Double
+        )
+    }
+    let ta = a.type_ref().erased();
+    let tb = b.type_ref().erased();
+    ta == tb || (num(&ta) && num(&tb))
+}
+
+/// `(var, target clone, value)` when the stmt is exactly ONE plain
+/// assign to a local (bare or block-wrapped).
+fn single_local_assign(st: &Stmt) -> Option<(u32, Expr, Expr)> {
+    let inner = match st {
+        Stmt::Block(v) if v.len() == 1 => &v[0],
+        other => other,
+    };
+    match inner {
+        Stmt::ExprStmt(Expr::Assign { target, value, op: AssignOp::Plain }) => {
+            match &**target {
+                Expr::Local { var, .. } => Some((*var, *target.clone(), *value.clone())),
+                _ => None,
+            }
+        }
+        _ => None,
+    }
+}
+
+fn mk_ternary_assign(tgt: Expr, c: Expr, a: Expr, b: Expr) -> Stmt {
+    Stmt::ExprStmt(Expr::Assign {
+        target: Box::new(tgt),
+        op: AssignOp::Plain,
+        value: Box::new(Expr::Cond {
+            c: Box::new(c),
+            t: Box::new(a),
+            f: Box::new(b),
+        }),
+    })
+}
+
+fn fold_diamonds_in(stmts: &mut Vec<Stmt>) {
+    let mut i = 0usize;
+    while i < stmts.len() {
+        match &mut stmts[i] {
+            Stmt::Block(v) => fold_diamonds_in(v),
+            Stmt::If { then_stmt, else_stmt, .. } => {
+                if let Stmt::Block(v) = &mut **then_stmt {
+                    fold_diamonds_in(v);
+                }
+                if let Some(e) = else_stmt {
+                    if let Stmt::Block(v) = &mut **e {
+                        fold_diamonds_in(v);
+                    }
+                }
+            }
+            _ => {}
+        }
+        // Shape 1: standalone if/else diamond.
+        let shape1 = if let Stmt::If { cond, then_stmt, else_stmt: Some(el), .. } = &stmts[i] {
+            match (single_local_assign(then_stmt), single_local_assign(el)) {
+                (Some((v1, tgt, a)), Some((v2, _, b)))
+                    if v1 == v2 && diamond_types_ok(&a, &b) =>
+                {
+                    Some(mk_ternary_assign(tgt, cond.clone(), a, b))
+                }
+                _ => None,
+            }
+        } else {
+            None
+        };
+        if let Some(f) = shape1 {
+            stmts[i] = f;
+            i += 1;
+            continue;
+        }
+        // Shape 2: adjacent `v = b;` + `if (c) { v = a; }` (no else).
+        if i + 1 < stmts.len() {
+            let shape2 = if let Stmt::If { cond, then_stmt, else_stmt: None, .. } = &stmts[i + 1] {
+                match (single_local_assign(&stmts[i]), single_local_assign(then_stmt)) {
+                    (Some((v1, tgt, b)), Some((v2, _, a)))
+                        if v1 == v2 && diamond_types_ok(&a, &b) =>
+                    {
+                        Some(mk_ternary_assign(tgt, cond.clone(), a, b))
+                    }
+                    _ => None,
+                }
+            } else {
+                None
+            };
+            if let Some(f) = shape2 {
+                stmts[i] = f;
+                stmts.remove(i + 1);
+                continue; // re-scan the folded position
+            }
+        }
+        i += 1;
+    }
+}
+
 pub fn fold_bool_value_diamonds(body: &mut Stmt, vt: &VarTable) {
     fn is_bool_var(v: u32, vt: &VarTable) -> bool {
         (v as usize) < vt.vars.len()
