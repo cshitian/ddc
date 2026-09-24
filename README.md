@@ -49,10 +49,15 @@ parses cleanly.
 brew install ejfkdev/tap/ddc
 ```
 
-**Windows** (Scoop):
+**Windows** (Scoop) — add the bucket once, then install by name (scoop
+does not resolve a bare `user/repo/app` form — issue #3):
 
-```bash
-scoop install ejfkdev/scoop-bucket/ddc
+```powershell
+scoop bucket add ejfkdev https://github.com/ejfkdev/scoop-bucket
+scoop install ddc
+
+# or install straight from the manifest URL, no bucket needed:
+scoop install https://raw.githubusercontent.com/ejfkdev/scoop-bucket/main/bucket/ddc.json
 ```
 
 **cargo-binstall** (any platform — fetches the prebuilt release binary
