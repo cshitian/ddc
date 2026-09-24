@@ -961,6 +961,94 @@ fn synth_missing_interface_stubs(
     }
 }
 
+/// Synthesize `ordinal()` (and `values()` when the dex copy was stripped)
+/// for a FALLBACK enum base (`/* enum */ class`, restoration failed). The
+/// fallback renders as a plain class that cannot extend java.lang.Enum, so
+/// the inherited `ordinal()` is absent and every `switch (x.ordinal())`
+/// fails ("找不到符号 方法 ordinal()", weibo protobuf ub ×206, weixin ×63).
+/// The ordinal IS the constant's position in the $VALUES array (which the
+/// dex `values()` already clones), so recover it by linear scan. Purely
+/// additive: the dex never declares ordinal() (inherited from Enum), so
+/// there is no collision. Only the BASE (super Enum/Object) — constant
+/// subclasses inherit it.
+fn synth_enum_ordinal(
+    pool: &DexPool,
+    class: &PoolClass,
+    out: &mut String,
+    depth: usize,
+    emitted_any: &mut bool,
+) {
+    use crate::access::*;
+    let is_base = class
+        .super_name
+        .as_ref()
+        .map(|s| s == "java/lang/Enum" || s == "java/lang/Object")
+        .unwrap_or(true);
+    if !class.is_enum() || !is_base {
+        return;
+    }
+    // Never declared on the dex enum (inherited from Enum), but guard.
+    if class
+        .all_methods()
+        .any(|m| &*m.name == "ordinal" && &*m.desc == "()I")
+    {
+        return;
+    }
+    let self_arr = JavaType::Array(Box::new(JavaType::Object(class.name.as_str().into())));
+    let arr_name = type_name(pool, &self_arr);
+    let has_values = class.all_methods().any(|m| {
+        &*m.name == "values"
+            && m.access & ACC_STATIC != 0
+            && m.parsed_desc()
+                .map(|d| d.ret == self_arr && d.args.is_empty())
+                .unwrap_or(false)
+    });
+    let ind = "    ".repeat(depth + 1);
+    if !has_values {
+        // $VALUES array field: the synthetic `static final Self[]`.
+        let want = format!("[L{};", class.name);
+        let Some(vf) = class.static_fields.iter().find(|f| f.desc == want) else {
+            return; // no array to recover ordinals from
+        };
+        if *emitted_any {
+            out.push('\n');
+        }
+        out.push_str(&ind);
+        out.push_str(&format!("public static {} values() {{\n", arr_name));
+        out.push_str(&ind);
+        out.push_str(&format!(
+            "    return ({}) {}.clone();\n",
+            arr_name,
+            java_ident(&vf.name)
+        ));
+        out.push_str(&ind);
+        out.push_str("}\n");
+        *emitted_any = true;
+    }
+    if *emitted_any {
+        out.push('\n');
+    }
+    out.push_str(&ind);
+    out.push_str("public int ordinal() {\n");
+    out.push_str(&ind);
+    out.push_str(&format!("    {} vs = values();\n", arr_name));
+    out.push_str(&ind);
+    out.push_str("    for (int i = 0; i < vs.length; i++) {\n");
+    out.push_str(&ind);
+    out.push_str("        if (vs[i] == this) {\n");
+    out.push_str(&ind);
+    out.push_str("            return i;\n");
+    out.push_str(&ind);
+    out.push_str("        }\n");
+    out.push_str(&ind);
+    out.push_str("    }\n");
+    out.push_str(&ind);
+    out.push_str("    return 0;\n");
+    out.push_str(&ind);
+    out.push_str("}\n");
+    *emitted_any = true;
+}
+
 #[allow(clippy::only_used_in_recursion)]
 fn emit_class_body(
     pool: &DexPool,
@@ -1585,6 +1673,12 @@ fn emit_class_body(
     // concrete class no longer implements; javac rejects the incomplete
     // class). Synthesized last so they sit after the real members.
     synth_missing_interface_stubs(pool, class, out, depth, &mut emitted_any);
+
+    // Fallback enum base: recover the Enum methods the plain-class
+    // rendering lacks (ordinal() for `switch (x.ordinal())`).
+    if class.is_enum() && enum_consts.is_none() {
+        synth_enum_ordinal(pool, class, out, depth, &mut emitted_any);
+    }
 
     // Static initializer. INTERFACES cannot carry a `static { }` block in
     // Java — their clinit only assigns constants, which static_values (or
