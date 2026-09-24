@@ -567,6 +567,7 @@ pub fn decompile_method(
         passes::fix_null_sentinels(&mut body, &vt, &desc.ret);
         passes::split_generations(&mut vt, &mut body);
         passes::insert_object_narrowing_casts(&vt, &mut body);
+        passes::fix_field_owner_downcasts(&mut body, &vt, pool);
         passes::fix_incomparable_equality(&mut body, &vt, pool);
         passes::fix_primitive_assign_casts(&vt, &mut body, &desc.ret);
         passes::fix_primitive_arg_bridges(&mut body, &vt, pool);
@@ -582,6 +583,7 @@ pub fn decompile_method(
         passes::rewrite_kotlin_facades(&mut body, pool);
         passes::platform_constants(&mut body);
         passes::drop_dead_locals(&mut body);
+    passes::drop_dead_raw_news(&mut body);
     passes::mark_field_owner_concrete(&mut vt, &mut body);
     passes::ensure_declared(&mut body, &vt);
     passes::rescue_arg_return_swaps(&mut body, &vt, pool, &desc.ret);
@@ -589,6 +591,14 @@ pub fn decompile_method(
     // top-of-method declarations, and a local declaration ahead of the
     // super() call is still "super must be first statement".
     if &*m.name == "<init>" {
+        // Boolean value-diamond folds ahead of the delegation machinery:
+        // a branched bridge ctor whose else arm COMPUTES the defaulted
+        // boolean (`v=false; if(x!=null){u=x.m(); v=false; if(u){v=true}}`)
+        // is Dirty for split_branch — folded to `v = x!=null && x.m()`
+        // (interleaved forwarding inlines the impure `u` the fold
+        // exposes) the arm is linear defs and merge_at lifts the this()
+        // (lark MmCreateAudioRequest, this-not-first ×456 family).
+        passes::fold_bool_value_diamonds(&mut body, &vt);
         if class.is_enum() {
             passes::fold_enum_default_arg_bridge(&mut body);
             passes::strip_enum_ctor_super(&mut body);
@@ -871,6 +881,7 @@ pub fn decompile_method(
         passes::fix_bool_returns(&vt, &mut body);
     }
     passes::insert_object_narrowing_casts(&vt, &mut body);
+    passes::fix_field_owner_downcasts(&mut body, &vt, pool);
     passes::fix_incomparable_equality(&mut body, &vt, pool);
     passes::fix_primitive_assign_casts(&vt, &mut body, &desc.ret);
     passes::fix_primitive_arg_bridges(&mut body, &vt, pool);
@@ -886,6 +897,7 @@ pub fn decompile_method(
     passes::rewrite_kotlin_facades(&mut body, pool);
     passes::platform_constants(&mut body);
     passes::drop_dead_locals(&mut body);
+    passes::drop_dead_raw_news(&mut body);
     passes::mark_field_owner_concrete(&mut vt, &mut body);
     passes::ensure_declared(&mut body, &vt);
     passes::rescue_arg_return_swaps(&mut body, &vt, pool, &desc.ret);
@@ -893,6 +905,14 @@ pub fn decompile_method(
     // top-of-method declarations, and a local declaration ahead of the
     // super() call is still "super must be first statement".
     if &*m.name == "<init>" {
+        // Boolean value-diamond folds ahead of the delegation machinery:
+        // a branched bridge ctor whose else arm COMPUTES the defaulted
+        // boolean (`v=false; if(x!=null){u=x.m(); v=false; if(u){v=true}}`)
+        // is Dirty for split_branch — folded to `v = x!=null && x.m()`
+        // (interleaved forwarding inlines the impure `u` the fold
+        // exposes) the arm is linear defs and merge_at lifts the this()
+        // (lark MmCreateAudioRequest, this-not-first ×456 family).
+        passes::fold_bool_value_diamonds(&mut body, &vt);
         if class.is_enum() {
             passes::fold_enum_default_arg_bridge(&mut body);
             passes::strip_enum_ctor_super(&mut body);

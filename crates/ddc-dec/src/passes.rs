@@ -1933,6 +1933,34 @@ fn walk_mut_deep<F: FnMut(&mut Stmt)>(s: &mut Stmt, f: &mut F) {
     walk_mut(s, &mut |x| walk_mut_deep(x, f));
 }
 
+/// Drop orphaned raw `new-instance` statements. R8 sometimes separates
+/// `new-instance vR` from its `<init>` invoke by a register copy
+/// (`move-object vS, vR; invoke vS.<init>(..)` — dex-legal: the init
+/// initializes the object both registers name). The fold pairs the init
+/// with the COPY, and the structurer's branch duplication re-materializes
+/// the original raw marker as a bare `new C();` statement on paths whose
+/// uses were rewired to the folded side (weixin sns/storage/c0: four
+/// `new s1();` beside the real `s1 s1x = new s1(..)` — s1 has no no-arg
+/// ctor, "无法将类 C的构造器 C应用到给定类型" ×195). A raw New in
+/// statement position binds no variable and initializes nothing — pure
+/// verifier-artifact dead code.
+pub fn drop_dead_raw_news(body: &mut Stmt) {
+    fn is_orphan(s: &Stmt) -> bool {
+        matches!(s, Stmt::ExprStmt(Expr::New { raw: true, .. }))
+    }
+    walk_mut_deep(body, &mut |st| match st {
+        Stmt::Block(v) => v.retain(|x| !is_orphan(x)),
+        Stmt::Switch { cases, .. } => {
+            for c in cases.iter_mut() {
+                c.body.retain(|x| !is_orphan(x));
+            }
+        }
+        Stmt::For { init, .. } => init.retain(|x| !is_orphan(x)),
+        Stmt::TryWithResources { resources, .. } => resources.retain(|x| !is_orphan(x)),
+        _ => {}
+    });
+}
+
 /// Recover `synchronized` from the d8 monitor pattern:
 /// `monitorenter(e); try { body } catch (Throwable) { monitorexit(e); throw t; }`
 /// (optionally followed by `monitorexit(e)`).
@@ -2989,8 +3017,14 @@ pub fn fix_primitive_assign_casts(vt: &VarTable, body: &mut Stmt, ret_ty: &JavaT
         if tt_bool && !val_bool && numlike(&vt_val) {
             if matches!(
                 value,
-                Expr::Bin { op: BinOp::Eq | BinOp::Ne, .. } | Expr::Un { op: UnOp::Not, .. }
+                Expr::Const(_)
+                    | Expr::Bin { op: BinOp::Eq | BinOp::Ne, .. }
+                    | Expr::Un { op: UnOp::Not, .. }
             ) {
+                // Bare 0/1 constants render as false/true through the
+                // emitter's bool coercion — wrapping them in `!= 0`
+                // produced `0 != 0` noise the value-diamond fold then
+                // had to re-interpret.
                 return;
             }
             let taken = std::mem::replace(value, Expr::Const(ConstVal::Null));
@@ -3057,6 +3091,125 @@ pub fn fix_primitive_assign_casts(vt: &VarTable, body: &mut Stmt, ret_ty: &JavaT
             wrap(ret_ty, e);
         }
         _ => {}
+    });
+}
+
+/// Subclass-field downcast witness + assign-cast narrowing.
+///
+/// R8 pushes fields DOWN into leaf classes (weibo: coroutine `label`
+/// lives on each `Foo$bar$1` continuation, NOT on the rendered
+/// BaseContinuationImpl/ContinuationImpl supers) while a check-cast in
+/// the same flow types the receiver as the SUPERCLASS. The dex field
+/// ref names the leaf (`$1->label` — verifier-legal through the
+/// instance-of branch type), but Java resolves `((ContinuationImpl) c)
+/// .label` against ContinuationImpl — "找不到符号 变量 label" (weibo
+/// ×420). When the field's dex owner is a strict subtype of the
+/// receiver's static type and the receiver's hierarchy does NOT
+/// declare the name, re-target the receiver cast to the owner (the
+/// runtime object IS the owner type — the verifier proved it).
+///
+/// Second rule: a `(T) e` value assigned into an S-typed target where
+/// S <: T strictly ("ContinuationImpl无法转换为$reportWhenComplete$1")
+/// narrows the cast to S — same verifier guarantee, and an assignment
+/// position has no overload resolution to perturb.
+pub fn fix_field_owner_downcasts(body: &mut Stmt, vt: &VarTable, pool: &DexPool) {
+    fn owner_internal(o: &Expr, vt: &VarTable) -> Option<std::sync::Arc<str>> {
+        let t = match o {
+            Expr::Local { var, .. } => vt.var(*var).ty.erased(),
+            other => other.type_ref().erased(),
+        };
+        match t {
+            JavaType::Object(n) => Some(n),
+            _ => None,
+        }
+    }
+    fn declares_up(pool: &DexPool, class: &str, name: &str) -> bool {
+        let mut cur = Some(class.to_string());
+        let mut hops = 0;
+        while let Some(c) = cur {
+            hops += 1;
+            if hops > 64 {
+                return false;
+            }
+            let Some(pc) = pool.get(&c) else { return false };
+            if pc
+                .instance_fields
+                .iter()
+                .chain(pc.static_fields.iter())
+                .any(|f| f.name.as_str() == name)
+            {
+                return true;
+            }
+            cur = pc.super_name.clone();
+        }
+        false
+    }
+    walk_stmt_exprs(body, &mut |e| {
+        deep_rewrite(e, &mut |x| {
+            if let Expr::Field {
+                owner: Some(o),
+                cls,
+                name,
+                is_static: false,
+                ..
+            } = x
+            {
+                let Some(ot) = owner_internal(o, vt) else {
+                    return;
+                };
+                if ot.as_ref() == cls.as_ref() || !pool.is_subtype(cls, &ot) {
+                    return;
+                }
+                if declares_up(pool, &ot, name) || !declares_up(pool, cls, name) {
+                    return;
+                }
+                let ty = TypeRef::J(JavaType::Object(cls.clone()));
+                if let Expr::Cast { ty: ct, .. } = &mut **o {
+                    *ct = ty;
+                } else {
+                    let taken = std::mem::replace(&mut **o, Expr::This);
+                    **o = Expr::Cast { ty, e: Box::new(taken) };
+                }
+            }
+            // Rule 2: `(T) e` into a strict-subtype target narrows to S.
+            let (tgt_ty, value) = match x {
+                Expr::Assign { target, op: AssignOp::Plain, value } => {
+                    let t = match &**target {
+                        Expr::Local { var, .. } => vt.var(*var).ty.erased(),
+                        Expr::Field { ty, .. } => ty.erased(),
+                        _ => return,
+                    };
+                    (t, value)
+                }
+                _ => return,
+            };
+            let JavaType::Object(sn) = tgt_ty else { return };
+            if let Expr::Cast { ty, .. } = &mut **value {
+                if let TypeRef::J(JavaType::Object(tn)) = ty {
+                    if tn.as_ref() != sn.as_ref() && pool.is_subtype(&sn, tn) {
+                        *ty = TypeRef::J(JavaType::Object(sn.clone()));
+                    }
+                }
+            }
+        });
+    });
+    // LocalDef inits: same narrowing against the declared var type.
+    walk_mut_deep(body, &mut |st| {
+        if let Stmt::LocalDef { var, init: Some(value), .. } = st {
+            let tt = if (*var as usize) < vt.vars.len() {
+                vt.vars[*var as usize].ty.erased()
+            } else {
+                return;
+            };
+            let JavaType::Object(sn) = tt else { return };
+            if let Expr::Cast { ty, .. } = value {
+                if let TypeRef::J(JavaType::Object(tn)) = ty {
+                    if tn.as_ref() != sn.as_ref() && pool.is_subtype(&sn, tn) {
+                        *ty = TypeRef::J(JavaType::Object(sn.clone()));
+                    }
+                }
+            }
+        }
     });
 }
 
@@ -4508,6 +4661,375 @@ pub fn fix_int_operand_bridges(body: &mut Stmt, vt: &VarTable) {
 /// evaluates. Var must be the LEFT operand (non-commutative ops;
 /// string-concat order). The ±1 fold requires a numeric vt type
 /// (`s++` on a String is invalid while `s += 1` is not).
+/// Boolean VALUE-diamond fold (DAD short_circuit value forms):
+/// ```text
+///   v = false; if (c) { v = true; }   →  v = c
+///   v = true;  if (c) { v = false; }  →  v = !c
+///   v = false; if (c) { v = E; }      →  v = c && E     (E bool-valued)
+///   v = true;  if (c) { v = E; }      →  v = !c || E
+///   v = D; if (c) { v = E1; } else { v = E2; }  →  v = c ? E1 : E2
+/// ```
+/// `v` must be Boolean-typed; the arm value bool-valued; the guard may
+/// not touch `v`; base and arm constants must not coincide (a no-op
+/// diamond could drop guard side effects). Kotlin default-arg bridge
+/// ctors compute defaulted booleans in exactly this shape INSIDE the
+/// branch ahead of the delegation (lark MmCreateAudioRequest's v21x
+/// chain) — split_branch rejects the control flow as Dirty and the
+/// this() call stays in the branch ("对this的调用必须是构造器中的第一
+/// 个语句", lark ×456). Folded to a linear def (interleaved with
+/// forward_single_use for the `[u = call; v = u]` arm shape) the
+/// merge_at ternary fold applies. Source-faithful: the original was
+/// `x?.m() ?: false` — one expression; the inlined call stays under
+/// the guard arm, preserving evaluation order and short-circuiting.
+pub fn fold_bool_value_diamonds(body: &mut Stmt, vt: &VarTable) {
+    fn is_bool_var(v: u32, vt: &VarTable) -> bool {
+        (v as usize) < vt.vars.len()
+            && matches!(vt.vars[v as usize].ty.erased(), JavaType::Boolean)
+    }
+    fn bool_const(e: &Expr) -> Option<bool> {
+        fn cint(e: &Expr) -> Option<i32> {
+            match e {
+                Expr::Const(ConstVal::Int(n)) => Some(*n),
+                _ => None,
+            }
+        }
+        match e {
+            Expr::Const(ConstVal::Int(0)) => Some(false),
+            Expr::Const(ConstVal::Int(1)) => Some(true),
+            // int↔bool bridge wrappings of constants: `0 != 0` is the
+            // fallback pipeline's rendered `false` by the time the
+            // ctor-block fold runs.
+            Expr::Bin { op: op @ (BinOp::Eq | BinOp::Ne), l, r, .. } => {
+                let (a, b) = (cint(l)?, cint(r)?);
+                let eq = a == b;
+                Some(if matches!(op, BinOp::Eq) { eq } else { !eq })
+            }
+            _ => None,
+        }
+    }
+    fn reads_var(e: &Expr, v: u32) -> bool {
+        let mut hit = false;
+        visit_exprs(e, &mut |x| {
+            if let Expr::Local { var, .. } = x {
+                if *var == v {
+                    hit = true;
+                }
+            }
+        });
+        hit
+    }
+    /// Bool-valued expression for the composite arms (&&, ||, ?:).
+    /// Bare 0/1 constants are handled by the caller's special cases —
+    /// inside a composite they would render as invalid `c && 1`.
+    fn bool_valued(e: &Expr, vt: &VarTable) -> bool {
+        fn side(e: &Expr, vt: &VarTable) -> bool {
+            bool_const(e).is_some() || bool_valued(e, vt)
+        }
+        match e {
+            Expr::Local { var, .. } => is_bool_var(*var, vt),
+            Expr::Method { desc, .. } => desc.ret == JavaType::Boolean,
+            Expr::InstanceOf { .. } => true,
+            Expr::Un { op: UnOp::Not, e: x, .. } => bool_valued(x, vt) || bool_const(x).is_some(),
+            Expr::Bin { op, l, r, .. } => match op {
+                BinOp::Eq | BinOp::Ne | BinOp::Lt | BinOp::Ge | BinOp::Gt | BinOp::Le => true,
+                // A logical operand may itself be a 0/1 constant
+                // (booleanize leaves mixed forms).
+                BinOp::LogAnd | BinOp::LogOr => {
+                    side(l, vt) && side(r, vt)
+                }
+                _ => false,
+            },
+            Expr::Cond { t, f, .. } => side(t, vt) && side(f, vt),
+            _ => false,
+        }
+    }
+    /// A branch that is exactly one plain `v = E` with E bool-valued
+    /// (or a 0/1 constant) and not reading v — OR the forwarding PAIR
+    /// `[u = E; v = u]` where u is single-assigned/single-read in the
+    /// whole method: the fold consumes the pair into `v = E` (the impure
+    /// `u = src.m()` arm shape forward_single_use cannot inline — its
+    /// phi-ref gate rejects values reading multi-assigned prelude vars,
+    /// and inlining here is scope-safe because E moves exactly one
+    /// block level out with the arm's lone def consumed).
+    fn lone_assign(
+        b: &Stmt,
+        v: u32,
+        vt: &VarTable,
+        an: &VarAnalysis,
+        consumed: &mut HashSet<u32>,
+    ) -> Option<Expr> {
+        let l = flat_list(b);
+        if l.len() == 2 {
+            let (u, e): (u32, &Expr) = match l[0] {
+                Stmt::LocalDef { var, init: Some(e), .. } => (*var, e),
+                Stmt::ExprStmt(Expr::Assign { target, op: AssignOp::Plain, value }) => {
+                    match &**target {
+                        Expr::Local { var, .. } => (*var, &**value),
+                        _ => return None,
+                    }
+                }
+                _ => return None,
+            };
+            if u == v || consumed.contains(&u) {
+                return None;
+            }
+            // Whole-method single-assign/single-read: the fold drops
+            // u's def with the arm, so ANY other read would dangle.
+            // (Analysis counts are per-round; folds only ever REMOVE
+            // reads elsewhere or clone E's — whose variable reads were
+            // already counted at their def sites — so stale counts
+            // over-approximate and the ==1 gates stay sound.)
+            if an.assigns.get(u as usize).copied().unwrap_or(0) != 1
+                || an.reads.get(u as usize).copied().unwrap_or(0) != 1
+            {
+                return None;
+            }
+            let (tv, rv) = match l[1] {
+                Stmt::ExprStmt(Expr::Assign { target, op: AssignOp::Plain, value }) => {
+                    match (&**target, &**value) {
+                        (Expr::Local { var: t, .. }, Expr::Local { var: r, .. }) => (*t, *r),
+                        _ => return None,
+                    }
+                }
+                Stmt::LocalDef { var, init: Some(Expr::Local { var: r, .. }), .. } => (*var, *r),
+                _ => return None,
+            };
+            if tv != v || rv != u {
+                return None;
+            }
+            if reads_var(e, v) || !(bool_valued(e, vt) || bool_const(e).is_some()) {
+                return None;
+            }
+            consumed.insert(u);
+            return Some(e.clone());
+        }
+        if l.len() != 1 {
+            return None;
+        }
+        let (target, value) = match l[0] {
+            Stmt::ExprStmt(Expr::Assign { target, op: AssignOp::Plain, value }) => (target, value),
+            Stmt::LocalDef { var, init: Some(value), .. } if *var == v => {
+                if reads_var(value, v) || !(bool_valued(value, vt) || bool_const(value).is_some()) {
+                    return None;
+                }
+                return Some(value.clone());
+            }
+            _ => return None,
+        };
+        let Expr::Local { var: tv, .. } = &**target else { return None };
+        if *tv != v || reads_var(value, v) {
+            return None;
+        }
+        if !(bool_valued(value, vt) || bool_const(value).is_some()) {
+            return None;
+        }
+        Some((**value).clone())
+    }
+    fn not(e: Expr) -> Expr {
+        Expr::Un { op: UnOp::Not, e: Box::new(e) }
+    }
+    /// Peephole the int↔bool bridge artifacts the fallback pipeline
+    /// leaves in guards: `!(x != y)` → `x == y`; `(b ? 1 : 0) == 1` →
+    /// `b`; `!(b ? 1 : 0 == 1)` chains likewise. Purely a readability
+    /// pass — the unsimplified forms compile.
+    fn simplify_bool(e: Expr) -> Expr {
+        match e {
+            Expr::Un { op: UnOp::Not, e: inner, .. } => match *inner {
+                // Flip first, THEN re-simplify: `!((u?1:0) != 1)` must
+                // reach the cond01 arm as `(u?1:0) == 1` → `u` (the
+                // flip result never re-entered simplification and the
+                // pair arm saw a Bin where it needed the bare local).
+                Expr::Bin { op: BinOp::Ne, l, r, ty } => {
+                    simplify_bool(Expr::Bin { op: BinOp::Eq, l, r, ty })
+                }
+                Expr::Bin { op: BinOp::Eq, l, r, ty } => {
+                    simplify_bool(Expr::Bin { op: BinOp::Ne, l, r, ty })
+                }
+                other => Expr::Un { op: UnOp::Not, e: Box::new(simplify_bool(other)) },
+            },
+            Expr::Bin { op: op @ (BinOp::Eq | BinOp::Ne), l, r, ty } => {
+                // (c ? 1 : 0) <op> 1  →  c / !c ; <op> 0 → !c / c
+                fn cond01(e: &Expr) -> Option<Expr> {
+                    if let Expr::Cond { c, t, f } = e {
+                        if matches!(&**t, Expr::Const(ConstVal::Int(1)))
+                            && matches!(&**f, Expr::Const(ConstVal::Int(0)))
+                        {
+                            return Some((**c).clone());
+                        }
+                    }
+                    None
+                }
+                let (lc, rc) = (cond01(&l), cond01(&r));
+                match (lc, rc) {
+                    (Some(c), None) => match (&*r, op) {
+                        (Expr::Const(ConstVal::Int(1)), BinOp::Eq) => c,
+                        (Expr::Const(ConstVal::Int(1)), BinOp::Ne) => not(c),
+                        (Expr::Const(ConstVal::Int(0)), BinOp::Eq) => not(c),
+                        (Expr::Const(ConstVal::Int(0)), BinOp::Ne) => c,
+                        _ => Expr::Bin { op, l: Box::new(c), r, ty },
+                    },
+                    (None, Some(c)) => match (&*l, op) {
+                        (Expr::Const(ConstVal::Int(1)), BinOp::Eq) => c,
+                        (Expr::Const(ConstVal::Int(1)), BinOp::Ne) => not(c),
+                        (Expr::Const(ConstVal::Int(0)), BinOp::Eq) => not(c),
+                        (Expr::Const(ConstVal::Int(0)), BinOp::Ne) => c,
+                        _ => Expr::Bin { op, l, r: Box::new(c), ty },
+                    },
+                    _ => Expr::Bin { op, l, r, ty },
+                }
+            }
+            other => other,
+        }
+    }
+    fn bin(op: BinOp, l: Expr, r: Expr) -> Expr {
+        Expr::Bin { op, l: Box::new(l), r: Box::new(r), ty: None }
+    }
+
+    for _round in 0..4 {
+        let mut changed = false;
+        let mut analysis = VarAnalysis {
+            assigns: Vec::new(),
+            reads: Vec::new(),
+            values: Vec::new(),
+        };
+        analyze_vars(body, &mut analysis);
+        let mut consumed: HashSet<u32> = HashSet::default();
+        walk_mut_deep(body, &mut |st| {
+            let Stmt::Block(list) = st else { return };
+            let mut i = 0usize;
+            while i + 1 < list.len() {
+                let folded = try_at(list, i, vt, &is_bool_var, &bool_const, &reads_var, &lone_assign, &analysis, &mut consumed);
+                match folded {
+                    Some(expr) => {
+                        let is_def = matches!(&list[i], Stmt::LocalDef { .. });
+                        let var = match &list[i] {
+                            Stmt::LocalDef { var, .. } => *var,
+                            Stmt::ExprStmt(Expr::Assign { target, .. }) => {
+                                match &**target { Expr::Local { var, .. } => *var, _ => unreachable!() }
+                            }
+                            _ => unreachable!(),
+                        };
+                        let (is_final, force_type) = match &list[i] {
+                            Stmt::LocalDef { is_final, force_type, .. } => (*is_final, *force_type),
+                            _ => (false, false),
+                        };
+                        list[i] = if is_def {
+                            Stmt::LocalDef { var, init: Some(expr), is_final, force_type }
+                        } else {
+                            Stmt::ExprStmt(Expr::Assign {
+                                target: Box::new(Expr::Local {
+                                    var,
+                                    ty: TypeRef::J(JavaType::Boolean),
+                                }),
+                                op: AssignOp::Plain,
+                                value: Box::new(expr),
+                            })
+                        };
+                        list.remove(i + 1);
+                        changed = true;
+                        // stay at i: a preceding base may now pair with
+                        // nothing new, but a FOLLOWING diamond may chain.
+                    }
+                    None => i += 1,
+                }
+            }
+        });
+        if !changed {
+            break;
+        }
+    }
+
+    fn try_at(
+        list: &[Stmt],
+        i: usize,
+        vt: &VarTable,
+        is_bool_var: &dyn Fn(u32, &VarTable) -> bool,
+        bool_const: &dyn Fn(&Expr) -> Option<bool>,
+        reads_var: &dyn Fn(&Expr, u32) -> bool,
+        lone_assign: &dyn Fn(&Stmt, u32, &VarTable, &VarAnalysis, &mut HashSet<u32>) -> Option<Expr>,
+        an: &VarAnalysis,
+        consumed: &mut HashSet<u32>,
+    ) -> Option<Expr> {
+        // s1: `v = <0|1>` (Assign or LocalDef), v Boolean-typed.
+        let (v, base) = match &list[i] {
+            Stmt::ExprStmt(Expr::Assign { target, op: AssignOp::Plain, value }) => {
+                match &**target {
+                    Expr::Local { var, .. } => {
+                        // The value may be a wrapped constant (`0 != 0`
+                        // — the fallback pipeline's rendered false).
+                        let b = bool_const(value)?;
+                        if !is_bool_var(*var, vt) { return None; }
+                        (*var, b)
+                    }
+                    _ => return None,
+                }
+            }
+            Stmt::LocalDef { var, init: Some(e), .. } => {
+                let b = bool_const(e)?;
+                if !is_bool_var(*var, vt) { return None; }
+                (*var, b)
+            }
+            _ => return None,
+        };
+        let Stmt::If { cond, then_stmt, else_stmt } = &list[i + 1] else {
+            return None;
+        };
+        if reads_var(cond, v) {
+            return None;
+        }
+        let mut touches_v = false;
+        visit_exprs(cond, &mut |x| {
+            if let Expr::Assign { target, .. } = x {
+                if let Expr::Local { var, .. } = &**target {
+                    if *var == v { touches_v = true; }
+                }
+            }
+        });
+        if touches_v {
+            return None;
+        }
+        // The structurer emits inverted diamonds (`if (c) {} else { v = E }`,
+        // empty-then) — normalize by negating the guard.
+        let (cond_n, then_arm, else_arm): (Expr, &Stmt, Option<&Stmt>) =
+            if flat_list(then_stmt).is_empty() && else_stmt.is_some() {
+                (not(cond.clone()), else_stmt.as_ref().unwrap(), None)
+            } else {
+                (cond.clone(), then_stmt.as_ref(), else_stmt.as_deref())
+            };
+        let e1 = lone_assign(then_arm, v, vt, an, consumed)?;
+        let e2 = match else_arm {
+            None => None,
+            Some(b) => Some(lone_assign(b, v, vt, an, consumed)?),
+        };
+        let e1c = bool_const(&e1);
+        let c = simplify_bool(cond_n);
+        Some(match e2 {
+            None => {
+                if !base {
+                    match e1c {
+                        Some(true) => c,
+                        Some(false) => return None, // no-op diamond: guard effects would drop
+                        None => bin(BinOp::LogAnd, c, e1),
+                    }
+                } else {
+                    match e1c {
+                        Some(false) => not(c),
+                        Some(true) => return None,
+                        None => bin(BinOp::LogOr, not(c), e1),
+                    }
+                }
+            }
+            Some(e2) => {
+                // Full diamond: both arms assign — the base is dead.
+                if e1 == e2 {
+                    return None; // both arms equal: folding drops guard effects
+                }
+                Expr::Cond { c: Box::new(c), t: Box::new(e1), f: Box::new(e2) }
+            }
+        })
+    }
+}
+
 pub fn idiom_compounds(body: &mut Stmt, vt: &VarTable) {
     walk_mut_deep(body, &mut |st| {
         let Stmt::ExprStmt(e) = st else { return };
