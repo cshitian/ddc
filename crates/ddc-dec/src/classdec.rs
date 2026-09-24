@@ -1057,17 +1057,66 @@ fn synth_missing_interface_stubs(
     }
 }
 
-/// Synthesize `ordinal()` (and `values()` when the dex copy was stripped)
-/// for a FALLBACK enum base (`/* enum */ class`, restoration failed). The
-/// fallback renders as a plain class that cannot extend java.lang.Enum, so
-/// the inherited `ordinal()` is absent and every `switch (x.ordinal())`
-/// fails ("找不到符号 方法 ordinal()", weibo protobuf ub ×206, weixin ×63).
-/// The ordinal IS the constant's position in the $VALUES array (which the
-/// dex `values()` already clones), so recover it by linear scan. Purely
-/// additive: the dex never declares ordinal() (inherited from Enum), so
-/// there is no collision. Only the BASE (super Enum/Object) — constant
-/// subclasses inherit it.
-fn synth_enum_ordinal(
+/// Synthetic storage fields backing name()/ordinal() on a FALLBACK enum
+/// (a plain class cannot inherit java.lang.Enum's). The enum ctor's
+/// (String, int) trace params feed them (injected in emit_method).
+const ENUM_NAME_FIELD: &str = "$ddcName";
+const ENUM_ORD_FIELD: &str = "$ddcOrdinal";
+
+/// True when the class renders as a fallback enum BASE: ACC_ENUM,
+/// restoration failed (enum_consts None — caller-gated), super is the
+/// Enum root. Constant subclasses inherit the synthesized members.
+fn fallback_enum_base(class: &PoolClass) -> bool {
+    class.is_enum()
+        && class
+            .super_name
+            .as_ref()
+            .map(|s| s == "java/lang/Enum" || s == "java/lang/Object")
+            .unwrap_or(true)
+}
+
+/// Full gate for the synthetic Enum surface: fallback base WITH the
+/// trace ctor and no `$ddc*` field-name clash. The ctor injection in
+/// emit_method, the member synthesis and the dex-valueOf suppression
+/// must all agree, or fields/ctor/renders desynchronize.
+fn enum_synth_active(class: &PoolClass) -> bool {
+    fallback_enum_base(class)
+        && enum_trace_ctor(class)
+        && !class
+            .static_fields
+            .iter()
+            .chain(class.instance_fields.iter())
+            .any(|f| f.name == ENUM_NAME_FIELD || f.name == ENUM_ORD_FIELD)
+}
+
+/// Does the class have the compiler-generated `(String, int, ..)` enum
+/// ctor whose leading params feed the synthetic name/ordinal fields?
+fn enum_trace_ctor(class: &PoolClass) -> bool {
+    class.all_methods().any(|m| {
+        &*m.name == "<init>"
+            && m.parsed_desc()
+                .map(|d| {
+                    matches!(d.args.first(), Some(JavaType::Object(s))
+                        if s.as_ref() == "java/lang/String")
+                        && matches!(d.args.get(1), Some(JavaType::Int))
+                })
+                .unwrap_or(false)
+    })
+}
+
+/// Synthesize the java.lang.Enum member surface a FALLBACK enum base
+/// lacks (it renders as a plain class — `extends Enum` is illegal in
+/// source): storage fields `$ddcName`/`$ddcOrdinal` (fed by the ctor
+/// trace-param injection in emit_method), `name()`, `ordinal()`,
+/// `valueOf(String)` and `compareTo`, plus `values()` when R8 stripped
+/// the dex copy. Kills the illegal dex `Enum.valueOf(X.class, ..)`
+/// ("无法将类 Enum<E>中的方法 valueOf应用到给定类型" — weixin ×1,307,
+/// weibo ×477) and makes ordinal() EXACT (the interim values()-scan
+/// misread enums whose $VALUES carries register-reuse duplicates,
+/// protobuf ub). Purely additive: the dex never declares these members
+/// on the enum class (they are Enum inheritances), so no collision —
+/// except the dex valueOf, suppressed at the method loop.
+fn synth_enum_members(
     pool: &DexPool,
     class: &PoolClass,
     out: &mut String,
@@ -1075,23 +1124,14 @@ fn synth_enum_ordinal(
     emitted_any: &mut bool,
 ) {
     use crate::access::*;
-    let is_base = class
-        .super_name
-        .as_ref()
-        .map(|s| s == "java/lang/Enum" || s == "java/lang/Object")
-        .unwrap_or(true);
-    if !class.is_enum() || !is_base {
+    if !fallback_enum_base(class) {
         return;
     }
-    // Never declared on the dex enum (inherited from Enum), but guard.
-    if class
-        .all_methods()
-        .any(|m| &*m.name == "ordinal" && &*m.desc == "()I")
-    {
-        return;
-    }
-    let self_arr = JavaType::Array(Box::new(JavaType::Object(class.name.as_str().into())));
+    let self_ty = JavaType::Object(class.name.as_str().into());
+    let self_name = type_name(pool, &self_ty);
+    let self_arr = JavaType::Array(Box::new(self_ty));
     let arr_name = type_name(pool, &self_arr);
+    let traced = enum_synth_active(class);
     let has_values = class.all_methods().any(|m| {
         &*m.name == "values"
             && m.access & ACC_STATIC != 0
@@ -1100,30 +1140,85 @@ fn synth_enum_ordinal(
                 .unwrap_or(false)
     });
     let ind = "    ".repeat(depth + 1);
+    let push_line = |out: &mut String, l: &str| {
+        out.push_str(&ind);
+        out.push_str(l);
+        out.push('\n');
+    };
+    // values(): from the $VALUES array field when the dex copy is gone.
     if !has_values {
-        // $VALUES array field: the synthetic `static final Self[]`.
         let want = format!("[L{};", class.name);
-        let Some(vf) = class.static_fields.iter().find(|f| f.desc == want) else {
-            return; // no array to recover ordinals from
-        };
-        if *emitted_any {
-            out.push('\n');
+        if let Some(vf) = class.static_fields.iter().find(|f| f.desc == want) {
+            if *emitted_any {
+                out.push('\n');
+            }
+            *emitted_any = true;
+            push_line(out, &format!("public static {} values() {{", arr_name));
+            push_line(
+                out,
+                &format!("    return ({}) {}.clone();", arr_name, java_ident(&vf.name)),
+            );
+            push_line(out, "}");
         }
-        out.push_str(&ind);
-        out.push_str(&format!("public static {} values() {{\n", arr_name));
-        out.push_str(&ind);
-        out.push_str(&format!(
-            "    return ({}) {}.clone();\n",
-            arr_name,
-            java_ident(&vf.name)
-        ));
-        out.push_str(&ind);
-        out.push_str("}\n");
-        *emitted_any = true;
+    }
+    if !traced {
+        return; // no (String,int) ctor: fields would stay default — keep
+                // the scan-based ordinal only (below) and the dex valueOf.
     }
     if *emitted_any {
         out.push('\n');
     }
+    *emitted_any = true;
+    push_line(out, &format!("private java.lang.String {};", ENUM_NAME_FIELD));
+    push_line(out, &format!("private int {};", ENUM_ORD_FIELD));
+    out.push('\n');
+    push_line(out, &format!(
+        "public java.lang.String name() {{\n{}    return this.{};\n{}}}",
+        ind, ENUM_NAME_FIELD, ind
+    ));
+    out.push('\n');
+    push_line(out, &format!(
+        "public int ordinal() {{\n{}    return this.{};\n{}}}",
+        ind, ENUM_ORD_FIELD, ind
+    ));
+    out.push('\n');
+    push_line(out, &format!(
+        "public int compareTo({0} o) {{\n{1}    return this.{2} - o.{2};\n{1}}}",
+        self_name, ind, ENUM_ORD_FIELD
+    ));
+    out.push('\n');
+    push_line(out, &format!(
+        "public static {0} valueOf(java.lang.String s) {{\n{1}    for ({0} v : values()) {{\n{1}        if (v.name().equals(s)) {{\n{1}            return v;\n{1}        }}\n{1}    }}\n{1}    throw new java.lang.IllegalArgumentException(s);\n{1}}}",
+        self_name, ind
+    ));
+}
+
+/// Scan-based ordinal() fallback for fallback enums WITHOUT the trace
+/// ctor (rare): position in values(). Kept separate so synth_enum_members
+/// can bail after values() synthesis.
+fn synth_enum_ordinal_scan(
+    pool: &DexPool,
+    class: &PoolClass,
+    out: &mut String,
+    depth: usize,
+    emitted_any: &mut bool,
+) {
+    if !fallback_enum_base(class) || enum_trace_ctor(class) {
+        return;
+    }
+    if class
+        .all_methods()
+        .any(|m| &*m.name == "ordinal" && &*m.desc == "()I")
+    {
+        return;
+    }
+    let self_arr = JavaType::Array(Box::new(JavaType::Object(class.name.as_str().into())));
+    let arr_name = type_name(pool, &self_arr);
+    let ind = "    ".repeat(depth + 1);
+    if *emitted_any {
+        out.push('\n');
+    }
+    *emitted_any = true;
     out.push_str(&ind);
     out.push_str("public int ordinal() {\n");
     out.push_str(&ind);
@@ -1142,7 +1237,6 @@ fn synth_enum_ordinal(
     out.push_str("    return 0;\n");
     out.push_str(&ind);
     out.push_str("}\n");
-    *emitted_any = true;
 }
 
 /// Strip the Meituan Robust hotpatch guard from a RESTORED enum ctor:
@@ -1548,6 +1642,9 @@ fn emit_class_body(
         (n, &d[lo..hi])
     }
     let renames_on = jdc_core::rename::member_rename_active();
+    let suppress_dex_valueof = class.is_enum()
+        && enum_consts.is_none()
+        && enum_synth_active(class);
     let methods: Vec<&PoolMethod> = class.all_methods().collect();
     let mut claim: jdc_core::FxHashMap<(&str, &str), usize> = jdc_core::FxHashMap::default();
     for (i, m) in methods.iter().enumerate() {
@@ -1579,6 +1676,22 @@ fn emit_class_body(
             continue; // rendered after the fields
         }
         if claim.get(&sig_key(&class.name, renames_on, m)) != Some(&i) {
+            continue;
+        }
+        // Fallback enum base: the dex valueOf body is
+        // `Enum.valueOf(X.class, str)` — illegal once X is a plain class
+        // (T is not bounded by Enum). Suppress it; synth_enum_members
+        // renders the values()-scan replacement.
+        if suppress_dex_valueof
+            && m.is_static()
+            && &*m.name == "valueOf"
+            && m.parsed_desc().map(|d| {
+                d.args.len() == 1
+                    && matches!(d.args[0], JavaType::Object(ref sn)
+                        if sn.as_ref() == "java/lang/String")
+                    && d.ret == JavaType::Object(class.name.as_str().into())
+            }).unwrap_or(false)
+        {
             continue;
         }
         // True-enum rendering: javac auto-generates values()/valueOf()
@@ -1931,10 +2044,12 @@ fn emit_class_body(
     // class). Synthesized last so they sit after the real members.
     synth_missing_interface_stubs(pool, class, out, depth, &mut emitted_any);
 
-    // Fallback enum base: recover the Enum methods the plain-class
-    // rendering lacks (ordinal() for `switch (x.ordinal())`).
+    // Fallback enum base: recover the Enum member surface the
+    // plain-class rendering lacks (name/ordinal/valueOf/compareTo +
+    // synthetic storage fields fed by the ctor injection).
     if class.is_enum() && enum_consts.is_none() {
-        synth_enum_ordinal(pool, class, out, depth, &mut emitted_any);
+        synth_enum_members(pool, class, out, depth, &mut emitted_any);
+        synth_enum_ordinal_scan(pool, class, out, depth, &mut emitted_any);
     }
 
     // Static initializer. INTERFACES cannot carry a `static { }` block in
@@ -2391,6 +2506,68 @@ fn emit_method(
         if enum_promoted && is_init {
             if let Some(b) = body.as_mut() {
                 strip_robust_enum_ctor_guard(&mut b.body);
+            }
+        }
+        // Fallback enum base ctor: store the (String, int) trace params
+        // into the synthetic $ddcName/$ddcOrdinal fields that back the
+        // synthesized name()/ordinal()/valueOf() (synth_enum_members).
+        // Non-final fields: constant-subclass ctors reach this store
+        // through their super(..) chain, and a `final` would demand
+        // definite assignment on every ctor path.
+        if is_init
+            && !enum_promoted
+            && class.is_enum()
+            && enum_synth_active(class)
+            && matches!(d.args.first(), Some(JavaType::Object(sx)) if sx.as_ref() == "java/lang/String")
+            && matches!(d.args.get(1), Some(JavaType::Int))
+        {
+            if let Some(b) = body.as_mut() {
+                // A ctor that DELEGATES first (the -IA synthetic bridge,
+                // `this(str, p2)`) must stay delegation-first — the
+                // delegated-to ctor performs the stores.
+                let starts_with_delegation = match &b.body {
+                    Stmt::Block(vs) => vs.first().is_some_and(crate::passes::is_bare_ctor_call),
+                    other => crate::passes::is_bare_ctor_call(other),
+                };
+                let ps: Vec<u32> = b
+                    .vt
+                    .vars
+                    .iter()
+                    .filter(|v| v.is_param && v.name != "this")
+                    .take(2)
+                    .map(|v| v.id)
+                    .collect();
+                if ps.len() == 2 && !starts_with_delegation {
+                    let mk_store = |var: u32, fname: &str, fty: JavaType| {
+                        Stmt::ExprStmt(Expr::Assign {
+                            target: Box::new(Expr::Field {
+                                owner: Some(Box::new(Expr::This)),
+                                cls: std::sync::Arc::from(class.name.as_str()),
+                                name: std::sync::Arc::from(fname),
+                                ty: jdc_core::ir::expr::TypeRef::J(fty.clone()),
+                                is_static: false,
+                            }),
+                            op: jdc_core::ir::expr::AssignOp::Plain,
+                            value: Box::new(Expr::Local {
+                                var,
+                                ty: jdc_core::ir::expr::TypeRef::J(fty),
+                            }),
+                        })
+                    };
+                    let mut inj = vec![
+                        mk_store(ps[0], ENUM_NAME_FIELD, JavaType::Object("java/lang/String".into())),
+                        mk_store(ps[1], ENUM_ORD_FIELD, JavaType::Int),
+                    ];
+                    if let Stmt::Block(vs) = &mut b.body {
+                        let mut rest = std::mem::take(vs);
+                        inj.append(&mut rest);
+                        *vs = inj;
+                    } else {
+                        let prev = std::mem::replace(&mut b.body, Stmt::Block(Vec::new()));
+                        inj.push(prev);
+                        b.body = Stmt::Block(inj);
+                    }
+                }
             }
         }
         let mut arg0 = 0;
