@@ -30,8 +30,10 @@ pub enum StaticValue {
     Type(String),
     Boolean(bool),
     Null,
-    /// (declaring class, field name) — enum constants.
-    Field(String, String),
+    /// (declaring class, field name, field descriptor) — enum constants /
+    /// const field refs. The desc participates in the rename-registry key
+    /// (owner, name, desc) so the render site can consult field_display.
+    Field(String, String, String),
     Other,
 }
 use ddc_dex::{ClassDef, DexFile};
@@ -833,6 +835,7 @@ fn resolve_static_value(v: &EncodedValue, dex: &DexFile) -> StaticValue {
             StaticValue::Field(
                 dex.class_name(f.class_idx),
                 dex.string(f.name_idx).to_string(),
+                dex.type_name(f.type_idx).to_string(),
             )
         }
         _ => StaticValue::Other,
@@ -2049,6 +2052,10 @@ fn member_collision_renames(
     // the companion-field rule below.
     let mut child_tails: jdc_core::FxHashMap<&str, Vec<&str>> =
         jdc_core::FxHashMap::default();
+    // Reverse super map — the obscuring rename must register under every
+    // transitive subclass (dex refs of an inherited field may name any
+    // hierarchy class as owner).
+    let mut subs: jdc_core::FxHashMap<&str, Vec<&str>> = jdc_core::FxHashMap::default();
     for n in &pool.order {
         if let Some(i) = n.find('$') {
             let base = &n[..i];
@@ -2059,6 +2066,13 @@ fn member_collision_renames(
             };
             if !tail.is_empty() {
                 child_tails.entry(base).or_default().push(tail);
+            }
+        }
+        if let Some(pc) = pool.get_if_materialized(n) {
+            if let Some(sup) = &pc.super_name {
+                if sup != "java/lang/Object" {
+                    subs.entry(sup.as_str()).or_default().push(n.as_str());
+                }
             }
         }
     }
@@ -2127,6 +2141,73 @@ fn member_collision_renames(
                         desc: std::sync::Arc::from(f.desc.as_str()),
                         display: std::sync::Arc::from(display.as_str()),
                     });
+            }
+        }
+        // ---- fields obscuring nested types (JLS 6.4.2) ----
+        // `C.b.a(..)` with BOTH a field `b` and a member class `C$b`
+        // binds to the FIELD — the qualified type reading is obscured
+        // ("无法从静态上下文中引用非静态 变量 b" + the paired cannot-find
+        // cascade; lark LKEvent/MotionLayout family, static-ctx ×1,154).
+        // The CHILD-side rule (nested_collision_renames) already renames
+        // colliding children when its local_ok gate passes (`a$a` renders
+        // as `a2`); this field-side rule covers the gate-REJECTED residual
+        // (child keeps display `b`, program-wide refs block its rename).
+        // A field's refs all funnel through field_display (lift call
+        // sites, declarations, const inits), so the field side needs no
+        // locality gate. TWO invariants the first attempt violated (lark
+        // +8,129): fire on the child's FINAL DISPLAY last segment, not
+        // the raw tail (a child the child-side rule already renamed does
+        // NOT obscure), and mint avoiding every child display (`a`→`a2`
+        // landed on the existing `interface a2`, minting a fresh
+        // obscuring pair).
+        if let Some(tails) = child_tails.get(name.as_str()) {
+            let mut member_displays: jdc_core::FxHashSet<String> =
+                jdc_core::FxHashSet::default();
+            let mut obscuring: jdc_core::FxHashSet<String> =
+                jdc_core::FxHashSet::default();
+            for t in tails {
+                let full = format!("{name}${t}");
+                let renamed = crate::apply_class_rename(&full);
+                let last = renamed
+                    .rsplit('/')
+                    .next()
+                    .unwrap_or(&renamed)
+                    .rsplit('$')
+                    .next()
+                    .unwrap_or(t)
+                    .to_string();
+                member_displays.insert(last.clone());
+                // Only an INLINE-rendered member is reachable by the bare
+                // simple name (own-file children are referenced by their
+                // flat `$` form, which fields cannot obscure).
+                let member_rendered = clean_member_tail(t)
+                    && crate::find_outer_name(pool, &full).as_deref()
+                        == Some(name.as_str());
+                if member_rendered {
+                    obscuring.insert(last);
+                }
+            }
+            for f in &fields {
+                let fdisp = crate::classdec::java_ident(&f.name).into_owned();
+                if fdisp.starts_with("this$") || !obscuring.contains(fdisp.as_str()) {
+                    continue;
+                }
+                let mut k = 1u32;
+                let display = loop {
+                    k += 1;
+                    let cand = format!("{fdisp}{k}");
+                    if !f_taken.contains(&cand) && !member_displays.contains(&cand) {
+                        f_taken.insert(cand.clone());
+                        member_displays.insert(cand.clone());
+                        break cand;
+                    }
+                };
+                register_field_rename_with_subs(
+                    pool, &subs, &mut out, name, &f.name, &f.desc, &display,
+                );
+                if std::env::var("DDC_OBSCURE_STATS").is_ok() {
+                    eprintln!("[obscure] {name} field {} -> {}", f.name, display);
+                }
             }
         }
         // ---- companion-holder fields vs nested types (JLS 6.4.2 in
@@ -2324,7 +2405,201 @@ fn member_collision_renames(
             }
         }
     }
+    inherited_obscuring_renames(pool, &mut out);
     out
+}
+
+/// Inherited-field variant of the obscuring rule: class C renders a
+/// member nested type `d` while INHERITING a field `d` from a pool
+/// superclass — `C.d.b(..)` binds to the inherited variable (fields
+/// obscure types, JLS 6.4.2) and fails ("无法从静态上下文中引用非静态
+/// 变量 d" + "无法取消引用int" pairs, LynxBaseScrollViewDragging ×84 —
+/// latent behind the broken-superclass hub until the same-class rule
+/// healed it). The rename lands on the DECLARING class (one declaration
+/// to re-render) and is registered under every transitive subclass as
+/// well, because dex field refs may name any subclass as owner and the
+/// lift-time consult keys on the ref's owner.
+/// Register a field rename under the declaring class AND every transitive
+/// subclass: dex field refs for an inherited access may name ANY class in
+/// the hierarchy as owner (`iput Lh$a;->a` inside the constant-subclass
+/// ctor of `h`), and the lift-time consult keys on the ref's owner — a
+/// declaring-class-only entry leaves those refs stale (org/a/c/h ×3).
+/// Subclasses that REDECLARE (name, desc) hide the field — their own
+/// field is distinct and must keep its name (and their own obscuring,
+/// if any, is handled when the loop reaches them).
+fn register_field_rename_with_subs(
+    pool: &DexPool,
+    subs: &jdc_core::FxHashMap<&str, Vec<&str>>,
+    out: &mut HashMap<std::sync::Arc<str>, Vec<jdc_core::rename::FieldRename>>,
+    owner: &str,
+    fname: &str,
+    fdesc: &str,
+    display: &str,
+) {
+    let mut queue: Vec<&str> = vec![owner];
+    let mut seen: jdc_core::FxHashSet<&str> = jdc_core::FxHashSet::default();
+    seen.insert(owner);
+    let mut first = true;
+    while let Some(c) = queue.pop() {
+        let redeclares = if first {
+            first = false;
+            false // the declaring class itself: always register
+        } else {
+            pool.get_if_materialized(c)
+                .map(|pc| {
+                    pc.static_fields
+                        .iter()
+                        .chain(pc.instance_fields.iter())
+                        .any(|f| f.name == fname && f.desc == fdesc)
+                })
+                .unwrap_or(false)
+        };
+        if redeclares {
+            continue; // hidden below this point: its subtree refs bind to its own field
+        }
+        out.entry(std::sync::Arc::from(c))
+            .or_default()
+            .push(jdc_core::rename::FieldRename {
+                name: std::sync::Arc::from(fname),
+                desc: std::sync::Arc::from(fdesc),
+                display: std::sync::Arc::from(display),
+            });
+        if let Some(children) = subs.get(c) {
+            for ch in children {
+                if seen.insert(*ch) {
+                    queue.push(*ch);
+                }
+            }
+        }
+    }
+}
+
+fn inherited_obscuring_renames(
+    pool: &DexPool,
+    out: &mut HashMap<std::sync::Arc<str>, Vec<jdc_core::rename::FieldRename>>,
+) {
+    // Reverse super map over materialized classes.
+    let mut subs: jdc_core::FxHashMap<&str, Vec<&str>> = jdc_core::FxHashMap::default();
+    for n in &pool.order {
+        let Some(pc) = pool.get_if_materialized(n) else {
+            continue;
+        };
+        if let Some(sup) = &pc.super_name {
+            if sup != "java/lang/Object" {
+                subs.entry(sup.as_str()).or_default().push(n.as_str());
+            }
+        }
+    }
+    let mut renamed: jdc_core::FxHashSet<(String, String, String)> =
+        jdc_core::FxHashSet::default();
+    for n in &pool.order {
+        let Some(pc) = pool.get_if_materialized(n) else {
+            continue;
+        };
+        if pc.is_interface() {
+            continue;
+        }
+        // Member-rendered child displays of THIS class.
+        let mut child_displays: Vec<String> = Vec::new();
+        for child in pool.children_of(n.as_str()) {
+            let Some(rest) = child
+                .strip_prefix(n.as_str())
+                .and_then(|t| t.strip_prefix('$'))
+            else {
+                continue;
+            };
+            if !clean_member_tail(rest) {
+                continue;
+            }
+            if crate::find_outer_name(pool, child).as_deref() != Some(n.as_str()) {
+                continue;
+            }
+            let renamed_disp = crate::apply_class_rename(child);
+            let last = renamed_disp
+                .rsplit('/')
+                .next()
+                .unwrap_or(&renamed_disp)
+                .rsplit('$')
+                .next()
+                .unwrap_or(rest)
+                .to_string();
+            child_displays.push(last);
+        }
+        if child_displays.is_empty() {
+            continue;
+        }
+        // Walk the super chain for an inherited field whose display
+        // collides; own fields are the same-class rule's job.
+        let own: jdc_core::FxHashSet<String> = pc
+            .static_fields
+            .iter()
+            .chain(pc.instance_fields.iter())
+            .map(|f| crate::classdec::java_ident(&f.name).into_owned())
+            .collect();
+        let mut sup = pc.super_name.clone();
+        while let Some(sname) = sup {
+            if sname == "java/lang/Object" {
+                break;
+            }
+            let Some(sc) = pool.get_if_materialized(&sname) else {
+                break;
+            };
+            for f in sc.static_fields.iter().chain(sc.instance_fields.iter()) {
+                let fdisp = crate::classdec::java_ident(&f.name).into_owned();
+                if fdisp.starts_with("this$") || !child_displays.iter().any(|c| *c == fdisp) {
+                    continue;
+                }
+                if !renamed.insert((sname.clone(), f.name.to_string(), f.desc.clone())) {
+                    continue;
+                }
+                // Mint in the DECLARING class's namespace: avoid its
+                // fields + its own member-rendered child displays.
+                let mut avoid: jdc_core::FxHashSet<String> = sc
+                    .static_fields
+                    .iter()
+                    .chain(sc.instance_fields.iter())
+                    .map(|g| crate::classdec::java_ident(&g.name).into_owned())
+                    .collect();
+                for child in pool.children_of(sname.as_str()) {
+                    let Some(rest) = child
+                        .strip_prefix(sname.as_str())
+                        .and_then(|t| t.strip_prefix('$'))
+                    else {
+                        continue;
+                    };
+                    if !clean_member_tail(rest) {
+                        continue;
+                    }
+                    let rd = crate::apply_class_rename(child);
+                    avoid.insert(
+                        rd.rsplit('/')
+                            .next()
+                            .unwrap_or(&rd)
+                            .rsplit('$')
+                            .next()
+                            .unwrap_or(rest)
+                            .to_string(),
+                    );
+                }
+                let mut k = 1u32;
+                let display = loop {
+                    k += 1;
+                    let cand = format!("{fdisp}{k}");
+                    if !avoid.contains(&cand) {
+                        break cand;
+                    }
+                };
+                register_field_rename_with_subs(
+                    pool, &subs, out, &sname, &f.name, &f.desc, &display,
+                );
+                if std::env::var("DDC_OBSCURE_STATS").is_ok() {
+                    eprintln!("[obscure-inh] {sname} field {} -> {display} (child of {n})", f.name);
+                }
+            }
+            sup = sc.super_name.clone();
+        }
+        let _ = &own;
+    }
 }
 
 fn suffix_unique(base: &str, taken: &mut jdc_core::FxHashSet<String>) -> String {

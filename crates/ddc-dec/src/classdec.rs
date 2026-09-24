@@ -1880,8 +1880,14 @@ fn render_static_value(pool: &DexPool, v: &StaticValue, owner: &str) -> Option<S
         StaticValue::Type(t) => format!("{}.class", dotted(t)),
         StaticValue::Boolean(b) => b.to_string(),
         StaticValue::Null => "null".into(),
-        StaticValue::Field(cls, name) => {
-            let n = java_ident(name);
+        StaticValue::Field(cls, name, desc) => {
+            // The rename registry owns the display name (obscuring-field
+            // renames key on (owner, name, desc)) — a const field ref must
+            // render the SAME name as the declaration.
+            let n: std::borrow::Cow<str> = match jdc_core::rename::field_display(cls, name, desc) {
+                Some(d) => std::borrow::Cow::Borrowed(d),
+                None => java_ident(name),
+            };
             if cls == owner {
                 n.into_owned()
             } else {
