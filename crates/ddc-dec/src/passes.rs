@@ -8457,6 +8457,254 @@ fn split_walk_stmt(
     }
 }
 
+/// Direct supertypes of framework exception classes (internal names).
+/// Dex catch handlers legitimately list subclass+superclass pairs for
+/// one handler (verifier: first match wins); Java multi-catch forbids
+/// subtype-related alternatives ("multi-catch 语句中的替代无法通过子类化
+/// 关联" ×58: FileNotFoundException|IOException ×12,
+/// NameNotFoundException|Exception, JSONException|Exception,
+/// IllegalArgumentException|RuntimeException, …). Dropping the
+/// shadowed alternative preserves the caught set EXACTLY (same
+/// handler body, same variable). Pool hierarchies resolve through
+/// pool.is_subtype (it matches ancestor NAMES, so pool subclasses of
+/// framework exceptions work); framework classes are absent from the
+/// dex, so the stable public JDK/Android chains are tabled here —
+/// standard decompiler practice. Missing entries only lose a dedupe
+/// opportunity (safe direction); a WRONG entry would drop a live
+/// alternative, so only unambiguous chains are listed.
+static FW_EXC_SUPERS: &[(&str, &str)] = &[
+    // java.lang
+    ("java/lang/Exception", "java/lang/Throwable"),
+    ("java/lang/RuntimeException", "java/lang/Exception"),
+    ("java/lang/IllegalArgumentException", "java/lang/RuntimeException"),
+    ("java/lang/IllegalStateException", "java/lang/RuntimeException"),
+    ("java/lang/NullPointerException", "java/lang/RuntimeException"),
+    ("java/lang/ArithmeticException", "java/lang/RuntimeException"),
+    ("java/lang/ClassCastException", "java/lang/RuntimeException"),
+    ("java/lang/IndexOutOfBoundsException", "java/lang/RuntimeException"),
+    ("java/lang/ArrayIndexOutOfBoundsException", "java/lang/IndexOutOfBoundsException"),
+    ("java/lang/StringIndexOutOfBoundsException", "java/lang/IndexOutOfBoundsException"),
+    ("java/lang/NumberFormatException", "java/lang/IllegalArgumentException"),
+    ("java/lang/UnsupportedOperationException", "java/lang/RuntimeException"),
+    ("java/lang/SecurityException", "java/lang/RuntimeException"),
+    ("java/lang/NegativeArraySizeException", "java/lang/RuntimeException"),
+    ("java/lang/EnumConstantNotPresentException", "java/lang/RuntimeException"),
+    ("java/lang/TypeNotPresentException", "java/lang/RuntimeException"),
+    ("java/lang/CloneNotSupportedException", "java/lang/Exception"),
+    ("java/lang/InterruptedException", "java/lang/Exception"),
+    ("java/lang/ReflectiveOperationException", "java/lang/Exception"),
+    ("java/lang/ClassNotFoundException", "java/lang/ReflectiveOperationException"),
+    ("java/lang/NoSuchFieldException", "java/lang/ReflectiveOperationException"),
+    ("java/lang/NoSuchMethodException", "java/lang/ReflectiveOperationException"),
+    ("java/lang/InstantiationException", "java/lang/ReflectiveOperationException"),
+    ("java/lang/IllegalAccessException", "java/lang/ReflectiveOperationException"),
+    ("java/lang/reflect/InvocationTargetException", "java/lang/ReflectiveOperationException"),
+    ("java/lang/reflect/UndeclaredThrowableException", "java/lang/RuntimeException"),
+    ("java/lang/invoke/WrongMethodTypeException", "java/lang/RuntimeException"),
+    ("java/lang/annotation/IncompleteAnnotationException", "java/lang/RuntimeException"),
+    // java.lang errors
+    ("java/lang/Error", "java/lang/Throwable"),
+    ("java/lang/AssertionError", "java/lang/Error"),
+    ("java/lang/VirtualMachineError", "java/lang/Error"),
+    ("java/lang/OutOfMemoryError", "java/lang/VirtualMachineError"),
+    ("java/lang/StackOverflowError", "java/lang/VirtualMachineError"),
+    ("java/lang/LinkageError", "java/lang/Error"),
+    ("java/lang/IncompatibleClassChangeError", "java/lang/LinkageError"),
+    ("java/lang/NoSuchMethodError", "java/lang/IncompatibleClassChangeError"),
+    ("java/lang/NoSuchFieldError", "java/lang/IncompatibleClassChangeError"),
+    ("java/lang/NoClassDefFoundError", "java/lang/LinkageError"),
+    ("java/lang/ExceptionInInitializerError", "java/lang/LinkageError"),
+    ("java/lang/UnsatisfiedLinkError", "java/lang/LinkageError"),
+    ("java/lang/VerifyError", "java/lang/LinkageError"),
+    ("java/lang/ClassFormatError", "java/lang/LinkageError"),
+    ("java/lang/BootstrapMethodError", "java/lang/LinkageError"),
+    // java.util
+    ("java/util/ConcurrentModificationException", "java/lang/RuntimeException"),
+    ("java/util/NoSuchElementException", "java/lang/RuntimeException"),
+    ("java/util/MissingResourceException", "java/lang/RuntimeException"),
+    ("java/util/EmptyStackException", "java/lang/RuntimeException"),
+    ("java/util/TooManyListenersException", "java/lang/Exception"),
+    ("java/util/ServiceConfigurationError", "java/lang/Error"),
+    ("java/util/concurrent/ExecutionException", "java/lang/Exception"),
+    ("java/util/concurrent/TimeoutException", "java/lang/Exception"),
+    ("java/util/concurrent/BrokenBarrierException", "java/lang/Exception"),
+    ("java/util/concurrent/RejectedExecutionException", "java/lang/RuntimeException"),
+    ("java/util/concurrent/CompletionException", "java/lang/RuntimeException"),
+    ("java/util/concurrent/CancellationException", "java/lang/IllegalStateException"),
+    // java.io / java.net
+    ("java/io/IOException", "java/lang/Exception"),
+    ("java/io/FileNotFoundException", "java/io/IOException"),
+    ("java/io/InterruptedIOException", "java/io/IOException"),
+    ("java/io/UnsupportedEncodingException", "java/io/IOException"),
+    ("java/io/UTFDataFormatException", "java/io/IOException"),
+    ("java/io/EOFException", "java/io/IOException"),
+    ("java/io/CharConversionException", "java/io/IOException"),
+    ("java/io/ObjectStreamException", "java/io/IOException"),
+    ("java/io/InvalidObjectException", "java/io/ObjectStreamException"),
+    ("java/io/NotSerializableException", "java/io/ObjectStreamException"),
+    ("java/net/SocketException", "java/io/IOException"),
+    ("java/net/ConnectException", "java/net/SocketException"),
+    ("java/net/BindException", "java/net/SocketException"),
+    ("java/net/NoRouteToHostException", "java/net/SocketException"),
+    ("java/net/ProtocolException", "java/io/IOException"),
+    ("java/net/UnknownHostException", "java/io/IOException"),
+    ("java/net/MalformedURLException", "java/io/IOException"),
+    ("java/net/HttpRetryException", "java/io/IOException"),
+    ("java/net/SocketTimeoutException", "java/io/InterruptedIOException"),
+    ("java/net/URISyntaxException", "java/lang/Exception"),
+    // java.text / security / crypto / ssl / sax
+    ("java/text/ParseException", "java/lang/Exception"),
+    ("java/security/GeneralSecurityException", "java/lang/Exception"),
+    ("java/security/NoSuchAlgorithmException", "java/security/GeneralSecurityException"),
+    ("java/security/NoSuchProviderException", "java/security/GeneralSecurityException"),
+    ("java/security/InvalidKeyException", "java/security/GeneralSecurityException"),
+    ("java/security/InvalidAlgorithmParameterException", "java/security/GeneralSecurityException"),
+    ("java/security/SignatureException", "java/security/GeneralSecurityException"),
+    ("java/security/UnrecoverableKeyException", "java/security/GeneralSecurityException"),
+    ("java/security/KeyStoreException", "java/security/GeneralSecurityException"),
+    ("java/security/cert/CertificateException", "java/security/GeneralSecurityException"),
+    ("java/security/spec/InvalidKeySpecException", "java/security/GeneralSecurityException"),
+    ("javax/crypto/BadPaddingException", "java/security/GeneralSecurityException"),
+    ("javax/crypto/IllegalBlockSizeException", "java/security/GeneralSecurityException"),
+    ("javax/crypto/NoSuchPaddingException", "java/security/GeneralSecurityException"),
+    ("javax/crypto/ShortBufferException", "java/security/GeneralSecurityException"),
+    ("javax/net/ssl/SSLException", "java/io/IOException"),
+    ("org/xml/sax/SAXException", "java/lang/Exception"),
+    ("org/xml/sax/SAXParseException", "org/xml/sax/SAXException"),
+    ("org/json/JSONException", "java/lang/RuntimeException"),
+    ("org/xmlpull/v1/XmlPullParserException", "java/lang/Exception"),
+    ("java/util/IllegalFormatException", "java/lang/IllegalArgumentException"),
+    ("java/util/MissingFormatArgumentException", "java/util/IllegalFormatException"),
+    ("java/util/UnknownFormatConversionException", "java/util/IllegalFormatException"),
+    // android
+    ("android/util/AndroidRuntimeException", "java/lang/RuntimeException"),
+    ("android/util/AndroidException", "java/lang/Exception"),
+    ("android/content/ActivityNotFoundException", "java/lang/RuntimeException"),
+    ("android/content/ComponentNotFoundException", "java/lang/RuntimeException"),
+    ("android/content/pm/PackageManager$NameNotFoundException", "java/lang/Exception"),
+    ("android/content/res/Resources$NotFoundException", "java/lang/RuntimeException"),
+    ("android/database/SQLException", "java/lang/RuntimeException"),
+    ("android/database/sqlite/SQLiteException", "android/database/SQLException"),
+    ("android/database/CursorIndexOutOfBoundsException", "java/lang/IndexOutOfBoundsException"),
+    ("android/os/NetworkOnMainThreadException", "java/lang/RuntimeException"),
+    ("android/system/ErrnoException", "java/lang/Exception"),
+    ("android/provider/Settings$SettingNotFoundException", "android/util/AndroidException"),
+    ("android/net/UriParseException", "java/lang/RuntimeException"),
+    ("android/view/InflateException", "java/lang/RuntimeException"),
+    ("android/accounts/AuthenticatorException", "java/lang/Exception"),
+    ("android/accounts/OperationCanceledException", "android/accounts/AuthenticatorException"),
+    ("android/hardware/camera2/CameraAccessException", "java/lang/Exception"),
+    ("android/opengl/GLException", "java/lang/RuntimeException"),
+    ("android/renderscript/RSRuntimeException", "java/lang/RuntimeException"),
+];
+
+fn fw_super(c: &str) -> Option<&'static str> {
+    FW_EXC_SUPERS
+        .iter()
+        .find(|(k, _)| *k == c)
+        .map(|(_, v)| *v)
+}
+
+/// `sub <: sup` for exception-class names, combining the pool
+/// hierarchy (which also matches framework ancestor NAMES on the way
+/// up, so pool subclasses of framework exceptions resolve) with the
+/// tabled framework chains for pairs where both sides are outside the
+/// dex.
+fn exc_subtype(sub: &str, sup: &str, pool: &DexPool) -> bool {
+    if sub == sup {
+        return true;
+    }
+    if pool.is_subtype(sub, sup) {
+        return true;
+    }
+    let mut cur = sub;
+    for _ in 0..24 {
+        let Some(next) = fw_super(cur) else { break };
+        if next == sup {
+            return true;
+        }
+        cur = next;
+    }
+    false
+}
+
+/// Drop multi-catch alternatives shadowed by another alternative in
+/// the same handler (JLS 14.20.2 forbids subtype-related
+/// alternatives; the dex verifier does not). Exact duplicates collapse
+/// to the first occurrence. The caught set is unchanged, so this is
+/// semantics-preserving by construction.
+pub fn dedupe_multicatch(s: &mut Stmt, pool: &DexPool) {
+    dedupe_multicatch_walk(s, pool);
+}
+
+fn dedupe_multicatch_walk(s: &mut Stmt, pool: &DexPool) {
+    match s {
+        Stmt::Try {
+            body,
+            catches,
+            finally,
+        }
+        | Stmt::TryWithResources {
+            body,
+            catches,
+            finally,
+            ..
+        } => {
+            dedupe_multicatch_walk(body, pool);
+            for c in catches.iter_mut() {
+                if c.exc.len() > 1 {
+                    let mut keep: Vec<std::sync::Arc<str>> = Vec::with_capacity(c.exc.len());
+                    for e in c.exc.iter() {
+                        let shadowed = c.exc.iter().any(|o| {
+                            o.as_ref() != e.as_ref() && exc_subtype(e, o, pool)
+                        });
+                        if !shadowed && !keep.iter().any(|k| k.as_ref() == e.as_ref()) {
+                            keep.push(e.clone());
+                        }
+                    }
+                    c.exc = keep;
+                }
+                dedupe_multicatch_walk(&mut c.body, pool);
+            }
+            if let Some(f) = finally {
+                dedupe_multicatch_walk(f, pool);
+            }
+        }
+        Stmt::Block(v) => {
+            for x in v.iter_mut() {
+                dedupe_multicatch_walk(x, pool);
+            }
+        }
+        Stmt::If {
+            then_stmt,
+            else_stmt,
+            ..
+        } => {
+            dedupe_multicatch_walk(then_stmt, pool);
+            if let Some(e) = else_stmt {
+                dedupe_multicatch_walk(e, pool);
+            }
+        }
+        Stmt::While { body, .. }
+        | Stmt::DoWhile { body, .. }
+        | Stmt::For { body, .. }
+        | Stmt::ForEach { body, .. }
+        | Stmt::Labeled { body, .. }
+        | Stmt::Synchronized { body, .. } => dedupe_multicatch_walk(body, pool),
+        Stmt::Switch { cases, default, .. } => {
+            for c in cases.iter_mut() {
+                for x in c.body.iter_mut() {
+                    dedupe_multicatch_walk(x, pool);
+                }
+            }
+            if let Some(d) = default {
+                dedupe_multicatch_walk(d, pool);
+            }
+        }
+        _ => {}
+    }
+}
+
 /// Dangling `break L<id>`: a Goto whose paired Label/Labeled-wrap was
 /// lost to structure degradation prints `break L<id>;` against an
 /// undeclared label ("未定义的标签", weibo 371/lark 85/weixin 535).
