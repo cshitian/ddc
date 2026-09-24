@@ -1551,7 +1551,7 @@ fn emit_class_body(
                         }
                         out.push_str(&format!("    {}", "    ".repeat(depth)));
                         out.push_str("public ");
-                        out.push_str(&java_ident(&simple));
+                        out.push_str(&sanitize_ref(&simple));
                         out.push_str("() {\n");
                         out.push_str(&format!(
                             "    {}    super();\n",
@@ -1573,7 +1573,7 @@ fn emit_class_body(
                 }
                 out.push_str(&format!("    {}", "    ".repeat(depth)));
                 out.push_str(mods);
-                out.push_str(&java_ident(&simple));
+                out.push_str(&sanitize_ref(&simple));
                 out.push('(');
                 let mut names = Vec::with_capacity(d.args.len());
                 for (i, a) in d.args.iter().enumerate() {
@@ -1643,7 +1643,7 @@ fn emit_class_body(
                     }
                     out.push_str(&format!("    {}", "    ".repeat(depth)));
                     out.push_str("public ");
-                    out.push_str(&java_ident(&simple));
+                    out.push_str(&sanitize_ref(&simple));
                     out.push('(');
                     let mut names = Vec::with_capacity(args.len());
                     for (i, a) in args.iter().enumerate() {
@@ -2097,7 +2097,13 @@ fn emit_method(
             } else {
                 base
             };
-            sig.push_str(&java_ident(&name));
+            // The ctor name must equal the DECLARED class name — the same
+            // injective `_u<hex>` sanitizer the header uses (java_ident's
+            // lossy `-`→`_` fold left `class _u2dDeprecatedOkio` with a
+            // `private _DeprecatedOkio()` ctor: "方法声明无效; 需要返回
+            // 类型", which as a PARSE error also masks every semantic
+            // error in the whole javac run).
+            sig.push_str(&sanitize_ref(&name));
         } else {
             sig.push_str(&type_name(pool, &d.ret));
             sig.push(' ');

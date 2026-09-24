@@ -115,12 +115,19 @@ fn array_multiconsume_materializes_once() {
         "sput of the array local:\n{}",
         out
     );
+    // f99f290's array-store coercion renders the primitive narrowing cast
+    // on element writes (`(byte) 9` — redundant for a constant, required
+    // for non-constant values; the char[] TimeUtils family).
     assert!(
-        out.contains("v0[0] = 9;"),
+        out.contains("v0[0] = (byte) 9;"),
         "element write on the local:\n{}",
         out
     );
-    assert!(out.contains("v0[3] = 7;"), "second element write:\n{}", out);
+    assert!(
+        out.contains("v0[3] = (byte) 7;"),
+        "second element write:\n{}",
+        out
+    );
     // Exactly one new byte[4] allocation for the sparse array.
     let count = out.matches("new byte[4]").count();
     assert_eq!(count, 1, "allocation count for sparse:\n{}", out);
