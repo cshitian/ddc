@@ -2427,6 +2427,84 @@ fn member_collision_renames(
                     .iter()
                     .any(|m| group.iter().any(|o| o.name == m.name && o.desc != m.desc));
             if covariant {
+                // Return-type-only clash in a class WITH a hierarchy:
+                // Java cannot declare both, and the claim logic would
+                // keep an arbitrary one — when that is NOT the member
+                // an ancestor declares, every concrete subclass fails
+                // "X不是抽象的, 并且未覆盖…" (weibo ×590: viewmodel.a
+                // kept getUsageInfo()e while interface d declares
+                // getUsageInfo()g; the kept side also strands the
+                // dropped side's callers). Keep the ancestor-declared
+                // member under the original name and rename the rest —
+                // the registry carries every call site, and the
+                // propagation below shares the display down the family.
+                // 0 or 2+ ancestor-matched members = the shape Java
+                // cannot express at all (two interfaces demanding
+                // different returns): keep the old claim behavior.
+                let mut anc: jdc_core::FxHashSet<(String, String)> =
+                    jdc_core::FxHashSet::default();
+                {
+                    let mut stack: Vec<&str> = Vec::new();
+                    if let Some(sup) = &pc.super_name {
+                        if sup != "java/lang/Object" {
+                            stack.push(sup.as_str());
+                        }
+                    }
+                    stack.extend(pc.interfaces.iter().map(|i| i.as_str()));
+                    let mut seen_cls: jdc_core::FxHashSet<&str> =
+                        jdc_core::FxHashSet::default();
+                    while let Some(cn) = stack.pop() {
+                        if !seen_cls.insert(cn) {
+                            continue;
+                        }
+                        let Some(ac) = pool.get_if_materialized(cn) else {
+                            continue;
+                        };
+                        for m in ac.all_methods() {
+                            if !m.is_static()
+                                && &*m.name != "<init>"
+                                && &*m.name != "<clinit>"
+                            {
+                                anc.insert((m.name.to_string(), m.desc.to_string()));
+                            }
+                        }
+                        if let Some(s) = &ac.super_name {
+                            if s != "java/lang/Object" {
+                                stack.push(s.as_str());
+                            }
+                        }
+                        stack.extend(ac.interfaces.iter().map(|i| i.as_str()));
+                    }
+                }
+                let keepers: Vec<&&PoolMethod> = group
+                    .iter()
+                    .filter(|m| {
+                        anc.contains(&(m.name.to_string(), m.desc.to_string()))
+                    })
+                    .collect();
+                if keepers.len() != 1 {
+                    continue;
+                }
+                let keep_desc: &str = &keepers[0].desc;
+                let mut seen_orig: jdc_core::FxHashSet<(&str, &str)> =
+                    jdc_core::FxHashSet::default();
+                for m in group.iter().copied() {
+                    if m.desc.as_ref() == keep_desc {
+                        seen_orig.insert((&*m.name, &*m.desc));
+                        continue;
+                    }
+                    if !seen_orig.insert((&*m.name, &*m.desc)) {
+                        continue;
+                    }
+                    let display = suffix_unique(base, &mut m_taken);
+                    out.entry(std::sync::Arc::from(name.as_str()))
+                        .or_default()
+                        .push(jdc_core::rename::FieldRename {
+                            name: m.name.clone(),
+                            desc: m.desc.clone(),
+                            display: std::sync::Arc::from(display.as_str()),
+                        });
+                }
                 continue;
             }
             // Real re-declarations (same original name AND descriptor —
@@ -2451,6 +2529,153 @@ fn member_collision_renames(
                 // The base stays the sanitized ORIGINAL so the first
                 // occurrence keeps the plain name.
                 let _ = &mut base;
+            }
+        }
+    }
+    // ---- method-rename propagation down the hierarchy ----
+    // A renamed method must keep ONE display across its whole override
+    // family: the parent's abstract declaration and every subclass
+    // implementation/caller render through the registry, and a missed
+    // link re-breaks the override ("未覆盖" at each concrete subclass)
+    // or the call site (cannot-find). Register each method entry on the
+    // full transitive subclass + implementer closure — a subclass that
+    // does NOT declare the method still serves as a dex ref owner for
+    // the inherited method, so it needs the entry too (same reasoning
+    // as register_field_rename_with_subs for fields). Ancestor-forced
+    // displays win; a colliding local entry re-mints off the original
+    // method name and re-propagates.
+    {
+        let mut down: jdc_core::FxHashMap<&str, Vec<&str>> =
+            jdc_core::FxHashMap::default();
+        for (sup, children) in subs.iter() {
+            down.entry(*sup).or_default().extend(children.iter().copied());
+        }
+        for n in &pool.order {
+            if let Some(pc) = pool.get_if_materialized(n) {
+                for i in pc.interfaces.iter() {
+                    down.entry(i.as_str()).or_default().push(n.as_str());
+                }
+            }
+        }
+        let mut queue: std::collections::VecDeque<(
+            std::sync::Arc<str>,
+            std::sync::Arc<str>,
+            std::sync::Arc<str>,
+            std::sync::Arc<str>,
+        )> = std::collections::VecDeque::new();
+        for (cls, entries) in out.iter() {
+            for fr in entries {
+                if fr.desc.contains('(') {
+                    queue.push_back((
+                        cls.clone(),
+                        fr.name.clone(),
+                        fr.desc.clone(),
+                        fr.display.clone(),
+                    ));
+                }
+            }
+        }
+        let mut guard = 0usize;
+        while let Some((cls, n, d, disp)) = queue.pop_front() {
+            guard += 1;
+            if guard > 2_000_000 {
+                break;
+            }
+            let Some(children) = down.get(cls.as_ref()).map(|v| v.clone()) else {
+                continue;
+            };
+            for child in children {
+                let mut changed = false;
+                let mut reminted: Vec<(
+                    std::sync::Arc<str>,
+                    std::sync::Arc<str>,
+                    std::sync::Arc<str>,
+                    std::sync::Arc<str>,
+                )> = Vec::new();
+                {
+                    let child_key: std::sync::Arc<str> = std::sync::Arc::from(child);
+                    let entries = out.entry(child_key.clone()).or_default();
+                    // A raw method of the child literally named `disp`
+                    // with a different signature blocks the force —
+                    // renaming that raw method instead is the over-reach
+                    // class (500k blowup history); skip this child.
+                    let raw_blocked = pool
+                        .get_if_materialized(child)
+                        .is_some_and(|pc| {
+                            pc.all_methods().any(|m| {
+                                crate::classdec::java_ident(&m.name) == disp.as_ref()
+                                    && m.desc != d
+                            })
+                        });
+                    if raw_blocked {
+                        continue;
+                    }
+                    match entries
+                        .iter_mut()
+                        .find(|fr| *fr.name == *n && *fr.desc == *d)
+                    {
+                        Some(e) if e.display == disp => {}
+                        Some(e) => {
+                            e.display = disp.clone();
+                            changed = true;
+                        }
+                        None => {
+                            entries.push(jdc_core::rename::FieldRename {
+                                name: n.clone(),
+                                desc: d.clone(),
+                                display: disp.clone(),
+                            });
+                            changed = true;
+                        }
+                    }
+                    if changed {
+                        // Display collisions inside the child: the
+                        // ancestor-forced entry keeps `disp`; others
+                        // re-mint from their original method name.
+                        let mut taken: jdc_core::FxHashSet<String> =
+                            jdc_core::FxHashSet::default();
+                        if let Some(pc) = pool.get_if_materialized(child) {
+                            for m in pc.all_methods() {
+                                taken.insert(
+                                    crate::classdec::java_ident(&m.name).into_owned(),
+                                );
+                            }
+                        }
+                        for e in entries.iter() {
+                            taken.insert(e.display.to_string());
+                        }
+                        let mut seen: jdc_core::FxHashSet<String> =
+                            jdc_core::FxHashSet::default();
+                        seen.insert(disp.to_string());
+                        for e in entries.iter_mut() {
+                            if *e.name == *n && *e.desc == *d {
+                                continue;
+                            }
+                            if seen.insert(e.display.to_string()) {
+                                continue;
+                            }
+                            let base =
+                                crate::classdec::java_ident(&e.name).into_owned();
+                            let nd: std::sync::Arc<str> = std::sync::Arc::from(
+                                suffix_unique(&base, &mut taken).as_str(),
+                            );
+                            e.display = nd.clone();
+                            reminted.push((
+                                child_key.clone(),
+                                e.name.clone(),
+                                e.desc.clone(),
+                                nd,
+                            ));
+                        }
+                    }
+                }
+                if changed {
+                    let child_key: std::sync::Arc<str> = std::sync::Arc::from(child);
+                    queue.push_back((child_key.clone(), n.clone(), d.clone(), disp.clone()));
+                    for r in reminted {
+                        queue.push_back(r);
+                    }
+                }
             }
         }
     }
