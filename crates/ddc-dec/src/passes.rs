@@ -6307,10 +6307,56 @@ fn contains_this_access(e: &Expr) -> bool {
 /// or cyclic) — the caller then leaves the call in place: a
 /// not-first-statement error is cheaper than an unresolved name that
 /// poisons every downstream type.
-fn inline_ctor_arg_defs(call: &mut Stmt, prefix: &[&Stmt], vt: &VarTable) -> bool {
+/// Any occurrence of `var` (read OR assign-target) in `stmts` — the
+/// suffix-use test for dropping a consumed def: count_locals_stmts only
+/// sees reads, and a suffix WRITE to a dropped declaration makes
+/// ensure_declared re-add `Type v;` at the method top — BEFORE the
+/// hoisted this()/super() ("对this的调用必须是构造器中的第一个语句",
+/// lark +587 the read-only test caused).
+fn var_occurs_in(stmts: &[Stmt], var: u32) -> bool {
+    stmts.iter().any(|st| {
+        let mut c = st.clone();
+        let mut hit = false;
+        walk_stmt_exprs(&mut c, &mut |e| {
+            if !hit {
+                deep_rewrite(e, &mut |x| {
+                    if let Expr::Local { var: v, .. } = x {
+                        if *v == var {
+                            hit = true;
+                        }
+                    }
+                });
+            }
+        });
+        hit
+    })
+}
+
+fn inline_ctor_arg_defs(
+    call: &mut Stmt,
+    prefix: &[&Stmt],
+    vt: &VarTable,
+    consumed: &mut Vec<(u32, usize)>,
+) -> bool {
     let Stmt::ExprStmt(cexpr) = call else {
         return false;
     };
+    // Replace every read of `v` in `e` with its value-so-far; a read
+    // BEFORE any def (val None) is unresolvable → false.
+    fn subst(e: &mut Expr, v: u32, val: &Option<Expr>) -> bool {
+        let mut ok = true;
+        deep_rewrite(e, &mut |x| {
+            if let Expr::Local { var, .. } = x {
+                if *var == v {
+                    match val {
+                        Some(e2) => *x = e2.clone(),
+                        None => ok = false,
+                    }
+                }
+            }
+        });
+        ok
+    }
     let mut seen: jdc_core::FxHashSet<u32> = jdc_core::FxHashSet::default();
     for _ in 0..32 {
         let mut need: Option<u32> = None;
@@ -6327,60 +6373,74 @@ fn inline_ctor_arg_defs(call: &mut Stmt, prefix: &[&Stmt], vt: &VarTable) -> boo
         if !seen.insert(v) {
             return false; // cyclic reuse (`str = .. + str`) — bail
         }
-        // STRICT single-occurrence: v may appear in the prefix exactly
-        // once (its def). Any later assign, mutation call, or second
-        // read means the def's value is not what the call receives
-        // (`stringBuilder.append(..)` mutations would be skipped —
-        // `super(new StringBuilder().toString())` compiled but lost
-        // the message).
-        let mut occ = 0usize;
-        for st in prefix.iter() {
-            visit_all_exprs(st, &mut |x| {
-                if let Expr::Local { var, .. } = x {
-                    if *var == v {
-                        occ += 1;
-                    }
-                }
-            });
-            if occ > 1 {
-                return false;
-            }
-        }
-        if occ != 1 {
-            return false;
-        }
-        let mut def: Option<Expr> = None;
-        for st in prefix.iter().rev() {
+        // CHAIN walk: fold EVERY prefix def of v into the value the
+        // delegation actually receives. The old strict single-occurrence
+        // rule rejected the convenience-ctor reassignment chain
+        // (`f = getInstance(ctx); f = transform(f, ..); this(ctx, f)` —
+        // androidx CameraController, weibo this-not-first ×831): the
+        // SOURCE inlined the computation into the delegation args and
+        // R8 decomposed it into register writes. Reads of v are allowed
+        // only INSIDE its own def chain; any other prefix statement
+        // touching v means the value escapes or the object mutates
+        // (`stringBuilder.append(..)` — inlining a fresh `new
+        // StringBuilder()` would lose the message), so bail.
+        let mut val: Option<Expr> = None;
+        let mut ok = true;
+        for (si, st) in prefix.iter().enumerate() {
             match st {
-                Stmt::LocalDef { var, init: Some(e), .. } if *var == v => {
-                    def = Some(e.clone());
-                    break;
+                // A bare declaration (init None — the structurer hoists
+                // `T v;` to the top) carries no value: skip it. Failing
+                // here rejected every chain under a hoisted decl (ci1/a).
+                Stmt::LocalDef { var, init: None, .. } if *var == v => {}
+                Stmt::LocalDef { var, init, .. } if *var == v => {
+                    let Some(e) = init else { ok = false; break };
+                    let mut e2 = (*e).clone();
+                    if !subst(&mut e2, v, &val) {
+                        ok = false;
+                        break;
+                    }
+                    val = Some(e2);
+                    consumed.push((v, si));
                 }
-                Stmt::ExprStmt(Expr::Assign { target, value, op: AssignOp::Plain, .. })
+                Stmt::ExprStmt(Expr::Assign { target, op, .. })
                     if matches!(&**target, Expr::Local { var: tv, .. } if *tv == v) =>
                 {
-                    def = Some(value.as_ref().clone());
-                    break;
+                    if !matches!(op, AssignOp::Plain) {
+                        ok = false; // compound write: not a plain def
+                        break;
+                    }
+                    let Stmt::ExprStmt(Expr::Assign { value, .. }) = st else {
+                        unreachable!()
+                    };
+                    let mut e2 = value.as_ref().clone();
+                    if !subst(&mut e2, v, &val) {
+                        ok = false;
+                        break;
+                    }
+                    val = Some(e2);
+                    consumed.push((v, si));
                 }
-                _ => {}
+                _ => {
+                    let mut touched = false;
+                    visit_all_exprs(st, &mut |x| {
+                        if let Expr::Local { var, .. } = x {
+                            if *var == v {
+                                touched = true;
+                            }
+                        }
+                    });
+                    if touched {
+                        ok = false;
+                        break;
+                    }
+                }
             }
         }
-        let Some(de) = def else { return false };
-        if contains_this_access(&de) {
+        if !ok {
             return false;
         }
-        // A SELF-REFERENTIAL def (`v = v + 1`) would make the replace
-        // walk recurse into its own freshly-inserted copy forever —
-        // the worker stack overflow that aborted whole corpus runs.
-        let mut self_ref = false;
-        visit_exprs(&de, &mut |x| {
-            if let Expr::Local { var, .. } = x {
-                if *var == v {
-                    self_ref = true;
-                }
-            }
-        });
-        if self_ref {
+        let Some(de) = val else { return false };
+        if contains_this_access(&de) {
             return false;
         }
         // Huge defs multiply per read site per round — bound them.
@@ -6418,10 +6478,27 @@ pub fn fix_ctor_super_first(body: &mut Stmt, vt: &VarTable) {
     if let Some(pos) = stmts.iter().position(is_bare_ctor_call) {
         let mut call = stmts[pos].clone();
         let prefix: Vec<&Stmt> = stmts[..pos].iter().collect();
-        if !inline_ctor_arg_defs(&mut call, &prefix, vt) {
+        let mut consumed: Vec<(u32, usize)> = Vec::new();
+        if !inline_ctor_arg_defs(&mut call, &prefix, vt, &mut consumed) {
             return;
         }
         stmts.remove(pos);
+        // Drop the chain defs the inline consumed (all indices < pos) —
+        // leaving them would DOUBLE-evaluate their (possibly impure)
+        // inits. But ONLY for vars with no post-delegation use: dropping
+        // such a var's DECLARATION makes ensure_declared re-add it at
+        // the method top, i.e. BEFORE this() — a fresh "对this的调用必须
+        // 是构造器中的第一个语句" (lark +587 the blind drop caused).
+        let mut drop_idx: Vec<usize> = consumed
+            .iter()
+            .filter(|(v, _)| !var_occurs_in(&stmts[pos..], *v))
+            .map(|(_, k)| *k)
+            .collect();
+        drop_idx.sort_unstable();
+        drop_idx.dedup();
+        for k in drop_idx.iter().rev() {
+            stmts.remove(*k);
+        }
         stmts.insert(0, call);
         return;
     }
@@ -6457,14 +6534,38 @@ pub fn fix_ctor_super_first(body: &mut Stmt, vt: &VarTable) {
         if let Stmt::Block(inner) = &stmts[i] {
             prefix.extend(inner[..p].iter());
         }
-        if !inline_ctor_arg_defs(&mut call, &prefix, vt) {
+        let mut consumed: Vec<(u32, usize)> = Vec::new();
+        if !inline_ctor_arg_defs(&mut call, &prefix, vt, &mut consumed) {
             return;
         }
-        match &mut stmts[i] {
-            Stmt::Block(inner) => {
-                inner.remove(p);
+        // Prefix index k maps to stmts[k] for k < i, inner[k - i] for
+        // k >= i (all such k are < p). Suffix = the rest of the inner
+        // block + the following top-level statements; a consumed def may
+        // only drop when its var has no suffix use (declaration loss →
+        // ensure_declared re-adds it BEFORE this()).
+        // Compute the droppable set BEFORE mutating (borrow split).
+        let mut ks: Vec<usize> = Vec::new();
+        {
+            let inner_tail: &[Stmt] = match &stmts[i] {
+                Stmt::Block(inner) if p + 1 <= inner.len() => &inner[p + 1..],
+                _ => &[],
+            };
+            for (v, k) in &consumed {
+                if !var_occurs_in(inner_tail, *v) && !var_occurs_in(&stmts[i + 1..], *v) {
+                    ks.push(*k);
+                }
             }
-            _ => unreachable!(),
+        }
+        ks.sort_unstable();
+        ks.dedup();
+        if let Stmt::Block(inner) = &mut stmts[i] {
+            inner.remove(p);
+            for k in ks.iter().rev().filter(|k| **k >= i) {
+                inner.remove(k - i);
+            }
+        }
+        for k in ks.iter().rev().filter(|k| **k < i) {
+            stmts.remove(*k);
         }
         stmts.insert(0, call);
     }
