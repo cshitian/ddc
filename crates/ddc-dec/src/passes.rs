@@ -3681,7 +3681,8 @@ pub fn fix_primitive_arg_bridges(body: &mut Stmt, vt: &VarTable, pool: &crate::D
                     // T=View inference bare null provided (weibo +4).
                     let null_obj =
                         matches!(a, Expr::Const(ConstVal::Null)) && matches!(f, JavaType::Object(_));
-                    let fw_null_ambiguous = pool.get(cls.as_ref()).is_none()
+                    let framework_owner = pool.get(cls.as_ref()).is_none();
+                    let fw_null_ambiguous = framework_owner
                         && matches!(
                             (cls.as_ref(), name.as_ref()),
                             ("java/lang/StringBuilder", "append")
@@ -3692,9 +3693,31 @@ pub fn fix_primitive_arg_bridges(body: &mut Stmt, vt: &VarTable, pool: &crate::D
                                 | ("java/io/PrintWriter", "print")
                                 | ("java/lang/String", "valueOf")
                         );
-                    if (subtype_arg
-                        && *competes
-                            .get_or_insert_with(|| overload_competes(cls, name, &desc.args)))
+                    // Framework owners with famously overload-heavy
+                    // methods take the subtype pin too: the arg's
+                    // rendered type implements SEVERAL formal types
+                    // (weibo putExtra ×41: floatMsgData is both
+                    // Parcelable and Serializable; schedule/submit:
+                    // Runnable-and-Callable workers) and the competes
+                    // gate cannot enumerate framework overloads.
+                    // Formal == java/lang/Object stays excluded — that
+                    // is an erased type variable and the cast would
+                    // kill generic inference (ofFloat lesson).
+                    let fw_subtype_pinnable = framework_owner
+                        && subtype_arg
+                        && !matches!(f, JavaType::Object(fn_) if fn_.as_ref() == "java/lang/Object")
+                        && matches!(
+                            (cls.as_ref(), name.as_ref()),
+                            ("android/content/Intent", "putExtra")
+                                | ("java/util/concurrent/ScheduledExecutorService", "schedule")
+                                | ("java/util/concurrent/ExecutorService", "submit")
+                                | ("java/util/concurrent/ExecutorService", "invokeAll")
+                        );
+                    if fw_subtype_pinnable
+                        || (subtype_arg
+                            && *competes.get_or_insert_with(|| {
+                                overload_competes(cls, name, &desc.args)
+                            }))
                         || (null_obj
                             && (fw_null_ambiguous
                                 || *competes.get_or_insert_with(|| {
