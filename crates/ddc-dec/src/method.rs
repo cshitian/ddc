@@ -578,7 +578,7 @@ pub fn decompile_method(
         passes::rescue_primitive_receivers(&mut body, &vt, pool);
         passes::fix_this0_owners(&mut body, &class.name);
         passes::apply_local_names(&mut vt, &body);
-    passes::deshadow_locals(&mut vt, pool);
+    passes::deshadow_locals(&mut vt, pool, &class.name, &body);
         passes::remove_kotlin_checks(&mut body);
         passes::rewrite_kotlin_facades(&mut body, pool);
         passes::platform_constants(&mut body);
@@ -911,7 +911,7 @@ pub fn decompile_method(
     passes::rescue_primitive_receivers(&mut body, &vt, pool);
     passes::fix_this0_owners(&mut body, &class.name);
     passes::apply_local_names(&mut vt, &body);
-    passes::deshadow_locals(&mut vt, pool);
+    passes::deshadow_locals(&mut vt, pool, &class.name, &body);
     passes::remove_kotlin_checks(&mut body);
     passes::rewrite_kotlin_facades(&mut body, pool);
     passes::platform_constants(&mut body);

@@ -3638,14 +3638,43 @@ pub fn fix_primitive_arg_bridges(body: &mut Stmt, vt: &VarTable, pool: &crate::D
 /// legit `v2.n.a(this, 0)`). Method-scope renames carry no registry
 /// surface — every use renders through this same vt — unlike class/field
 /// renames, whose reference coverage blew up five times before.
-pub fn deshadow_locals(vt: &mut VarTable, pool: &crate::DexPool) {
+pub fn deshadow_locals(vt: &mut VarTable, pool: &crate::DexPool, class_name: &str, body: &Stmt) {
     let segs = pool.root_pkg_segs();
     // Import-layer simples: the file renders `import p.h;` + bare `h.e`
     // for obscured refs — a local `h` captures that simple name (locals
     // beat imports in expression position; 无法取消引用int family).
     let obscured = crate::classdec::obscured_simples_snapshot();
-    let hit = |name: &str| segs.contains(name) || obscured.contains(name);
-    if (segs.is_empty() && obscured.is_empty()) || !vt.vars.iter().any(|v| hit(&v.name)) {
+    // Same-package static-ref simples: a static member ref renders its
+    // class qualifier as the SIMPLE name (same package — no import/FQN),
+    // and a local with that name captures it (`a2.changeQuickRedirect`
+    // bound to a String local `a2` — "找不到符号 变量 changeQuickRedirect
+    // 位置: 类型为String的变量 a2", weibo robust-field refs ×317). Only
+    // STATIC refs qualify (an instance ref's qualifier IS the local).
+    let self_pkg = class_name.rfind('/').map(|i| &class_name[..i]).unwrap_or("");
+    let mut same_pkg_simples: jdc_core::FxHashSet<String> = jdc_core::FxHashSet::default();
+    visit_all_exprs(body, &mut |x| {
+        let cls = match x {
+            Expr::Field { cls, is_static: true, .. } => Some(cls.as_ref()),
+            Expr::Method { cls, is_static: true, .. } => Some(cls.as_ref()),
+            _ => None,
+        };
+        if let Some(c) = cls {
+            let pkg = c.rfind('/').map(|i| &c[..i]).unwrap_or("");
+            if pkg == self_pkg {
+                let simple = &c[c.rfind('/').map(|i| i + 1).unwrap_or(0)..];
+                let head = simple.split('$').next().unwrap_or(simple);
+                if !head.is_empty() {
+                    same_pkg_simples.insert(head.to_string());
+                }
+            }
+        }
+    });
+    let hit = |name: &str| {
+        segs.contains(name) || obscured.contains(name) || same_pkg_simples.contains(name)
+    };
+    if (segs.is_empty() && obscured.is_empty() && same_pkg_simples.is_empty())
+        || !vt.vars.iter().any(|v| hit(&v.name))
+    {
         return;
     }
     let mut taken: jdc_core::FxHashSet<String> =
@@ -7128,7 +7157,7 @@ fn is_delegation_expr(e: &Expr) -> bool {
     )
 }
 
-fn is_bare_ctor_call(s: &Stmt) -> bool {
+pub(crate) fn is_bare_ctor_call(s: &Stmt) -> bool {
     matches!(s, Stmt::ExprStmt(e) if is_delegation_expr(e))
 }
 

@@ -2052,6 +2052,28 @@ fn member_collision_renames(
     // the companion-field rule below.
     let mut child_tails: jdc_core::FxHashMap<&str, Vec<&str>> =
         jdc_core::FxHashMap::default();
+    // Per-package RENAMED class display heads: a MINTED field display
+    // equal to one of these shadows same-package qualified type refs
+    // (`a2.changeQuickRedirect` binds to the field when the class a2's
+    // display is a2 — the inherited rule minting field a→a2 ONTO the
+    // pkg-renamed class display created exactly this: weibo +194
+    // cannot-find). Keyed on the POST-rename display (what refs render),
+    // covering each class's own display too.
+    let mut pkg_displays: jdc_core::FxHashMap<&str, jdc_core::FxHashSet<String>> =
+        jdc_core::FxHashMap::default();
+    for n in &pool.order {
+        let renamed = crate::apply_class_rename(n);
+        let (pkg, simple) = match renamed.rfind('/') {
+            Some(i) => (renamed[..i].to_string(), renamed[i + 1..].to_string()),
+            None => (String::new(), renamed.to_string()),
+        };
+        let head = simple.split('$').next().unwrap_or(&simple).to_string();
+        if !head.is_empty() {
+            let pkg_key = n.rfind('/').map(|i| &n[..i]).unwrap_or("");
+            let _ = pkg;
+            pkg_displays.entry(pkg_key).or_default().insert(head);
+        }
+    }
     // Reverse super map — the obscuring rename must register under every
     // transitive subclass (dex refs of an inherited field may name any
     // hierarchy class as owner).
@@ -2160,7 +2182,11 @@ fn member_collision_renames(
         // NOT obscure), and mint avoiding every child display (`a`→`a2`
         // landed on the existing `interface a2`, minting a fresh
         // obscuring pair).
-        if let Some(tails) = child_tails.get(name.as_str()) {
+        {
+            let tails: &[&str] = child_tails
+                .get(name.as_str())
+                .map(|v| v.as_slice())
+                .unwrap_or(&[]);
             let mut member_displays: jdc_core::FxHashSet<String> =
                 jdc_core::FxHashSet::default();
             let mut obscuring: jdc_core::FxHashSet<String> =
@@ -2187,6 +2213,26 @@ fn member_collision_renames(
                     obscuring.insert(last);
                 }
             }
+            // The class's OWN simple display name joins the obscuring
+            // set: a field named like its class captures every
+            // qualified self-static ref from nested scopes
+            // (`a2.changeQuickRedirect` bound to the String FIELD a2 —
+            // weibo robust refs ×317; bare refs survive via the
+            // variable namespace, the qualified form does not).
+            let self_renamed = crate::apply_class_rename(name);
+            let self_simple = self_renamed
+                .rsplit('/')
+                .next()
+                .unwrap_or(&self_renamed)
+                .rsplit('$')
+                .next()
+                .unwrap_or("")
+                .to_string();
+            if !self_simple.is_empty() {
+                obscuring.insert(crate::classdec::java_ident(&self_simple).into_owned());
+            }
+            let self_pkg = name.rfind('/').map(|i| &name[..i]).unwrap_or("");
+            let pkg_names = pkg_displays.get(self_pkg);
             for f in &fields {
                 let fdisp = crate::classdec::java_ident(&f.name).into_owned();
                 if fdisp.starts_with("this$") || !obscuring.contains(fdisp.as_str()) {
@@ -2196,7 +2242,10 @@ fn member_collision_renames(
                 let display = loop {
                     k += 1;
                     let cand = format!("{fdisp}{k}");
-                    if !f_taken.contains(&cand) && !member_displays.contains(&cand) {
+                    if !f_taken.contains(&cand)
+                        && !member_displays.contains(&cand)
+                        && !pkg_names.is_some_and(|p| p.contains(cand.as_str()))
+                    {
                         f_taken.insert(cand.clone());
                         member_displays.insert(cand.clone());
                         break cand;
@@ -2405,7 +2454,7 @@ fn member_collision_renames(
             }
         }
     }
-    inherited_obscuring_renames(pool, &mut out);
+    inherited_obscuring_renames(pool, &mut out, &pkg_displays);
     out
 }
 
@@ -2477,6 +2526,7 @@ fn register_field_rename_with_subs(
 fn inherited_obscuring_renames(
     pool: &DexPool,
     out: &mut HashMap<std::sync::Arc<str>, Vec<jdc_core::rename::FieldRename>>,
+    pkg_displays: &jdc_core::FxHashMap<&str, jdc_core::FxHashSet<String>>,
 ) {
     // Reverse super map over materialized classes.
     let mut subs: jdc_core::FxHashMap<&str, Vec<&str>> = jdc_core::FxHashMap::default();
@@ -2560,6 +2610,14 @@ fn inherited_obscuring_renames(
                     .chain(sc.instance_fields.iter())
                     .map(|g| crate::classdec::java_ident(&g.name).into_owned())
                     .collect();
+                // The declaring class's PACKAGE class displays (post-
+                // rename): minting onto one shadows its qualified refs
+                // from inside the class (the a→a2-onto-display-a2 bug).
+                if let Some(names) = pkg_displays
+                    .get(sname.rfind('/').map(|i| &sname[..i]).unwrap_or(""))
+                {
+                    avoid.extend(names.iter().cloned());
+                }
                 for child in pool.children_of(sname.as_str()) {
                     let Some(rest) = child
                         .strip_prefix(sname.as_str())
