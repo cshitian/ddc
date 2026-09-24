@@ -8402,9 +8402,13 @@ fn split_walk_stmt(
 /// lost to structure degradation prints `break L<id>;` against an
 /// undeclared label ("未定义的标签", weibo 371/lark 85/weixin 535).
 /// Inside a loop the goto-to-loop-exit shape degrades to a plain
-/// `break` — compilable, and the dominant original semantic. A Goto
-/// whose Label DOES exist in the method stays (the pair is valid);
-/// a Goto outside any loop stays as-is (no honest source form).
+/// `break` — compilable, and the dominant original semantic. Outside
+/// any loop the jump is irreducible flow (weixin protobuf state
+/// machines: `goto` into a lost loop middle / dispatcher block — the
+/// target exists but not at a position Java can express); it renders
+/// as an honest `$DDC:` marker comment instead of a guaranteed
+/// undefined-label error, and the block's tail after it is dropped
+/// (the original control flow never reached those statements).
 pub fn resolve_dangling_gotos(s: &mut Stmt) {
     let mut labels: jdc_core::FxHashSet<u32> = jdc_core::FxHashSet::default();
     let probe = s.clone();
@@ -8425,13 +8429,33 @@ fn resolve_gotos_walk(s: &mut Stmt, labels: &jdc_core::FxHashSet<u32>, loop_dept
     };
     match s {
         Stmt::Goto(id) => {
-            if !labels.contains(id) && depth > 0 {
+            if labels.contains(id) {
+                return; // valid pair — keep
+            }
+            if depth > 0 {
                 *s = Stmt::Break(None);
+            } else {
+                *s = Stmt::Comment(format!(
+                    "$DDC: unresolved jump to block {} (irreducible control flow)",
+                    id
+                ));
             }
         }
         Stmt::Block(v) => {
-            for x in v.iter_mut() {
-                resolve_gotos_walk(x, labels, depth);
+            let mut i = 0usize;
+            while i < v.len() {
+                // A depth-0 dangling Goto becomes a marker comment and
+                // the original flow never reached the siblings after
+                // it — dropping them keeps the rendered reachability
+                // faithful (they were dead in the dex too).
+                let dangling_here =
+                    depth == 0 && matches!(&v[i], Stmt::Goto(id) if !labels.contains(id));
+                resolve_gotos_walk(&mut v[i], labels, depth);
+                if dangling_here {
+                    v.truncate(i + 1);
+                    break;
+                }
+                i += 1;
             }
         }
         Stmt::If { then_stmt, else_stmt, .. } => {
