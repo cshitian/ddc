@@ -840,6 +840,127 @@ fn render_enum_args(ctx: &DexCtx<'_>, pool: &DexPool, args: &[Expr], out: &mut S
     let _ = pool;
 }
 
+/// Synthesize `throw new AbstractMethodError()` stubs for abstract
+/// interface methods a CONCRETE class fails to implement. R8 tree-shakes
+/// an interface method whose call sites it proved unreachable, leaving a
+/// concrete class ART accepts but javac rejects ("X不是抽象的, 并且未覆盖
+/// 抽象方法…"). jadx reproduces the same incomplete class; the stub
+/// restores compilability AND matches ART semantics exactly (invoking a
+/// stripped abstract method throws AbstractMethodError). `provided` is
+/// computed from the DEX method table (not the render), so a method ddc
+/// merely failed to render is never double-declared, and a same-erasure
+/// return-type-specialized sibling (Family B: void `invoke` beside the
+/// Object bridge) counts as provided → no colliding stub.
+fn synth_missing_interface_stubs(
+    pool: &DexPool,
+    class: &PoolClass,
+    out: &mut String,
+    depth: usize,
+    emitted_any: &mut bool,
+) {
+    use crate::access::*;
+    // Concrete classes only: interfaces / abstract classes / annotations
+    // legitimately leave methods unimplemented.
+    if class.access & (ACC_INTERFACE | ACC_ABSTRACT | ACC_ANNOTATION) != 0 {
+        return;
+    }
+    if class.interfaces.is_empty() {
+        return;
+    }
+    fn argsig(d: &str) -> &str {
+        let lo = d.find('(').map(|i| i + 1).unwrap_or(0);
+        let hi = d.find(')').unwrap_or(d.len());
+        &d[lo..hi]
+    }
+    // Transitive interface closure (pool-resolvable only; framework
+    // interfaces live in android.jar and javac already knows them).
+    let mut required: jdc_core::FxHashMap<(String, String), &PoolMethod> =
+        jdc_core::FxHashMap::default();
+    let mut defaults: jdc_core::FxHashSet<(String, String)> = jdc_core::FxHashSet::default();
+    let mut stack: Vec<&String> = class.interfaces.iter().collect();
+    let mut seen: jdc_core::FxHashSet<&str> = jdc_core::FxHashSet::default();
+    while let Some(iname) = stack.pop() {
+        if !seen.insert(iname.as_str()) {
+            continue;
+        }
+        let Some(ic) = pool.get(iname) else { continue };
+        for m in ic.all_methods() {
+            if m.is_static() || &*m.name == "<clinit>" || &*m.name == "<init>" {
+                continue;
+            }
+            let key = (m.name.to_string(), argsig(&m.desc).to_string());
+            if m.code_off == 0 {
+                required.entry(key).or_insert(m);
+            } else {
+                defaults.insert(key);
+            }
+        }
+        stack.extend(ic.interfaces.iter());
+    }
+    if required.is_empty() {
+        return;
+    }
+    // Methods provided by the class + its concrete superclass chain, plus
+    // the java/lang/Object publics that satisfy common requirements.
+    let mut provided: jdc_core::FxHashSet<(String, String)> = jdc_core::FxHashSet::default();
+    provided.insert(("equals".into(), "Ljava/lang/Object;".into()));
+    provided.insert(("hashCode".into(), String::new()));
+    provided.insert(("toString".into(), String::new()));
+    let mut cur: Option<&PoolClass> = Some(class);
+    while let Some(c) = cur {
+        for m in c.all_methods() {
+            // A method PROVIDES the implementation if it is not abstract:
+            // bytecode (code_off != 0) OR native (JNI body, code_off == 0
+            // but ACC_NATIVE — `…ToNative` methods satisfy their interface
+            // and must not be stubbed twice).
+            if m.access & ACC_ABSTRACT == 0 && !m.is_static() {
+                provided.insert((m.name.to_string(), argsig(&m.desc).to_string()));
+            }
+        }
+        cur = c.super_name.as_ref().and_then(|s| {
+            if s == "java/lang/Object" {
+                None
+            } else {
+                pool.get(s)
+            }
+        });
+    }
+    let mut missing: Vec<&PoolMethod> = Vec::new();
+    for (key, m) in &required {
+        if defaults.contains(key) || provided.contains(key) {
+            continue;
+        }
+        missing.push(*m);
+    }
+    missing.sort_by(|a, b| (&*a.name, &*a.desc).cmp(&(&*b.name, &*b.desc)));
+    let ind = "    ".repeat(depth + 1);
+    for m in missing {
+        let Some(d) = m.parsed_desc() else { continue };
+        if *emitted_any {
+            out.push('\n');
+        }
+        out.push_str(&ind);
+        out.push_str("public ");
+        out.push_str(&type_name(pool, &d.ret));
+        out.push(' ');
+        out.push_str(&java_ident(&m.name));
+        out.push('(');
+        for (i, a) in d.args.iter().enumerate() {
+            if i > 0 {
+                out.push_str(", ");
+            }
+            out.push_str(&type_name(pool, a));
+            out.push_str(&format!(" p{}", i + 1));
+        }
+        out.push_str(") {\n");
+        out.push_str(&ind);
+        out.push_str("    throw new AbstractMethodError();\n");
+        out.push_str(&ind);
+        out.push_str("}\n");
+        *emitted_any = true;
+    }
+}
+
 #[allow(clippy::only_used_in_recursion)]
 fn emit_class_body(
     pool: &DexPool,
@@ -1449,6 +1570,11 @@ fn emit_class_body(
             }
         }
     }
+
+    // Missing-abstract-method stubs (R8 tree-shook an interface method a
+    // concrete class no longer implements; javac rejects the incomplete
+    // class). Synthesized last so they sit after the real members.
+    synth_missing_interface_stubs(pool, class, out, depth, &mut emitted_any);
 
     // Static initializer. INTERFACES cannot carry a `static { }` block in
     // Java — their clinit only assigns constants, which static_values (or
