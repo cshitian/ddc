@@ -1074,7 +1074,17 @@ fn emit_class_body(
         }
     } else {
         if let Some(sup) = &class.super_name {
-            if sup != "java/lang/Object" && !is_enum {
+            // Suppress `extends` for TRUE `enum` declarations (they
+            // implicitly extend java.lang.Enum) and for the enum BASE in
+            // fallback form (super IS java/lang/Enum — `class X extends
+            // Enum` is illegal). But an ENUM CONSTANT SUBCLASS rendered
+            // in fallback (`/* enum */ class j$1`, ACC_ENUM, super = the
+            // enum base) MUST keep `extends j`: without it the constant
+            // loses its subtype relation and every `field = new j$1(..)`
+            // fails ("j$1无法转换为j", weibo jsoup TokeniserState ×172).
+            let suppress_extends =
+                is_enum && (enum_consts.is_some() || sup == "java/lang/Enum");
+            if sup != "java/lang/Object" && !suppress_extends {
                 head.push_str(" extends ");
                 head.push_str(&render_super(sup));
             }
