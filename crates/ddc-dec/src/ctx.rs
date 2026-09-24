@@ -72,6 +72,29 @@ impl<'a> DexCtx<'a> {
     /// "需要包含...的封闭实例"). An obfuscated-renamed this$0 falls to
     /// the static render, which stays compilable: the ctor keeps its
     /// outer param and every call site passes it explicitly.
+    /// JLS inner-ctor shape: the synthetic outer instance rides as
+    /// formal-0 typed as the DIRECT enclosing class. Field evidence
+    /// alone misclassifies Kotlin lambda classes — kotlinc names the
+    /// captured `this` field this$0 too, but at an ARBITRARY param
+    /// position (lark SearchResultView$q: `(int $requestSeq,
+    /// SearchResultView this$0)`; the int capture was hijacked as the
+    /// qualified-new outer — `(this.w + 1).new q17(this)`, lark
+    /// 意外的类型 ×295). Mirrors the decl-side strip guard in classdec
+    /// (`d.args.first()` must BE the enclosing type).
+    fn outer_is_formal0(&self, internal: &str, pc: &PoolClass) -> bool {
+        let Some(outer) = self.find_outer(internal) else {
+            return false;
+        };
+        pc.all_methods().any(|m| {
+            &*m.name == "<init>"
+                && m.parsed_desc().is_some_and(|d| {
+                    d.args.first().is_some_and(|t| {
+                        matches!(t, JavaType::Object(n) if n.as_ref() == outer.as_str())
+                    })
+                })
+        })
+    }
+
     fn holds_this0(&self, internal: &str, pc: &PoolClass) -> bool {
         let Some(outer) = self.find_outer(internal) else {
             return false;
@@ -212,7 +235,13 @@ impl<'a> Ctx for DexCtx<'a> {
             // nesting annotations at all — without the structural
             // fallback every static nested class rendered as an inner
             // one (`str.new Report(...)` swallowing the first ctor arg).
-            Some(pc) => pc.is_static_nested() || !self.holds_this0(internal, pc),
+            // A this$0 field WITHOUT the formal-0 outer ctor param is a
+            // capture, not a JLS outer (Kotlin lambdas) — static too.
+            Some(pc) => {
+                pc.is_static_nested()
+                    || !self.holds_this0(internal, pc)
+                    || !self.outer_is_formal0(internal, pc)
+            }
             None => true,
         }
     }
@@ -220,7 +249,11 @@ impl<'a> Ctx for DexCtx<'a> {
     fn class_has_this0(&self, internal: &str) -> bool {
         // Inner classes without ACC_STATIC carry an enclosing instance.
         match self.find_class(internal) {
-            Some(pc) => !pc.is_static_nested() && self.holds_this0(internal, pc),
+            Some(pc) => {
+                !pc.is_static_nested()
+                    && self.holds_this0(internal, pc)
+                    && self.outer_is_formal0(internal, pc)
+            }
             None => false,
         }
     }
