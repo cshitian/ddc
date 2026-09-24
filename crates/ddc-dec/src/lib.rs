@@ -2646,16 +2646,32 @@ fn member_collision_renames(
             std::sync::Arc<str>,
             std::sync::Arc<str>,
         )> = std::collections::VecDeque::new();
-        for (cls, entries) in out.iter() {
-            for fr in entries {
-                if fr.desc.contains('(') {
-                    queue.push_back((
-                        cls.clone(),
-                        fr.name.clone(),
-                        fr.desc.clone(),
-                        fr.display.clone(),
-                    ));
+        {
+            // Sorted seed: `out` is a std HashMap (RandomState) — an
+            // unsorted seed would make conflicting ancestor forces
+            // resolve in per-process order (display names flipping
+            // run-to-run).
+            let mut seed: Vec<(
+                std::sync::Arc<str>,
+                std::sync::Arc<str>,
+                std::sync::Arc<str>,
+                std::sync::Arc<str>,
+            )> = Vec::new();
+            for (cls, entries) in out.iter() {
+                for fr in entries {
+                    if fr.desc.contains('(') {
+                        seed.push((
+                            cls.clone(),
+                            fr.name.clone(),
+                            fr.desc.clone(),
+                            fr.display.clone(),
+                        ));
+                    }
                 }
+            }
+            seed.sort();
+            for t in seed {
+                queue.push_back(t);
             }
         }
         let mut guard = 0usize;
