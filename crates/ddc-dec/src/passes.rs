@@ -3534,6 +3534,33 @@ pub fn fix_primitive_arg_bridges(body: &mut Stmt, vt: &VarTable, pool: &crate::D
                     e: Box::new(Expr::Const(ConstVal::Null)),
                 };
             }
+        } else if let JavaType::Array(_) = f {
+            // Descriptor-exact ARRAY cast: the dex named this exact
+            // overload; a bare null beside sibling overloads is javac-
+            // ambiguous (`a(String,b2)` + `a(String,String[])` both match
+            // — weibo org/a/c/b, 对a的引用不明确 family). Same phantom
+            // gate on the element class: casting to a phantom-element
+            // array would trade the ambiguity for a cannot-find.
+            let mut e: &JavaType = f;
+            while let JavaType::Array(inner) = e {
+                e = &**inner;
+            }
+            let resolvable = match e {
+                JavaType::Object(n) => {
+                    pool.get(n).is_some()
+                        || n.starts_with("java/")
+                        || n.starts_with("javax/")
+                        || n.starts_with("android/")
+                        || n.starts_with("dalvik/")
+                }
+                _ => true, // primitive-element array
+            };
+            if resolvable {
+                *a = Expr::Cast {
+                    ty: TypeRef::J(f.clone()),
+                    e: Box::new(Expr::Const(ConstVal::Null)),
+                };
+            }
         }
         true
     }
