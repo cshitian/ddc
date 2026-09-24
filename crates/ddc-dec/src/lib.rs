@@ -2333,6 +2333,52 @@ fn member_collision_renames(
         }
         // ---- methods: display key = sanitized name + erased params ----
         let methods: Vec<&PoolMethod> = pc.all_methods().collect();
+        // Ancestor virtual-method returns per (name, argsig) — one walk
+        // per non-interface class, shared by the covariant-keeper
+        // selection and the impostor-override detection below.
+        let mut anc_rets: Option<
+            jdc_core::FxHashMap<(String, String), Vec<String>>,
+        > = None;
+        if pc.access & crate::access::ACC_INTERFACE == 0 {
+            let mut map: jdc_core::FxHashMap<(String, String), Vec<String>> =
+                jdc_core::FxHashMap::default();
+            let mut stack: Vec<&str> = Vec::new();
+            if let Some(sup) = &pc.super_name {
+                if sup != "java/lang/Object" {
+                    stack.push(sup.as_str());
+                }
+            }
+            stack.extend(pc.interfaces.iter().map(|i| i.as_str()));
+            let mut seen_cls: jdc_core::FxHashSet<&str> =
+                jdc_core::FxHashSet::default();
+            while let Some(cn) = stack.pop() {
+                if !seen_cls.insert(cn) {
+                    continue;
+                }
+                let Some(ac) = pool.get_if_materialized(cn) else {
+                    continue;
+                };
+                for m in ac.all_methods() {
+                    if m.is_static() || &*m.name == "<init>" || &*m.name == "<clinit>"
+                    {
+                        continue;
+                    }
+                    let d: &str = &m.desc;
+                    let lo = d.find('(').map(|i| i + 1).unwrap_or(0);
+                    let hi = d.find(')').unwrap_or(d.len());
+                    map.entry((m.name.to_string(), d[lo..hi].to_string()))
+                        .or_default()
+                        .push(d[hi + 1..].to_string());
+                }
+                if let Some(s) = &ac.super_name {
+                    if s != "java/lang/Object" {
+                        stack.push(s.as_str());
+                    }
+                }
+                stack.extend(ac.interfaces.iter().map(|i| i.as_str()));
+            }
+            anc_rets = Some(map);
+        }
         let mut m_taken: jdc_core::FxHashSet<String> = methods
             .iter()
             .map(|m| crate::classdec::java_ident(&m.name).into_owned())
@@ -2441,45 +2487,18 @@ fn member_collision_renames(
                 // 0 or 2+ ancestor-matched members = the shape Java
                 // cannot express at all (two interfaces demanding
                 // different returns): keep the old claim behavior.
-                let mut anc: jdc_core::FxHashSet<(String, String)> =
-                    jdc_core::FxHashSet::default();
-                {
-                    let mut stack: Vec<&str> = Vec::new();
-                    if let Some(sup) = &pc.super_name {
-                        if sup != "java/lang/Object" {
-                            stack.push(sup.as_str());
-                        }
-                    }
-                    stack.extend(pc.interfaces.iter().map(|i| i.as_str()));
-                    let mut seen_cls: jdc_core::FxHashSet<&str> =
-                        jdc_core::FxHashSet::default();
-                    while let Some(cn) = stack.pop() {
-                        if !seen_cls.insert(cn) {
-                            continue;
-                        }
-                        let Some(ac) = pool.get_if_materialized(cn) else {
-                            continue;
-                        };
-                        for m in ac.all_methods() {
-                            if !m.is_static()
-                                && &*m.name != "<init>"
-                                && &*m.name != "<clinit>"
-                            {
-                                anc.insert((m.name.to_string(), m.desc.to_string()));
-                            }
-                        }
-                        if let Some(s) = &ac.super_name {
-                            if s != "java/lang/Object" {
-                                stack.push(s.as_str());
-                            }
-                        }
-                        stack.extend(ac.interfaces.iter().map(|i| i.as_str()));
-                    }
-                }
                 let keepers: Vec<&&PoolMethod> = group
                     .iter()
                     .filter(|m| {
-                        anc.contains(&(m.name.to_string(), m.desc.to_string()))
+                        let d: &str = &m.desc;
+                        let lo = d.find('(').map(|i| i + 1).unwrap_or(0);
+                        let hi = d.find(')').unwrap_or(d.len());
+                        anc_rets
+                            .as_ref()
+                            .and_then(|map| {
+                                map.get(&(m.name.to_string(), d[lo..hi].to_string()))
+                            })
+                            .is_some_and(|rets| rets.iter().any(|r| r == &d[hi + 1..]))
                     })
                     .collect();
                 if keepers.len() != 1 {
@@ -2529,6 +2548,70 @@ fn member_collision_renames(
                 // The base stays the sanitized ORIGINAL so the first
                 // occurrence keeps the plain name.
                 let _ = &mut base;
+            }
+        }
+        // ---- impostor overrides (R8 generic specialization) ----
+        // A class method whose (name, argsig) matches an ancestor
+        // declaration but whose return type satisfies NONE of the
+        // ancestor returns is not an override Java can express: the
+        // pair shares an erasure, so the class cannot declare both, and
+        // ART never resolved it either (interface dispatch matches
+        // name+descriptor — the missing proto throws AbstractMethodError
+        // at runtime; weibo IStreamPresenter.getView()IStreamView vs the
+        // impl's getView()IPageView with no subtype edge, ×258 across
+        // getView/getWidget/getListView families). Rename the impostor
+        // (the registry carries every caller and the propagation below
+        // carries subclasses) and let synth_missing_interface_stubs add
+        // the ART-faithful stub — rename-aware provision makes the
+        // requirement missing again.
+        if let Some(map) = &anc_rets {
+            for m in &methods {
+                if m.is_static()
+                    || &*m.name == "<init>"
+                    || &*m.name == "<clinit>"
+                {
+                    continue;
+                }
+                let d: &str = &m.desc;
+                let lo = d.find('(').map(|i| i + 1).unwrap_or(0);
+                let hi = d.find(')').unwrap_or(d.len());
+                let m_ret = &d[hi + 1..];
+                let Some(rets) =
+                    map.get(&(m.name.to_string(), d[lo..hi].to_string()))
+                else {
+                    continue;
+                };
+                let satisfied = rets.iter().any(|r| {
+                    r == m_ret
+                        || match (
+                            r.strip_prefix('L').and_then(|x| x.strip_suffix(';')),
+                            m_ret.strip_prefix('L').and_then(|x| x.strip_suffix(';')),
+                        ) {
+                            (Some(rc), Some(mc)) => pool.is_subtype(mc, rc),
+                            _ => false,
+                        }
+                });
+                if satisfied {
+                    continue;
+                }
+                // Already renamed by a clash-group rule above?
+                let already = out
+                    .get(&std::sync::Arc::from(name.as_str()))
+                    .is_some_and(|v| {
+                        v.iter().any(|fr| *fr.name == *m.name && *fr.desc == *m.desc)
+                    });
+                if already {
+                    continue;
+                }
+                let base = crate::classdec::java_ident(&m.name).into_owned();
+                let display = suffix_unique(&base, &mut m_taken);
+                out.entry(std::sync::Arc::from(name.as_str()))
+                    .or_default()
+                    .push(jdc_core::rename::FieldRename {
+                        name: m.name.clone(),
+                        desc: m.desc.clone(),
+                        display: std::sync::Arc::from(display.as_str()),
+                    });
             }
         }
     }

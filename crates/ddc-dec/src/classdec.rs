@@ -1058,7 +1058,17 @@ fn synth_missing_interface_stubs(
             // but ACC_NATIVE — `…ToNative` methods satisfy their interface
             // and must not be stubbed twice).
             if m.access & ACC_ABSTRACT == 0 && !m.is_static() {
-                provided.insert((m.name.to_string(), argsig(&m.desc).to_string()));
+                // A RENAMED method no longer provides its raw (name,
+                // argsig): impostor overrides (return type satisfying no
+                // ancestor declaration) and erasure-clash losers render
+                // under their registry display, and the ancestor
+                // requirement falls to the stub below — matching ART,
+                // where the interface proto never resolved either.
+                let renamed = jdc_core::rename::field_display(&c.name, &m.name, &m.desc)
+                    .is_some();
+                if !renamed {
+                    provided.insert((m.name.to_string(), argsig(&m.desc).to_string()));
+                }
             }
         }
         cur = c.super_name.as_ref().and_then(|s| {
