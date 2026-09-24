@@ -5113,12 +5113,20 @@ fn diamond_types_ok(a: &Expr, b: &Expr) -> bool {
 }
 
 /// `(var, target clone, value)` when the stmt is exactly ONE plain
-/// assign to a local (bare or block-wrapped).
+/// assign to a local (bare or block-wrapped). The unwrap must be
+/// RECURSIVE: the Kotlin default-args ctor diamonds arrive as
+/// `Block([Block([Assign])])` (structurer nesting), and the one-level
+/// peel missed them — the unfolded `if ((mask&2)==0) v=p; else v=0;`
+/// prelude then blocked fix_ctor_super_first from hoisting the
+/// `this(...)` delegation (weibo/lark ctor-not-first ×841 family).
 fn single_local_assign(st: &Stmt) -> Option<(u32, Expr, Expr)> {
-    let inner = match st {
-        Stmt::Block(v) if v.len() == 1 => &v[0],
-        other => other,
-    };
+    let mut inner = st;
+    while let Stmt::Block(v) = inner {
+        if v.len() != 1 {
+            return None;
+        }
+        inner = &v[0];
+    }
     match inner {
         Stmt::ExprStmt(Expr::Assign { target, value, op: AssignOp::Plain }) => {
             match &**target {
@@ -7182,13 +7190,210 @@ fn inline_ctor_arg_defs(
     true
 }
 
+/// Fold a prelude StringBuilder mutation chain into the delegation
+/// argument as a fluent chain: `StringBuilder sb = new SB(x);
+/// sb.append(a); sb.append(b); super(sb.toString())` →
+/// `super(new SB(x).append(a).append(b).toString())`. The generic def
+/// inliner rejects mutation calls — their effect is not expressible as
+/// a value — but `append` RETURNS its receiver, so the chain
+/// reconstructs exactly the same mutations in one expression (androidx
+/// emoji2/flatbuffer UnpairedSurrogateException family, the shapes the
+/// strict-occurrence rule was written to refuse). Aborts on any `this`
+/// touch inside the chain (illegal before super) or any other read of
+/// the SB local (the value must not escape the fold). Returns the
+/// delegation's new index (statements before it were removed).
+fn fold_sb_chain(stmts: &mut Vec<Stmt>, pos: usize) -> usize {
+    // 1. the SB local: first `v = new StringBuilder(..)` in the prefix.
+    let mut sbv: Option<u32> = None;
+    let mut def_i: Option<usize> = None;
+    let mut def_init: Option<Expr> = None;
+    for (i, st) in stmts[..pos].iter().enumerate() {
+        let cand: Option<(u32, &Expr)> = match st {
+            Stmt::LocalDef {
+                var,
+                init: Some(e),
+                ..
+            } => Some((*var, e)),
+            Stmt::ExprStmt(Expr::Assign {
+                target,
+                value,
+                op: AssignOp::Plain,
+                ..
+            }) => match &**target {
+                Expr::Local { var, .. } => Some((*var, value.as_ref())),
+                _ => None,
+            },
+            _ => None,
+        };
+        if let Some((v, init)) = cand {
+            if let Expr::New { cls, .. } = init {
+                if cls.as_ref() == "java/lang/StringBuilder" {
+                    sbv = Some(v);
+                    def_i = Some(i);
+                    def_init = Some(init.clone());
+                    break;
+                }
+            }
+        }
+    }
+    let (Some(sbv), Some(def_i), Some(init)) = (sbv, def_i, def_init) else {
+        return pos;
+    };
+    if contains_this_access(&init) {
+        return pos;
+    }
+    // 2. append statements on sbv, in order.
+    let mut appends: Vec<usize> = Vec::new();
+    for (i, st) in stmts[..pos].iter().enumerate() {
+        if let Stmt::ExprStmt(Expr::Method {
+            owner: Some(o),
+            cls,
+            name,
+            ..
+        }) = st
+        {
+            if matches!(&**o, Expr::Local { var, .. } if *var == sbv)
+                && cls.as_ref() == "java/lang/StringBuilder"
+                && &**name == "append"
+            {
+                appends.push(i);
+            }
+        }
+    }
+    // 3. no read of sbv after the delegation.
+    let mut post_read = false;
+    for st in stmts.iter().skip(pos + 1) {
+        visit_all_exprs(st, &mut |e| {
+            if let Expr::Local { var, .. } = e {
+                if *var == sbv {
+                    post_read = true;
+                }
+            }
+        });
+    }
+    if post_read {
+        return pos;
+    }
+    // 4. prefix reads of sbv only in the def and the append receivers
+    //    (arguments are checked for `this`, receivers are the chain).
+    for (i, st) in stmts[..pos].iter().enumerate() {
+        if i == def_i || appends.contains(&i) {
+            // append ARGUMENTS must not touch this; receiver is fine.
+            if let Stmt::ExprStmt(Expr::Method { args, .. }) = st {
+                if args.iter().any(contains_this_access) {
+                    return pos;
+                }
+            }
+            continue;
+        }
+        let mut leak = false;
+        visit_all_exprs(st, &mut |e| {
+            if let Expr::Local { var, .. } = e {
+                if *var == sbv {
+                    leak = true;
+                }
+            }
+        });
+        if leak {
+            return pos;
+        }
+    }
+    // 5. the call reads sbv exactly once, as `sbv.toString()`.
+    let mut local_reads = 0usize;
+    let mut tostring_reads = 0usize;
+    visit_all_exprs(&stmts[pos], &mut |e| match e {
+        Expr::Local { var, .. } if *var == sbv => local_reads += 1,
+        Expr::Method {
+            owner: Some(o),
+            name,
+            args,
+            ..
+        } if args.is_empty()
+            && &**name == "toString"
+            && matches!(&**o, Expr::Local { var, .. } if *var == sbv) =>
+        {
+            tostring_reads += 1;
+        }
+        _ => {}
+    });
+    if local_reads != 1 || tostring_reads != 1 {
+        return pos;
+    }
+    // 6. build the fluent chain and swap it into the toString receiver.
+    let mut chain = init;
+    for ai in &appends {
+        if let Stmt::ExprStmt(Expr::Method {
+            owner: _,
+            cls,
+            name,
+            desc,
+            args,
+            is_static,
+            is_interface,
+            is_special,
+            is_super,
+            is_dynamic,
+            type_args,
+            ..
+        }) = &stmts[*ai]
+        {
+            chain = Expr::Method {
+                owner: Some(Box::new(chain)),
+                cls: cls.clone(),
+                name: name.clone(),
+                desc: desc.clone(),
+                args: args.clone(),
+                is_static: *is_static,
+                is_interface: *is_interface,
+                is_special: *is_special,
+                is_super: *is_super,
+                is_dynamic: *is_dynamic,
+                type_args: type_args.clone(),
+            };
+        }
+    }
+    let mut replaced = false;
+    walk_stmt_exprs(&mut stmts[pos], &mut |e| {
+        deep_rewrite(e, &mut |x| {
+            if let Expr::Method {
+                owner: Some(o),
+                name,
+                args,
+                ..
+            } = x
+            {
+                if args.is_empty()
+                    && &**name == "toString"
+                    && matches!(&**o, Expr::Local { var, .. } if *var == sbv)
+                {
+                    *o = Box::new(chain.clone());
+                    replaced = true;
+                }
+            }
+        });
+    });
+    if !replaced {
+        return pos; // never remove without the swap — atomicity
+    }
+    // 7. drop the consumed statements (descending), adjust pos.
+    let mut removed: Vec<usize> = appends.clone();
+    removed.push(def_i);
+    removed.sort_unstable();
+    removed.dedup();
+    for i in removed.iter().rev() {
+        stmts.remove(*i);
+    }
+    pos - removed.len()
+}
+
 pub fn fix_ctor_super_first(body: &mut Stmt, vt: &VarTable) {
     let Stmt::Block(stmts) = body else { return };
     if stmts.is_empty() || is_bare_ctor_call(stmts.first().unwrap()) {
         return;
     }
     // Top-level delegation call.
-    if let Some(pos) = stmts.iter().position(is_bare_ctor_call) {
+    if let Some(pos0) = stmts.iter().position(is_bare_ctor_call) {
+        let pos = fold_sb_chain(stmts, pos0);
         let mut call = stmts[pos].clone();
         let prefix: Vec<&Stmt> = stmts[..pos].iter().collect();
         let mut consumed: Vec<(u32, usize)> = Vec::new();
