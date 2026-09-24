@@ -566,7 +566,7 @@ pub fn decompile_method(
         passes::fix_ref_null_assigns(&vt, &mut body);
         passes::fix_null_sentinels(&mut body, &vt, &desc.ret);
         passes::split_generations(&mut vt, &mut body, pool);
-        passes::insert_object_narrowing_casts(&vt, &mut body);
+        passes::insert_object_narrowing_casts(&vt, &mut body, pool, &desc.ret);
         passes::fix_field_owner_downcasts(&mut body, &vt, pool);
         passes::fix_incomparable_equality(&mut body, &vt, pool);
         passes::fix_primitive_assign_casts(&vt, &mut body, &desc.ret);
@@ -881,7 +881,7 @@ pub fn decompile_method(
     if matches!(desc.ret, JavaType::Boolean) {
         passes::fix_bool_returns(&vt, &mut body);
     }
-    passes::insert_object_narrowing_casts(&vt, &mut body);
+    passes::insert_object_narrowing_casts(&vt, &mut body, pool, &desc.ret);
     passes::fix_field_owner_downcasts(&mut body, &vt, pool);
     passes::fix_incomparable_equality(&mut body, &vt, pool);
     passes::fix_primitive_assign_casts(&vt, &mut body, &desc.ret);

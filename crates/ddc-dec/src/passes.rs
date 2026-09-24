@@ -2865,7 +2865,12 @@ pub fn mark_field_owner_concrete(vt: &mut VarTable, body: &mut Stmt) {
 /// is never re-cast), the value is not a null const (assignable to any
 /// ref) nor already a cast, and the target is a specific reference type
 /// (Object→int/boolean is unboxing, a different problem left alone).
-pub fn insert_object_narrowing_casts(vt: &VarTable, body: &mut Stmt) {
+pub fn insert_object_narrowing_casts(
+    vt: &VarTable,
+    body: &mut Stmt,
+    pool: &DexPool,
+    ret: &JavaType,
+) {
     // Resolve a value's static type through the VarTable for locals (the
     // embedded Local ty can lag infer_types), else the expr's own type.
     let value_ty = |e: &Expr| -> JavaType {
@@ -2891,6 +2896,28 @@ pub fn insert_object_narrowing_casts(vt: &VarTable, body: &mut Stmt) {
         is_top_object(e)
             && !matches!(e, Expr::Const(_) | Expr::Cast { .. } | Expr::InstanceOf { .. })
     };
+    // Downcast witness: a SPECIFIC-ref value whose static type does not
+    // fit the specific-ref target (`v9($1) = v7` with v7:
+    // ContinuationImpl — weibo coroutine prologue ×282). The dex move
+    // was verifier-proven against the target type, so the cast states
+    // the bytecode truth; an actually-unconvertible static pair (both
+    // classes, unrelated — the value view conflated) rides the
+    // emitter's (Object) relay and still compiles. Framework types the
+    // pool cannot order take the cast too: a downcast renders directly,
+    // an unrelated pair relays.
+    let needs_downcast = |e: &Expr, tt: &JavaType| -> bool {
+        if matches!(e, Expr::Const(_) | Expr::Cast { .. } | Expr::InstanceOf { .. }) {
+            return false;
+        }
+        let v = value_ty(e);
+        let (JavaType::Object(vn), JavaType::Object(tn)) = (&v, tt) else {
+            return false;
+        };
+        if vn.as_ref() == "java/lang/Object" || tn.as_ref() == "java/lang/Object" {
+            return false;
+        }
+        vn != tn && !pool.is_subtype(vn, tn)
+    };
     walk_mut_deep(body, &mut |st| match st {
         Stmt::ExprStmt(Expr::Assign {
             target,
@@ -2904,7 +2931,7 @@ pub fn insert_object_narrowing_casts(vt: &VarTable, body: &mut Stmt) {
                 _ => return,
             };
             if let Some(t) = specific_ref(&tgt) {
-                if castable(value) {
+                if castable(value) || needs_downcast(value, &tgt.erased()) {
                     let v = std::mem::replace(value, Box::new(Expr::This));
                     **value = Expr::Cast { ty: t, e: v };
                 }
@@ -2912,12 +2939,21 @@ pub fn insert_object_narrowing_casts(vt: &VarTable, body: &mut Stmt) {
         }
         Stmt::LocalDef { var, init: Some(value), .. } => {
             if let Some(t) = specific_ref(&vt.var(*var).ty) {
-                if castable(value) {
+                let tt = vt.var(*var).ty.erased();
+                if castable(value) || needs_downcast(value, &tt) {
                     let v = std::mem::replace(value, Expr::This);
                     *value = Expr::Cast {
                         ty: t,
                         e: Box::new(v),
                     };
+                }
+            }
+        }
+        Stmt::Return(Some(value)) => {
+            if let Some(t) = specific_ref(&TypeRef::J(ret.clone())) {
+                if castable(value) || needs_downcast(value, ret) {
+                    let v = std::mem::replace(value, Expr::This);
+                    *value = Expr::Cast { ty: t, e: Box::new(v) };
                 }
             }
         }
@@ -2948,7 +2984,7 @@ pub fn insert_object_narrowing_casts(vt: &VarTable, body: &mut Stmt) {
                 let Some(t) = specific_ref(&TypeRef::J(formal.clone())) else {
                     continue;
                 };
-                if !castable(a) {
+                if !(castable(a) || needs_downcast(a, formal)) {
                     continue;
                 }
                 let v = std::mem::replace(a, Expr::Const(ConstVal::Null));
@@ -3380,6 +3416,39 @@ pub fn fix_primitive_arg_bridges(body: &mut Stmt, vt: &VarTable, pool: &crate::D
             None
         }
     }
+    /// A bare `null` argument against a SPECIFIC reference formal takes
+    /// the descriptor cast: `this(context, null)` matching both
+    /// Builder(Context,Notification) and Builder(Context,String) is
+    /// "对Builder的引用不明确" (weibo NotificationCompat; protobuf
+    /// `new FieldSet.Builder(null)` ×54). The descriptor names the
+    /// exact invoked ctor, so the cast is dex ground truth — the
+    /// descriptor-exact doctrine, not a guessed overload shift. Bare
+    /// null stays for Object formals (casting those would add noise
+    /// without resolving anything javac could not already pick).
+    fn null_arg_cast(a: &mut Expr, f: &JavaType, pool: &DexPool) -> bool {
+        if !matches!(&*a, Expr::Const(ConstVal::Null)) {
+            return false;
+        }
+        if let JavaType::Object(n) = f {
+            // Cast only to RESOLVABLE types: a phantom formal (R8 kept
+            // the ref, dropped the class — androidx.window.sidecar)
+            // would turn a compiling bare `null` into a fresh
+            // cannot-find. Pool classes render into the output;
+            // java/javax/android/dalvik resolve through android.jar.
+            let resolvable = pool.get(n).is_some()
+                || n.starts_with("java/")
+                || n.starts_with("javax/")
+                || n.starts_with("android/")
+                || n.starts_with("dalvik/");
+            if n.as_ref() != "java/lang/Object" && resolvable {
+                *a = Expr::Cast {
+                    ty: TypeRef::J(f.clone()),
+                    e: Box::new(Expr::Const(ConstVal::Null)),
+                };
+            }
+        }
+        true
+    }
     /// JLS 5.1.2 widening primitive conversion (char joins the chain
     /// only at int; byte/short do NOT widen to char).
     fn implicit_widening(a: &JavaType, f: &JavaType) -> bool {
@@ -3425,6 +3494,9 @@ pub fn fix_primitive_arg_bridges(body: &mut Stmt, vt: &VarTable, pool: &crate::D
                 }
                 let _ = (cls, is_static);
                 for (a, f) in args.iter_mut().zip(desc.args.iter()) {
+                    if null_arg_cast(a, f, pool) {
+                        continue;
+                    }
                     if !is_bool(&val_ty(a, vt)) && !is_num(&val_ty(a, vt)) {
                         continue;
                     }
@@ -3447,6 +3519,9 @@ pub fn fix_primitive_arg_bridges(body: &mut Stmt, vt: &VarTable, pool: &crate::D
                 };
                 if let Some(formals) = formals_owned {
                     for (a, f) in args.iter_mut().zip(formals.iter()) {
+                        if null_arg_cast(a, f, pool) {
+                            continue;
+                        }
                         if matches!(a, Expr::Cast { .. }) {
                             continue;
                         }
