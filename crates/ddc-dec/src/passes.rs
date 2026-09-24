@@ -3533,6 +3533,7 @@ pub fn fix_primitive_arg_bridges(body: &mut Stmt, vt: &VarTable, pool: &crate::D
                     ty: TypeRef::J(f.clone()),
                     e: Box::new(Expr::Const(ConstVal::Null)),
                 };
+                return true;
             }
         } else if let JavaType::Array(_) = f {
             // Descriptor-exact ARRAY cast: the dex named this exact
@@ -3560,9 +3561,12 @@ pub fn fix_primitive_arg_bridges(body: &mut Stmt, vt: &VarTable, pool: &crate::D
                     ty: TypeRef::J(f.clone()),
                     e: Box::new(Expr::Const(ConstVal::Null)),
                 };
+                return true;
             }
         }
-        true
+        // Bare null deliberately stays (Object formal / phantom type):
+        // the caller's ambiguity pin may still act on it.
+        false
     }
     /// JLS 5.1.2 widening primitive conversion (char joins the chain
     /// only at int; byte/short do NOT widen to char).
@@ -3578,6 +3582,24 @@ pub fn fix_primitive_arg_bridges(body: &mut Stmt, vt: &VarTable, pool: &crate::D
             (x, y) => x == y,
         }
     }
+    // Does the owner class declare ANOTHER method with the same name
+    // and arity but a different signature? Then javac's most-specific
+    // overload resolution can steal the call from the dex descriptor's
+    // target (weibo 对a的引用不明确 ×391: `c.a(null)` against
+    // a(ExecuteResult)/a(Exception)/a(Object) — the descriptor names
+    // a(Object), but bare null leaves the two specific overloads
+    // ambiguously most-specific). Framework owners are not in the
+    // pool — conservatively report no competition.
+    let overload_competes = |cls: &str, name: &str, args: &[JavaType]| -> bool {
+        let Some(c) = pool.get(cls) else {
+            return false;
+        };
+        c.all_methods().any(|m| {
+            &*m.name == name
+                && m.parsed_desc()
+                    .is_some_and(|d| d.args.len() == args.len() && d.args != args)
+        })
+    };
     // Ctors: formal types via the pool (unanimous across same-arity
     // overloads, else skip — ambiguity must not guess).
     let ctor_formals = |cls: &str, n: usize| -> Option<Vec<JavaType>> {
@@ -3602,23 +3624,60 @@ pub fn fix_primitive_arg_bridges(body: &mut Stmt, vt: &VarTable, pool: &crate::D
     walk_stmt_exprs(body, &mut |e| {
         deep_rewrite(e, &mut |x| match x {
             Expr::Method {
-                cls, desc, args, is_static, ..
+                cls,
+                name,
+                desc,
+                args,
+                is_static,
+                ..
             } => {
                 if args.len() != desc.args.len() {
                     return;
                 }
-                let _ = (cls, is_static);
+                let _ = is_static;
+                let mut competes: Option<bool> = None;
                 for (a, f) in args.iter_mut().zip(desc.args.iter()) {
                     if null_arg_cast(a, f, pool) {
+                        continue;
+                    }
+                    if matches!(a, Expr::Cast { .. }) {
+                        continue;
+                    }
+                    // Descriptor-exact ambiguity pin: a bare null
+                    // against an Object formal (null_arg_cast
+                    // deliberately leaves those bare — safe only
+                    // WITHOUT competing specific overloads) or a
+                    // strict-subtype arg can match several declared
+                    // overloads; casting to the descriptor formal
+                    // leaves exactly the dex-invoked method
+                    // applicable (JLS 15.12.2 — the descriptor is
+                    // ground truth, so the cast pins resolution
+                    // instead of shifting it).
+                    let subtype_arg = match (&val_ty(a, vt), f) {
+                        (JavaType::Object(an), JavaType::Object(fn_)) => {
+                            an != fn_ && pool.is_subtype(an, fn_)
+                        }
+                        _ => false,
+                    };
+                    let null_obj = matches!(a, Expr::Const(ConstVal::Null))
+                        && matches!(f, JavaType::Object(_));
+                    if (subtype_arg || null_obj)
+                        && *competes.get_or_insert_with(|| {
+                            overload_competes(cls, name, &desc.args)
+                        })
+                    {
+                        let old =
+                            std::mem::replace(a, Expr::Const(ConstVal::Null));
+                        *a = Expr::Cast {
+                            ty: TypeRef::J(f.clone()),
+                            e: Box::new(old),
+                        };
                         continue;
                     }
                     if !is_bool(&val_ty(a, vt)) && !is_num(&val_ty(a, vt)) {
                         continue;
                     }
                     if !is_bool(f) && !is_num(f) {
-                        continue;
-                    }
-                    if matches!(a, Expr::Cast { .. }) {
                         continue;
                     }
                     if let Some(b) = bridge(&val_ty(a, vt), f, a) {
