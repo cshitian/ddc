@@ -2991,29 +2991,44 @@ pub(crate) fn install_access_widening(pool: &crate::DexPool) {
     let mut methods: jdc_core::FxHashMap<String, jdc_core::FxHashSet<(String, String)>> =
         jdc_core::FxHashMap::default();
     for (owner, set) in &raw.methods {
-        let Some(pc) = pool.get_if_materialized(owner) else {
-            continue;
-        };
-        let is_enum = pc.access & crate::access::ACC_ENUM != 0;
-        let mut keep: jdc_core::FxHashSet<(String, String)> =
-            jdc_core::FxHashSet::default();
         for (name, desc) in set {
-            // Enum ctors are source-level private-only; clinit is never
-            // referenced. Widening either is a javac "modifier not
-            // allowed here".
-            if name == "<clinit>" || (is_enum && name == "<init>") {
-                continue;
+            if name == "<clinit>" {
+                continue; // never referenced
             }
-            let nonpub = pc
-                .all_methods()
-                .any(|m| &*m.name == name.as_str() && &*m.desc == desc.as_str()
-                    && m.access & crate::access::ACC_PUBLIC == 0);
-            if nonpub {
-                keep.insert((name.clone(), desc.clone()));
+            // A dex ref of an INHERITED member may name any subclass as
+            // owner (ART resolves up the chain), while the declaration —
+            // and its access modifier — lives on an ancestor. Register
+            // the widening on the DECLARING class or the rendered decl
+            // stays protected ("在 X 中是 protected 访问控制").
+            let mut cur: Option<&str> = Some(owner.as_str());
+            let mut hops = 0u32;
+            while let Some(cname) = cur {
+                hops += 1;
+                if hops > 64 {
+                    break;
+                }
+                let Some(pc) = pool.get_if_materialized(cname) else {
+                    break;
+                };
+                // Enum ctors are source-level private-only: widening is
+                // a javac "modifier not allowed here".
+                if name == "<init>" && pc.access & crate::access::ACC_ENUM != 0 {
+                    break;
+                }
+                match pc.all_methods()
+                    .find(|m| &*m.name == name.as_str() && &*m.desc == desc.as_str())
+                {
+                    Some(m) if m.access & crate::access::ACC_PUBLIC == 0 => {
+                        methods
+                            .entry(cname.to_string())
+                            .or_default()
+                            .insert((name.clone(), desc.clone()));
+                        break;
+                    }
+                    Some(_) => break, // already public
+                    None => cur = pc.super_name.as_deref(),
+                }
             }
-        }
-        if !keep.is_empty() {
-            methods.insert(owner.clone(), keep);
         }
     }
     // Override-closure DOWN the hierarchy: a widened (public) super
@@ -3099,22 +3114,38 @@ pub(crate) fn install_access_widening(pool: &crate::DexPool) {
     let mut fields: jdc_core::FxHashMap<String, jdc_core::FxHashSet<String>> =
         jdc_core::FxHashMap::default();
     for (owner, set) in &raw.fields {
-        let Some(pc) = pool.get_if_materialized(owner) else {
-            continue;
-        };
-        let keep: jdc_core::FxHashSet<String> = set
-            .iter()
-            .filter(|name| {
-                pc.static_fields
+        for name in set {
+            // Same inherited-owner walk as methods: the protected field
+            // lives on the ancestor that DECLARES it (weibo
+            // mModuleContext/mData ×470 — refs named the module
+            // subclass, the own-fields-only filter never widened the
+            // declaring base).
+            let mut cur: Option<&str> = Some(owner.as_str());
+            let mut hops = 0u32;
+            while let Some(cname) = cur {
+                hops += 1;
+                if hops > 64 {
+                    break;
+                }
+                let Some(pc) = pool.get_if_materialized(cname) else {
+                    break;
+                };
+                match pc.static_fields
                     .iter()
                     .chain(pc.instance_fields.iter())
-                    .any(|f| f.name == name.as_str()
-                        && f.access & crate::access::ACC_PUBLIC == 0)
-            })
-            .cloned()
-            .collect();
-        if !keep.is_empty() {
-            fields.insert(owner.clone(), keep);
+                    .find(|f| f.name == name.as_str())
+                {
+                    Some(f) if f.access & crate::access::ACC_PUBLIC == 0 => {
+                        fields
+                            .entry(cname.to_string())
+                            .or_default()
+                            .insert(name.clone());
+                        break;
+                    }
+                    Some(_) => break, // already public
+                    None => cur = pc.super_name.as_deref(),
+                }
+            }
         }
     }
     if std::env::var("DDC_STATS").is_ok() {
