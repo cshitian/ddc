@@ -565,7 +565,7 @@ pub fn decompile_method(
         passes::infer_types(&mut vt, &mut body, &desc.ret, &env);
         passes::fix_ref_null_assigns(&vt, &mut body);
         passes::fix_null_sentinels(&mut body, &vt, &desc.ret);
-        passes::split_generations(&mut vt, &mut body);
+        passes::split_generations(&mut vt, &mut body, pool);
         passes::insert_object_narrowing_casts(&vt, &mut body);
         passes::fix_field_owner_downcasts(&mut body, &vt, pool);
         passes::fix_incomparable_equality(&mut body, &vt, pool);
@@ -599,6 +599,7 @@ pub fn decompile_method(
         // exposes) the arm is linear defs and merge_at lifts the this()
         // (lark MmCreateAudioRequest, this-not-first ×456 family).
         passes::fold_bool_value_diamonds(&mut body, &vt);
+        passes::fix_ctor_this_aliases(&mut body, &vt);
         if class.is_enum() {
             passes::fold_enum_default_arg_bridge(&mut body);
             passes::strip_enum_ctor_super(&mut body);
@@ -846,7 +847,7 @@ pub fn decompile_method(
     passes::infer_types(&mut vt, &mut body, &desc.ret, &env);
     passes::fix_ref_null_assigns(&vt, &mut body);
     passes::fix_null_sentinels(&mut body, &vt, &desc.ret);
-    passes::split_generations(&mut vt, &mut body);
+    passes::split_generations(&mut vt, &mut body, pool);
     // Post-booleanize re-split, gated on a nonzero conversion count:
     // conversions expose register reuse across boolean/numeric kinds no
     // earlier pass could see (`int v150` copying converted `boolean
@@ -868,7 +869,7 @@ pub fn decompile_method(
             if c == 0 || rounds >= 3 {
                 break;
             }
-            passes::split_generations(&mut vt, &mut body);
+            passes::split_generations(&mut vt, &mut body, pool);
         }
     }
     if matches!(
@@ -913,6 +914,7 @@ pub fn decompile_method(
         // exposes) the arm is linear defs and merge_at lifts the this()
         // (lark MmCreateAudioRequest, this-not-first ×456 family).
         passes::fold_bool_value_diamonds(&mut body, &vt);
+        passes::fix_ctor_this_aliases(&mut body, &vt);
         if class.is_enum() {
             passes::fold_enum_default_arg_bridge(&mut body);
             passes::strip_enum_ctor_super(&mut body);

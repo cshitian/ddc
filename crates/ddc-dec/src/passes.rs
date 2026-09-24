@@ -3525,6 +3525,68 @@ pub fn deshadow_locals(vt: &mut VarTable, pool: &crate::DexPool) {
 /// declaring class IS the class being decompiled, the only instance in
 /// scope is `this` — strip the owner so it renders the bare declared
 /// field.
+/// Fold single-assigned `this`-copy locals in ctors back to `this`.
+/// R8 materializes the receiver with `move-object/from16 v1, p0` and
+/// runs every iput through the copy; the copy renders as a local and a
+/// final-field store through it is "无法为 final 变量 g 分配值" (Java
+/// allows blank-final writes only via `this`/simple name — hf/n2 ×29,
+/// weixin final-var residual). Transitively: `b = a; c = b` chains
+/// collapse. Single-assignment gate: a var ever written from another
+/// value is not an alias.
+pub fn fix_ctor_this_aliases(body: &mut Stmt, vt: &VarTable) {
+    let Some(this_var) = vt
+        .vars
+        .iter()
+        .find(|v| v.is_param && v.name == "this")
+        .map(|v| v.id)
+    else {
+        return;
+    };
+    let mut analysis = VarAnalysis {
+        assigns: Vec::new(),
+        reads: Vec::new(),
+        values: Vec::new(),
+    };
+    analyze_vars(body, &mut analysis);
+    let n = vt.vars.len().max(analysis.assigns.len());
+    let mut alias = vec![false; n];
+    for _ in 0..4 {
+        let mut changed = false;
+        for v in 0..n as u32 {
+            if alias[v as usize] {
+                continue;
+            }
+            if analysis.assigns.get(v as usize).copied().unwrap_or(0) != 1 {
+                continue;
+            }
+            let Some(Expr::Local { var: src, .. }) = analysis.values.get(v as usize).and_then(|o| o.as_ref()) else {
+                continue;
+            };
+            if *src == this_var
+                || (*src < n as u32 && alias[*src as usize])
+            {
+                alias[v as usize] = true;
+                changed = true;
+            }
+        }
+        if !changed {
+            break;
+        }
+    }
+    if !alias.iter().any(|&b| b) {
+        return;
+    }
+    walk_stmt_exprs(body, &mut |e| {
+        deep_rewrite_reads(e, &mut |x| {
+            if let Expr::Local { var, .. } = x {
+                if (*var as usize) < n && alias[*var as usize] {
+                    *x = Expr::This;
+                }
+            }
+        });
+    });
+}
+
 pub fn fix_this0_owners(body: &mut Stmt, class_name: &str) {
     walk_stmt_exprs(body, &mut |e| {
         deep_rewrite(e, &mut |x| {
@@ -7046,14 +7108,14 @@ pub fn fix_int_returns(vt: &VarTable, body: &mut Stmt) {
 /// different classes, or prim→ref. NOT numeric-vs-numeric (promotion
 /// handles those) and NOT Object targets (assignable — the narrowing
 /// cast pass covers the value side).
-pub fn split_generations(vt: &mut VarTable, body: &mut Stmt) {
+pub fn split_generations(vt: &mut VarTable, body: &mut Stmt, pool: &DexPool) {
     let mut counter: u32 = 0;
     let mut gen: std::collections::HashMap<u32, u32> = std::collections::HashMap::default();
-    split_walk_stmt(body, vt, &mut gen, &mut counter);
+    split_walk_stmt(body, vt, &mut gen, &mut counter, pool);
 }
 
 /// Should the assignment `target = value` split the target?
-fn split_needed(vt: &VarTable, target: u32, value: &Expr) -> bool {
+fn split_needed(vt: &VarTable, target: u32, value: &Expr, pool: &DexPool) -> bool {
     let n = vt.vars.len();
     if target as usize >= n {
         return false;
@@ -7092,9 +7154,38 @@ fn split_needed(vt: &VarTable, target: u32, value: &Expr) -> bool {
     };
     if vt_is_ref(&declared) && vt_is_ref(&value_ty) {
         // Both references: split only when incompatible — different
-        // classes where neither side is Object.
+        // classes where neither side is Object AND the value is not a
+        // SUBTYPE of the declared type. An assignable store needs no
+        // fresh generation; splitting one minted an orphan at an
+        // if-join whose sibling arm kept the base (rename_gen_back's
+        // primitive-only gate refused the undo, drop_dead_locals then
+        // stripped the orphan to a bare allocation): pq0/g's bridge
+        // `map2 = new LinkedHashMap()` against the HashMap-typed phi
+        // rendered `new LinkedHashMap();` and the arm lost its store.
         let obj = JavaType::Object("java/lang/Object".into());
-        declared != value_ty && declared != obj && value_ty != obj
+        if declared == value_ty || declared == obj || value_ty == obj {
+            return false;
+        }
+        // A FRESH ALLOCATION whose class relation to the declared type
+        // is UNKNOWABLE (a framework↔framework pair — LinkedHashMap
+        // into a HashMap-typed phi): the dex stored the instance into
+        // this register flow, so the store was verifier-legal; the
+        // split cannot know better and orphaned the generation (the
+        // if-join undo is primitive-only; the dropper stripped the
+        // orphan to a bare `new LinkedHashMap();` and pq0/g's bridge
+        // lost the else-arm store, killing the whole branched-super
+        // merge). Pool-known pairs KEEP the split: the generation's
+        // precise type is what downstream subtype sinks need (weibo
+        // `v7 = new $reportWhenComplete$1(..)` into a ContinuationImpl
+        // phi — exempting it made `v9($1) = v7` inconvertible, +50).
+        if let (JavaType::Object(v), JavaType::Object(d)) = (&value_ty, &declared) {
+            if matches!(value, Expr::New { .. })
+                && (pool.get(v).is_none() || pool.get(d).is_none())
+            {
+                return false;
+            }
+        }
+        true
     } else {
         // Primitive/reference mix: the value generation has a kind the
         // target can never accept — split (the declared type stays with
@@ -7257,11 +7348,12 @@ fn split_walk_stmt(
     vt: &mut VarTable,
     gen: &mut std::collections::HashMap<u32, u32>,
     counter: &mut u32,
+    pool: &DexPool,
 ) {
     match st {
         Stmt::Block(v) => {
             for x in v.iter_mut() {
-                split_walk_stmt(x, vt, gen, counter);
+                split_walk_stmt(x, vt, gen, counter, pool);
             }
         }
         Stmt::ExprStmt(e) => {
@@ -7275,7 +7367,7 @@ fn split_walk_stmt(
             {
                 if let Expr::Local { var, .. } = &**target {
                     let old = *var;
-                    if split_needed(vt, old, value) {
+                    if split_needed(vt, old, value, pool) {
                         let value_ty = value.type_ref().erased();
                         do_split(vt, target, old, &value_ty, gen, counter);
                     }
@@ -7285,7 +7377,7 @@ fn split_walk_stmt(
         Stmt::LocalDef { var, init, .. } => {
             if let Some(e) = init {
                 rewrite_gen_reads(e, gen, vt);
-                if split_needed(vt, *var, e) {
+                if split_needed(vt, *var, e, pool) {
                     // The DEF mints its own generation: retarget the def
                     // to a fresh var (the bare decl of the ORIGINAL stays
                     // for its earlier readers).
@@ -7311,11 +7403,11 @@ fn split_walk_stmt(
             rewrite_gen_reads(cond, gen, vt);
             let then_floor = vt.vars.len() as u32;
             let mut g_then = gen.clone();
-            split_walk_stmt(then_stmt, vt, &mut g_then, counter);
+            split_walk_stmt(then_stmt, vt, &mut g_then, counter, pool);
             let else_floor = vt.vars.len() as u32;
             let mut g_else = gen.clone();
             if let Some(e) = else_stmt {
-                split_walk_stmt(e, vt, &mut g_else, counter);
+                split_walk_stmt(e, vt, &mut g_else, counter, pool);
             }
             // Undo splits that DIVERGED at this join (see
             // rename_gen_back), with TWO gates learned the hard way
@@ -7377,7 +7469,7 @@ fn split_walk_stmt(
             let entry = gen.clone();
             for _ in 0..3 {
                 rewrite_gen_reads(cond, gen, vt);
-                split_walk_stmt(body, vt, gen, counter);
+                split_walk_stmt(body, vt, gen, counter, pool);
             }
             // After the loop the pre-loop generation is what a
             // zero-iteration execution left — conservative.
@@ -7385,18 +7477,18 @@ fn split_walk_stmt(
         }
         Stmt::For { init, body, .. } => {
             for x in init.iter_mut() {
-                split_walk_stmt(x, vt, gen, counter);
+                split_walk_stmt(x, vt, gen, counter, pool);
             }
             let entry = gen.clone();
             for _ in 0..3 {
-                split_walk_stmt(body, vt, gen, counter);
+                split_walk_stmt(body, vt, gen, counter, pool);
             }
             *gen = entry;
         }
         Stmt::ForEach { body, .. } => {
             let entry = gen.clone();
             for _ in 0..3 {
-                split_walk_stmt(body, vt, gen, counter);
+                split_walk_stmt(body, vt, gen, counter, pool);
             }
             *gen = entry;
         }
@@ -7405,13 +7497,13 @@ fn split_walk_stmt(
             for c in cases.iter_mut() {
                 let mut g_case = entry.clone();
                 for x in c.body.iter_mut() {
-                    split_walk_stmt(x, vt, &mut g_case, counter);
+                    split_walk_stmt(x, vt, &mut g_case, counter, pool);
                 }
                 gen.retain(|k, v| g_case.get(k) == Some(v));
             }
             if let Some(d) = default {
                 let mut g_def = entry.clone();
-                split_walk_stmt(d, vt, &mut g_def, counter);
+                split_walk_stmt(d, vt, &mut g_def, counter, pool);
                 gen.retain(|k, v| g_def.get(k) == Some(v));
             }
         }
@@ -7422,22 +7514,22 @@ fn split_walk_stmt(
         } => {
             let entry = gen.clone();
             let mut g_try = entry.clone();
-            split_walk_stmt(body, vt, &mut g_try, counter);
+            split_walk_stmt(body, vt, &mut g_try, counter, pool);
             let mut g_all = g_try.clone();
             for c in catches.iter_mut() {
                 // The handler runs with the PRE-try state (the exception
                 // may fire anywhere in the try).
                 let mut g_c = entry.clone();
-                split_walk_stmt(&mut c.body, vt, &mut g_c, counter);
+                split_walk_stmt(&mut c.body, vt, &mut g_c, counter, pool);
                 g_all.retain(|k, v| g_c.get(k) == Some(v));
             }
             *gen = g_all;
             if let Some(f) = finally {
-                split_walk_stmt(f, vt, gen, counter);
+                split_walk_stmt(f, vt, gen, counter, pool);
             }
         }
         Stmt::Synchronized { body, .. } | Stmt::Labeled { body, .. } => {
-            split_walk_stmt(body, vt, gen, counter);
+            split_walk_stmt(body, vt, gen, counter, pool);
         }
         Stmt::Return(Some(e)) | Stmt::Throw(e) => {
             rewrite_gen_reads(e, gen, vt);
