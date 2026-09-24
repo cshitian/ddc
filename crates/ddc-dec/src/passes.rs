@@ -3513,6 +3513,23 @@ pub fn fix_primitive_arg_bridges(body: &mut Stmt, vt: &VarTable, pool: &crate::D
     /// descriptor-exact doctrine, not a guessed overload shift. Bare
     /// null stays for Object formals (casting those would add noise
     /// without resolving anything javac could not already pick).
+    /// Framework classes javac resolves through android.jar even when
+    /// the dex pool lacks them — org.json.JSONObject is provided by the
+    /// platform, so `publishGlobalEventToTopPage(long,String,null)`
+    /// against a JSONObject formal is cast-resolvable (weixin ambiguous
+    /// ×14) despite failing the pool lookup.
+    fn fw_resolvable(n: &str) -> bool {
+        n.starts_with("java/")
+            || n.starts_with("javax/")
+            || n.starts_with("android/")
+            || n.starts_with("dalvik/")
+            || n.starts_with("junit/")
+            || n.starts_with("org/json/")
+            || n.starts_with("org/w3c/")
+            || n.starts_with("org/xml/")
+            || n.starts_with("org/xmlpull/")
+            || n.starts_with("org/apache/http/")
+    }
     fn null_arg_cast(a: &mut Expr, f: &JavaType, pool: &DexPool) -> bool {
         if !matches!(&*a, Expr::Const(ConstVal::Null)) {
             return false;
@@ -3523,11 +3540,7 @@ pub fn fix_primitive_arg_bridges(body: &mut Stmt, vt: &VarTable, pool: &crate::D
             // would turn a compiling bare `null` into a fresh
             // cannot-find. Pool classes render into the output;
             // java/javax/android/dalvik resolve through android.jar.
-            let resolvable = pool.get(n).is_some()
-                || n.starts_with("java/")
-                || n.starts_with("javax/")
-                || n.starts_with("android/")
-                || n.starts_with("dalvik/");
+            let resolvable = pool.get(n).is_some() || fw_resolvable(n);
             if n.as_ref() != "java/lang/Object" && resolvable {
                 *a = Expr::Cast {
                     ty: TypeRef::J(f.clone()),
@@ -3547,13 +3560,7 @@ pub fn fix_primitive_arg_bridges(body: &mut Stmt, vt: &VarTable, pool: &crate::D
                 e = &**inner;
             }
             let resolvable = match e {
-                JavaType::Object(n) => {
-                    pool.get(n).is_some()
-                        || n.starts_with("java/")
-                        || n.starts_with("javax/")
-                        || n.starts_with("android/")
-                        || n.starts_with("dalvik/")
-                }
+                JavaType::Object(n) => pool.get(n).is_some() || fw_resolvable(n),
                 _ => true, // primitive-element array
             };
             if resolvable {
@@ -3659,12 +3666,40 @@ pub fn fix_primitive_arg_bridges(body: &mut Stmt, vt: &VarTable, pool: &crate::D
                         }
                         _ => false,
                     };
-                    let null_obj = matches!(a, Expr::Const(ConstVal::Null))
-                        && matches!(f, JavaType::Object(_));
-                    if (subtype_arg || null_obj)
-                        && *competes.get_or_insert_with(|| {
-                            overload_competes(cls, name, &desc.args)
-                        })
+                    // Bare null against java/lang/Object itself: the
+                    // descriptor method exists (dex resolved it), so
+                    // `(Object) null` is always legal and excludes every
+                    // more-specific sibling overload from applicability.
+                    // Pool owners take the competes gate (emitted
+                    // declarations are raw, so the cast cannot disturb
+                    // inference). FRAMEWORK owners only via allowlist of
+                    // the classic non-generic null-ambiguous JDK methods
+                    // (StringBuilder.append ×66 lark): a blanket cast
+                    // breaks GENERIC framework methods whose descriptor
+                    // formal is an ERASED type variable —
+                    // `ofFloat((Object) null, View.ALPHA, v)` killed the
+                    // T=View inference bare null provided (weibo +4).
+                    let null_obj =
+                        matches!(a, Expr::Const(ConstVal::Null)) && matches!(f, JavaType::Object(_));
+                    let fw_null_ambiguous = pool.get(cls.as_ref()).is_none()
+                        && matches!(
+                            (cls.as_ref(), name.as_ref()),
+                            ("java/lang/StringBuilder", "append")
+                                | ("java/lang/StringBuffer", "append")
+                                | ("java/io/PrintStream", "println")
+                                | ("java/io/PrintStream", "print")
+                                | ("java/io/PrintWriter", "println")
+                                | ("java/io/PrintWriter", "print")
+                                | ("java/lang/String", "valueOf")
+                        );
+                    if (subtype_arg
+                        && *competes
+                            .get_or_insert_with(|| overload_competes(cls, name, &desc.args)))
+                        || (null_obj
+                            && (fw_null_ambiguous
+                                || *competes.get_or_insert_with(|| {
+                                    overload_competes(cls, name, &desc.args)
+                                })))
                     {
                         let old =
                             std::mem::replace(a, Expr::Const(ConstVal::Null));
