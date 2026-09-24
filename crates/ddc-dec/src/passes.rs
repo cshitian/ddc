@@ -2852,6 +2852,31 @@ pub fn mark_field_owner_concrete(vt: &mut VarTable, body: &mut Stmt) {
             }
         }
     }
+    // EVERY local whose resolved type is a concrete `$<digits>` class
+    // keeps its binary name, not just field owners: when one side of an
+    // assignment falls back to the SAM/super (`ContinuationImpl v7`) and
+    // its sibling stays concrete (`$reportWhenComplete$1 v9`), the pair
+    // is an uncastable "ContinuationImpl无法转换为…$1" (weibo coroutine
+    // prologues ×282). The anon fallback still serves INTERFACE-typed
+    // phi slots (branches minting different lambdas) — their vt type is
+    // the join, never the $N class.
+    let concrete: Vec<u32> = vt
+        .vars
+        .iter()
+        .filter(|v| {
+            if let JavaType::Object(cls) = v.ty.erased() {
+                cls.rsplit('$')
+                    .next()
+                    .is_some_and(|l| !l.is_empty() && l.chars().all(|c| c.is_ascii_digit()))
+            } else {
+                false
+            }
+        })
+        .map(|v| v.id)
+        .collect();
+    for var in concrete {
+        vt.force_concrete_vars.insert(var);
+    }
 }
 
 /// Type inference can leave a specific-reference-typed target assigned
