@@ -160,6 +160,41 @@ fn decompile_class_impl(
         .cloned()
         .unwrap_or_default();
     obscured_map.retain(|_internal, simple| !blocked.contains(simple));
+    // Display-simple collisions cannot coexist as single-type imports:
+    // importing simple `n` while THIS file declares `n` is a JLS 7.5.1
+    // error, and two imports of the same simple make every use of it
+    // ambiguous (weibo `class a2 extends a2` with `import a.a.b.c.a2`
+    // + `import a.e.a.a.a2` — both shadow-renamed from package-`a`
+    // classes named `a`). Drop every colliding entry (own-display hits
+    // drop ALL claimants; multi-internal simples keep the least
+    // internal for determinism) — dropped refs fall back to the
+    // qualified display render, which resolves against the renamed
+    // output files.
+    let own_display_internal = crate::apply_class_rename(&class.name);
+    let own_disp_simple = own_display_internal
+        .rsplit(['/', '$'])
+        .next()
+        .unwrap_or("")
+        .to_string();
+    {
+        let mut by_simple: std::collections::BTreeMap<&str, Vec<&String>> =
+            std::collections::BTreeMap::new();
+        for (internal, simple) in obscured_map.iter() {
+            by_simple.entry(simple.as_str()).or_default().push(internal);
+        }
+        let mut drop: Vec<String> = Vec::new();
+        for (simple, mut internals) in by_simple {
+            if simple == own_disp_simple.as_str() {
+                drop.extend(internals.into_iter().cloned());
+            } else if internals.len() > 1 {
+                internals.sort();
+                drop.extend(internals.into_iter().skip(1).cloned());
+            }
+        }
+        for d in &drop {
+            obscured_map.remove(d);
+        }
+    }
     set_obscured_state(class.name.clone(), obscured_map.clone(), blocked.clone());
     let mut body_buf = String::with_capacity(out.capacity() / 2);
     let body_res = emit_class_body(pool, class, &ctx, opts, &mut body_buf, 0);
@@ -189,7 +224,20 @@ fn decompile_class_impl(
             .map(|internal| crate::classdec::dotted(&crate::apply_class_rename(internal)))
             .collect();
         imports.sort();
+        // Body-discovered (recorded) refs joined after the pre-emission
+        // dedupe — re-check at render: one import per display simple,
+        // none against this file's own display (JLS 7.5.1). A dropped
+        // recorded ref's body render is ambiguous regardless; skipping
+        // its import at least avoids the duplicate-import error.
+        let own_display_dotted = crate::classdec::dotted(&own_display_internal);
+        let own_dot_simple = own_display_dotted.rsplit('.').next().unwrap_or("");
+        let mut seen_simples: jdc_core::FxHashSet<String> =
+            jdc_core::FxHashSet::default();
         for display in imports {
+            let simple = display.rsplit('.').next().unwrap_or("");
+            if simple == own_dot_simple || !seen_simples.insert(simple.to_string()) {
+                continue;
+            }
             out.push_str(&format!("import {};\n", display));
         }
     }
