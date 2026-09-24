@@ -2717,6 +2717,32 @@ pub(crate) fn install_access_widening(pool: &crate::DexPool) {
                 }
             }
         }
+        // Subclass `super(..)` targets. A class C extends S; C's ctor
+        // renders `super(..)` against S's ctor. When R8 INLINES S's
+        // trivial ctor, C's dex ctor calls `Object.<init>` directly (not
+        // `S.<init>`), so the bytecode census above never sees the S.<init>
+        // reference and a PRIVATE S ctor stays private — the rendered
+        // `super()` then fails ("R() 在 R 中是 private 访问控制", lark ×122:
+        // pl.droidsonroids.gif.R extends com.ss.android.lark.R, whose ctor
+        // R8 inlined to Object.<init>). Widen every private ctor of a
+        // class that HAS subclasses so the implicit super() links. Enums
+        // are excluded (their ctors are source-level private-only).
+        for sup in subs.keys() {
+            let Some(pc) = pool.get_if_materialized(sup) else {
+                continue;
+            };
+            if pc.access & crate::access::ACC_ENUM != 0 {
+                continue;
+            }
+            for m in pc.all_methods() {
+                if &*m.name == "<init>" && m.access & crate::access::ACC_PRIVATE != 0 {
+                    methods
+                        .entry(sup.clone())
+                        .or_default()
+                        .insert((m.name.to_string(), m.desc.to_string()));
+                }
+            }
+        }
     }
     let mut fields: jdc_core::FxHashMap<String, jdc_core::FxHashSet<String>> =
         jdc_core::FxHashMap::default();
