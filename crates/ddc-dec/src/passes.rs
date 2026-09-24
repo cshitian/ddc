@@ -5467,6 +5467,7 @@ pub fn fold_bool_value_diamonds(body: &mut Stmt, vt: &VarTable) {
         }
     }
 
+    #[allow(clippy::too_many_arguments, clippy::type_complexity)]
     fn try_at(
         list: &[Stmt],
         i: usize,
@@ -6728,6 +6729,7 @@ fn strip_delegation_one(st: &mut Stmt) {
     }
 }
 
+#[allow(clippy::ptr_arg)]
 fn rewrite_bare_returns(stmts: &mut Vec<Stmt>, val: &Expr) {
     for s in stmts.iter_mut() {
         rewrite_bare_returns_one(s, val);
@@ -6948,8 +6950,8 @@ pub fn extract_branched_delegation_helper(
     let mut reads = 0usize;
     let mut multi = false;
     for a in t_args.iter() {
-        let mut c = a.clone();
-        visit_exprs(&mut c, &mut |x| {
+        let c = a.clone();
+        visit_exprs(&c, &mut |x| {
             if let Expr::Local { var, .. } = x {
                 if (*var as usize) < vt.vars.len() && !vt.vars[*var as usize].is_param {
                     reads += 1;
@@ -7366,7 +7368,7 @@ fn fold_sb_chain(stmts: &mut Vec<Stmt>, pos: usize) -> usize {
                     && &**name == "toString"
                     && matches!(&**o, Expr::Local { var, .. } if *var == sbv)
                 {
-                    *o = Box::new(chain.clone());
+                    **o = chain.clone();
                     replaced = true;
                 }
             }
@@ -7465,7 +7467,7 @@ pub fn fix_ctor_super_first(body: &mut Stmt, vt: &VarTable) {
         let mut ks: Vec<usize> = Vec::new();
         {
             let inner_tail: &[Stmt] = match &stmts[i] {
-                Stmt::Block(inner) if p + 1 <= inner.len() => &inner[p + 1..],
+                Stmt::Block(inner) if p < inner.len() => &inner[p + 1..],
                 _ => &[],
             };
             for (v, k) in &consumed {

@@ -2640,23 +2640,20 @@ fn member_collision_renames(
                 }
             }
         }
-        let mut queue: std::collections::VecDeque<(
+        type PropEntry = (
             std::sync::Arc<str>,
             std::sync::Arc<str>,
             std::sync::Arc<str>,
             std::sync::Arc<str>,
-        )> = std::collections::VecDeque::new();
+        );
+        let mut queue: std::collections::VecDeque<PropEntry> =
+            std::collections::VecDeque::new();
         {
             // Sorted seed: `out` is a std HashMap (RandomState) — an
             // unsorted seed would make conflicting ancestor forces
             // resolve in per-process order (display names flipping
             // run-to-run).
-            let mut seed: Vec<(
-                std::sync::Arc<str>,
-                std::sync::Arc<str>,
-                std::sync::Arc<str>,
-                std::sync::Arc<str>,
-            )> = Vec::new();
+            let mut seed: Vec<PropEntry> = Vec::new();
             for (cls, entries) in out.iter() {
                 for fr in entries {
                     if fr.desc.contains('(') {
@@ -2680,17 +2677,12 @@ fn member_collision_renames(
             if guard > 2_000_000 {
                 break;
             }
-            let Some(children) = down.get(cls.as_ref()).map(|v| v.clone()) else {
+            let Some(children) = down.get(cls.as_ref()).cloned() else {
                 continue;
             };
             for child in children {
                 let mut changed = false;
-                let mut reminted: Vec<(
-                    std::sync::Arc<str>,
-                    std::sync::Arc<str>,
-                    std::sync::Arc<str>,
-                    std::sync::Arc<str>,
-                )> = Vec::new();
+                let mut reminted: Vec<PropEntry> = Vec::new();
                 {
                     let child_key: std::sync::Arc<str> = std::sync::Arc::from(child);
                     let entries = out.entry(child_key.clone()).or_default();
@@ -2920,7 +2912,7 @@ fn inherited_obscuring_renames(
             };
             for f in sc.static_fields.iter().chain(sc.instance_fields.iter()) {
                 let fdisp = crate::classdec::java_ident(&f.name).into_owned();
-                if fdisp.starts_with("this$") || !child_displays.iter().any(|c| *c == fdisp) {
+                if fdisp.starts_with("this$") || !child_displays.contains(&fdisp) {
                     continue;
                 }
                 if !renamed.insert((sname.clone(), f.name.to_string(), f.desc.clone())) {

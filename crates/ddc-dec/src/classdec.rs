@@ -298,8 +298,8 @@ fn collect_enum_constants(
         if &*m.name != "<init>" {
             continue;
         }
-        let Some(dex) = pool.dex(m.dex_idx) else { return None };
-        let Some(ci) = dex.code_at(m.code_off) else { return None };
+        let dex = pool.dex(m.dex_idx)?;
+        let ci = dex.code_at(m.code_off)?;
         for ins in &ci.insns {
             if let ddc_dex::insn::InsnKind::SGet { field_idx, .. } = ins.kind {
                 let fr = dex.field(field_idx);
