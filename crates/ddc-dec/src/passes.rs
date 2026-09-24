@@ -2953,6 +2953,22 @@ pub fn insert_object_narrowing_casts(
             let tgt = match &**target {
                 Expr::Local { var, .. } => vt.var(*var).ty.clone(),
                 Expr::Field { ty, .. } => ty.clone(),
+                // Array-element store `arr[i] = value`: the target type is
+                // the ELEMENT type. Without this arm an Object→element
+                // assignment (`String[] a; a[0] = pair.first` — Pair.first
+                // erases to Object) skipped the cast and failed "Object
+                // 无法转换为String" (weixin ×~150). Resolve the array's type
+                // through the vt (the embedded Local ty can lag infer_types).
+                Expr::ArrayIndex { array, .. } => {
+                    let aty = match &**array {
+                        Expr::Local { var, .. } => vt.var(*var).ty.erased(),
+                        other => other.type_ref().erased(),
+                    };
+                    match aty {
+                        JavaType::Array(inner) => TypeRef::J(*inner),
+                        _ => return,
+                    }
+                }
                 _ => return,
             };
             if let Some(t) = specific_ref(&tgt) {
