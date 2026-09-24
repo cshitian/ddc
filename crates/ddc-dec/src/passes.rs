@@ -2875,6 +2875,18 @@ pub fn insert_object_narrowing_casts(vt: &VarTable, body: &mut Stmt) {
                 Expr::Field { ty, .. } => ty.clone(),
                 _ => return,
             };
+            if std::env::var_os("DDC_NARROW").is_some() {
+                if let (Expr::Field { name, .. }, Expr::Local { var, .. }) = (&**target, &**value) {
+                    eprintln!(
+                        "[narrow] field={} tgt={:?} spec={} val_var={} castable={}",
+                        name,
+                        tgt.erased(),
+                        specific_ref(&tgt).is_some(),
+                        var,
+                        castable(value)
+                    );
+                }
+            }
             if let Some(t) = specific_ref(&tgt) {
                 if castable(value) {
                     let v = std::mem::replace(value, Box::new(Expr::This));
@@ -2975,6 +2987,48 @@ pub fn fix_primitive_assign_casts(vt: &VarTable, body: &mut Stmt, ret_ty: &JavaT
     fn val_ty_static(e: &Expr) -> JavaType {
         e.type_ref().erased()
     }
+    /// Target-typed coercion for one assignment value. Numeric mixes
+    /// cast; boolean mixes CONVERT (Java has no cast between boolean
+    /// and any numeric): `d = b` → `(double) (b ? 1 : 0)`, `b = i` →
+    /// `i != 0` — mirrors fix_primitive_arg_bridges' formal-side arms.
+    /// The generation split cannot own these: at an if-join the
+    /// one-sided split is undone (rename_gen_back) and the incompatible
+    /// assign re-exposes ("boolean无法转换为double", weixin s9/t01-f).
+    fn coerce(tt: &JavaType, value: &mut Expr, vt: &VarTable) {
+        let vt_val = val_ty(value, vt);
+        let tt_bool = matches!(tt, JavaType::Boolean);
+        let val_bool = matches!(vt_val, JavaType::Boolean);
+        if tt_bool && !val_bool && numlike(&vt_val) {
+            if matches!(
+                value,
+                Expr::Bin { op: BinOp::Eq | BinOp::Ne, .. } | Expr::Un { op: UnOp::Not, .. }
+            ) {
+                return;
+            }
+            let taken = std::mem::replace(value, Expr::Const(ConstVal::Null));
+            *value = Expr::Bin {
+                op: BinOp::Ne,
+                l: Box::new(taken),
+                r: Box::new(Expr::Const(ConstVal::Int(0))),
+                ty: Some(TypeRef::J(JavaType::Boolean)),
+            };
+        } else if !tt_bool && val_bool && numlike(tt) {
+            if matches!(value, Expr::Cast { .. }) {
+                return;
+            }
+            let taken = std::mem::replace(value, Expr::Const(ConstVal::Null));
+            *value = Expr::Cast {
+                ty: TypeRef::J(tt.clone()),
+                e: Box::new(Expr::Cond {
+                    c: Box::new(taken),
+                    t: Box::new(Expr::Const(ConstVal::Int(1))),
+                    f: Box::new(Expr::Const(ConstVal::Int(0))),
+                }),
+            };
+        } else if numlike(tt) && numlike(&vt_val) {
+            wrap(tt, value);
+        }
+    }
     walk_mut_deep(body, &mut |st| match st {
         Stmt::ExprStmt(Expr::Assign {
             target,
@@ -2986,12 +3040,16 @@ pub fn fix_primitive_assign_casts(vt: &VarTable, body: &mut Stmt, ret_ty: &JavaT
                     vt.var(*var).ty.erased()
                 }
                 Expr::Field { ty, .. } => ty.erased(),
+                // Array store: the element type is the target type
+                // (`sFormatStr[i] = v7` into char[] — "从int转换到char
+                // 可能会有损失", weibo TimeUtils).
+                Expr::ArrayIndex { array, .. } => match array.type_ref().erased() {
+                    JavaType::Array(inner) => *inner,
+                    _ => return,
+                },
                 _ => return,
             };
-            if !numlike(&tt) || !numlike(&val_ty(value, vt)) {
-                return;
-            }
-            wrap(&tt, value);
+            coerce(&tt, value, vt);
         }
         Stmt::LocalDef {
             var,
@@ -3002,10 +3060,7 @@ pub fn fix_primitive_assign_casts(vt: &VarTable, body: &mut Stmt, ret_ty: &JavaT
                 return;
             }
             let tt = vt.var(*var).ty.erased();
-            if !numlike(&tt) || !numlike(&val_ty(value, vt)) {
-                return;
-            }
-            wrap(&tt, value);
+            coerce(&tt, value, vt);
         }
         Stmt::Return(Some(e)) => {
             if !numlike(ret_ty) || !numlike(&val_ty(e, vt)) {
@@ -3158,8 +3213,44 @@ pub fn fix_primitive_arg_bridges(body: &mut Stmt, vt: &VarTable, pool: &crate::D
                 r: Box::new(Expr::Const(ConstVal::Int(0))),
                 ty: Some(TypeRef::J(JavaType::Boolean)),
             })
+        } else if matches!(
+            actual,
+            JavaType::Byte | JavaType::Short | JavaType::Int | JavaType::Char
+                | JavaType::Long | JavaType::Float | JavaType::Double
+        ) && matches!(
+            formal,
+            JavaType::Byte | JavaType::Short | JavaType::Int | JavaType::Char
+                | JavaType::Long | JavaType::Float | JavaType::Double
+        ) && !implicit_widening(actual, formal)
+        {
+            // Numeric NARROWING into a formal (int arg → char formal):
+            // javac rejects the lossy conversion, or — worse when the
+            // class has no wider overload — silently resolves a
+            // DIFFERENT overload than the dex descriptor names
+            // (SpannableStringBuilder.append(int) doesn't exist;
+            // `append(char)` is "从int转换到char可能会有损失", weibo ×76).
+            // The descriptor formal is the dex ground truth; casting to
+            // it pins the overload the bytecode actually invoked.
+            Some(Expr::Cast {
+                ty: TypeRef::J(formal.clone()),
+                e: Box::new(arg.clone()),
+            })
         } else {
             None
+        }
+    }
+    /// JLS 5.1.2 widening primitive conversion (char joins the chain
+    /// only at int; byte/short do NOT widen to char).
+    fn implicit_widening(a: &JavaType, f: &JavaType) -> bool {
+        use JavaType::*;
+        match (a, f) {
+            (Byte, Short) | (Byte, Int) | (Byte, Long) | (Byte, Float) | (Byte, Double) => true,
+            (Short, Int) | (Short, Long) | (Short, Float) | (Short, Double) => true,
+            (Char, Int) | (Char, Long) | (Char, Float) | (Char, Double) => true,
+            (Int, Long) | (Int, Float) | (Int, Double) => true,
+            (Long, Float) | (Long, Double) => true,
+            (Float, Double) => true,
+            (x, y) => x == y,
         }
     }
     // Ctors: formal types via the pool (unanimous across same-arity

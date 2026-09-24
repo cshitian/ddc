@@ -861,7 +861,10 @@ pub fn decompile_method(
             passes::split_generations(&mut vt, &mut body);
         }
     }
-    if matches!(desc.ret, JavaType::Int | JavaType::Long | JavaType::Short | JavaType::Byte) {
+    if matches!(
+        desc.ret,
+        JavaType::Int | JavaType::Long | JavaType::Short | JavaType::Byte | JavaType::Float | JavaType::Double
+    ) {
         passes::fix_int_returns(&vt, &mut body);
     }
     if matches!(desc.ret, JavaType::Boolean) {
