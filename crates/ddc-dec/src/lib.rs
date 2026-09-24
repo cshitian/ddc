@@ -1004,6 +1004,16 @@ fn clean_member_tail(rest: &str) -> bool {
     if rest.starts_with('-') {
         return false;
     }
+    // d8's synthetic outline/lambda/backport classes (`X$$ExternalSynthetic…`)
+    // are TOP-LEVEL synthetics, not nested members: `$$` is d8's marker, and
+    // find_outer_name's `$`-chain walk mistakes them for children of `X`.
+    // Emitting them nested strands every cross-package reference on a bare
+    // simple name ("找不到符号 变量 ExternalSyntheticBackportWithForwarding0",
+    // weibo ×467). Targeted at `ExternalSynthetic` only — Kotlin's
+    // `$$serializer` / `$$delegate` stay nested members.
+    if rest.starts_with("$ExternalSynthetic") {
+        return false;
+    }
     let tail = rest.rsplit('$').next().unwrap_or(rest);
     if tail.is_empty() || tail.starts_with(|c: char| c.is_ascii_digit()) {
         return false;
