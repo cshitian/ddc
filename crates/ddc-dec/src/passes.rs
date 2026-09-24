@@ -3088,6 +3088,29 @@ pub fn fix_primitive_assign_casts(vt: &VarTable, body: &mut Stmt, ret_ty: &JavaT
     /// one-sided split is undone (rename_gen_back) and the incompatible
     /// assign re-exposes ("boolean无法转换为double", weixin s9/t01-f).
     fn coerce(tt: &JavaType, value: &mut Expr, vt: &VarTable) {
+        // Raw const bits against a floating target are the FLOAT value,
+        // not an int to widen (`float f = <0x41000000 bits>` is 8.0f;
+        // the (float) cast path would silently store 1.09e9f). Mirror of
+        // fix_primitive_arg_bridges' descriptor-formal reinterpretation.
+        match (&*value, tt) {
+            (Expr::Const(ConstVal::Int(b)), JavaType::Float) => {
+                *value = Expr::Const(ConstVal::Float(f32::from_bits(*b as u32)));
+                return;
+            }
+            (Expr::Const(ConstVal::Long(b)), JavaType::Double) => {
+                *value = Expr::Const(ConstVal::Double(f64::from_bits(*b as u64)));
+                return;
+            }
+            (Expr::Const(ConstVal::Float(f)), JavaType::Int) => {
+                *value = Expr::Const(ConstVal::Int(f.to_bits() as i32));
+                return;
+            }
+            (Expr::Const(ConstVal::Double(d)), JavaType::Long) => {
+                *value = Expr::Const(ConstVal::Long(d.to_bits() as i64));
+                return;
+            }
+            _ => {}
+        }
         let vt_val = val_ty(value, vt);
         let tt_bool = matches!(tt, JavaType::Boolean);
         let val_bool = matches!(vt_val, JavaType::Boolean);
@@ -3403,6 +3426,30 @@ pub fn fix_primitive_arg_bridges(body: &mut Stmt, vt: &VarTable, pool: &crate::D
     // the argument on the None path — every Boolean→Boolean arg became
     // a literal `null`: 61k 引用不明确 in one battery run).
     fn bridge(actual: &JavaType, formal: &JavaType, arg: &Expr) -> Option<Expr> {
+        // A dex const carries the CALLEE's BITS: `const v, #0x41000000`
+        // feeding a float formal IS 8.0f. Rendering the raw int literal
+        // (a) mis-selects overloads — a competing `a(Context,int):void`
+        // beats the int→float-widened `a(Context,float):int` in javac's
+        // phase order ("不兼容的类型: void无法转换为int", weibo ju.a
+        // ×1,259) — and (b) corrupts the VALUE (widening turns the bits
+        // into 1.09e9f). The descriptor formal is dex ground truth:
+        // reinterpret. Symmetric for the float-const-into-int-formal
+        // direction (caller's bits, callee's reading).
+        match (arg, formal) {
+            (Expr::Const(ConstVal::Int(b)), JavaType::Float) => {
+                return Some(Expr::Const(ConstVal::Float(f32::from_bits(*b as u32))));
+            }
+            (Expr::Const(ConstVal::Long(b)), JavaType::Double) => {
+                return Some(Expr::Const(ConstVal::Double(f64::from_bits(*b as u64))));
+            }
+            (Expr::Const(ConstVal::Float(f)), JavaType::Int) => {
+                return Some(Expr::Const(ConstVal::Int(f.to_bits() as i32)));
+            }
+            (Expr::Const(ConstVal::Double(d)), JavaType::Long) => {
+                return Some(Expr::Const(ConstVal::Long(d.to_bits() as i64)));
+            }
+            _ => {}
+        }
         if matches!(actual, JavaType::Boolean)
             && matches!(
                 formal,
