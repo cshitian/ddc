@@ -239,6 +239,30 @@ fn collect_enum_constants(
     if const_fields.is_empty() && class.access & crate::access::ACC_ENUM == 0 {
         return None;
     }
+    // JLS 8.9.2: a restored true-enum ctor may not read the enum's own
+    // static fields (javac rejects even the QUALIFIED `E.field` form).
+    // Meituan Robust injects a hotpatch guard reading
+    // `changeQuickRedirect` into every instrumented ctor — legal in
+    // bytecode (injected after javac), and strip_robust_enum_ctor_guard
+    // removes it from the restored source. A self-static sget of any
+    // OTHER type makes restoration inexpressible → stay on the fallback.
+    for m in class.all_methods() {
+        if &*m.name != "<init>" {
+            continue;
+        }
+        let Some(dex) = pool.dex(m.dex_idx) else { return None };
+        let Some(ci) = dex.code_at(m.code_off) else { return None };
+        for ins in &ci.insns {
+            if let ddc_dex::insn::InsnKind::SGet { field_idx, .. } = ins.kind {
+                let fr = dex.field(field_idx);
+                if dex.class_name(fr.class_idx) == class.name.as_str()
+                    && dex.type_name(fr.type_idx) != "Lcom/meituan/robust/ChangeQuickRedirect;"
+                {
+                    return None;
+                }
+            }
+        }
+    }
     let clinit = class.all_methods().find(|m| &*m.name == "<clinit>")?;
     let mut body = decompile_method(pool, class, clinit).ok().flatten()?;
     // The structurer can leave the constant-build sequence inside a
@@ -246,6 +270,78 @@ fn collect_enum_constants(
     // trailing loop) — the passes below index a FLAT statement list.
     if let Stmt::Block(vs) = &mut body.body {
         crate::passes::flatten_top_blocks(vs);
+    }
+
+    // Meituan Robust hotpatch guard (weibo's lifecycle enums — a big
+    // slice of the 1,137 fallback population): the ENTIRE constant-build
+    // sequence lives in one branch of a top-level
+    // `if (PatchProxy.isSupportClinit(..)) { .. } else { .. }`, so the
+    // flat scans below see nothing and the enum falls back (its dex
+    // `Enum.valueOf(X.class,..)` then fails — X is no Enum subtype,
+    // weibo ×853). Hoist the constant-carrying branch to the top level,
+    // but only when the top level itself has no constant defs (an
+    // ordinary clinit must not be touched, and a mixed shape is beyond
+    // the flat-scan contract). Restoration semantics already normalize
+    // the clinit (constants move to the header, inits drop); the
+    // dispatch shim is inexpressible in a true enum regardless.
+    if let Stmt::Block(vs) = &mut body.body {
+        let self_cls: &str = class.name.as_str();
+        let top_def = |st: &Stmt| -> bool {
+            let v = match st {
+                Stmt::LocalDef { init: Some(e), .. } => e,
+                Stmt::ExprStmt(Expr::Assign { value, .. }) => value,
+                _ => return false,
+            };
+            matches!(v, Expr::New { cls, args, .. }
+                if cls.as_ref() == self_cls && args.len() >= 2)
+        };
+        if !vs.iter().any(top_def) {
+            let branch_news = |st: &Stmt| -> usize {
+                let mut n = 0usize;
+                crate::passes::visit_all_exprs(st, &mut |x| {
+                    if let Expr::New { cls, args, .. } = x {
+                        if cls.as_ref() == self_cls && args.len() >= 2 {
+                            n += 1;
+                        }
+                    }
+                });
+                n
+            };
+            let mut pick: Option<(usize, bool)> = None;
+            for (i, st) in vs.iter().enumerate() {
+                if let Stmt::If { then_stmt, else_stmt, .. } = st {
+                    let t = branch_news(then_stmt) > 0;
+                    let e = else_stmt
+                        .as_ref()
+                        .map(|s2| branch_news(s2) > 0)
+                        .unwrap_or(false);
+                    if t != e {
+                        pick = Some((i, t));
+                        break;
+                    }
+                }
+            }
+            if let Some((i, then_is_const)) = pick {
+                let st = std::mem::replace(&mut vs[i], Stmt::Block(Vec::new()));
+                if let Stmt::If { then_stmt, else_stmt, .. } = st {
+                    let keep = if then_is_const {
+                        Some(then_stmt)
+                    } else {
+                        else_stmt
+                    };
+                    if let Some(bx) = keep {
+                        let inner = match *bx {
+                            Stmt::Block(v) => v,
+                            other => vec![other],
+                        };
+                        vs.splice(i..=i, inner);
+                        // The branch can be double-wrapped (Block[Block[..]]);
+                        // the passes below index a FLAT list.
+                        crate::passes::flatten_top_blocks(vs);
+                    }
+                }
+            }
+        }
     }
 
     // R8/d8 split the constant build across an intermediate local:
@@ -1047,6 +1143,131 @@ fn synth_enum_ordinal(
     out.push_str(&ind);
     out.push_str("}\n");
     *emitted_any = true;
+}
+
+/// Strip the Meituan Robust hotpatch guard from a RESTORED enum ctor:
+/// `Object[] v3 = {name, ordinal}; Class[] v4 = ..; boolean s =
+/// PatchProxy.isSupport(v3, this, changeQuickRedirect, ..); if (s) {
+/// PatchProxy.accessDispatch(..); return; }`. The guard reads the enum's
+/// own static field — bytecode-legal (Robust instruments after javac),
+/// source-illegal (JLS 8.9.2, both simple AND qualified forms). It is
+/// dead code for decompiled output (no patch is ever loaded). Removal is
+/// surgical: statements containing a PatchProxy call, the locals feeding
+/// its arguments, their defs and element writes — a fixpoint over the
+/// top-level list. collect_enum_constants' dex gate already refused
+/// restoration when self-static reads go beyond the redirect field.
+fn strip_robust_enum_ctor_guard(body: &mut Stmt) {
+    let is_patchy = |e: &Expr| {
+        matches!(e, Expr::Method { cls, name, .. }
+            if cls.contains("PatchProxy")
+                && (&**name == "isSupport"
+                    || &**name == "accessDispatch"
+                    || &**name == "proxy"
+                    || &**name == "isSupportClinit"
+                    || &**name == "accessDispatchClinit"))
+    };
+    let Stmt::Block(vs) = body else { return };
+    if !vs.iter().any(|st| {
+        let mut h = false;
+        crate::passes::visit_all_exprs(st, &mut |x| {
+            if is_patchy(x) {
+                h = true;
+            }
+        });
+        h
+    }) {
+        return;
+    }
+    let mut dead: jdc_core::FxHashSet<u32> = jdc_core::FxHashSet::default();
+    // Locals read inside the PatchProxy call args of a statement (the
+    // pack arrays) — dead once the statement goes.
+    let patchy_arg_locals = |st: &Stmt, out: &mut jdc_core::FxHashSet<u32>| {
+        crate::passes::visit_all_exprs(st, &mut |x| {
+            if let Expr::Method { args, .. } = x {
+                if is_patchy(x) {
+                    for a in args {
+                        let mut aa = a.clone();
+                        crate::passes::deep_rewrite(&mut aa, &mut |y| {
+                            if let Expr::Local { var, .. } = y {
+                                out.insert(*var);
+                            }
+                        });
+                    }
+                }
+            }
+        });
+    };
+    for _ in 0..4 {
+        let before = vs.len();
+        let mut i = 0usize;
+        while i < vs.len() {
+            let action = {
+                let st = &vs[i];
+                match st {
+                    Stmt::LocalDef { var, .. } if dead.contains(var) => Some((*var, false)),
+                    Stmt::LocalDef { var, init: Some(e), .. } => {
+                        let mut has_patchy = false;
+                        let mut ec = e.clone();
+                        crate::passes::deep_rewrite(&mut ec, &mut |x| {
+                            if is_patchy(x) {
+                                has_patchy = true;
+                            }
+                        });
+                        if has_patchy {
+                            Some((*var, true))
+                        } else {
+                            None
+                        }
+                    }
+                    Stmt::If { .. } => {
+                        let mut h = false;
+                        crate::passes::visit_all_exprs(st, &mut |x| {
+                            if is_patchy(x) {
+                                h = true;
+                            }
+                        });
+                        if h {
+                            Some((u32::MAX, true))
+                        } else {
+                            None
+                        }
+                    }
+                    // `v3[0] = str;` / `v3 = ..;` writes to a dead pack.
+                    Stmt::ExprStmt(Expr::Assign { target, .. }) => {
+                        let mut tgt_dead = false;
+                        let mut tc = target.clone();
+                        crate::passes::deep_rewrite(&mut tc, &mut |x| {
+                            if let Expr::Local { var, .. } = x {
+                                if dead.contains(var) {
+                                    tgt_dead = true;
+                                }
+                            }
+                        });
+                        if tgt_dead {
+                            Some((u32::MAX, false))
+                        } else {
+                            None
+                        }
+                    }
+                    _ => None,
+                }
+            };
+            if let Some((var, collect_args)) = action {
+                if collect_args {
+                    patchy_arg_locals(&vs[i], &mut dead);
+                }
+                if var != u32::MAX {
+                    dead.insert(var);
+                }
+                vs.remove(i);
+            } else {
+                i += 1;
+            }
+        }
+        if vs.len() == before {
+            break;
+        }
+    }
 }
 
 #[allow(clippy::only_used_in_recursion)]
@@ -2127,6 +2348,15 @@ fn emit_method(
         // fails javac arity ("无法将枚举…构造器…应用到给定类型"). Only
         // when the body never reads the two params — code that genuinely
         // uses them keeps the declared form.
+        // Robust hotpatch guard strip MUST run before the trace-param
+        // analysis: the guard's isSupport(..) call is the ctor's only
+        // reader of the (String, int) params for plain robust enums, and
+        // its self-static read is what JLS 8.9.2 forbids.
+        if enum_promoted && is_init {
+            if let Some(b) = body.as_mut() {
+                strip_robust_enum_ctor_guard(&mut b.body);
+            }
+        }
         let mut arg0 = 0;
         if enum_promoted
             && is_init
@@ -2168,6 +2398,80 @@ fn emit_method(
                 && matches!(&d.args[n_args - 1], JavaType::Object(ref m)
                     if m.starts_with("kotlin/jvm/internal/"))
                 && matches!(d.args[n_args - 2], JavaType::Int);
+            // Meituan Robust instrumented ctors PACK the trace params
+            // into dispatch arrays (`v3[0] = str; v3[1] = new
+            // Integer(p2); PatchProxy.isSupport(v3, ..)`) — value reads
+            // that refuse the strip, and a true enum cannot DECLARE
+            // (String, int) params (JLS 8.9.1), so the whole class fell
+            // back (illegal `Enum.valueOf` + no ordinal()). Rewrite pure
+            // VALUE reads to the equivalent `name()`/`ordinal()` calls —
+            // Enum's fields are set by the implicit super before the
+            // body runs, so the pack sees identical values. Delegation
+            // LEAD reads (this(str, p2) of Kotlin/-IA bridges) must keep
+            // their Local shape for the lead-drop below, so skip any
+            // ctor that has them; written params are never replaceable.
+            if synthetic.len() == 2 && !is_bridge {
+                if let Some(b) = body.as_ref() {
+                    let (p0, p1) = (synthetic[0], synthetic[1]);
+                    let mut lead_reads = 0usize;
+                    {
+                        let cls_name = class.name.as_str();
+                        let mut c = b.body.clone();
+                        crate::passes::walk_stmt_exprs(&mut c, &mut |e| {
+                            if let Expr::Method { name: mn, cls: mc, args, is_special, .. } = e {
+                                if &**mn == "<init>" && *is_special && mc.as_ref() == cls_name {
+                                    for a in args.iter().take(2) {
+                                        if let Expr::Local { var: v, .. } = a {
+                                            if *v == p0 || *v == p1 {
+                                                lead_reads += 1;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        });
+                    }
+                    let uses = crate::passes::count_locals_stmts(std::slice::from_ref(&b.body));
+                    let reads = uses.get(&p0).copied().unwrap_or(0)
+                        + uses.get(&p1).copied().unwrap_or(0);
+                    let written = crate::passes::local_is_written(&b.body, p0)
+                        || crate::passes::local_is_written(&b.body, p1);
+                    if lead_reads == 0 && reads > 0 && !written {
+                        let mk = |nm: &str, ret: JavaType| Expr::Method {
+                            owner: Some(Box::new(Expr::This)),
+                            cls: std::sync::Arc::from("java/lang/Enum"),
+                            name: std::sync::Arc::from(nm),
+                            desc: std::sync::Arc::new(jdc_core::types::MethodDescriptor {
+                                ret,
+                                args: Vec::new(),
+                            }),
+                            args: Vec::new(),
+                            is_static: false,
+                            is_interface: false,
+                            is_special: false,
+                            is_super: false,
+                            is_dynamic: false,
+                            type_args: Vec::new(),
+                        };
+                        let name_call =
+                            mk("name", JavaType::Object("java/lang/String".into()));
+                        let ord_call = mk("ordinal", JavaType::Int);
+                        if let Some(b) = body.as_mut() {
+                            crate::passes::walk_stmt_exprs(&mut b.body, &mut |e| {
+                                crate::passes::deep_rewrite(e, &mut |x| {
+                                    if let Expr::Local { var, .. } = x {
+                                        if *var == p0 {
+                                            *x = name_call.clone();
+                                        } else if *var == p1 {
+                                            *x = ord_call.clone();
+                                        }
+                                    }
+                                });
+                            });
+                        }
+                    }
+                }
+            }
             let mut lead = [0usize, 0usize];
             let refs_ok = body.as_ref().is_some_and(|b| {
                 let uses = crate::passes::count_locals_stmts(std::slice::from_ref(&b.body));

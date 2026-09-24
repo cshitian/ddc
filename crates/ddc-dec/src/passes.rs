@@ -9136,7 +9136,7 @@ fn type_alias(ty: &TypeRef) -> Option<&'static str> {
 }
 
 /// Every expression in the tree, statements included (read-only).
-fn visit_all_exprs<F: FnMut(&Expr)>(s: &Stmt, f: &mut F) {
+pub(crate) fn visit_all_exprs<F: FnMut(&Expr)>(s: &Stmt, f: &mut F) {
     walk_all(s, &mut |st| {
         let exprs: Vec<&Expr> = match st {
             Stmt::ExprStmt(Expr::Assign { target, value, .. }) => {
