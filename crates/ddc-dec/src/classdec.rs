@@ -1823,7 +1823,25 @@ fn emit_method(
     if a & ACC_PUBLIC != 0 || widen_method(&class.name, &m.name, &m.desc) {
         sig.push_str("public ");
     } else if a & ACC_PRIVATE != 0 {
-        sig.push_str("private ");
+        // A fallback enum BASE (`/* enum */ class`, not a promoted
+        // `enum`) renders its constant-specific-body subclasses as
+        // SEPARATE same-package classes (`j$6 extends j`); their ctors
+        // call `super(name, ordinal, ..)`, which a PRIVATE base ctor
+        // forbids ("j(String,int) has private access"). Widen the base
+        // ctor to package-private so the subclass links. The base is
+        // abstract → no external instantiation risk. Only the BASE
+        // (super is Enum/Object), not the constant subclass itself.
+        let fallback_enum_base_ctor = class.is_enum()
+            && !enum_promoted
+            && &*m.name == "<init>"
+            && class
+                .super_name
+                .as_ref()
+                .map(|s| s == "java/lang/Enum" || s == "java/lang/Object")
+                .unwrap_or(true);
+        if !fallback_enum_base_ctor {
+            sig.push_str("private ");
+        }
     } else if a & ACC_PROTECTED != 0 {
         sig.push_str("protected ");
     }

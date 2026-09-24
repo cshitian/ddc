@@ -602,7 +602,23 @@ pub fn decompile_method(
         passes::fix_ctor_this_aliases(&mut body, &vt);
         if class.is_enum() {
             passes::fold_enum_default_arg_bridge(&mut body);
-            passes::strip_enum_ctor_super(&mut body);
+            // Strip the implicit Enum.<init> super() ONLY for the enum
+            // BASE (super is java/lang/Enum or Object — a true `enum`
+            // decl or the fallback `/* enum */ class`, both get an
+            // implicit Object/Enum super). An enum CONSTANT SUBCLASS
+            // (j$6, super = the enum base j) renders as a plain
+            // `class j$6 extends j`; its ctor MUST forward
+            // `super(name, ordinal, ..)` or the implicit no-arg super()
+            // fails ("对于j(没有参数), 找不到合适的构造器", weibo jsoup
+            // TokeniserState ×134).
+            let const_subclass = class
+                .super_name
+                .as_ref()
+                .map(|s| s != "java/lang/Object" && s != "java/lang/Enum")
+                .unwrap_or(false);
+            if !const_subclass {
+                passes::strip_enum_ctor_super(&mut body);
+            }
         } else {
             passes::fix_ctor_delegation_arg_defs(&mut body);
             passes::fix_ctor_conditional_super(&mut body);
@@ -917,7 +933,23 @@ pub fn decompile_method(
         passes::fix_ctor_this_aliases(&mut body, &vt);
         if class.is_enum() {
             passes::fold_enum_default_arg_bridge(&mut body);
-            passes::strip_enum_ctor_super(&mut body);
+            // Strip the implicit Enum.<init> super() ONLY for the enum
+            // BASE (super is java/lang/Enum or Object — a true `enum`
+            // decl or the fallback `/* enum */ class`, both get an
+            // implicit Object/Enum super). An enum CONSTANT SUBCLASS
+            // (j$6, super = the enum base j) renders as a plain
+            // `class j$6 extends j`; its ctor MUST forward
+            // `super(name, ordinal, ..)` or the implicit no-arg super()
+            // fails ("对于j(没有参数), 找不到合适的构造器", weibo jsoup
+            // TokeniserState ×134).
+            let const_subclass = class
+                .super_name
+                .as_ref()
+                .map(|s| s != "java/lang/Object" && s != "java/lang/Enum")
+                .unwrap_or(false);
+            if !const_subclass {
+                passes::strip_enum_ctor_super(&mut body);
+            }
         } else {
             passes::fix_ctor_delegation_arg_defs(&mut body);
             passes::fix_ctor_conditional_super(&mut body);
