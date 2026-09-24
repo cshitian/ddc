@@ -6500,48 +6500,96 @@ pub fn take_ctor_helpers(class: &str) -> Vec<CtorHelper> {
 fn strip_delegations_deep(stmts: &mut Vec<Stmt>) {
     stmts.retain(|s| !is_bare_ctor_call(s));
     for s in stmts.iter_mut() {
-        match s {
-            Stmt::Block(v) => strip_delegations_deep(v),
-            Stmt::If { then_stmt, else_stmt, .. } => {
-                if is_bare_ctor_call(then_stmt) {
-                    *then_stmt = Box::new(Stmt::Block(Vec::new()));
-                } else if let Stmt::Block(v) = &mut **then_stmt {
-                    strip_delegations_deep(v);
-                }
-                if let Some(e) = else_stmt {
-                    if is_bare_ctor_call(e) {
-                        *e = Box::new(Stmt::Block(Vec::new()));
-                    } else if let Stmt::Block(v) = &mut **e {
-                        strip_delegations_deep(v);
-                    }
-                }
+        strip_delegation_one(s);
+    }
+}
+
+fn strip_delegation_one(st: &mut Stmt) {
+    if is_bare_ctor_call(st) {
+        *st = Stmt::Block(Vec::new());
+        return;
+    }
+    match st {
+        Stmt::Block(v) => strip_delegations_deep(v),
+        Stmt::If { then_stmt, else_stmt, .. } => {
+            strip_delegation_one(then_stmt);
+            if let Some(e) = else_stmt {
+                strip_delegation_one(e);
             }
-            _ => {}
         }
+        Stmt::While { body, .. }
+        | Stmt::DoWhile { body, .. }
+        | Stmt::ForEach { body, .. }
+        | Stmt::Synchronized { body, .. }
+        | Stmt::Labeled { body, .. } => strip_delegation_one(body),
+        Stmt::For { init, body, .. } => {
+            strip_delegations_deep(init);
+            strip_delegation_one(body);
+        }
+        Stmt::Switch { cases, default, .. } => {
+            for c in cases.iter_mut() {
+                strip_delegations_deep(&mut c.body);
+            }
+            if let Some(d) = default {
+                strip_delegation_one(d);
+            }
+        }
+        Stmt::Try { body, catches, finally } | Stmt::TryWithResources { body, catches, finally, .. } => {
+            strip_delegation_one(body);
+            for c in catches.iter_mut() {
+                strip_delegation_one(&mut c.body);
+            }
+            if let Some(f) = finally {
+                strip_delegation_one(f);
+            }
+        }
+        _ => {}
     }
 }
 
 fn rewrite_bare_returns(stmts: &mut Vec<Stmt>, val: &Expr) {
     for s in stmts.iter_mut() {
-        match s {
-            Stmt::Return(None) => *s = Stmt::Return(Some(val.clone())),
-            Stmt::Block(v) => rewrite_bare_returns(v, val),
-            Stmt::If { then_stmt, else_stmt, .. } => {
-                if let Stmt::Block(v) = &mut **then_stmt {
-                    rewrite_bare_returns(v, val);
-                } else if matches!(then_stmt.as_ref(), Stmt::Return(None)) {
-                    *then_stmt = Box::new(Stmt::Return(Some(val.clone())));
-                }
-                if let Some(e) = else_stmt {
-                    if let Stmt::Block(v) = &mut **e {
-                        rewrite_bare_returns(v, val);
-                    } else if matches!(e.as_ref(), Stmt::Return(None)) {
-                        *e = Box::new(Stmt::Return(Some(val.clone())));
-                    }
-                }
+        rewrite_bare_returns_one(s, val);
+    }
+}
+
+fn rewrite_bare_returns_one(st: &mut Stmt, val: &Expr) {
+    match st {
+        Stmt::Return(None) => *st = Stmt::Return(Some(val.clone())),
+        Stmt::Block(v) => rewrite_bare_returns(v, val),
+        Stmt::If { then_stmt, else_stmt, .. } => {
+            rewrite_bare_returns_one(then_stmt, val);
+            if let Some(e) = else_stmt {
+                rewrite_bare_returns_one(e, val);
             }
-            _ => {}
         }
+        Stmt::While { body, .. }
+        | Stmt::DoWhile { body, .. }
+        | Stmt::ForEach { body, .. }
+        | Stmt::Synchronized { body, .. }
+        | Stmt::Labeled { body, .. } => rewrite_bare_returns_one(body, val),
+        Stmt::For { init, body, .. } => {
+            rewrite_bare_returns(init, val);
+            rewrite_bare_returns_one(body, val);
+        }
+        Stmt::Switch { cases, default, .. } => {
+            for c in cases.iter_mut() {
+                rewrite_bare_returns(&mut c.body, val);
+            }
+            if let Some(d) = default {
+                rewrite_bare_returns_one(d, val);
+            }
+        }
+        Stmt::Try { body, catches, finally } | Stmt::TryWithResources { body, catches, finally, .. } => {
+            rewrite_bare_returns_one(body, val);
+            for c in catches.iter_mut() {
+                rewrite_bare_returns_one(&mut c.body, val);
+            }
+            if let Some(f) = finally {
+                rewrite_bare_returns_one(f, val);
+            }
+        }
+        _ => {}
     }
 }
 
@@ -6563,6 +6611,39 @@ fn collect_def_vars(stmts: &[Stmt], out: &mut jdc_core::FxHashSet<u32>) {
                     collect_def_vars(std::slice::from_ref(e.as_ref()), out);
                 }
             }
+            Stmt::While { body, .. }
+            | Stmt::DoWhile { body, .. }
+            | Stmt::Synchronized { body, .. }
+            | Stmt::Labeled { body, .. } => {
+                collect_def_vars(std::slice::from_ref(body.as_ref()), out);
+            }
+            Stmt::ForEach { var, body, .. } => {
+                out.insert(*var);
+                collect_def_vars(std::slice::from_ref(body.as_ref()), out);
+            }
+            Stmt::For { init, body, .. } => {
+                collect_def_vars(init, out);
+                collect_def_vars(std::slice::from_ref(body.as_ref()), out);
+            }
+            Stmt::Switch { cases, default, .. } => {
+                for c in cases {
+                    collect_def_vars(&c.body, out);
+                }
+                if let Some(d) = default {
+                    collect_def_vars(std::slice::from_ref(d.as_ref()), out);
+                }
+            }
+            Stmt::Try { body, catches, finally }
+            | Stmt::TryWithResources { body, catches, finally, .. } => {
+                collect_def_vars(std::slice::from_ref(body.as_ref()), out);
+                for c in catches {
+                    out.insert(c.var);
+                    collect_def_vars(std::slice::from_ref(c.body.as_ref()), out);
+                }
+                if let Some(f) = finally {
+                    collect_def_vars(std::slice::from_ref(f.as_ref()), out);
+                }
+            }
             _ => {}
         }
     }
@@ -6573,16 +6654,41 @@ fn collect_def_vars(stmts: &[Stmt], out: &mut jdc_core::FxHashSet<u32>) {
 fn extraction_shape_ok(stmts: &[Stmt]) -> bool {
     stmts.iter().all(|st| match st {
         Stmt::Block(v) => extraction_shape_ok(v),
-        Stmt::LocalDef { .. } | Stmt::ExprStmt(_) | Stmt::Return(_) | Stmt::Throw(_) => true,
+        Stmt::LocalDef { .. }
+        | Stmt::ExprStmt(_)
+        | Stmt::Return(_)
+        | Stmt::Throw(_)
+        | Stmt::Assert { .. }
+        | Stmt::Break(_)
+        | Stmt::Continue(_) => true,
         Stmt::If { then_stmt, else_stmt, .. } => {
-            extraction_shape_ok(std::slice::from_ref(then_stmt.as_ref()))
-                && else_stmt
-                    .as_ref()
-                    .map(|e| extraction_shape_ok(std::slice::from_ref(e.as_ref())))
-                    .unwrap_or(true)
+            ok_one(then_stmt)
+                && else_stmt.as_deref().map(ok_one).unwrap_or(true)
         }
+        Stmt::While { body, .. }
+        | Stmt::DoWhile { body, .. }
+        | Stmt::ForEach { body, .. }
+        | Stmt::Synchronized { body, .. } => ok_one(body),
+        Stmt::Labeled { body, .. } => ok_one(body),
+        Stmt::For { init, body, .. } => extraction_shape_ok(init) && ok_one(body),
+        Stmt::Switch { cases, default, .. } => {
+            cases.iter().all(|c| extraction_shape_ok(&c.body))
+                && default.as_deref().map(ok_one).unwrap_or(true)
+        }
+        Stmt::Try { body, catches, finally }
+        | Stmt::TryWithResources { body, catches, finally, .. } => {
+            ok_one(body)
+                && catches.iter().all(|c| ok_one(&c.body))
+                && finally.as_deref().map(ok_one).unwrap_or(true)
+        }
+        // Label/Goto (unstructured), MonitorEnter/Exit (raw), ClassDecl
+        // (local class), TernaryValue, Raw: stay out of v2 extraction.
         _ => false,
     })
+}
+
+fn ok_one(st: &Stmt) -> bool {
+    extraction_shape_ok(std::slice::from_ref(st))
 }
 
 fn static_safe(stmts: &[Stmt]) -> bool {
