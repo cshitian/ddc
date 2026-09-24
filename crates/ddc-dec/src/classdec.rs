@@ -241,6 +241,12 @@ fn collect_enum_constants(
     }
     let clinit = class.all_methods().find(|m| &*m.name == "<clinit>")?;
     let mut body = decompile_method(pool, class, clinit).ok().flatten()?;
+    // The structurer can leave the constant-build sequence inside a
+    // nested Stmt::Block (jd1.u: stmt4 wraps all 26 ctors beside a
+    // trailing loop) — the passes below index a FLAT statement list.
+    if let Stmt::Block(vs) = &mut body.body {
+        crate::passes::flatten_top_blocks(vs);
+    }
 
     // R8/d8 split the constant build across an intermediate local:
     //   Self v0 = new Self("NAME", i, ...);
@@ -356,7 +362,7 @@ fn collect_enum_constants(
                 if !const_fields.iter().any(|f| f.name.as_str() == &**fname) {
                     continue;
                 }
-                if const_field.iter().any(|f| !f.is_empty() && f == &**fname) { { return None; } // duplicate assignment
+                if const_field.iter().any(|f| !f.is_empty() && f == &**fname) { return None; // duplicate assignment
                 }
                 let idx = match &**value {
                     Expr::Local { var, .. } => cur_def.get(var).copied()?,
@@ -382,7 +388,7 @@ fn collect_enum_constants(
                             )?);
                             idx
                         } else {
-                            { return None; }
+                            return None;
                         }
                     }
                     _ => return None,
@@ -410,7 +416,7 @@ fn collect_enum_constants(
     // ON_DESTROY — a pass-1 local with no pass-2 sput). Field-less
     // constants keep their ctor-string source name.
     if const_field.iter().filter(|f| !f.is_empty()).count() != const_fields.len() {
-               return None;
+        return None;
     }
     // Obfuscated enums rename the ACC_ENUM FIELD (d/e/f) while the ctor's
     // name STRING keeps the source identifier — the promoted constant
@@ -423,7 +429,7 @@ fn collect_enum_constants(
         if !field.is_empty() && field != &const_name[i] {
             let id = java_ident(field);
             if id.is_empty() || id.as_ref() != field.as_str() {
-                { return None; }
+                return None;
             }
             const_name[i] = field.clone();
         }
@@ -608,12 +614,28 @@ fn collect_enum_constants(
     let mut pad_k = 0u32;
     for (ord, c) in merged {
         if ord < expect {
-            { return None; } // duplicate/colliding ordinals — unfaithful
+            return None; // duplicate/colliding ordinals — unfaithful
         }
         if ord > expect {
-            if has_extras {
-                { return None; } // cannot synthesize the missing ctor args
-            }
+            // Extras-bearing ctors: a pad may borrow an adjacent
+            // constant's literal extras ONLY when every ctor of the
+            // class is benign (no branch, no throw, no non-<init>
+            // invoke — pure param stores), so the invented value
+            // cannot change runtime behavior beyond a dead constant's
+            // stored field (jd1.u: gap at ordinal 7 + int extra arg
+            // aborted the whole promotion — 92 files of broken
+            // Enum.valueOf). Non-benign ctors keep the abort.
+            let tmpl: Vec<Expr> = if has_extras {
+                if !enum_ctors_benign(pool, class) {
+                    return None; // cannot synthesize the missing ctor args
+                }
+                match padded.last() {
+                    Some(prev) => prev.extra_args.clone(),
+                    None => c.extra_args.clone(),
+                }
+            } else {
+                Vec::new()
+            };
             while expect < ord {
                 let pname = loop {
                     let cand = format!("_r{pad_k}");
@@ -626,7 +648,7 @@ fn collect_enum_constants(
                 padded.push(EnumConst {
                     field: pname.clone(),
                     name: pname,
-                    extra_args: Vec::new(),
+                    extra_args: tmpl.clone(),
                 });
                 expect += 1;
             }
@@ -636,6 +658,45 @@ fn collect_enum_constants(
     }
     let out = padded;
     Some((out, body))
+}
+
+/// True when every `<init>` of the class is a pure param-store: no
+/// branch, no throw, no switch, no goto, and no invoke other than a
+/// constructor call (the super delegation). A benign ctor cannot
+/// validate or leak its arguments, so gap-pad constants may borrow a
+/// neighbor's literal extras without observable effect.
+fn enum_ctors_benign(pool: &DexPool, class: &PoolClass) -> bool {
+    let mut checked = 0usize;
+    for m in class.all_methods() {
+        if &*m.name != "<init>" {
+            continue;
+        }
+        checked += 1;
+        let Some(dex) = pool.dex(m.dex_idx) else {
+            return false;
+        };
+        let Some(ci) = dex.code_at(m.code_off) else {
+            return false;
+        };
+        for ins in &ci.insns {
+            use ddc_dex::insn::InsnKind;
+            match ins.kind {
+                InsnKind::If { .. }
+                | InsnKind::Throw { .. }
+                | InsnKind::PackedSwitch { .. }
+                | InsnKind::SparseSwitch { .. }
+                | InsnKind::Goto { .. } => return false,
+                InsnKind::Invoke { method_idx, .. } => {
+                    let mr = dex.method(method_idx);
+                    if dex.string(mr.name_idx) != "<init>" {
+                        return false;
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+    checked > 0
 }
 
 /// Update the rolling reaching-def map for enum-arg resolution. Only
@@ -1827,10 +1888,17 @@ fn emit_method(
             // ctor whose first two params are (String, int) and merely
             // forwards them must keep its signature (weixin +2.9k when
             // ungated).
-            let is_bridge = matches!(
-                d.args.last(),
-                Some(JavaType::Object(m)) if m.as_ref() == "kotlin/jvm/internal/DefaultConstructorMarker"
-            );
+            // Marker-name-free bridge shape: (.., int mask, marker).
+            // R8 renames DefaultConstructorMarker with the rest of the
+            // stdlib (weixin: kotlin/jvm/internal/i, an empty abstract
+            // class), so gate on the package + the int-mask/refs pair
+            // instead of the literal name — a real user enum ctor with
+            // (int, kotlin/jvm/internal/*) tail params does not occur.
+            let n_args = d.args.len();
+            let is_bridge = n_args >= 2
+                && matches!(&d.args[n_args - 1], JavaType::Object(ref m)
+                    if m.starts_with("kotlin/jvm/internal/"))
+                && matches!(d.args[n_args - 2], JavaType::Int);
             let mut lead = [0usize, 0usize];
             let refs_ok = body.as_ref().is_some_and(|b| {
                 let uses = crate::passes::count_locals_stmts(std::slice::from_ref(&b.body));

@@ -2875,18 +2875,6 @@ pub fn insert_object_narrowing_casts(vt: &VarTable, body: &mut Stmt) {
                 Expr::Field { ty, .. } => ty.clone(),
                 _ => return,
             };
-            if std::env::var_os("DDC_NARROW").is_some() {
-                if let (Expr::Field { name, .. }, Expr::Local { var, .. }) = (&**target, &**value) {
-                    eprintln!(
-                        "[narrow] field={} tgt={:?} spec={} val_var={} castable={}",
-                        name,
-                        tgt.erased(),
-                        specific_ref(&tgt).is_some(),
-                        var,
-                        castable(value)
-                    );
-                }
-            }
             if let Some(t) = specific_ref(&tgt) {
                 if castable(value) {
                     let v = std::mem::replace(value, Box::new(Expr::This));
@@ -6025,7 +6013,7 @@ fn single_assign_to_v(s: &Stmt, v: u32) -> Option<Expr> {
 /// bridge shape), and every delegation-repair pass scans the TOP level
 /// only. Straight-line nesting flattens without semantics; control
 /// flow lives inside If/While/etc. arms, never as a direct member.
-fn flatten_top_blocks(stmts: &mut Vec<Stmt>) {
+pub(crate) fn flatten_top_blocks(stmts: &mut Vec<Stmt>) {
     fn rec(s: Stmt, out: &mut Vec<Stmt>) {
         match s {
             Stmt::Block(inner) => {
