@@ -933,22 +933,24 @@ fn emit_class_body(
     }
 
     // Fields.
-    // Kotlin `object`/lazy singletons: the dex static value for INSTANCE
-    // is null while the clinit assigns it — rendering `= null` as the
-    // field initializer made the clinit assignment illegal ("无法为
-    // static final 变量 INSTANCE 分配值", okio SegmentPool family). A
-    // static final whose static value is null AND which the clinit
-    // sputs renders as a blank final. Scan the clinit's raw SPuts once.
+    // A static final whose dex-encoded static value is OVERWRITTEN by
+    // the clinit must render as a blank final: the dex encoded array
+    // value is just the class-load default (ART lets <clinit> reassign
+    // static finals), but Java forbids touching an initialized final
+    // ("无法为 static final 变量 $stable 分配值" — Compose `$stable = 0`
+    // + clinit `= 8`; WalletBaseUI HARDCODE_* = 0 + clinit computed
+    // value; the original null-valued shape: Kotlin `object` INSTANCE,
+    // okio SegmentPool). Scan the clinit's raw SPuts once.
     let clinit_sputs: Option<jdc_core::FxHashSet<(std::sync::Arc<str>, std::sync::Arc<str>)>> =
-        // Gate: only classes with a null-valued final static can produce
-        // a blank final — skip the clinit decode otherwise (decoding it
-        // for every class cost seconds on 98k-class corpora).
+        // Gate: only classes with a VALUED final static can hit the
+        // conflict — skip the clinit decode otherwise (decoding it for
+        // every class cost seconds on 98k-class corpora).
         (|| {
-            let has_null_final = class.static_fields.iter().enumerate().any(|(i, f)| {
+            let has_valued_final = class.static_fields.iter().enumerate().any(|(i, f)| {
                 f.access & crate::access::ACC_FINAL != 0
-                    && matches!(class.static_values.get(i), Some(StaticValue::Null))
+                    && class.static_values.get(i).is_some()
             });
-            if !has_null_final {
+            if !has_valued_final {
                 return None;
             }
             let m = class.all_methods().find(|m| &*m.name == "<clinit>")?;
@@ -981,9 +983,11 @@ fn emit_class_body(
             out.push('\n');
         }
         field_emitted = true;
-        // A blank-final: static final, null static value, clinit-assigned.
+        // A blank-final: static final, clinit-assigned. Interfaces are
+        // excluded — their fields are implicitly `public static final`
+        // and MUST carry an initializer.
         let blank_final = f.access & crate::access::ACC_FINAL != 0
-            && matches!(class.static_values.get(i), Some(StaticValue::Null))
+            && !class.is_interface()
             && clinit_sputs
                 .as_ref()
                 .is_some_and(|s| {
@@ -1243,7 +1247,32 @@ fn emit_class_body(
                     }
                     sup = sc.super_name.clone();
                 }
-                let Some(sm) = found else { continue };
+                let Some(sm) = found else {
+                    // The walk terminated at java/lang/Object — which
+                    // always declares <init>()V, so an empty-sig ref
+                    // through this class resolved there dex-wise. The
+                    // Java implicit default ctor is gone (the class
+                    // declares other ctors); mirror it as an explicit
+                    // public bridge (AgentMenuTask$Request →
+                    // AppBrandProxyUIProcessTask$ProcessRequest:
+                    // "需要: Parcel 找到: 没有参数", weixin 205).
+                    if sig.is_empty() {
+                        if emitted_any {
+                            out.push('\n');
+                        }
+                        out.push_str(&format!("    {}", "    ".repeat(depth)));
+                        out.push_str("public ");
+                        out.push_str(&java_ident(&simple));
+                        out.push_str("() {\n");
+                        out.push_str(&format!(
+                            "    {}    super();\n",
+                            "    ".repeat(depth)
+                        ));
+                        out.push_str(&format!("    {}}}\n", "    ".repeat(depth)));
+                        emitted_any = true;
+                    }
+                    continue;
+                };
                 let Some(d) = sm.parsed_desc() else { continue };
                 let mods = if sm.access & crate::access::ACC_PUBLIC != 0 {
                     "public "
@@ -1482,7 +1511,7 @@ fn emit_field(
     if is_static {
         line.push_str("static ");
     }
-    if a & ACC_FINAL != 0 {
+    if a & ACC_FINAL != 0 && !unfinal_field(f_class, &f.name) {
         line.push_str("final ");
     }
     if a & ACC_SYNTHETIC != 0 {
@@ -2264,6 +2293,9 @@ struct WidenState {
     classes: jdc_core::FxHashSet<String>,
     methods: jdc_core::FxHashMap<String, jdc_core::FxHashSet<(String, String)>>,
     fields: jdc_core::FxHashMap<String, jdc_core::FxHashSet<String>>,
+    /// (owner, field name) finals written outside the declaring class's
+    /// ctor/clinit — rendered WITHOUT `final` (see refscan census).
+    unfinal: jdc_core::FxHashSet<(String, String)>,
 }
 
 static WIDEN: std::sync::OnceLock<WidenState> = std::sync::OnceLock::new();
@@ -2391,7 +2423,10 @@ pub(crate) fn install_access_widening(pool: &crate::DexPool) {
             t0.elapsed()
         );
     }
-    let _ = WIDEN.set(WidenState { classes, methods, fields });
+
+    let unfinal: jdc_core::FxHashSet<(String, String)> =
+        raw.unfinal_fields.into_iter().collect();
+    let _ = WIDEN.set(WidenState { classes, methods, fields, unfinal });
 }
 
 #[inline]
@@ -2412,6 +2447,16 @@ pub(crate) fn widen_method(owner: &str, name: &str, desc: &str) -> bool {
 pub(crate) fn widen_field(owner: &str, name: &str) -> bool {
     WIDEN.get().is_some_and(|w| {
         w.fields.get(owner).is_some_and(|s| s.contains(name))
+    })
+}
+
+/// True when the census saw this final field written outside the
+/// declaring class's `<init>`/`<clinit>` — the `final` modifier must
+/// not render ("无法为 final 变量 v 分配值" at every foreign write).
+#[inline]
+pub(crate) fn unfinal_field(owner: &str, name: &str) -> bool {
+    WIDEN.get().is_some_and(|w| {
+        w.unfinal.contains(&(owner.to_string(), name.to_string()))
     })
 }
 

@@ -564,6 +564,7 @@ pub fn decompile_method(
         passes::inline_accessors(&mut body, pool, &class.name);
         passes::infer_types(&mut vt, &mut body, &desc.ret, &env);
         passes::fix_ref_null_assigns(&vt, &mut body);
+        passes::fix_null_sentinels(&mut body, &vt, &desc.ret);
         passes::split_generations(&mut vt, &mut body);
         passes::insert_object_narrowing_casts(&vt, &mut body);
         passes::fix_incomparable_equality(&mut body, &vt, pool);
@@ -834,6 +835,7 @@ pub fn decompile_method(
     passes::inline_accessors(&mut body, pool, &class.name);
     passes::infer_types(&mut vt, &mut body, &desc.ret, &env);
     passes::fix_ref_null_assigns(&vt, &mut body);
+    passes::fix_null_sentinels(&mut body, &vt, &desc.ret);
     passes::split_generations(&mut vt, &mut body);
     // Post-booleanize re-split, gated on a nonzero conversion count:
     // conversions expose register reuse across boolean/numeric kinds no

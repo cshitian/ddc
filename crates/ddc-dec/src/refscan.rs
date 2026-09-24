@@ -816,6 +816,13 @@ pub struct AccessWidening {
     pub methods: HashMap<String, HashSet<(String, String)>>,
     /// owner → field name.
     pub fields: HashMap<String, HashSet<String>>,
+    /// (owner, field name) for FINAL fields written OUTSIDE the
+    /// declaring class's `<init>`/`<clinit>`. ART tolerates it (and R8
+    /// emits it: outer classes initializing nested-class finals,
+    /// relocated ctor stores, synthetic accessors); Java forbids it
+    /// ("无法为 final 变量 v 分配值", ConstraintLayout$LayoutParams.v).
+    /// The declaration renders these without `final`.
+    pub unfinal_fields: HashSet<(String, String)>,
 }
 
 fn chain_prefixes(internal: &str, out: &mut HashSet<String>) {
@@ -830,6 +837,32 @@ fn chain_prefixes(internal: &str, out: &mut HashSet<String>) {
 }
 
 pub fn access_widening_scan(dexes: &[Arc<DexFile>]) -> AccessWidening {
+    // Pre-pass: every FINAL field keyed by (raw type descriptor, name),
+    // borrowed from the dex string tables. Only finals can suffer the
+    // out-of-ctor write violation, and pre-filtering keeps the census
+    // small (recording EVERY iput target would be hundreds of
+    // thousands of pairs on weixin).
+    let mut finals: HashSet<(&str, &str)> = HashSet::default();
+    for dex in dexes.iter() {
+        for cd in &dex.class_defs {
+            let data = dex.class_data(cd);
+            let any_final = data
+                .instance_fields
+                .iter()
+                .chain(data.static_fields.iter())
+                .any(|f| f.access_flags & crate::access::ACC_FINAL != 0);
+            if !any_final {
+                continue;
+            }
+            let owner = dex.type_name(cd.class_idx);
+            for f in data.instance_fields.iter().chain(data.static_fields.iter()) {
+                if f.access_flags & crate::access::ACC_FINAL != 0 {
+                    let fr = dex.field(f.field_idx);
+                    finals.insert((owner, dex.string(fr.name_idx)));
+                }
+            }
+        }
+    }
     let nthreads = std::thread::available_parallelism()
         .map(|n| n.get())
         .unwrap_or(1)
@@ -838,6 +871,7 @@ pub fn access_widening_scan(dexes: &[Arc<DexFile>]) -> AccessWidening {
     let chunk = dexes.len().div_ceil(nthreads).max(1);
     let merged: std::sync::Mutex<AccessWidening> =
         std::sync::Mutex::new(AccessWidening::default());
+    let finals = &finals;
     std::thread::scope(|scope| {
         let handles: Vec<_> = dexes
             .chunks(chunk)
@@ -846,7 +880,7 @@ pub fn access_widening_scan(dexes: &[Arc<DexFile>]) -> AccessWidening {
                 scope.spawn(move || {
                     let mut part = AccessWidening::default();
                     for dex in group {
-                        scan_widening_image(dex, &mut part);
+                        scan_widening_image(dex, &mut part, finals);
                     }
                     let mut m = merged.lock().unwrap();
                     for c in part.classes {
@@ -858,6 +892,7 @@ pub fn access_widening_scan(dexes: &[Arc<DexFile>]) -> AccessWidening {
                     for (k, v) in part.fields {
                         m.fields.entry(k).or_default().extend(v);
                     }
+                    m.unfinal_fields.extend(part.unfinal_fields);
                 })
             })
             .collect();
@@ -868,7 +903,11 @@ pub fn access_widening_scan(dexes: &[Arc<DexFile>]) -> AccessWidening {
     merged.into_inner().unwrap_or_default()
 }
 
-fn scan_widening_image(dex: &DexFile, out: &mut AccessWidening) {
+fn scan_widening_image(
+    dex: &DexFile,
+    out: &mut AccessWidening,
+    finals: &HashSet<(&str, &str)>,
+) {
     let n = dex.type_count();
     // Per-type: internal class name (arrays stripped) + package.
     let mut tname: Vec<Box<str>> = Vec::with_capacity(n);
@@ -920,6 +959,7 @@ fn scan_widening_image(dex: &DexFile, out: &mut AccessWidening) {
         }
         for m in data.direct_methods.iter().chain(data.virtual_methods.iter()) {
             let mr = dex.method(m.method_idx);
+            let mname = dex.string(mr.name_idx);
             note_type(mr.class_idx, out);
             let proto = dex.proto(mr.proto_idx);
             note_type(proto.return_type_idx, out);
@@ -944,6 +984,13 @@ fn scan_widening_image(dex: &DexFile, out: &mut AccessWidening) {
             // it here so install_access_widening widens the target.
             let in_accessor = m.access_flags & crate::access::ACC_STATIC != 0
                 && m.access_flags & crate::access::ACC_SYNTHETIC != 0;
+            // Own-ctor/clinit writes of FINAL fields, counted per
+            // method body: one store is the legal blank-final init,
+            // but R8 state-machine ctors duplicate the store across
+            // switch cases and javac rejects the second sequential
+            // assignment ("无法为 final 变量 v 分配值",
+            // ConstraintLayout$LayoutParams(Context,AttributeSet)).
+            let mut final_init_writes: HashMap<(String, String), u32> = HashMap::default();
             ddc_dex::insn::scan_instructions(code, &mut |op, pc, bytes| {
                 let unit = |i: usize| -> u32 {
                     bytes
@@ -958,6 +1005,24 @@ fn scan_widening_image(dex: &DexFile, out: &mut AccessWidening) {
                     0x52..=0x6d => {
                         let fr = dex.field(unit(pc + 1));
                         let owner = dex.class_name(fr.class_idx);
+                        // Final-field write census: an iput outside the
+                        // owner's own <init> (or an sput outside its
+                        // <clinit>) is a Java "无法为 final 变量赋值" —
+                        // the declaration renders without `final`.
+                        if matches!(op, 0x59..=0x5f | 0x67..=0x6d) {
+                            let fname = dex.string(fr.name_idx);
+                            if finals.contains(&(dex.type_name(fr.class_idx), fname)) {
+                                let ctor = if op <= 0x5f { "<init>" } else { "<clinit>" };
+                                if referrer == owner && mname == ctor {
+                                    *final_init_writes
+                                        .entry((owner.clone(), fname.to_string()))
+                                        .or_default() += 1;
+                                } else {
+                                    out.unfinal_fields
+                                        .insert((owner.clone(), fname.to_string()));
+                                }
+                            }
+                        }
                         let op_pkg = pkg_of(&owner);
                         let xpkg = !op_pkg.is_empty() && op_pkg != rp;
                         if xpkg {
@@ -997,6 +1062,11 @@ fn scan_widening_image(dex: &DexFile, out: &mut AccessWidening) {
                     _ => {}
                 }
             });
+            for (k, c) in final_init_writes {
+                if c >= 2 {
+                    out.unfinal_fields.insert(k);
+                }
+            }
         }
     }
 }

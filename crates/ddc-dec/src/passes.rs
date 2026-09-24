@@ -3648,6 +3648,559 @@ pub fn fix_ref_array_null_consts(body: &mut Stmt) {
     });
 }
 
+// ---------------------------------------------------------------------------
+// Null-sentinel repair: const-0 registers in reference-typed slots
+// ---------------------------------------------------------------------------
+
+/// A dex `const/4 vN, 0` register is ambiguous between int 0 and the
+/// null reference; the value view types the bare constant as Int.
+/// Kotlin coroutine state machines lean on this heavily — captured
+/// object slots are zero-initialized ahead of the label switch, then
+/// stored into `Object` fields and passed as `Continuation` ctor args
+/// (weixin y01/s9 q8: `new e6(s94x, v287)` "int无法转换为Continuation";
+/// uf5/l0 `throw 0;`; wcdb RepairKit `setOnCancelListener(0)`). The
+/// dex verifier guarantees a const-0 register reaching a reference-
+/// typed slot holds null, so in those slots the rendering must be the
+/// null literal.
+///
+/// Two rewrites, both gated on the slot's expected type being a
+/// reference (descriptor formal types, field type, array component,
+/// cast target, throw, method return):
+///   1. a literal `0` in a ref slot → `null`. SKIPPED for call-arg
+///      slots whose formal is exactly `java/lang/Object`: `f(0)` there
+///      compiles TODAY (boxing, or an int-overload pick like
+///      `String.valueOf(0)`), and `f(null)` could newly fail on
+///      overload ambiguity (`valueOf(Object)` vs `valueOf(char[])`) —
+///      a guaranteed-error slot becomes a compile, a compiling slot
+///      must not become an error.
+///   2. a proven null-sentinel LOCAL: an Int-typed var whose every
+///      write is `= 0` or `= <another sentinel>` and whose every read
+///      sits in a ref slot (or feeds another sentinel's write — a dead
+///      chain) → `null` at each read. The same Object-formal skip
+///      applies at arg slots. A read in ANY int/unknown context
+///      (binop, cond test, receiver deref, selector, anon-ctor arg,
+///      lambda capture…) disqualifies the var — register reuse across
+///      generations keeps its int rendering.
+///
+/// Runs after fix_ref_null_assigns (which converts writes of REF-typed
+/// vars) and before split_generations (sentinel writes must not mint
+/// int generations). Writes of confirmed sentinels stay as harmless
+/// dead int stores for drop_dead_locals.
+pub fn fix_null_sentinels(body: &mut Stmt, vt: &VarTable, ret: &JavaType) {
+    #[derive(Clone, Copy, PartialEq)]
+    enum WK {
+        Zero,
+        Copy(u32),
+        Other,
+    }
+    fn is_ref_jt(t: &JavaType) -> bool {
+        matches!(t, JavaType::Object(_) | JavaType::Array(_))
+    }
+    fn cls_write(e: &Expr) -> WK {
+        match e {
+            Expr::Const(ConstVal::Int(0)) => WK::Zero,
+            Expr::Local { var, .. } => WK::Copy(*var),
+            _ => WK::Other,
+        }
+    }
+    fn expr_writes(e: &Expr, writes: &mut std::collections::HashMap<u32, Vec<WK>>) {
+        visit_exprs(e, &mut |x| match x {
+            Expr::Assign { target, op, value } => {
+                if let Expr::Local { var, .. } = &**target {
+                    let k = if matches!(op, AssignOp::Plain) {
+                        cls_write(value)
+                    } else {
+                        WK::Other
+                    };
+                    writes.entry(*var).or_default().push(k);
+                }
+            }
+            Expr::PreIncDec { e: inner, .. } | Expr::PostIncDec { e: inner, .. } => {
+                if let Expr::Local { var, .. } = &**inner {
+                    writes.entry(*var).or_default().push(WK::Other);
+                }
+            }
+            _ => {}
+        });
+    }
+    fn collect_writes(
+        s: &Stmt,
+        writes: &mut std::collections::HashMap<u32, Vec<WK>>,
+        has_zero: &mut bool,
+    ) {
+        fn note(e: &Expr, has_zero: &mut bool, writes: &mut std::collections::HashMap<u32, Vec<WK>>) {
+            visit_exprs(e, &mut |x| {
+                if let Expr::Const(ConstVal::Int(0)) = x {
+                    *has_zero = true;
+                }
+            });
+            expr_writes(e, writes);
+        }
+        match s {
+            Stmt::Block(v) => {
+                for x in v {
+                    collect_writes(x, writes, has_zero);
+                }
+            }
+            Stmt::LocalDef { var, init, .. } => {
+                if let Some(e) = init {
+                    if matches!(e, Expr::Const(ConstVal::Int(0))) {
+                        *has_zero = true;
+                    }
+                    writes.entry(*var).or_default().push(cls_write(e));
+                }
+            }
+            Stmt::ExprStmt(e) => note(e, has_zero, writes),
+            Stmt::Return(e) => {
+                if let Some(x) = e {
+                    note(x, has_zero, writes);
+                }
+            }
+            Stmt::Throw(e) | Stmt::MonitorEnter(e) | Stmt::MonitorExit(e) => {
+                note(e, has_zero, writes);
+            }
+            Stmt::TernaryValue { e } => note(e, has_zero, writes),
+            Stmt::If { cond, then_stmt, else_stmt } => {
+                note(cond, has_zero, writes);
+                collect_writes(then_stmt, writes, has_zero);
+                if let Some(b) = else_stmt {
+                    collect_writes(b, writes, has_zero);
+                }
+            }
+            Stmt::While { cond, body } | Stmt::DoWhile { body, cond } => {
+                note(cond, has_zero, writes);
+                collect_writes(body, writes, has_zero);
+            }
+            Stmt::For { init, cond, update, body } => {
+                for x in init {
+                    collect_writes(x, writes, has_zero);
+                }
+                if let Some(c) = cond {
+                    note(c, has_zero, writes);
+                }
+                for u in update {
+                    note(u, has_zero, writes);
+                }
+                collect_writes(body, writes, has_zero);
+            }
+            Stmt::ForEach { var, iterable, body, .. } => {
+                writes.entry(*var).or_default().push(WK::Other);
+                note(iterable, has_zero, writes);
+                collect_writes(body, writes, has_zero);
+            }
+            Stmt::Switch { selector, cases, default, .. } => {
+                note(selector, has_zero, writes);
+                for c in cases {
+                    if let Some(g) = &c.guard {
+                        note(g, has_zero, writes);
+                    }
+                    for x in &c.body {
+                        collect_writes(x, writes, has_zero);
+                    }
+                }
+                if let Some(d) = default {
+                    collect_writes(d, writes, has_zero);
+                }
+            }
+            Stmt::Try { body, catches, finally } => {
+                collect_writes(body, writes, has_zero);
+                for c in catches {
+                    writes.entry(c.var).or_default().push(WK::Other);
+                    collect_writes(&c.body, writes, has_zero);
+                }
+                if let Some(f) = finally {
+                    collect_writes(f, writes, has_zero);
+                }
+            }
+            Stmt::TryWithResources { resources, body, catches, finally, .. } => {
+                for r in resources {
+                    collect_writes(r, writes, has_zero);
+                }
+                collect_writes(body, writes, has_zero);
+                for c in catches {
+                    writes.entry(c.var).or_default().push(WK::Other);
+                    collect_writes(&c.body, writes, has_zero);
+                }
+                if let Some(f) = finally {
+                    collect_writes(f, writes, has_zero);
+                }
+            }
+            Stmt::Assert { cond, msg } => {
+                note(cond, has_zero, writes);
+                if let Some(m) = msg {
+                    note(m, has_zero, writes);
+                }
+            }
+            Stmt::Synchronized { lock, body } => {
+                note(lock, has_zero, writes);
+                collect_writes(body, writes, has_zero);
+            }
+            Stmt::Labeled { body, .. } => collect_writes(body, writes, has_zero),
+            _ => {}
+        }
+    }
+
+    let mut writes: std::collections::HashMap<u32, Vec<WK>> =
+        std::collections::HashMap::new();
+    let mut has_zero = false;
+    collect_writes(body, &mut writes, &mut has_zero);
+
+    // Write-proven eligibility fixpoint (copy chains: `v = u`).
+    let mut eligible: HashSet<u32> = HashSet::default();
+    let int_typed = |v: u32| {
+        (v as usize) < vt.vars.len() && vt.vars[v as usize].ty.erased() == JavaType::Int
+    };
+    loop {
+        let mut changed = false;
+        for (&v, ws) in writes.iter() {
+            if eligible.contains(&v) || ws.is_empty() || !int_typed(v) {
+                continue;
+            }
+            if ws.iter().all(|k| match k {
+                WK::Zero => true,
+                WK::Copy(u) => *u != v && eligible.contains(u),
+                WK::Other => false,
+            }) {
+                eligible.insert(v);
+                changed = true;
+            }
+        }
+        if !changed {
+            break;
+        }
+    }
+    if eligible.is_empty() && !has_zero {
+        return; // nothing this pass can do
+    }
+
+    #[derive(Clone, Copy, PartialEq)]
+    enum Mode {
+        Scan,
+        Rewrite,
+    }
+    struct St<'a> {
+        mode: Mode,
+        vt: &'a VarTable,
+        eligible: &'a HashSet<u32>,
+        ref_read: HashSet<u32>,
+        dead: HashSet<u32>,
+        sentinels: HashSet<u32>,
+        n_lit: usize,
+        n_var: usize,
+    }
+    // A call-arg slot whose formal is exactly java/lang/Object keeps
+    // its current rendering (see the fn doc — boxing compiles today,
+    // null could newly ambiguize).
+    fn arg_ctx(t: &JavaType) -> Option<JavaType> {
+        match t {
+            JavaType::Object(n) if n.as_ref() == "java/lang/Object" => None,
+            t if is_ref_jt(t) => Some(t.clone()),
+            _ => None,
+        }
+    }
+    fn walk_expr(e: &mut Expr, ctx: Option<JavaType>, st: &mut St) {
+        walk_expr_c(e, ctx, false, st);
+    }
+    /// `cast_arg`: the slot is a call/ctor ARGUMENT — a rewritten null
+    /// gets an explicit formal-type cast. Bare `f(null)` re-triggers
+    /// overload ambiguity where `f(0)` used to pick an int overload
+    /// (`in(null)` "引用不明确", `ContentValues.put(String,null)` vs its
+    /// 9 overloads); `(String) null` is unambiguous and jadx-shaped.
+    fn walk_expr_c(e: &mut Expr, ctx: Option<JavaType>, cast_arg: bool, st: &mut St) {
+        let slot_ref = ctx.as_ref().map_or(false, is_ref_jt);
+        fn mk_null(ctx: &Option<JavaType>, cast_arg: bool) -> Expr {
+            match (cast_arg, ctx) {
+                (true, Some(t)) => Expr::Cast {
+                    ty: TypeRef::J(t.clone()),
+                    e: Box::new(Expr::Const(ConstVal::Null)),
+                },
+                _ => Expr::Const(ConstVal::Null),
+            }
+        }
+        match e {
+            Expr::Const(ConstVal::Int(0)) if slot_ref => {
+                if st.mode == Mode::Rewrite {
+                    *e = mk_null(&ctx, cast_arg);
+                    st.n_lit += 1;
+                }
+                return;
+            }
+            Expr::Local { var, .. } => {
+                if st.eligible.contains(var) {
+                    if slot_ref {
+                        st.ref_read.insert(*var);
+                    } else {
+                        st.dead.insert(*var);
+                    }
+                }
+                if st.mode == Mode::Rewrite && slot_ref && st.sentinels.contains(var) {
+                    *e = mk_null(&ctx, cast_arg);
+                    st.n_var += 1;
+                }
+                return;
+            }
+            _ => {}
+        }
+        match e {
+            Expr::Method { owner, desc, args, .. } => {
+                if let Some(o) = owner {
+                    walk_expr(o, None, st);
+                }
+                for (i, a) in args.iter_mut().enumerate() {
+                    let c = desc.args.get(i).and_then(arg_ctx);
+                    walk_expr_c(a, c, true, st);
+                }
+            }
+            Expr::Invokedynamic { desc, args, .. } => {
+                for (i, a) in args.iter_mut().enumerate() {
+                    let c = desc.args.get(i).and_then(arg_ctx);
+                    walk_expr_c(a, c, true, st);
+                }
+            }
+            Expr::New { args, arg_tys, .. } => {
+                for (i, a) in args.iter_mut().enumerate() {
+                    let c = arg_tys.get(i).and_then(arg_ctx);
+                    walk_expr_c(a, c, true, st);
+                }
+            }
+            Expr::AnonNew { args, .. } => {
+                for a in args.iter_mut() {
+                    walk_expr(a, None, st);
+                }
+            }
+            Expr::Assign { target, value, .. } => {
+                // Sentinel-to-sentinel copy: the whole store is dead;
+                // its RHS is by the write gate a const-0 or a bare
+                // local, so no nested reads can hide in it.
+                if let Expr::Local { var: u, .. } = &**target {
+                    if st.eligible.contains(u) {
+                        return;
+                    }
+                }
+                let vctx = match &**target {
+                    Expr::Field { ty, .. } => {
+                        let t = ty.erased();
+                        is_ref_jt(&t).then_some(t)
+                    }
+                    Expr::ArrayIndex { array, .. } => match array.type_ref().erased() {
+                        JavaType::Array(inner) if is_ref_jt(&inner) => Some(*inner),
+                        _ => None,
+                    },
+                    _ => None,
+                };
+                walk_expr(target, None, st);
+                walk_expr(value, vctx, st);
+            }
+            Expr::Cast { ty, e: inner } => {
+                let t = ty.erased();
+                let c = is_ref_jt(&t).then_some(t);
+                walk_expr(inner, c, st);
+            }
+            Expr::InstanceOf { e: inner, .. } => {
+                walk_expr(inner, Some(JavaType::Object("java/lang/Object".into())), st);
+            }
+            Expr::Cond { c, t, f } => {
+                walk_expr(c, None, st);
+                let tc = ctx.clone();
+                walk_expr(t, tc, st);
+                walk_expr(f, ctx, st);
+            }
+            Expr::NewArray { elem, dims, init, .. } => {
+                for d in dims.iter_mut() {
+                    walk_expr(d, None, st);
+                }
+                if let Some(list) = init {
+                    let et = elem.erased();
+                    let c = is_ref_jt(&et).then_some(et);
+                    for slot in list.iter_mut() {
+                        walk_expr(slot, c.clone(), st);
+                    }
+                }
+            }
+            Expr::NewMultiArray { dims, .. } => {
+                for d in dims.iter_mut() {
+                    walk_expr(d, None, st);
+                }
+            }
+            Expr::ArrayIndex { array, index } => {
+                walk_expr(array, None, st);
+                walk_expr(index, None, st);
+            }
+            Expr::Field { owner, .. } => {
+                if let Some(o) = owner {
+                    walk_expr(o, None, st);
+                }
+            }
+            Expr::Bin { l, r, .. } => {
+                walk_expr(l, None, st);
+                walk_expr(r, None, st);
+            }
+            Expr::Un { e: inner, .. } => walk_expr(inner, None, st),
+            Expr::PreIncDec { e: inner, .. } | Expr::PostIncDec { e: inner, .. } => {
+                walk_expr(inner, None, st);
+            }
+            Expr::StringConcat(parts) => {
+                for p in parts.iter_mut() {
+                    if let ConcatPart::Str(x) = p {
+                        walk_expr(x, None, st);
+                    }
+                }
+            }
+            Expr::Lambda(l) => {
+                for c in l.captures.iter_mut() {
+                    walk_expr(c, None, st);
+                }
+            }
+            _ => {}
+        }
+    }
+    fn walk_stmt(s: &mut Stmt, st: &mut St, ret: &JavaType) {
+        match s {
+            Stmt::Block(v) => {
+                for x in v.iter_mut() {
+                    walk_stmt(x, st, ret);
+                }
+            }
+            Stmt::ExprStmt(e) => walk_expr(e, None, st),
+            Stmt::LocalDef { var, init, .. } => {
+                if let Some(e) = init {
+                    let ctx = if (*var as usize) < st.vt.vars.len() {
+                        let t = st.vt.vars[*var as usize].ty.erased();
+                        is_ref_jt(&t).then_some(t)
+                    } else {
+                        None
+                    };
+                    walk_expr(e, ctx, st);
+                }
+            }
+            Stmt::Return(e) => {
+                if let Some(x) = e {
+                    let c = is_ref_jt(ret).then(|| ret.clone());
+                    walk_expr(x, c, st);
+                }
+            }
+            Stmt::Throw(e) => {
+                walk_expr(e, Some(JavaType::Object("java/lang/Throwable".into())), st);
+            }
+            Stmt::If { cond, then_stmt, else_stmt } => {
+                walk_expr(cond, None, st);
+                walk_stmt(then_stmt, st, ret);
+                if let Some(b) = else_stmt {
+                    walk_stmt(b, st, ret);
+                }
+            }
+            Stmt::While { cond, body } => {
+                walk_expr(cond, None, st);
+                walk_stmt(body, st, ret);
+            }
+            Stmt::DoWhile { body, cond } => {
+                walk_stmt(body, st, ret);
+                walk_expr(cond, None, st);
+            }
+            Stmt::For { init, cond, update, body } => {
+                for x in init.iter_mut() {
+                    walk_stmt(x, st, ret);
+                }
+                if let Some(c) = cond {
+                    walk_expr(c, None, st);
+                }
+                for u in update.iter_mut() {
+                    walk_expr(u, None, st);
+                }
+                walk_stmt(body, st, ret);
+            }
+            Stmt::ForEach { iterable, body, .. } => {
+                walk_expr(iterable, None, st);
+                walk_stmt(body, st, ret);
+            }
+            Stmt::Switch { selector, cases, default, .. } => {
+                walk_expr(selector, None, st);
+                for c in cases.iter_mut() {
+                    if let Some(g) = &mut c.guard {
+                        walk_expr(g, None, st);
+                    }
+                    for x in c.body.iter_mut() {
+                        walk_stmt(x, st, ret);
+                    }
+                }
+                if let Some(d) = default {
+                    walk_stmt(d, st, ret);
+                }
+            }
+            Stmt::Try { body, catches, finally } => {
+                walk_stmt(body, st, ret);
+                for c in catches.iter_mut() {
+                    walk_stmt(&mut c.body, st, ret);
+                }
+                if let Some(f) = finally {
+                    walk_stmt(f, st, ret);
+                }
+            }
+            Stmt::TryWithResources { resources, body, catches, finally, .. } => {
+                for r in resources.iter_mut() {
+                    walk_stmt(r, st, ret);
+                }
+                walk_stmt(body, st, ret);
+                for c in catches.iter_mut() {
+                    walk_stmt(&mut c.body, st, ret);
+                }
+                if let Some(f) = finally {
+                    walk_stmt(f, st, ret);
+                }
+            }
+            Stmt::Assert { cond, msg } => {
+                walk_expr(cond, None, st);
+                if let Some(m) = msg {
+                    walk_expr(m, None, st);
+                }
+            }
+            Stmt::Synchronized { lock, body } => {
+                walk_expr(lock, Some(JavaType::Object("java/lang/Object".into())), st);
+                walk_stmt(body, st, ret);
+            }
+            Stmt::TernaryValue { e } => walk_expr(e, None, st),
+            Stmt::MonitorEnter(e) | Stmt::MonitorExit(e) => {
+                walk_expr(e, Some(JavaType::Object("java/lang/Object".into())), st);
+            }
+            Stmt::Labeled { body, .. } => walk_stmt(body, st, ret),
+            _ => {}
+        }
+    }
+
+    let mut st = St {
+        mode: Mode::Scan,
+        vt,
+        eligible: &eligible,
+        ref_read: HashSet::default(),
+        dead: HashSet::default(),
+        sentinels: HashSet::default(),
+        n_lit: 0,
+        n_var: 0,
+    };
+    if !eligible.is_empty() {
+        walk_stmt(body, &mut st, ret);
+        st.sentinels = eligible
+            .iter()
+            .copied()
+            .filter(|v| st.ref_read.contains(v) && !st.dead.contains(v))
+            .collect();
+    }
+    if st.sentinels.is_empty() && !has_zero {
+        return;
+    }
+    st.mode = Mode::Rewrite;
+    walk_stmt(body, &mut st, ret);
+    if std::env::var_os("DDC_SENT").is_some() {
+        eprintln!(
+            "[sent] elig={} confirmed={} lit={} var={}",
+            eligible.len(),
+            st.sentinels.len(),
+            st.n_lit,
+            st.n_var
+        );
+    }
+}
+
 /// Int-context operand bridge: a BOOLEAN-typed side of an int-kind Bin
 /// (bitwise, arithmetic, comparison against a numeric) becomes
 /// `(b ? 1 : 0)` — the dex-level truth (booleans ARE 0/1 ints there;
