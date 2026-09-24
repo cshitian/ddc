@@ -2103,10 +2103,22 @@ fn member_collision_renames(
             // either side breaks @Override ("is not abstract and does not
             // override abstract method deserialize(e)", ~2.2k on reqable);
             // the emitter's claim logic already renders only the
-            // non-bridge member of the pair.
-            let covariant = group
-                .iter()
-                .any(|m| group.iter().any(|o| o.name == m.name && o.desc != m.desc));
+            // non-bridge member of the pair. An ISOLATED class (extends
+            // Object, implements nothing — d8's ExternalSyntheticApiModel
+            // Outline shells) overrides nothing: its same-(name,params)
+            // pairs differing only by RETURN type are dex-legal distinct
+            // methods, and dropping one strands its callers on the
+            // survivor (`HalfKt$$…0.m()Class` vs `.m()V` — "void无法
+            // 转换为Class", weibo ×85+).
+            let isolated = pc
+                .super_name
+                .as_ref()
+                .map_or(true, |s| s == "java/lang/Object")
+                && pc.interfaces.is_empty();
+            let covariant = !isolated
+                && group
+                    .iter()
+                    .any(|m| group.iter().any(|o| o.name == m.name && o.desc != m.desc));
             if covariant {
                 continue;
             }

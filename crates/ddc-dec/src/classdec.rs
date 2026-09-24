@@ -1093,16 +1093,25 @@ fn emit_class_body(
     // (bridge bodies are delegation stubs); first occurrence otherwise.
     // Never drop a signature outright — the last method standing for a
     // key is always rendered.
-    fn sig_key(m: &PoolMethod) -> (&str, &str) {
-        let d: &str = &m.desc;
+    // Keyed on the DISPLAY name: a member-renamed method (return-type-
+    // only collisions on isolated classes) no longer collides with its
+    // sibling — both render, each caller resolving through the registry.
+    fn sig_key<'m>(cls: &str, renames_on: bool, m: &'m PoolMethod) -> (&'m str, &'m str) {
+        let d: &'m str = &m.desc;
         let lo = d.find('(').map(|i| i + 1).unwrap_or(0);
         let hi = d.find(')').unwrap_or(d.len());
-        (&*m.name, &d[lo..hi])
+        let n = if renames_on {
+            jdc_core::rename::field_display(cls, &m.name, d).unwrap_or(&*m.name)
+        } else {
+            &*m.name
+        };
+        (n, &d[lo..hi])
     }
+    let renames_on = jdc_core::rename::member_rename_active();
     let methods: Vec<&PoolMethod> = class.all_methods().collect();
     let mut claim: jdc_core::FxHashMap<(&str, &str), usize> = jdc_core::FxHashMap::default();
     for (i, m) in methods.iter().enumerate() {
-        let key = sig_key(m);
+        let key = sig_key(&class.name, renames_on, m);
         match claim.get(&key) {
             Some(&j)
                 if m.access & crate::access::ACC_BRIDGE == 0
@@ -1129,7 +1138,7 @@ fn emit_class_body(
         if &*m.name == "<clinit>" {
             continue; // rendered after the fields
         }
-        if claim.get(&sig_key(m)) != Some(&i) {
+        if claim.get(&sig_key(&class.name, renames_on, m)) != Some(&i) {
             continue;
         }
         // True-enum rendering: javac auto-generates values()/valueOf()
