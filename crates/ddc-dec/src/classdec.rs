@@ -1890,6 +1890,42 @@ fn emit_class_body(
         }
     }
 
+    // Static resolver helpers extracted from branched-delegation ctors
+    // (passes::extract_branched_delegation_helper) — the computation the
+    // Java first-statement rule cannot host inline.
+    for h in crate::passes::take_ctor_helpers(&class.name) {
+        if emitted_any {
+            out.push('\n');
+        }
+        out.push_str(&indent(depth + 1));
+        out.push_str("private static ");
+        out.push_str(&type_name(pool, &h.ret));
+        out.push(' ');
+        out.push_str(&h.name);
+        out.push('(');
+        for (i, (ty, nm)) in h.params.iter().enumerate() {
+            if i > 0 {
+                out.push_str(", ");
+            }
+            out.push_str(&type_name(pool, ty));
+            out.push(' ');
+            out.push_str(&java_ident(nm));
+        }
+        out.push_str(") {\n");
+        let p = Printer::new(ctx, &h.vt);
+        let text = p.with_indent(depth + 2).into_string(&h.body);
+        for line in text.lines() {
+            if line.trim().is_empty() {
+                continue;
+            }
+            out.push_str(line);
+            out.push('\n');
+        }
+        out.push_str(&indent(depth + 1));
+        out.push_str("}\n");
+        emitted_any = true;
+    }
+
     // Missing-abstract-method stubs (R8 tree-shook an interface method a
     // concrete class no longer implements; javac rejects the incomplete
     // class). Synthesized last so they sit after the real members.

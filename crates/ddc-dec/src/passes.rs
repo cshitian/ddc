@@ -6332,6 +6332,318 @@ fn var_occurs_in(stmts: &[Stmt], var: u32) -> bool {
     })
 }
 
+// ---------------------------------------------------------------------------
+// Branched-delegation ctors → static resolver helper.
+// ---------------------------------------------------------------------------
+
+/// A synthetic static method extracted from a constructor whose
+/// delegation is preceded by computation (the Kotlin default-arg /
+/// conditional-bridge shape). Rendered by classdec after the real
+/// methods; the ctor becomes a single first-statement delegation whose
+/// carrier arg is the helper call.
+pub struct CtorHelper {
+    pub name: String,
+    pub ret: JavaType,
+    pub params: Vec<(JavaType, String)>,
+    pub body: Stmt,
+    pub vt: VarTable,
+}
+
+fn ctor_helpers() -> &'static std::sync::Mutex<std::collections::HashMap<String, Vec<CtorHelper>>> {
+    static H: std::sync::OnceLock<std::sync::Mutex<std::collections::HashMap<String, Vec<CtorHelper>>>> =
+        std::sync::OnceLock::new();
+    H.get_or_init(|| std::sync::Mutex::new(std::collections::HashMap::default()))
+}
+
+/// Deterministic helper name: FNV-1a over (class, ctor descriptor) —
+/// worker-thread registration order must not leak into the output.
+fn helper_name(class: &str, desc: &str) -> String {
+    let mut h: u64 = 0xcbf29ce484222325;
+    for b in class.as_bytes().iter().chain(b"::").chain(desc.as_bytes()) {
+        h ^= *b as u64;
+        h = h.wrapping_mul(0x100000001b3);
+    }
+    format!("resolve${:x}", (h >> 16) & 0xffff_ffff)
+}
+
+/// Drain the helpers registered for a class (render-time). Sorted by
+/// name: registration order is worker-scheduling dependent.
+pub fn take_ctor_helpers(class: &str) -> Vec<CtorHelper> {
+    let mut m = ctor_helpers().lock().unwrap_or_else(|e| e.into_inner());
+    let mut v = m.remove(class).unwrap_or_default();
+    v.sort_by(|a, b| a.name.cmp(&b.name));
+    v
+}
+
+fn strip_delegations_deep(stmts: &mut Vec<Stmt>) {
+    stmts.retain(|s| !is_bare_ctor_call(s));
+    for s in stmts.iter_mut() {
+        match s {
+            Stmt::Block(v) => strip_delegations_deep(v),
+            Stmt::If { then_stmt, else_stmt, .. } => {
+                if is_bare_ctor_call(then_stmt) {
+                    *then_stmt = Box::new(Stmt::Block(Vec::new()));
+                } else if let Stmt::Block(v) = &mut **then_stmt {
+                    strip_delegations_deep(v);
+                }
+                if let Some(e) = else_stmt {
+                    if is_bare_ctor_call(e) {
+                        *e = Box::new(Stmt::Block(Vec::new()));
+                    } else if let Stmt::Block(v) = &mut **e {
+                        strip_delegations_deep(v);
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
+fn rewrite_bare_returns(stmts: &mut Vec<Stmt>, val: &Expr) {
+    for s in stmts.iter_mut() {
+        match s {
+            Stmt::Return(None) => *s = Stmt::Return(Some(val.clone())),
+            Stmt::Block(v) => rewrite_bare_returns(v, val),
+            Stmt::If { then_stmt, else_stmt, .. } => {
+                if let Stmt::Block(v) = &mut **then_stmt {
+                    rewrite_bare_returns(v, val);
+                } else if matches!(then_stmt.as_ref(), Stmt::Return(None)) {
+                    *then_stmt = Box::new(Stmt::Return(Some(val.clone())));
+                }
+                if let Some(e) = else_stmt {
+                    if let Stmt::Block(v) = &mut **e {
+                        rewrite_bare_returns(v, val);
+                    } else if matches!(e.as_ref(), Stmt::Return(None)) {
+                        *e = Box::new(Stmt::Return(Some(val.clone())));
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
+fn collect_def_vars(stmts: &[Stmt], out: &mut jdc_core::FxHashSet<u32>) {
+    for st in stmts {
+        match st {
+            Stmt::LocalDef { var, .. } => {
+                out.insert(*var);
+            }
+            Stmt::ExprStmt(Expr::Assign { target, .. }) => {
+                if let Expr::Local { var, .. } = &**target {
+                    out.insert(*var);
+                }
+            }
+            Stmt::Block(v) => collect_def_vars(v, out),
+            Stmt::If { then_stmt, else_stmt, .. } => {
+                collect_def_vars(std::slice::from_ref(then_stmt.as_ref()), out);
+                if let Some(e) = else_stmt {
+                    collect_def_vars(std::slice::from_ref(e.as_ref()), out);
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
+/// v1 extraction is limited to Block/If/straight-line computation (the
+/// Kotlin default-arg shape); loops/switch/try in the extraction bail.
+fn extraction_shape_ok(stmts: &[Stmt]) -> bool {
+    stmts.iter().all(|st| match st {
+        Stmt::Block(v) => extraction_shape_ok(v),
+        Stmt::LocalDef { .. } | Stmt::ExprStmt(_) | Stmt::Return(_) | Stmt::Throw(_) => true,
+        Stmt::If { then_stmt, else_stmt, .. } => {
+            extraction_shape_ok(std::slice::from_ref(then_stmt.as_ref()))
+                && else_stmt
+                    .as_ref()
+                    .map(|e| extraction_shape_ok(std::slice::from_ref(e.as_ref())))
+                    .unwrap_or(true)
+        }
+        _ => false,
+    })
+}
+
+fn static_safe(stmts: &[Stmt]) -> bool {
+    let mut ok = true;
+    for st in stmts {
+        let mut c = st.clone();
+        walk_stmt_exprs(&mut c, &mut |e| {
+            deep_rewrite(e, &mut |x| {
+                match x {
+                    Expr::This => ok = false,
+                    // implicit-this member access / call
+                    Expr::Field { owner: None, is_static: false, .. } => ok = false,
+                    Expr::Method { owner: None, is_static: false, .. } => ok = false,
+                    _ => {}
+                }
+            });
+        });
+    }
+    ok
+}
+
+/// The branched-delegation ctor family ("对this的调用必须是构造器中的
+/// 第一个语句", ~2k across corpora): R8 renders a Kotlin default-arg /
+/// conditional-bridge ctor as computation statements (straight-line plus
+/// mask-guarded overrides) with every control path ending in the SAME
+/// `this(a, b, carrier)` delegation. Java cannot express statements
+/// before the delegation, and unlike the linear-chain case the carrier's
+/// value is computed by multi-statement branched code that cannot fold
+/// into a ternary. Extract the computation into a synthetic
+/// `private static T resolve$X(<ctor params>)` and make the ctor a
+/// single first-statement `this(a, b, resolve$X(..))` — compilable AND
+/// faithful (jadx renders the un-compilable statements-before-this form
+/// for this family).
+///
+/// v1 gates (all conservative, bail keeps today's behavior): plain class
+/// (enums strip trace params; member-inner ctors lose the outer param at
+/// render), every delegation textually identical, exactly one non-param
+/// carrier local read exactly once across the args, the primary (last
+/// top-level) delegation exists and is not already first, computation is
+/// Block/If/straight-line only, no `this`-dependence, and no local
+/// defined in the extraction is used after the primary.
+pub fn extract_branched_delegation_helper(
+    body: &mut Stmt,
+    vt: &VarTable,
+    class: &crate::PoolClass,
+    desc_str: &str,
+) {
+    if class.is_enum() || class.nesting.enclosing_class.is_some() {
+        return;
+    }
+    let Stmt::Block(stmts) = body else { return };
+    let mut dels: Vec<Expr> = Vec::new();
+    for st in stmts.iter() {
+        let mut c = st.clone();
+        walk_stmt_exprs(&mut c, &mut |e| {
+            if is_delegation_expr(e) {
+                dels.push(e.clone());
+            }
+        });
+    }
+    if dels.is_empty() {
+        return;
+    }
+    if dels.len() == 1 && stmts.first().is_some_and(is_bare_ctor_call) {
+        return; // already first
+    }
+    if !dels.iter().all(|d| *d == dels[0]) {
+        return;
+    }
+    let template = dels[0].clone();
+    let Expr::Method { args: t_args, .. } = &template else {
+        return;
+    };
+    // Exactly ONE non-param local (the carrier), read exactly once.
+    let mut carrier: Option<u32> = None;
+    let mut reads = 0usize;
+    let mut multi = false;
+    for a in t_args.iter() {
+        let mut c = a.clone();
+        visit_exprs(&mut c, &mut |x| {
+            if let Expr::Local { var, .. } = x {
+                if (*var as usize) < vt.vars.len() && !vt.vars[*var as usize].is_param {
+                    reads += 1;
+                    match carrier {
+                        Some(v) if v == *var => {}
+                        Some(_) => multi = true,
+                        None => carrier = Some(*var),
+                    }
+                }
+            }
+        });
+    }
+    let Some(cv) = carrier else { return };
+    if multi || reads != 1 {
+        return;
+    }
+    let Some(l) = stmts.iter().rposition(is_bare_ctor_call) else {
+        return;
+    };
+    if l == 0 {
+        return;
+    }
+    let mut extracted: Vec<Stmt> = stmts[..l].to_vec();
+    if !extraction_shape_ok(&extracted) {
+        return;
+    }
+    strip_delegations_deep(&mut extracted);
+    let cv_local = Expr::Local {
+        var: cv,
+        ty: vt.var(cv).ty.clone(),
+    };
+    rewrite_bare_returns(&mut extracted, &cv_local);
+    extracted.push(Stmt::Return(Some(cv_local)));
+    if !static_safe(&extracted) {
+        return;
+    }
+    let mut defs: jdc_core::FxHashSet<u32> = jdc_core::FxHashSet::default();
+    collect_def_vars(&extracted, &mut defs);
+    if defs.iter().any(|v| var_occurs_in(&stmts[l + 1..], *v)) {
+        return;
+    }
+    let params: Vec<(u32, JavaType, String)> = vt
+        .vars
+        .iter()
+        .filter(|v| v.is_param && v.name != "this")
+        .map(|v| (v.id, v.ty.erased(), v.name.clone()))
+        .collect();
+    let ret = vt.var(cv).ty.erased();
+    let name = helper_name(&class.name, desc_str);
+    let call = Expr::Method {
+        owner: None,
+        cls: std::sync::Arc::from(class.name.as_str()),
+        name: std::sync::Arc::from(name.as_str()),
+        desc: std::sync::Arc::new(jdc_core::types::MethodDescriptor {
+            ret: ret.clone(),
+            args: params.iter().map(|p| p.1.clone()).collect(),
+        }),
+        args: params
+            .iter()
+            .map(|(id, ty, _)| Expr::Local {
+                var: *id,
+                ty: TypeRef::J(ty.clone()),
+            })
+            .collect(),
+        is_static: true,
+        is_interface: false,
+        is_special: false,
+        is_super: false,
+        is_dynamic: false,
+        type_args: Vec::new(),
+    };
+    let mut new_del = template.clone();
+    deep_rewrite(&mut new_del, &mut |x| {
+        if let Expr::Local { var, .. } = x {
+            if *var == cv {
+                *x = call.clone();
+            }
+        }
+    });
+    {
+        let mut m = ctor_helpers().lock().unwrap_or_else(|e| e.into_inner());
+        let v = m.entry(class.name.clone()).or_default();
+        if !v.iter().any(|h| h.name == name) {
+            // The extracted body skips the late pipeline polish (it left
+            // the ctor before cleanup ran) — invert empty thens so the
+            // helper doesn't render `if (..) {} else {..}`.
+            let mut hbody = Stmt::Block(extracted);
+            invert_empty_thens(&mut hbody);
+            v.push(CtorHelper {
+                name,
+                ret,
+                params: params.into_iter().map(|(_, ty, nm)| (ty, nm)).collect(),
+                body: hbody,
+                vt: vt.clone(),
+            });
+        } else {
+            return; // duplicate decompile of the same ctor: keep the first
+        }
+    }
+    let tail: Vec<Stmt> = stmts[l + 1..].to_vec();
+    *stmts = std::iter::once(Stmt::ExprStmt(new_del)).chain(tail).collect();
+}
+
 fn inline_ctor_arg_defs(
     call: &mut Stmt,
     prefix: &[&Stmt],
