@@ -2238,7 +2238,7 @@ fn member_collision_renames(
             let isolated = pc
                 .super_name
                 .as_ref()
-                .map_or(true, |s| s == "java/lang/Object")
+                .is_none_or(|s| s == "java/lang/Object")
                 && pc.interfaces.is_empty();
             let has_void = group.iter().any(|m| ret_void(m) && &*m.name != "<init>");
             let has_nonvoid = group.iter().any(|m| !ret_void(m));

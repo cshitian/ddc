@@ -4317,7 +4317,7 @@ pub fn fix_null_sentinels(body: &mut Stmt, vt: &VarTable, ret: &JavaType) {
     /// (`in(null)` "引用不明确", `ContentValues.put(String,null)` vs its
     /// 9 overloads); `(String) null` is unambiguous and jadx-shaped.
     fn walk_expr_c(e: &mut Expr, ctx: Option<JavaType>, cast_arg: bool, st: &mut St) {
-        let slot_ref = ctx.as_ref().map_or(false, is_ref_jt);
+        let slot_ref = ctx.as_ref().is_some_and(is_ref_jt);
         fn mk_null(ctx: &Option<JavaType>, cast_arg: bool) -> Expr {
             match (cast_arg, ctx) {
                 (true, Some(t)) => Expr::Cast {
