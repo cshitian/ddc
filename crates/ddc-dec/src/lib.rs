@@ -2097,6 +2097,63 @@ fn member_collision_renames(
             if group.len() < 2 {
                 continue;
             }
+            // R8 return-type specialization: a non-isolated class carries
+            // `M(args)void` (the real logic) beside the interface bridge
+            // `M(args)R` (unbox → call void → return Unit). Same erasure,
+            // so Java source can't hold both, and `void` never satisfies
+            // the interface's `R` — the claim map keeps the void side and
+            // drops the bridge, yielding "X不是抽象的, 并且未覆盖…invoke"
+            // (Kotlin suspend lambdas, weixin/lark ×1.1k). This is NOT the
+            // covariant-override shape below (void has no subtype
+            // relation): keep the BRIDGE under the original name so it
+            // satisfies the interface, and rename the void specialization
+            // so both render and the bridge's call to it resolves to the
+            // renamed method.
+            let ret_void = |m: &PoolMethod| m.desc.ends_with(")V");
+            let isolated = pc
+                .super_name
+                .as_ref()
+                .map_or(true, |s| s == "java/lang/Object")
+                && pc.interfaces.is_empty();
+            let has_void = group.iter().any(|m| ret_void(m) && &*m.name != "<init>");
+            let has_nonvoid = group.iter().any(|m| !ret_void(m));
+            if !isolated && has_void && has_nonvoid {
+                let keeper_desc: Option<&str> = group
+                    .iter()
+                    .copied()
+                    .find(|m| {
+                        m.access & crate::access::ACC_BRIDGE != 0
+                            && !ret_void(m)
+                            && &*m.name != "<init>"
+                    })
+                    .or_else(|| {
+                        group
+                            .iter()
+                            .copied()
+                            .find(|m| !ret_void(m) && &*m.name != "<init>")
+                    })
+                    .map(|m| &*m.desc);
+                let mut seen_orig: jdc_core::FxHashSet<(&str, &str)> =
+                    jdc_core::FxHashSet::default();
+                for m in group.iter().copied() {
+                    if keeper_desc == Some(&*m.desc) {
+                        seen_orig.insert((&*m.name, &*m.desc));
+                        continue; // bridge keeps the interface name
+                    }
+                    if !seen_orig.insert((&*m.name, &*m.desc)) {
+                        continue; // exact duplicate: emitter drops it
+                    }
+                    let display = suffix_unique(base, &mut m_taken);
+                    out.entry(std::sync::Arc::from(name.as_str()))
+                        .or_default()
+                        .push(jdc_core::rename::FieldRename {
+                            name: m.name.clone(),
+                            desc: m.desc.clone(),
+                            display: std::sync::Arc::from(display.as_str()),
+                        });
+                }
+                continue;
+            }
             // A COVARIANT override pair (same ORIGINAL name, different
             // descriptors — the compiler's bridge shape: the interface's
             // `deserialize(e)` plus the narrower implementation). Renaming
@@ -2110,11 +2167,6 @@ fn member_collision_renames(
             // methods, and dropping one strands its callers on the
             // survivor (`HalfKt$$…0.m()Class` vs `.m()V` — "void无法
             // 转换为Class", weibo ×85+).
-            let isolated = pc
-                .super_name
-                .as_ref()
-                .map_or(true, |s| s == "java/lang/Object")
-                && pc.interfaces.is_empty();
             let covariant = !isolated
                 && group
                     .iter()
