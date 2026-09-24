@@ -995,6 +995,11 @@ fn render_enum_args(ctx: &DexCtx<'_>, pool: &DexPool, args: &[Expr], out: &mut S
 /// merely failed to render is never double-declared, and a same-erasure
 /// return-type-specialized sibling (Family B: void `invoke` beside the
 /// Object bridge) counts as provided → no colliding stub.
+struct ParsedStub {
+    ret: JavaType,
+    args: Vec<JavaType>,
+}
+
 fn synth_missing_interface_stubs(
     pool: &DexPool,
     class: &PoolClass,
@@ -1008,38 +1013,140 @@ fn synth_missing_interface_stubs(
     if class.access & (ACC_INTERFACE | ACC_ABSTRACT | ACC_ANNOTATION) != 0 {
         return;
     }
-    if class.interfaces.is_empty() {
-        return;
-    }
     fn argsig(d: &str) -> &str {
         let lo = d.find('(').map(|i| i + 1).unwrap_or(0);
         let hi = d.find(')').unwrap_or(d.len());
         &d[lo..hi]
     }
-    // Transitive interface closure (pool-resolvable only; framework
-    // interfaces live in android.jar and javac already knows them).
-    let mut required: jdc_core::FxHashMap<(String, String), &PoolMethod> =
+    // Classic framework interfaces whose abstract methods a concrete
+    // implementer must carry. R8 strips an implementation whose call
+    // sites it proved unreachable, and the closure walk cannot see
+    // framework method lists (not in the dex) — without the table,
+    // `implements Runnable` with a stripped run() fails javac (lark
+    // Runnable.run ×8, reqable Parcelable.writeToParcel ×15,
+    // Closeable.close ×3). The stub stays ART-faithful: dispatch on
+    // the missing proto throws AbstractMethodError at runtime too.
+    const FW_IFACE_METHODS: &[(&str, &[(&str, &str)])] = &[
+        ("java/lang/Runnable", &[("run", "()V")]),
+        ("java/lang/AutoCloseable", &[("close", "()V")]),
+        ("java/io/Closeable", &[("close", "()V")]),
+        ("java/io/Flushable", &[("flush", "()V")]),
+        ("java/util/concurrent/Callable", &[("call", "()Ljava/lang/Object;")]),
+        ("java/lang/Comparable", &[("compareTo", "(Ljava/lang/Object;)I")]),
+        ("java/util/Iterator", &[("hasNext", "()Z"), ("next", "()Ljava/lang/Object;")]),
+        ("java/util/Iterable", &[("iterator", "()Ljava/util/Iterator;")]),
+        ("java/util/Enumeration", &[("hasMoreElements", "()Z"), ("nextElement", "()Ljava/lang/Object;")]),
+        ("java/util/Comparator", &[("compare", "(Ljava/lang/Object;Ljava/lang/Object;)I")]),
+        (
+            "android/os/Parcelable",
+            &[("writeToParcel", "(Landroid/os/Parcel;I)V"), ("describeContents", "()I")],
+        ),
+        ("android/view/View$OnClickListener", &[("onClick", "(Landroid/view/View;)V")]),
+        (
+            "android/content/ServiceConnection",
+            &[
+                ("onServiceConnected", "(Landroid/content/ComponentName;Landroid/os/IBinder;)V"),
+                ("onServiceDisconnected", "(Landroid/content/ComponentName;)V"),
+            ],
+        ),
+        (
+            "java/lang/Thread$UncaughtExceptionHandler",
+            &[("uncaughtException", "(Ljava/lang/Thread;Ljava/lang/Throwable;)V")],
+        ),
+    ];
+    // Transitive interface closure — seeded from the WHOLE superclass
+    // chain, not just the class's own `implements`: weixin rd extends
+    // abstract k0 implements ey2.a, R8 stripped rd's onAttach, and the
+    // old own-interfaces-only seed saw an empty requirement (×51
+    // weixin a.onAttach family). Pool interfaces contribute their
+    // method lists; framework interfaces consult the table above.
+    // (name, argsig) -> the unique declaring desc, or None when two
+    // ancestors declare the same erasure with DIFFERENT descriptors —
+    // a Java-inexpressible diamond where any synthesized stub would
+    // itself fail "无法覆盖/无法实现" (weibo +1016 regression when the
+    // first-wins desc was stubbed against a conflicting sibling).
+    let mut required: jdc_core::FxHashMap<(String, String), Option<(String, String)>> =
         jdc_core::FxHashMap::default();
     let mut defaults: jdc_core::FxHashSet<(String, String)> = jdc_core::FxHashSet::default();
-    let mut stack: Vec<&String> = class.interfaces.iter().collect();
-    let mut seen: jdc_core::FxHashSet<&str> = jdc_core::FxHashSet::default();
+    let mut stack: Vec<String> = Vec::new();
+    {
+        let mut cur: Option<&PoolClass> = Some(class);
+        let mut hops = 0;
+        while let Some(c) = cur {
+            hops += 1;
+            if hops > 64 {
+                break;
+            }
+            stack.extend(c.interfaces.iter().cloned());
+            let mut hit_fw = false;
+            cur = c.super_name.as_ref().and_then(|s| {
+                if s == "java/lang/Object" {
+                    None
+                } else {
+                    let pc = pool.get(s);
+                    if pc.is_none() {
+                        hit_fw = true;
+                    }
+                    pc
+                }
+            });
+            if hit_fw {
+                // A FRAMEWORK superclass contributes methods the pool
+                // walk cannot see: the class may already provide (or be
+                // barred from overriding — Context.getString is final)
+                // any requirement, and a stub here collided ×669 weibo.
+                // No stubs past the framework boundary.
+                return;
+            }
+        }
+    }
+    let mut seen: jdc_core::FxHashSet<String> = jdc_core::FxHashSet::default();
     while let Some(iname) = stack.pop() {
-        if !seen.insert(iname.as_str()) {
+        if !seen.insert(iname.clone()) {
             continue;
         }
-        let Some(ic) = pool.get(iname) else { continue };
+        let Some(ic) = pool.get(&iname) else {
+            for (iface, methods) in FW_IFACE_METHODS {
+                if *iface == iname.as_str() {
+                    for (mn, md) in *methods {
+                        let key = (mn.to_string(), argsig(md).to_string());
+                        match required.entry(key) {
+                            std::collections::hash_map::Entry::Vacant(v) => {
+                                v.insert(Some((mn.to_string(), md.to_string())));
+                            }
+                            std::collections::hash_map::Entry::Occupied(mut o) => {
+                                if o.get().as_ref().is_some_and(|(_, d)| d != md) {
+                                    o.insert(None);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            continue;
+        };
         for m in ic.all_methods() {
             if m.is_static() || &*m.name == "<clinit>" || &*m.name == "<init>" {
                 continue;
             }
             let key = (m.name.to_string(), argsig(&m.desc).to_string());
             if m.code_off == 0 {
-                required.entry(key).or_insert(m);
+                let mdesc = m.desc.to_string();
+                match required.entry(key) {
+                    std::collections::hash_map::Entry::Vacant(v) => {
+                        v.insert(Some((m.name.to_string(), mdesc)));
+                    }
+                    std::collections::hash_map::Entry::Occupied(mut o) => {
+                        if o.get().as_ref().is_some_and(|(_, d)| *d != mdesc) {
+                            o.insert(None);
+                        }
+                    }
+                }
             } else {
                 defaults.insert(key);
             }
         }
-        stack.extend(ic.interfaces.iter());
+        stack.extend(ic.interfaces.iter().cloned());
     }
     if required.is_empty() {
         return;
@@ -1050,8 +1157,20 @@ fn synth_missing_interface_stubs(
     provided.insert(("equals".into(), "Ljava/lang/Object;".into()));
     provided.insert(("hashCode".into(), String::new()));
     provided.insert(("toString".into(), String::new()));
+    // (name, desc) pairs whose erasure twin exists elsewhere in the
+    // chain with a DIFFERENT desc — stub-hostile shapes (see below).
+    let mut chain_sigs: jdc_core::FxHashMap<(String, String), jdc_core::FxHashSet<String>> =
+        jdc_core::FxHashMap::default();
     let mut cur: Option<&PoolClass> = Some(class);
     while let Some(c) = cur {
+        for m in c.all_methods() {
+            if !m.is_static() && &*m.name != "<init>" && &*m.name != "<clinit>" {
+                chain_sigs
+                    .entry((m.name.to_string(), argsig(&m.desc).to_string()))
+                    .or_default()
+                    .insert(m.desc.to_string());
+            }
+        }
         for m in c.all_methods() {
             // A method PROVIDES the implementation if it is not abstract:
             // bytecode (code_off != 0) OR native (JNI body, code_off == 0
@@ -1079,17 +1198,48 @@ fn synth_missing_interface_stubs(
             }
         });
     }
-    let mut missing: Vec<&PoolMethod> = Vec::new();
+    let mut chain_conflict: jdc_core::FxHashSet<(String, String)> =
+        jdc_core::FxHashSet::default();
+    for ((name, _argsig), descs) in chain_sigs.iter() {
+        if descs.len() > 1 {
+            for d in descs {
+                chain_conflict.insert((name.clone(), d.clone()));
+            }
+        }
+    }
+    let mut missing: Vec<(String, String)> = Vec::new();
     for (key, m) in &required {
+        let Some(m) = m else { continue }; // conflicting ancestor descs
         if defaults.contains(key) || provided.contains(key) {
             continue;
         }
-        missing.push(*m);
+        // Kotlin bridge variant (return kotlin/Unit beside the real
+        // boolean/object twin a framework interface declares): stubbing
+        // it renders `java.lang.Void addAll(Collection)` that neither
+        // implements the twin nor serves its callers — the poisoned
+        // return type cascades through every call site (weibo +703
+        // regression). The honest 未覆盖 error for the twin stays.
+        if m.1.ends_with(")Lkotlin/Unit;") {
+            continue;
+        }
+        // A chain method sharing the erasure but NOT the descriptor
+        // (abstract super with a different return, an impostor the
+        // rename pass left because it satisfies another ancestor):
+        // the stub would clash with it — skip; the class keeps the
+        // single honest 未覆盖 error instead of gaining a 无法覆盖 one.
+        if chain_conflict.contains(&(m.0.clone(), m.1.clone())) {
+            continue;
+        }
+        missing.push(m.clone());
     }
-    missing.sort_by(|a, b| (&*a.name, &*a.desc).cmp(&(&*b.name, &*b.desc)));
+    missing.sort();
     let ind = "    ".repeat(depth + 1);
-    for m in missing {
-        let Some(d) = m.parsed_desc() else { continue };
+    for (mname, mdesc) in missing {
+        let lo = mdesc.find('(').map(|i| i + 1).unwrap_or(0);
+        let hi = mdesc.find(')').unwrap_or(mdesc.len());
+        let ret_s = &mdesc[hi + 1..];
+        let args_v = split_arg_descs(&mdesc[lo..hi]);
+        let d = ParsedStub { ret: crate::desc_type(ret_s), args: args_v };
         if *emitted_any {
             out.push('\n');
         }
@@ -1097,7 +1247,7 @@ fn synth_missing_interface_stubs(
         out.push_str("public ");
         out.push_str(&type_name(pool, &d.ret));
         out.push(' ');
-        out.push_str(&java_ident(&m.name));
+        out.push_str(&java_ident(&mname));
         out.push('(');
         for (i, a) in d.args.iter().enumerate() {
             if i > 0 {
