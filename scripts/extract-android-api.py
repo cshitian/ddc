@@ -54,6 +54,7 @@ ACC_PUBLIC, ACC_PRIVATE, ACC_PROTECTED = 0x0001, 0x0002, 0x0004
 ACC_STATIC, ACC_FINAL = 0x0008, 0x0010
 ACC_INTERFACE, ACC_ABSTRACT = 0x0200, 0x0400
 ACC_ENUM = 0x4000
+ACC_BRIDGE, ACC_SYNTHETIC = 0x0040, 0x1000
 
 FLAG_UNKNOWN = 1 << 31
 
@@ -141,6 +142,10 @@ def member_flags(acc):
         fl |= 16
     if acc & ACC_FINAL:
         fl |= 32
+    if acc & ACC_BRIDGE:
+        fl |= 64
+    if acc & ACC_SYNTHETIC:
+        fl |= 128
     return fl
 
 

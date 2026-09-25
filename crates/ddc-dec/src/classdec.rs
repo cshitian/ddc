@@ -3378,7 +3378,7 @@ fn join_dotted(pool: &DexPool, names: &[String]) -> String {
 /// `JavaType`s. Used by the framework-ancestor ctor bridge, where the
 /// referenced sig comes from the method-id table (no pool ancestor
 /// method to read a parsed descriptor from).
-fn split_arg_descs(sig: &str) -> Vec<JavaType> {
+pub(crate) fn split_arg_descs(sig: &str) -> Vec<JavaType> {
     let mut out = Vec::new();
     let b = sig.as_bytes();
     let mut i = 0usize;

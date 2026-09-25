@@ -49,6 +49,8 @@ pub const MF_PRIVATE: u32 = 4;
 pub const MF_STATIC: u32 = 8;
 pub const MF_ABSTRACT: u32 = 16;
 pub const MF_FINAL: u32 = 32;
+pub const MF_BRIDGE: u32 = 64;
+pub const MF_SYNTHETIC: u32 = 128;
 pub const MF_UNKNOWN: u32 = 1 << 31;
 
 #[inline(always)]

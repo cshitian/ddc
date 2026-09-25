@@ -3590,14 +3590,29 @@ pub fn fix_primitive_arg_bridges(body: &mut Stmt, vt: &VarTable, pool: &crate::D
     // ambiguously most-specific). Framework owners are not in the
     // pool — conservatively report no competition.
     let overload_competes = |cls: &str, name: &str, args: &[JavaType]| -> bool {
-        let Some(c) = pool.get(cls) else {
-            return false;
-        };
-        c.all_methods().any(|m| {
-            &*m.name == name
-                && m.parsed_desc()
-                    .is_some_and(|d| d.args.len() == args.len() && d.args != args)
-        })
+        if let Some(c) = pool.get(cls) {
+            return c.all_methods().any(|m| {
+                &*m.name == name
+                    // Bridge/synthetic siblings are compiler artifacts
+                    // resolving to the SAME target — counting them as
+                    // competitors cast enum compareTo args to the erased
+                    // formal the rendered specialization no longer
+                    // accepts (Enum无法转换为LogLevel ×2,079 reqable).
+                    && m.access & (crate::access::ACC_BRIDGE | crate::access::ACC_SYNTHETIC) == 0
+                    && m.parsed_desc()
+                        .is_some_and(|d| d.args.len() == args.len() && d.args != args)
+            });
+        }
+        // Framework owner: NOT enumerable for pin purposes — the
+        // full-DB enumeration experiment (step-5) measured +532 battery
+        // with ZERO ambiguous gain: a subtype arg against a concrete
+        // erased formal fires the cast even when the call was never
+        // ambiguous, and bounded-generic formals (List<T> -> List,
+        // Property<T,Float> erasures) make the cast break inference or
+        // miss the rendered specialization. Framework subtype pins stay
+        // on the measured allowlist below.
+        let _ = args;
+        false
     };
     // Ctors: formal types via the pool (unanimous across same-arity
     // overloads, else skip — ambiguity must not guess).
