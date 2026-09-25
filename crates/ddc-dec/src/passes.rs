@@ -3514,21 +3514,13 @@ pub fn fix_primitive_arg_bridges(body: &mut Stmt, vt: &VarTable, pool: &crate::D
     /// null stays for Object formals (casting those would add noise
     /// without resolving anything javac could not already pick).
     /// Framework classes javac resolves through android.jar even when
-    /// the dex pool lacks them — org.json.JSONObject is provided by the
-    /// platform, so `publishGlobalEventToTopPage(long,String,null)`
-    /// against a JSONObject formal is cast-resolvable (weixin ambiguous
-    /// ×14) despite failing the pool lookup.
+    /// the dex pool lacks them — the embedded API database answers
+    /// precisely (the hand-written prefix list it replaced missed
+    /// everything outside the guessed roots and over-trusted within
+    /// them; removed-API families like org.apache.http are in the DB
+    /// too, matching what a legacy-jar classpath resolves).
     fn fw_resolvable(n: &str) -> bool {
-        n.starts_with("java/")
-            || n.starts_with("javax/")
-            || n.starts_with("android/")
-            || n.starts_with("dalvik/")
-            || n.starts_with("junit/")
-            || n.starts_with("org/json/")
-            || n.starts_with("org/w3c/")
-            || n.starts_with("org/xml/")
-            || n.starts_with("org/xmlpull/")
-            || n.starts_with("org/apache/http/")
+        crate::fwdb::exists(n)
     }
     fn null_arg_cast(a: &mut Expr, f: &JavaType, pool: &DexPool) -> bool {
         if !matches!(&*a, Expr::Const(ConstVal::Null)) {
@@ -8733,152 +8725,14 @@ fn split_walk_stmt(
     }
 }
 
-/// Direct supertypes of framework exception classes (internal names).
-/// Dex catch handlers legitimately list subclass+superclass pairs for
-/// one handler (verifier: first match wins); Java multi-catch forbids
-/// subtype-related alternatives ("multi-catch 语句中的替代无法通过子类化
-/// 关联" ×58: FileNotFoundException|IOException ×12,
-/// NameNotFoundException|Exception, JSONException|Exception,
-/// IllegalArgumentException|RuntimeException, …). Dropping the
-/// shadowed alternative preserves the caught set EXACTLY (same
-/// handler body, same variable). Pool hierarchies resolve through
-/// pool.is_subtype (it matches ancestor NAMES, so pool subclasses of
-/// framework exceptions work); framework classes are absent from the
-/// dex, so the stable public JDK/Android chains are tabled here —
-/// standard decompiler practice. Missing entries only lose a dedupe
-/// opportunity (safe direction); a WRONG entry would drop a live
-/// alternative, so only unambiguous chains are listed.
-static FW_EXC_SUPERS: &[(&str, &str)] = &[
-    // java.lang
-    ("java/lang/Exception", "java/lang/Throwable"),
-    ("java/lang/RuntimeException", "java/lang/Exception"),
-    ("java/lang/IllegalArgumentException", "java/lang/RuntimeException"),
-    ("java/lang/IllegalStateException", "java/lang/RuntimeException"),
-    ("java/lang/NullPointerException", "java/lang/RuntimeException"),
-    ("java/lang/ArithmeticException", "java/lang/RuntimeException"),
-    ("java/lang/ClassCastException", "java/lang/RuntimeException"),
-    ("java/lang/IndexOutOfBoundsException", "java/lang/RuntimeException"),
-    ("java/lang/ArrayIndexOutOfBoundsException", "java/lang/IndexOutOfBoundsException"),
-    ("java/lang/StringIndexOutOfBoundsException", "java/lang/IndexOutOfBoundsException"),
-    ("java/lang/NumberFormatException", "java/lang/IllegalArgumentException"),
-    ("java/lang/UnsupportedOperationException", "java/lang/RuntimeException"),
-    ("java/lang/SecurityException", "java/lang/RuntimeException"),
-    ("java/lang/NegativeArraySizeException", "java/lang/RuntimeException"),
-    ("java/lang/EnumConstantNotPresentException", "java/lang/RuntimeException"),
-    ("java/lang/TypeNotPresentException", "java/lang/RuntimeException"),
-    ("java/lang/CloneNotSupportedException", "java/lang/Exception"),
-    ("java/lang/InterruptedException", "java/lang/Exception"),
-    ("java/lang/ReflectiveOperationException", "java/lang/Exception"),
-    ("java/lang/ClassNotFoundException", "java/lang/ReflectiveOperationException"),
-    ("java/lang/NoSuchFieldException", "java/lang/ReflectiveOperationException"),
-    ("java/lang/NoSuchMethodException", "java/lang/ReflectiveOperationException"),
-    ("java/lang/InstantiationException", "java/lang/ReflectiveOperationException"),
-    ("java/lang/IllegalAccessException", "java/lang/ReflectiveOperationException"),
-    ("java/lang/reflect/InvocationTargetException", "java/lang/ReflectiveOperationException"),
-    ("java/lang/reflect/UndeclaredThrowableException", "java/lang/RuntimeException"),
-    ("java/lang/invoke/WrongMethodTypeException", "java/lang/RuntimeException"),
-    ("java/lang/annotation/IncompleteAnnotationException", "java/lang/RuntimeException"),
-    // java.lang errors
-    ("java/lang/Error", "java/lang/Throwable"),
-    ("java/lang/AssertionError", "java/lang/Error"),
-    ("java/lang/VirtualMachineError", "java/lang/Error"),
-    ("java/lang/OutOfMemoryError", "java/lang/VirtualMachineError"),
-    ("java/lang/StackOverflowError", "java/lang/VirtualMachineError"),
-    ("java/lang/LinkageError", "java/lang/Error"),
-    ("java/lang/IncompatibleClassChangeError", "java/lang/LinkageError"),
-    ("java/lang/NoSuchMethodError", "java/lang/IncompatibleClassChangeError"),
-    ("java/lang/NoSuchFieldError", "java/lang/IncompatibleClassChangeError"),
-    ("java/lang/NoClassDefFoundError", "java/lang/LinkageError"),
-    ("java/lang/ExceptionInInitializerError", "java/lang/LinkageError"),
-    ("java/lang/UnsatisfiedLinkError", "java/lang/LinkageError"),
-    ("java/lang/VerifyError", "java/lang/LinkageError"),
-    ("java/lang/ClassFormatError", "java/lang/LinkageError"),
-    ("java/lang/BootstrapMethodError", "java/lang/LinkageError"),
-    // java.util
-    ("java/util/ConcurrentModificationException", "java/lang/RuntimeException"),
-    ("java/util/NoSuchElementException", "java/lang/RuntimeException"),
-    ("java/util/MissingResourceException", "java/lang/RuntimeException"),
-    ("java/util/EmptyStackException", "java/lang/RuntimeException"),
-    ("java/util/TooManyListenersException", "java/lang/Exception"),
-    ("java/util/ServiceConfigurationError", "java/lang/Error"),
-    ("java/util/concurrent/ExecutionException", "java/lang/Exception"),
-    ("java/util/concurrent/TimeoutException", "java/lang/Exception"),
-    ("java/util/concurrent/BrokenBarrierException", "java/lang/Exception"),
-    ("java/util/concurrent/RejectedExecutionException", "java/lang/RuntimeException"),
-    ("java/util/concurrent/CompletionException", "java/lang/RuntimeException"),
-    ("java/util/concurrent/CancellationException", "java/lang/IllegalStateException"),
-    // java.io / java.net
-    ("java/io/IOException", "java/lang/Exception"),
-    ("java/io/FileNotFoundException", "java/io/IOException"),
-    ("java/io/InterruptedIOException", "java/io/IOException"),
-    ("java/io/UnsupportedEncodingException", "java/io/IOException"),
-    ("java/io/UTFDataFormatException", "java/io/IOException"),
-    ("java/io/EOFException", "java/io/IOException"),
-    ("java/io/CharConversionException", "java/io/IOException"),
-    ("java/io/ObjectStreamException", "java/io/IOException"),
-    ("java/io/InvalidObjectException", "java/io/ObjectStreamException"),
-    ("java/io/NotSerializableException", "java/io/ObjectStreamException"),
-    ("java/net/SocketException", "java/io/IOException"),
-    ("java/net/ConnectException", "java/net/SocketException"),
-    ("java/net/BindException", "java/net/SocketException"),
-    ("java/net/NoRouteToHostException", "java/net/SocketException"),
-    ("java/net/ProtocolException", "java/io/IOException"),
-    ("java/net/UnknownHostException", "java/io/IOException"),
-    ("java/net/MalformedURLException", "java/io/IOException"),
-    ("java/net/HttpRetryException", "java/io/IOException"),
-    ("java/net/SocketTimeoutException", "java/io/InterruptedIOException"),
-    ("java/net/URISyntaxException", "java/lang/Exception"),
-    // java.text / security / crypto / ssl / sax
-    ("java/text/ParseException", "java/lang/Exception"),
-    ("java/security/GeneralSecurityException", "java/lang/Exception"),
-    ("java/security/NoSuchAlgorithmException", "java/security/GeneralSecurityException"),
-    ("java/security/NoSuchProviderException", "java/security/GeneralSecurityException"),
-    ("java/security/InvalidKeyException", "java/security/GeneralSecurityException"),
-    ("java/security/InvalidAlgorithmParameterException", "java/security/GeneralSecurityException"),
-    ("java/security/SignatureException", "java/security/GeneralSecurityException"),
-    ("java/security/UnrecoverableKeyException", "java/security/GeneralSecurityException"),
-    ("java/security/KeyStoreException", "java/security/GeneralSecurityException"),
-    ("java/security/cert/CertificateException", "java/security/GeneralSecurityException"),
-    ("java/security/spec/InvalidKeySpecException", "java/security/GeneralSecurityException"),
-    ("javax/crypto/BadPaddingException", "java/security/GeneralSecurityException"),
-    ("javax/crypto/IllegalBlockSizeException", "java/security/GeneralSecurityException"),
-    ("javax/crypto/NoSuchPaddingException", "java/security/GeneralSecurityException"),
-    ("javax/crypto/ShortBufferException", "java/security/GeneralSecurityException"),
-    ("javax/net/ssl/SSLException", "java/io/IOException"),
-    ("org/xml/sax/SAXException", "java/lang/Exception"),
-    ("org/xml/sax/SAXParseException", "org/xml/sax/SAXException"),
-    ("org/json/JSONException", "java/lang/RuntimeException"),
-    ("org/xmlpull/v1/XmlPullParserException", "java/lang/Exception"),
-    ("java/util/IllegalFormatException", "java/lang/IllegalArgumentException"),
-    ("java/util/MissingFormatArgumentException", "java/util/IllegalFormatException"),
-    ("java/util/UnknownFormatConversionException", "java/util/IllegalFormatException"),
-    // android
-    ("android/util/AndroidRuntimeException", "java/lang/RuntimeException"),
-    ("android/util/AndroidException", "java/lang/Exception"),
-    ("android/content/ActivityNotFoundException", "java/lang/RuntimeException"),
-    ("android/content/ComponentNotFoundException", "java/lang/RuntimeException"),
-    ("android/content/pm/PackageManager$NameNotFoundException", "java/lang/Exception"),
-    ("android/content/res/Resources$NotFoundException", "java/lang/RuntimeException"),
-    ("android/database/SQLException", "java/lang/RuntimeException"),
-    ("android/database/sqlite/SQLiteException", "android/database/SQLException"),
-    ("android/database/CursorIndexOutOfBoundsException", "java/lang/IndexOutOfBoundsException"),
-    ("android/os/NetworkOnMainThreadException", "java/lang/RuntimeException"),
-    ("android/system/ErrnoException", "java/lang/Exception"),
-    ("android/provider/Settings$SettingNotFoundException", "android/util/AndroidException"),
-    ("android/net/UriParseException", "java/lang/RuntimeException"),
-    ("android/view/InflateException", "java/lang/RuntimeException"),
-    ("android/accounts/AuthenticatorException", "java/lang/Exception"),
-    ("android/accounts/OperationCanceledException", "android/accounts/AuthenticatorException"),
-    ("android/hardware/camera2/CameraAccessException", "java/lang/Exception"),
-    ("android/opengl/GLException", "java/lang/RuntimeException"),
-    ("android/renderscript/RSRuntimeException", "java/lang/RuntimeException"),
-];
-
+/// Framework exception super edge — the embedded API database
+/// (fwdb) replaced the hand-written ~110-entry JDK/Android exception
+/// supers table: real extends edges for EVERY framework class, so
+/// multi-catch dedupe now covers chains the table missed (and cannot
+/// carry a wrong entry — the table's failure mode was dropping a live
+/// alternative).
 fn fw_super(c: &str) -> Option<&'static str> {
-    FW_EXC_SUPERS
-        .iter()
-        .find(|(k, _)| *k == c)
-        .map(|(_, v)| *v)
+    crate::fwdb::super_of(c)
 }
 
 /// `sub <: sup` for exception-class names, combining the pool

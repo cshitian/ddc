@@ -1071,55 +1071,32 @@ struct ParsedStub {
     args: Vec<JavaType>,
 }
 
-/// Standard ctor argument signatures of the common Throwable-family
-/// framework classes. R8 strips custom exceptions to empty shells
-/// (`final class k extends Error {}`) whose callers reach Error(String)
-/// through OUTLINED ctor invokes — the method ref owner is the
-/// FRAMEWORK super, invisible to the owner-keyed ctor_ref_sigs, so the
-/// ref-driven bridges cannot fire (uuyc `throw new Bd.k("...")` ×525).
-/// Mirroring the classic set is dex-faithful (ART resolves <init> up
-/// the chain too) and each bridge is a plain super(..) delegation.
-fn throwable_ctor_sigs(fw: &str) -> Option<&'static [&'static str]> {
-    // The empty sig is included because emitting ANY explicit ctor
-    // suppresses Java's implicit default: dex callers legally reach
-    // Throwable() up the chain (`new X()` against the empty shell), and
-    // without the no-arg bridge they strand (weixin +1,464 找不到合适
-    // 的构造器 when the set omitted it). `public X() { super(); }` is
-    // exactly the implicit default.
-    const SIGS: &[&str] = &[
-        "",
-        "Ljava/lang/String;",
-        "Ljava/lang/String;Ljava/lang/Throwable;",
-        "Ljava/lang/Throwable;",
-    ];
-    matches!(
-        fw,
-        "java/lang/Throwable"
-            | "java/lang/Error"
-            | "java/lang/Exception"
-            | "java/lang/RuntimeException"
-            | "java/io/IOException"
-            | "java/io/InterruptedIOException"
-            | "java/io/UnsupportedEncodingException"
-            | "java/io/EOFException"
-            | "java/io/FileNotFoundException"
-            | "java/net/SocketException"
-            | "java/net/URISyntaxException"
-            | "java/lang/CloneNotSupportedException"
-            | "java/lang/InterruptedException"
-            | "java/lang/ReflectiveOperationException"
-            | "java/lang/ClassNotFoundException"
-            | "java/lang/NoSuchFieldException"
-            | "java/lang/NoSuchMethodException"
-            | "java/lang/InstantiationException"
-            | "java/lang/IllegalAccessException"
-            | "java/lang/reflect/InvocationTargetException"
-            | "java/security/GeneralSecurityException"
-            | "java/util/concurrent/ExecutionException"
-            | "java/util/concurrent/TimeoutException"
-            | "java/text/ParseException"
-    )
-    .then_some(SIGS)
+/// Ctor argument signatures to mirror on an empty-shell class whose
+/// ancestor chain ends at a Throwable-family FRAMEWORK class — read
+/// from the embedded API database (the hand-written 26-name table it
+/// replaced could not cover app-specific chains and hard-coded the
+/// sig set instead of the real one). Private ctors are skipped: the
+/// bridge `super(..)` would not compile against them (Throwable's
+/// 4-arg suppression ctor is private).
+fn throwable_ctor_sigs(fw: &str) -> Option<Vec<String>> {
+    if !crate::fwdb::is_subtype(fw, "java/lang/Throwable") {
+        return None;
+    }
+    let mut out: Vec<String> = Vec::new();
+    crate::fwdb::for_each_method(fw, |d, f| {
+        if d.starts_with("<init>(")
+            && f & crate::fwdb::MF_STATIC == 0
+            && f & crate::fwdb::MF_PRIVATE == 0
+            && f & crate::fwdb::MF_UNKNOWN == 0
+        {
+            let hi = d.find(')').unwrap_or(d.len());
+            let lo = d.find('(').map(|i| i + 1).unwrap_or(0);
+            out.push(d[lo..hi].to_string());
+        }
+    });
+    out.sort();
+    out.dedup();
+    Some(out)
 }
 
 fn synth_missing_interface_stubs(
@@ -1140,42 +1117,9 @@ fn synth_missing_interface_stubs(
         let hi = d.find(')').unwrap_or(d.len());
         &d[lo..hi]
     }
-    // Classic framework interfaces whose abstract methods a concrete
-    // implementer must carry. R8 strips an implementation whose call
-    // sites it proved unreachable, and the closure walk cannot see
-    // framework method lists (not in the dex) — without the table,
-    // `implements Runnable` with a stripped run() fails javac (lark
-    // Runnable.run ×8, reqable Parcelable.writeToParcel ×15,
-    // Closeable.close ×3). The stub stays ART-faithful: dispatch on
-    // the missing proto throws AbstractMethodError at runtime too.
-    const FW_IFACE_METHODS: &[(&str, &[(&str, &str)])] = &[
-        ("java/lang/Runnable", &[("run", "()V")]),
-        ("java/lang/AutoCloseable", &[("close", "()V")]),
-        ("java/io/Closeable", &[("close", "()V")]),
-        ("java/io/Flushable", &[("flush", "()V")]),
-        ("java/util/concurrent/Callable", &[("call", "()Ljava/lang/Object;")]),
-        ("java/lang/Comparable", &[("compareTo", "(Ljava/lang/Object;)I")]),
-        ("java/util/Iterator", &[("hasNext", "()Z"), ("next", "()Ljava/lang/Object;")]),
-        ("java/util/Iterable", &[("iterator", "()Ljava/util/Iterator;")]),
-        ("java/util/Enumeration", &[("hasMoreElements", "()Z"), ("nextElement", "()Ljava/lang/Object;")]),
-        ("java/util/Comparator", &[("compare", "(Ljava/lang/Object;Ljava/lang/Object;)I")]),
-        (
-            "android/os/Parcelable",
-            &[("writeToParcel", "(Landroid/os/Parcel;I)V"), ("describeContents", "()I")],
-        ),
-        ("android/view/View$OnClickListener", &[("onClick", "(Landroid/view/View;)V")]),
-        (
-            "android/content/ServiceConnection",
-            &[
-                ("onServiceConnected", "(Landroid/content/ComponentName;Landroid/os/IBinder;)V"),
-                ("onServiceDisconnected", "(Landroid/content/ComponentName;)V"),
-            ],
-        ),
-        (
-            "java/lang/Thread$UncaughtExceptionHandler",
-            &[("uncaughtException", "(Ljava/lang/Thread;Ljava/lang/Throwable;)V")],
-        ),
-    ];
+    // Framework interface method lists come from the embedded API
+    // database (fwdb) — see the lookup below.
+
     // Transitive interface closure — seeded from the WHOLE superclass
     // chain, not just the class's own `implements`: weixin rd extends
     // abstract k0 implements ey2.a, R8 stripped rd's onAttach, and the
@@ -1228,22 +1172,34 @@ fn synth_missing_interface_stubs(
             continue;
         }
         let Some(ic) = pool.get(&iname) else {
-            for (iface, methods) in FW_IFACE_METHODS {
-                if *iface == iname.as_str() {
-                    for (mn, md) in *methods {
-                        let key = (mn.to_string(), argsig(md).to_string());
-                        match required.entry(key) {
-                            std::collections::hash_map::Entry::Vacant(v) => {
-                                v.insert(Some((mn.to_string(), md.to_string())));
-                            }
-                            std::collections::hash_map::Entry::Occupied(mut o) => {
-                                if o.get().as_ref().is_some_and(|(_, d)| d != md) {
-                                    o.insert(None);
-                                }
+            // Framework interface: the embedded API database provides
+            // its abstract instance methods with real access flags
+            // (abstract, not static, not default) — the hand-written
+            // 13-interface table this replaced covered only classics.
+            if crate::fwdb::class_flags(&iname) & crate::fwdb::CF_INTERFACE != 0 {
+                crate::fwdb::for_each_method(&iname, |d, f| {
+                    if f & crate::fwdb::MF_ABSTRACT == 0
+                        || f & crate::fwdb::MF_STATIC != 0
+                        || f & crate::fwdb::MF_UNKNOWN != 0
+                        || d.starts_with("<init>")
+                    {
+                        return;
+                    }
+                    let hi = d.find('(').unwrap_or(d.len());
+                    let mn = d[..hi].to_string();
+                    let md = d[hi..].to_string();
+                    let key = (mn.clone(), argsig(&md).to_string());
+                    match required.entry(key) {
+                        std::collections::hash_map::Entry::Vacant(v) => {
+                            v.insert(Some((mn, md)));
+                        }
+                        std::collections::hash_map::Entry::Occupied(mut o) => {
+                            if o.get().as_ref().is_some_and(|(_, d0)| *d0 != md) {
+                                o.insert(None);
                             }
                         }
                     }
-                }
+                });
             }
             continue;
         };
@@ -2379,9 +2335,9 @@ fn emit_class_body(
             // z(String)` (+60 weixin dup-def). The empty sig is exempt
             // there, so the table keeps it.
             let ref_sigs = pool.ctor_ref_sigs(&class.name);
-            for sig in sigs {
+            for sig in &sigs {
                 if !sig.is_empty()
-                    && ref_sigs.is_some_and(|rs| rs.contains(*sig))
+                    && ref_sigs.is_some_and(|rs| rs.contains(sig))
                 {
                     continue;
                 }
@@ -3868,10 +3824,10 @@ fn is_view_subclass(pool: &DexPool, class: &PoolClass) -> bool {
         match pool.get(&s) {
             Some(sc) => cur = sc.super_name.clone(),
             None => {
-                return s.starts_with("android/widget/")
-                    || s.starts_with("android/view/")
-                    || s.starts_with("android/webkit/")
-                    || s.starts_with("android/inputmethodservice/");
+                // Framework boundary: the embedded API database decides
+                // precisely (the prefix list it replaced over-included
+                // non-View android classes and missed exotic roots).
+                return crate::fwdb::is_subtype(s.as_str(), "android/view/View");
             }
         }
     }
