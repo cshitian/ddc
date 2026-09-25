@@ -1000,6 +1000,57 @@ struct ParsedStub {
     args: Vec<JavaType>,
 }
 
+/// Standard ctor argument signatures of the common Throwable-family
+/// framework classes. R8 strips custom exceptions to empty shells
+/// (`final class k extends Error {}`) whose callers reach Error(String)
+/// through OUTLINED ctor invokes — the method ref owner is the
+/// FRAMEWORK super, invisible to the owner-keyed ctor_ref_sigs, so the
+/// ref-driven bridges cannot fire (uuyc `throw new Bd.k("...")` ×525).
+/// Mirroring the classic set is dex-faithful (ART resolves <init> up
+/// the chain too) and each bridge is a plain super(..) delegation.
+fn throwable_ctor_sigs(fw: &str) -> Option<&'static [&'static str]> {
+    // The empty sig is included because emitting ANY explicit ctor
+    // suppresses Java's implicit default: dex callers legally reach
+    // Throwable() up the chain (`new X()` against the empty shell), and
+    // without the no-arg bridge they strand (weixin +1,464 找不到合适
+    // 的构造器 when the set omitted it). `public X() { super(); }` is
+    // exactly the implicit default.
+    const SIGS: &[&str] = &[
+        "",
+        "Ljava/lang/String;",
+        "Ljava/lang/String;Ljava/lang/Throwable;",
+        "Ljava/lang/Throwable;",
+    ];
+    matches!(
+        fw,
+        "java/lang/Throwable"
+            | "java/lang/Error"
+            | "java/lang/Exception"
+            | "java/lang/RuntimeException"
+            | "java/io/IOException"
+            | "java/io/InterruptedIOException"
+            | "java/io/UnsupportedEncodingException"
+            | "java/io/EOFException"
+            | "java/io/FileNotFoundException"
+            | "java/net/SocketException"
+            | "java/net/URISyntaxException"
+            | "java/lang/CloneNotSupportedException"
+            | "java/lang/InterruptedException"
+            | "java/lang/ReflectiveOperationException"
+            | "java/lang/ClassNotFoundException"
+            | "java/lang/NoSuchFieldException"
+            | "java/lang/NoSuchMethodException"
+            | "java/lang/InstantiationException"
+            | "java/lang/IllegalAccessException"
+            | "java/lang/reflect/InvocationTargetException"
+            | "java/security/GeneralSecurityException"
+            | "java/util/concurrent/ExecutionException"
+            | "java/util/concurrent/TimeoutException"
+            | "java/text/ParseException"
+    )
+    .then_some(SIGS)
+}
+
 fn synth_missing_interface_stubs(
     pool: &DexPool,
     class: &PoolClass,
@@ -2174,9 +2225,12 @@ fn emit_class_body(
                     .collect();
                 missing.sort();
                 for sig in missing {
-                    // A no-ctor class already gets Java's default
-                    // `C(){super();}` — never bridge the empty sig for it.
-                    if sig.is_empty() && declared.is_empty() {
+                    // Never bridge the empty sig here: a no-ctor class
+                    // gets Java's implicit default, and a class WITH
+                    // ctors is covered by the referenced-but-undeclared
+                    // block's Object-walk tail (emitting in both was
+                    // `已在类 b0中定义了构造器 b0()` ×6 weixin).
+                    if sig.is_empty() {
                         continue;
                     }
                     let args = split_arg_descs(sig);
@@ -2207,6 +2261,86 @@ fn emit_class_body(
                     out.push_str(&format!("    {}}}\n", "    ".repeat(depth)));
                     emitted_any = true;
                 }
+            }
+        }
+    }
+
+    // Throwable-family ctor bridge for empty-shell exception classes
+    // (see throwable_ctor_sigs). Walks the pool chain to the nearest
+    // FRAMEWORK ancestor, stopping at any pool ancestor that DECLARES
+    // ctors (the mirror block above covers that shape) — so chains of
+    // empty shells (C extends P extends Error) each get the bridges and
+    // every super(..) resolves against its parent's bridge.
+    if !class.is_interface()
+        && enum_consts.is_none()
+        && !class.all_methods().any(|m| &*m.name == "<init>")
+    {
+        let mut fw_anc: Option<&str> = None;
+        if let Some(sup) = class.super_name.as_deref() {
+            let mut cur = sup;
+            let mut hops = 0;
+            loop {
+                hops += 1;
+                if hops > 32 || cur == "java/lang/Object" {
+                    break;
+                }
+                match pool.get(cur) {
+                    Some(sc) => {
+                        if sc.all_methods().any(|m| &*m.name == "<init>") {
+                            break;
+                        }
+                        match sc.super_name.as_deref() {
+                            Some(n) => cur = n,
+                            None => break,
+                        }
+                    }
+                    None => {
+                        fw_anc = Some(cur);
+                        break;
+                    }
+                }
+            }
+        }
+        if let Some(sigs) = fw_anc.and_then(throwable_ctor_sigs) {
+            // The framework-ancestor bridge above already emitted every
+            // sig the dex method-ref table attributes to this class —
+            // emitting the table copy too was `已在类 z中定义了构造器
+            // z(String)` (+60 weixin dup-def). The empty sig is exempt
+            // there, so the table keeps it.
+            let ref_sigs = pool.ctor_ref_sigs(&class.name);
+            for sig in sigs {
+                if !sig.is_empty()
+                    && ref_sigs.is_some_and(|rs| rs.contains(*sig))
+                {
+                    continue;
+                }
+                let args = split_arg_descs(sig);
+                if emitted_any {
+                    out.push('\n');
+                }
+                out.push_str(&format!("    {}", "    ".repeat(depth)));
+                out.push_str("public ");
+                out.push_str(&sanitize_ref(&simple));
+                out.push('(');
+                let mut names = Vec::with_capacity(args.len());
+                for (i, a) in args.iter().enumerate() {
+                    if i > 0 {
+                        out.push_str(", ");
+                    }
+                    out.push_str(&type_name(pool, a));
+                    let nm = format!("p{}", i + 1);
+                    out.push(' ');
+                    out.push_str(&nm);
+                    names.push(nm);
+                }
+                out.push_str(") {\n");
+                out.push_str(&format!(
+                    "    {}    super({});\n",
+                    "    ".repeat(depth),
+                    names.join(", ")
+                ));
+                out.push_str(&format!("    {}}}\n", "    ".repeat(depth)));
+                emitted_any = true;
             }
         }
     }
