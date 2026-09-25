@@ -150,8 +150,8 @@ fn decompile_class_impl(
     // positions DISCOVER additional obscured refs on the fly — then the
     // file assembles as provenance + package + imports + body. The one
     // extra body copy is the price of correct import placement.
-    let view_shadow = is_view_subclass(pool, class);
-    let mut obscured_map = compute_obscured_renders(pool, class, view_shadow);
+    let shadow = inherited_field_shadows(pool, class);
+    let mut obscured_map = compute_obscured_renders(pool, class, &shadow);
     // Same-package simple-name collisions: an import shadows every
     // same-package use of that simple in this file — drop those from
     // the map (their refs stay qualified, erroring honestly).
@@ -259,7 +259,7 @@ fn decompile_class_impl(
         obscured_map.clone(),
         blocked.clone(),
         blocked_renamed,
-        view_shadow,
+        shadow,
     );
     let mut body_buf = String::with_capacity(out.capacity() / 2);
     let body_res = emit_class_body(pool, class, &ctx, opts, &mut body_buf, 0);
@@ -3436,14 +3436,15 @@ struct ObscureState {
     /// The ROOT class being rendered (its simple name is the obscuring
     /// in-scope name).
     class: String,
-    /// The root class transitively extends android.view.View: it
-    /// INHERITS the static Property fields View.X/Y/Z (API 31+), and
-    /// an inherited member variable obscures a package's first segment
-    /// in expression position (JLS 6.4.2) — every `X.foo` qualified
-    /// ref inside the file would bind to the field (WhatsApp ×30,171:
-    /// 431 custom-View files against its obfuscated package X). Those
-    /// refs route through the import layer like own-simple obscuring.
-    view_shadow: bool,
+    /// Field names in scope through the root class's inheritance chain
+    /// (own + pool ancestors + framework ancestors' statics/instances +
+    /// interface constants). An in-scope field obscures a package's
+    /// first segment in expression position (JLS 6.4.2) — WhatsApp's
+    /// View subclasses inherit the static Property X/Y/Z (API 31+) and
+    /// its whole obfuscated codebase lives in package X (×30,171); the
+    /// general set replaces the hardcoded X/Y/Z list. Obscured refs
+    /// route through the import layer like own-simple obscuring.
+    shadow: jdc_core::FxHashSet<String>,
     /// Metadata pre-scan results: internal → simple render.
     map: jdc_core::FxHashMap<String, String>,
     /// Expression-level obscured refs DISCOVERED during the body render
@@ -3471,12 +3472,12 @@ pub(crate) fn set_obscured_state(
     map: jdc_core::FxHashMap<String, String>,
     blocked: jdc_core::FxHashSet<String>,
     blocked_renamed: Option<&'static jdc_core::FxHashSet<String>>,
-    view_shadow: bool,
+    shadow: jdc_core::FxHashSet<String>,
 ) {
     OBSCURE.with(|m| {
         *m.borrow_mut() = Some(ObscureState {
             class,
-            view_shadow,
+            shadow,
             map,
             recorded: jdc_core::FxHashSet::default(),
             blocked,
@@ -3777,8 +3778,7 @@ pub(crate) fn obscured_render_pub(internal: &str) -> Option<String> {
         // field h shadow it — 无法在调用超类型构造器之前引用h ×23).
         let own_renamed = crate::apply_class_rename(&st.class);
         let own = own_renamed.rsplit(['/', '$']).next().unwrap_or("");
-        let seg_obscured =
-            first == own || (st.view_shadow && matches!(first, "X" | "Y" | "Z"));
+        let seg_obscured = first == own || st.shadow.contains(first);
         if seg_obscured && internal.split('/').count() >= 2 {
             // A NESTED internal's in-scope simple name is its `$` tail
             // (`x/a$b` imports/renders as `b`) — the slash-tail left the
@@ -3806,32 +3806,86 @@ pub(crate) fn obscured_render_pub(internal: &str) -> Option<String> {
     })
 }
 
-/// True when `class` transitively extends android.view.View (pool
-/// chain, then a framework-boundary prefix check: any android/widget,
-/// android/view, android/webkit or inputmethodservice ancestor is a
-/// View descendant and carries the inherited View.X/Y/Z statics).
-fn is_view_subclass(pool: &DexPool, class: &PoolClass) -> bool {
-    let mut cur = class.super_name.clone();
-    let mut hops = 0;
-    while let Some(s) = cur {
-        hops += 1;
-        if hops > 64 {
-            break;
+/// Field names in scope for `class` through inheritance: own fields,
+/// pool ancestors (supers + interfaces, transitively), and framework
+/// ancestors via the embedded API database (chain sets memoized
+/// process-wide — every View subclass shares the View/ViewGroup/Object
+/// field union, so the per-file cost is its own pool chain only).
+fn inherited_field_shadows(
+    pool: &DexPool,
+    class: &PoolClass,
+) -> jdc_core::FxHashSet<String> {
+    fn fw_chain_fields(boundary: &str) -> std::sync::Arc<jdc_core::FxHashSet<String>> {
+        use std::sync::{Mutex, OnceLock};
+        static CACHE: OnceLock<Mutex<jdc_core::FxHashMap<String, std::sync::Arc<jdc_core::FxHashSet<String>>>>> =
+            OnceLock::new();
+        let cache = CACHE.get_or_init(|| Mutex::new(jdc_core::FxHashMap::default()));
+        if let Some(hit) = cache.lock().unwrap_or_else(|e| e.into_inner()).get(boundary) {
+            return hit.clone();
         }
-        if s == "android/view/View" {
-            return true;
-        }
-        match pool.get(&s) {
-            Some(sc) => cur = sc.super_name.clone(),
-            None => {
-                // Framework boundary: the embedded API database decides
-                // precisely (the prefix list it replaced over-included
-                // non-View android classes and missed exotic roots).
-                return crate::fwdb::is_subtype(s.as_str(), "android/view/View");
+        let mut set: jdc_core::FxHashSet<String> = jdc_core::FxHashSet::default();
+        let mut stack: Vec<&str> = vec![boundary];
+        let mut seen: jdc_core::FxHashSet<&str> = jdc_core::FxHashSet::default();
+        let mut hops = 0usize;
+        while let Some(c) = stack.pop() {
+            hops += 1;
+            if hops > 256 || !seen.insert(c) {
+                continue;
             }
+            crate::fwdb::for_each_field(c, |n, f| {
+                // STATIC only: instance fields shadow qualified refs in
+                // instance contexts but NOT in static ones, and the
+                // render decision is context-free — the static subset
+                // is the sound approximation (View.X/Y/Z are static;
+                // including instance fields cost +33 battery).
+                if f & crate::fwdb::MF_STATIC != 0 {
+                    set.insert(n.to_string());
+                }
+            });
+            if let Some(sup) = crate::fwdb::super_of(c) {
+                stack.push(sup);
+            }
+            crate::fwdb::for_each_interface(c, |i| stack.push(i));
         }
+        let arc = std::sync::Arc::new(set);
+        cache
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .insert(boundary.to_string(), arc.clone());
+        arc
     }
-    false
+
+    let mut out: jdc_core::FxHashSet<String> = jdc_core::FxHashSet::default();
+    let mut stack: Vec<String> = vec![class.name.to_string()];
+    let mut seen: jdc_core::FxHashSet<String> = jdc_core::FxHashSet::default();
+    let mut hops = 0usize;
+    while let Some(cn) = stack.pop() {
+        hops += 1;
+        if hops > 512 || !seen.insert(cn.clone()) {
+            continue;
+        }
+        let Some(pc) = pool.get(&cn) else {
+            // Framework boundary: memoized chain set.
+            out.extend(fw_chain_fields(&cn).iter().cloned());
+            continue;
+        };
+        for f in pc.static_fields.iter() {
+            out.insert(f.name.to_string());
+        }
+        if let Some(sup) = &pc.super_name {
+            if sup != "java/lang/Object" {
+                stack.push(sup.clone());
+            } else {
+                // Object itself lives in the DB (its fields shadow too —
+                // none exist, but interface constants reached via
+                // interfaces below still do).
+            }
+        } else {
+            // Interface (no super): java/lang/Object contributes nothing.
+        }
+        stack.extend(pc.interfaces.iter().cloned());
+    }
+    out
 }
 
 /// The pre-scan: internal names referenced by the class's metadata
@@ -3841,7 +3895,7 @@ fn is_view_subclass(pool: &DexPool, class: &PoolClass) -> bool {
 fn compute_obscured_renders(
     pool: &DexPool,
     class: &PoolClass,
-    view_shadow: bool,
+    shadow: &jdc_core::FxHashSet<String>,
 ) -> jdc_core::FxHashMap<String, String> {
     let own_renamed = crate::apply_class_rename(&class.name);
     let own_simple = own_renamed.rsplit(['/', '$']).next().unwrap_or("");
@@ -3882,8 +3936,7 @@ fn compute_obscured_renders(
         // class renders under its display name and an import of the
         // internal name does not resolve.
         let first = r.split('/').next().unwrap_or("");
-        let seg_obscured =
-            first == own_simple || (view_shadow && matches!(first, "X" | "Y" | "Z"));
+        let seg_obscured = first == own_simple || shadow.contains(first);
         if seg_obscured && r.split('/').count() >= 2 && pool.get(&r).is_some() {
             // Own-family refs (the class itself, its nested members)
             // render through member scope — an import would be redundant
