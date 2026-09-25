@@ -93,9 +93,9 @@ dependencies = [
 
 [[package]]
 name = "jdc-core"
-version = "0.2.8"
+version = "0.2.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f67551d3a47997f4444a452ea3fb9da9595949ea6eafab60e86b59394a3b9418"
+checksum = "ee15d45165f04b29358a92391d18a77106f2898b5c70eed47bd73b736d73ef56"
 dependencies = [
  "bitflags",
 ]
