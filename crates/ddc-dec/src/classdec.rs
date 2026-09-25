@@ -167,22 +167,58 @@ fn decompile_class_impl(
     // y02 while h72 declares a raw class y0 — the raw-only blocked set
     // let the y02 import through on one side and killed it on the
     // other, stranding 622 bare `y02` refs).
+    // Renamed-display blocking: a ZERO-COPY view into the process-wide
+    // per-package cache (built once from the rename registry — iterating
+    // `blocked` through apply_class_rename per FILE was O(files ×
+    // package): WhatsApp's ~10k-class package X cost 1,269 cumulative
+    // worker-seconds, decompile 24s → 134s; per-file clones of the
+    // extension set still cost 184s).
+    static PKG_RENAMED_DISPLAYS: std::sync::OnceLock<
+        jdc_core::FxHashMap<String, jdc_core::FxHashSet<String>>,
+    > = std::sync::OnceLock::new();
+    let blocked_renamed: Option<&'static jdc_core::FxHashSet<String>> = {
+        let cache = PKG_RENAMED_DISPLAYS.get_or_init(|| {
+            let mut m: jdc_core::FxHashMap<String, jdc_core::FxHashSet<String>> =
+                jdc_core::FxHashMap::default();
+            if let Some(ren) = jdc_core::rename::with_renames(|r| r.clone()) {
+                for (raw, disp) in ren.iter() {
+                    if raw == disp {
+                        continue;
+                    }
+                    let pkg_key = raw.rfind('/').map(|i| &raw[..i]).unwrap_or("");
+                    let tail = disp
+                        .rsplit(['/', '$'])
+                        .next()
+                        .unwrap_or(disp.as_str())
+                        .to_string();
+                    m.entry(pkg_key.to_string()).or_default().insert(tail);
+                }
+            }
+            m
+        });
+        cache.get(&pkg)
+    };
+    // In-file member shadowing: the own class's FIELDS and its family's
+    // nested-class tails are in scope inside the body and shadow any
+    // single-type import of the same simple (JLS 6.4.1/6.4.2) — an
+    // obscured simple colliding with them cannot be imported.
     {
+        let own_raw = class.name.rsplit('/').next().unwrap_or("");
+        let prefix = format!("{}$", own_raw);
         let extras: Vec<String> = blocked
             .iter()
-            .map(|sm| {
-                let internal =
-                    if pkg.is_empty() { sm.clone() } else { format!("{}/{}", pkg, sm) };
-                let d = crate::apply_class_rename(&internal);
-                d.rsplit(['/', '$'])
-                    .next()
-                    .unwrap_or(sm.as_str())
-                    .to_string()
-            })
+            .filter(|b| b.starts_with(&prefix))
+            .filter_map(|b| b.rsplit('$').next().map(|t| t.to_string()))
             .collect();
         blocked.extend(extras);
+        for f in class.static_fields.iter().chain(class.instance_fields.iter()) {
+            blocked.insert(crate::classdec::java_ident(&f.name).into_owned());
+        }
     }
-    obscured_map.retain(|_internal, simple| !blocked.contains(simple));
+    obscured_map.retain(|_internal, simple| {
+        !blocked.contains(simple)
+            && !blocked_renamed.is_some_and(|e| e.contains(simple))
+    });
     // Display-simple collisions cannot coexist as single-type imports:
     // importing simple `n` while THIS file declares `n` is a JLS 7.5.1
     // error, and two imports of the same simple make every use of it
@@ -222,6 +258,7 @@ fn decompile_class_impl(
         class.name.clone(),
         obscured_map.clone(),
         blocked.clone(),
+        blocked_renamed,
         view_shadow,
     );
     let mut body_buf = String::with_capacity(out.capacity() / 2);
@@ -245,7 +282,10 @@ fn decompile_class_impl(
                 // blocked check must use the same name the refs render.
                 let display = crate::apply_class_rename(&r);
                 let simple = display.rsplit(['/', '$']).next().unwrap_or("");
-                if !simple.is_empty() && !blocked.contains(simple) {
+                if !simple.is_empty()
+                    && !blocked.contains(simple)
+                    && !blocked_renamed.is_some_and(|e| e.contains(simple))
+                {
                     import_set.insert(r);
                 }
             }
@@ -3458,6 +3498,10 @@ struct ObscureState {
     /// this file (JLS 7.5.1) — those refs stay qualified (obscured,
     /// erroring) rather than corrupt.
     blocked: jdc_core::FxHashSet<String>,
+    /// RENAMED display tails of same-package classes (zero-copy view
+    /// into the process-wide cache): same blocking role as `blocked`
+    /// for refs that render under the rename registry.
+    blocked_renamed: Option<&'static jdc_core::FxHashSet<String>>,
 }
 
 thread_local! {
@@ -3470,6 +3514,7 @@ pub(crate) fn set_obscured_state(
     class: String,
     map: jdc_core::FxHashMap<String, String>,
     blocked: jdc_core::FxHashSet<String>,
+    blocked_renamed: Option<&'static jdc_core::FxHashSet<String>>,
     view_shadow: bool,
 ) {
     OBSCURE.with(|m| {
@@ -3479,6 +3524,7 @@ pub(crate) fn set_obscured_state(
             map,
             recorded: jdc_core::FxHashSet::default(),
             blocked,
+            blocked_renamed,
         });
     });
 }
@@ -3767,7 +3813,14 @@ pub(crate) fn obscured_render_pub(internal: &str) -> Option<String> {
             return Some(simple.clone());
         }
         let first = internal.split('/').next().unwrap_or("");
-        let own = st.class.rsplit('/').next().unwrap_or("");
+        // The DISPLAY own simple: when the root class itself was renamed
+        // (case-collision `widget/d` → `widget/d2`), no in-scope type
+        // bears the raw name any more — the package's first segment is
+        // NOT obscured and the qualified render is the correct one
+        // (reqable d2.java: importing d.h let the class's own boolean
+        // field h shadow it — 无法在调用超类型构造器之前引用h ×23).
+        let own_renamed = crate::apply_class_rename(&st.class);
+        let own = own_renamed.rsplit(['/', '$']).next().unwrap_or("");
         let seg_obscured =
             first == own || (st.view_shadow && matches!(first, "X" | "Y" | "Z"));
         if seg_obscured && internal.split('/').count() >= 2 {
@@ -3785,7 +3838,10 @@ pub(crate) fn obscured_render_pub(internal: &str) -> Option<String> {
                 .next()
                 .unwrap_or("")
                 .to_string();
-            if !simple.is_empty() && !st.blocked.contains(&simple) {
+            if !simple.is_empty()
+                && !st.blocked.contains(&simple)
+                && !st.blocked_renamed.is_some_and(|e| e.contains(&simple))
+            {
                 st.recorded.insert(internal.to_string());
                 return Some(simple);
             }
@@ -3831,7 +3887,8 @@ fn compute_obscured_renders(
     class: &PoolClass,
     view_shadow: bool,
 ) -> jdc_core::FxHashMap<String, String> {
-    let own_simple = class.name.rsplit('/').next().unwrap_or("");
+    let own_renamed = crate::apply_class_rename(&class.name);
+    let own_simple = own_renamed.rsplit(['/', '$']).next().unwrap_or("");
     if own_simple.is_empty() {
         return jdc_core::FxHashMap::default();
     }
