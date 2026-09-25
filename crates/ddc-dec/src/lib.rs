@@ -7,6 +7,7 @@
 
 pub mod cfg;
 pub mod classdec;
+pub mod fwdb;
 
 pub use classdec::{sanitize_fq, ClassOptions};
 pub mod ctx;
@@ -783,7 +784,22 @@ impl DexPool {
             }
             return sub_elem == sup_elem;
         }
+        // Everything reference-typed is Object-assignable (the pool walk
+        // used to fall off the chain end and answer false for
+        // String <: Object — the hand-written Object-formal special case
+        // in the ambiguity pin existed for exactly this hole).
+        if sup == "java/lang/Object" {
+            return !matches!(
+                sub,
+                "I" | "Z" | "B" | "S" | "C" | "J" | "F" | "D" | "V"
+            );
+        }
         let mut cur = self.get(sub);
+        if cur.is_none() {
+            // `sub` is a framework (or phantom) type: the embedded API
+            // database decides (phantoms are absent there too → false).
+            return crate::fwdb::is_subtype(sub, sup);
+        }
         let mut hops = 0;
         while let Some(c) = cur {
             hops += 1;
@@ -798,7 +814,11 @@ impl DexPool {
             match &c.super_name {
                 Some(s) if s == sup => return true,
                 Some(s) if s != "java/lang/Object" => {
-                    cur = self.get(s);
+                    match self.get(s) {
+                        Some(sc) => cur = Some(sc),
+                        // Framework boundary: continue in the embedded DB.
+                        None => return crate::fwdb::is_subtype(s, sup),
+                    }
                 }
                 _ => return false,
             }
