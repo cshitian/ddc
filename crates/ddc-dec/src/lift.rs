@@ -1420,10 +1420,20 @@ impl<'a> Lifter<'a> {
                 raw: true, cls: nc, ..
             }) = &recv_state
             {
-                if nc == &cls {
+                // R8 constructor outlining / vertical class merging:
+                // `new-instance Child` + `invoke-direct Parent-><init>`
+                // — the child's trivial ctor was stripped and the verifier
+                // allows the super-ctor call on the uninitialized
+                // instance. The CONSTRUCTED class is the new-instance
+                // type; folding on the invoke owner rendered
+                // `new Hd.c(p2x)` against the abstract parent (uuyc
+                // 抽象的无法实例化 ×2.2k). The inherited-ctor bridge in
+                // classdec gives the child a matching `super(..)`
+                // delegation, so `new Child(args)` compiles.
+                if nc == &cls || self.env.pool.is_subtype(nc.as_ref(), cls.as_ref()) {
                     let folded = Expr::New {
-                        cls: cls.clone(),
-                        ty: TypeRef::J(JavaType::Object(cls.clone())),
+                        cls: nc.clone(),
+                        ty: TypeRef::J(JavaType::Object(nc.clone())),
                         arg_tys: md.args.clone(),
                         args,
                         raw: false,
