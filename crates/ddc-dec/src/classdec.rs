@@ -150,7 +150,8 @@ fn decompile_class_impl(
     // positions DISCOVER additional obscured refs on the fly — then the
     // file assembles as provenance + package + imports + body. The one
     // extra body copy is the price of correct import placement.
-    let mut obscured_map = compute_obscured_renders(pool, class);
+    let view_shadow = is_view_subclass(pool, class);
+    let mut obscured_map = compute_obscured_renders(pool, class, view_shadow);
     // Same-package simple-name collisions: an import shadows every
     // same-package use of that simple in this file — drop those from
     // the map (their refs stay qualified, erroring honestly).
@@ -195,7 +196,12 @@ fn decompile_class_impl(
             obscured_map.remove(d);
         }
     }
-    set_obscured_state(class.name.clone(), obscured_map.clone(), blocked.clone());
+    set_obscured_state(
+        class.name.clone(),
+        obscured_map.clone(),
+        blocked.clone(),
+        view_shadow,
+    );
     let mut body_buf = String::with_capacity(out.capacity() / 2);
     let body_res = emit_class_body(pool, class, &ctx, opts, &mut body_buf, 0);
     let recorded = take_recorded_and_clear();
@@ -3409,6 +3415,14 @@ struct ObscureState {
     /// The ROOT class being rendered (its simple name is the obscuring
     /// in-scope name).
     class: String,
+    /// The root class transitively extends android.view.View: it
+    /// INHERITS the static Property fields View.X/Y/Z (API 31+), and
+    /// an inherited member variable obscures a package's first segment
+    /// in expression position (JLS 6.4.2) — every `X.foo` qualified
+    /// ref inside the file would bind to the field (WhatsApp ×30,171:
+    /// 431 custom-View files against its obfuscated package X). Those
+    /// refs route through the import layer like own-simple obscuring.
+    view_shadow: bool,
     /// Metadata pre-scan results: internal → simple render.
     map: jdc_core::FxHashMap<String, String>,
     /// Expression-level obscured refs DISCOVERED during the body render
@@ -3431,10 +3445,12 @@ pub(crate) fn set_obscured_state(
     class: String,
     map: jdc_core::FxHashMap<String, String>,
     blocked: jdc_core::FxHashSet<String>,
+    view_shadow: bool,
 ) {
     OBSCURE.with(|m| {
         *m.borrow_mut() = Some(ObscureState {
             class,
+            view_shadow,
             map,
             recorded: jdc_core::FxHashSet::default(),
             blocked,
@@ -3726,7 +3742,9 @@ pub(crate) fn obscured_render_pub(internal: &str) -> Option<String> {
         }
         let first = internal.split('/').next().unwrap_or("");
         let own = st.class.rsplit('/').next().unwrap_or("");
-        if first == own && internal.split('/').count() >= 2 {
+        let seg_obscured =
+            first == own || (st.view_shadow && matches!(first, "X" | "Y" | "Z"));
+        if seg_obscured && internal.split('/').count() >= 2 {
             // A NESTED internal's in-scope simple name is its `$` tail
             // (`x/a$b` imports/renders as `b`) — the slash-tail left the
             // `$` in the render (`t2$a` flat against a nested emission).
@@ -3744,11 +3762,43 @@ pub(crate) fn obscured_render_pub(internal: &str) -> Option<String> {
     })
 }
 
+/// True when `class` transitively extends android.view.View (pool
+/// chain, then a framework-boundary prefix check: any android/widget,
+/// android/view, android/webkit or inputmethodservice ancestor is a
+/// View descendant and carries the inherited View.X/Y/Z statics).
+fn is_view_subclass(pool: &DexPool, class: &PoolClass) -> bool {
+    let mut cur = class.super_name.clone();
+    let mut hops = 0;
+    while let Some(s) = cur {
+        hops += 1;
+        if hops > 64 {
+            break;
+        }
+        if s == "android/view/View" {
+            return true;
+        }
+        match pool.get(&s) {
+            Some(sc) => cur = sc.super_name.clone(),
+            None => {
+                return s.starts_with("android/widget/")
+                    || s.starts_with("android/view/")
+                    || s.starts_with("android/webkit/")
+                    || s.starts_with("android/inputmethodservice/");
+            }
+        }
+    }
+    false
+}
+
 /// The pre-scan: internal names referenced by the class's metadata
 /// (supertypes, field types, method descriptors) whose first segment
 /// equals the class's own simple name and which exist in the pool —
 /// these get imports and simple-name renders.
-fn compute_obscured_renders(pool: &DexPool, class: &PoolClass) -> jdc_core::FxHashMap<String, String> {
+fn compute_obscured_renders(
+    pool: &DexPool,
+    class: &PoolClass,
+    view_shadow: bool,
+) -> jdc_core::FxHashMap<String, String> {
     let own_simple = class.name.rsplit('/').next().unwrap_or("");
     if own_simple.is_empty() {
         return jdc_core::FxHashMap::default();
@@ -3787,7 +3837,9 @@ fn compute_obscured_renders(pool: &DexPool, class: &PoolClass) -> jdc_core::FxHa
         // class renders under its display name and an import of the
         // internal name does not resolve.
         let first = r.split('/').next().unwrap_or("");
-        if first == own_simple && r.split('/').count() >= 2 && pool.get(&r).is_some() {
+        let seg_obscured =
+            first == own_simple || (view_shadow && matches!(first, "X" | "Y" | "Z"));
+        if seg_obscured && r.split('/').count() >= 2 && pool.get(&r).is_some() {
             // Own-family refs (the class itself, its nested members)
             // render through member scope — an import would be redundant
             // (self-import) or shadow a same-package sibling named like
