@@ -602,6 +602,14 @@ impl<'a> Lifter<'a> {
                 // C(args)` cannot be inlined at one alias and survive as
                 // a pending copy on the other. Materialize so both
                 // aliases share the single construction var.
+                //
+                // RAW pendings are no longer exempt from materialization
+                // either (only from the fold path, which reads the
+                // register state directly): when the ctor invoke never
+                // arrives (init lost to a degraded region), every read
+                // used to clone a FRESH `new Q.d()` — multi-allocation
+                // semantic corruption rendered as `new Q.d().d2 = v35;`
+                // temp-write shapes (uuyc ctor-mismatch ×1.4k).
                 let alias_needs_share = matches!(&e, Expr::New { raw: false, .. })
                     && self.folded_new_aliases(r).iter().any(|&rr| {
                         self.final_read
@@ -610,7 +618,7 @@ impl<'a> Lifter<'a> {
                     });
                 let alloc = alias_needs_share
                     || matches!(&e, Expr::NewArray { .. })
-                    || (matches!(&e, Expr::New { raw: false, .. })
+                    || (matches!(&e, Expr::New { .. })
                         && !self.final_read.contains(&(self.cur_pc, r)));
                 if alloc {
                     let v = self.materialize(r);
@@ -1406,9 +1414,11 @@ impl<'a> Lifter<'a> {
             args.push(null_in_obj_ctx(self.read_nest(r), at));
             ri += if at.is_wide() { 2 } else { 1 };
         }
-        let recv_expr = receiver_reg.map(|r| self.read_nest(r));
-
         // Constructor call: fold `new C` receivers; this/super otherwise.
+        // recv_expr is computed LAZILY (after the fold's early return):
+        // reading the receiver through read_nest before the fold would
+        // materialize a raw pending New into a local and the fold's
+        // Pending-pattern check would never fire.
         if name.as_ref() == "<init>" && matches!(kind, InvokeKind::Direct) {
             let recv_reg = receiver_reg.unwrap_or(0);
             let recv_state = self
@@ -1484,6 +1494,7 @@ impl<'a> Lifter<'a> {
                     return Ok(());
                 }
             }
+            let recv_expr = receiver_reg.map(|r| self.read_nest(r));
             let owner_expr_v = recv_expr.unwrap_or(Expr::This);
             // Normalize the receiver: in an instance method the `this`
             // parameter is ALWAYS var 0 (entry_regs pushes it first).
@@ -1521,6 +1532,7 @@ impl<'a> Lifter<'a> {
             return Ok(());
         }
 
+        let recv_expr = receiver_reg.map(|r| self.read_nest(r));
         let is_interface = matches!(kind, InvokeKind::Interface);
         // `super.` only when the receiver is THIS. R8/d8 desugar an
         // inner-class/lambda `outer.super.m()` into a STATIC synthetic
