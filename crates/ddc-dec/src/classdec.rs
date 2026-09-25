@@ -155,11 +155,33 @@ fn decompile_class_impl(
     // Same-package simple-name collisions: an import shadows every
     // same-package use of that simple in this file — drop those from
     // the map (their refs stay qualified, erroring honestly).
-    let blocked: jdc_core::FxHashSet<String> = pool
+    let mut blocked: jdc_core::FxHashSet<String> = pool
         .package_simples()
         .get(&pkg)
         .cloned()
         .unwrap_or_default();
+    // Blocked names must include the RENAMED displays of same-package
+    // classes too: refs and imports render through the rename registry,
+    // so an import matching a DISPLAY (not the raw simple) shadows that
+    // class's in-file uses exactly the same (weixin n0/y0 displays as
+    // y02 while h72 declares a raw class y0 — the raw-only blocked set
+    // let the y02 import through on one side and killed it on the
+    // other, stranding 622 bare `y02` refs).
+    {
+        let extras: Vec<String> = blocked
+            .iter()
+            .map(|sm| {
+                let internal =
+                    if pkg.is_empty() { sm.clone() } else { format!("{}/{}", pkg, sm) };
+                let d = crate::apply_class_rename(&internal);
+                d.rsplit(['/', '$'])
+                    .next()
+                    .unwrap_or(sm.as_str())
+                    .to_string()
+            })
+            .collect();
+        blocked.extend(extras);
+    }
     obscured_map.retain(|_internal, simple| !blocked.contains(simple));
     // Display-simple collisions cannot coexist as single-type imports:
     // importing simple `n` while THIS file declares `n` is a JLS 7.5.1
@@ -219,8 +241,11 @@ fn decompile_class_impl(
             obscured_map.keys().cloned().collect();
         for r in recorded {
             if pool.get(&r).is_some() {
-                let simple = r.rsplit('/').next().unwrap_or("");
-                if !blocked.contains(simple) {
+                // The import renders under the RENAMED display — the
+                // blocked check must use the same name the refs render.
+                let display = crate::apply_class_rename(&r);
+                let simple = display.rsplit(['/', '$']).next().unwrap_or("");
+                if !simple.is_empty() && !blocked.contains(simple) {
                     import_set.insert(r);
                 }
             }
@@ -3473,7 +3498,8 @@ pub(crate) fn obscured_simples_snapshot() -> jdc_core::FxHashSet<String> {
             out.insert(simple.clone());
         }
         for internal in &st.recorded {
-            if let Some(tail) = internal.rsplit(['/', '$']).next() {
+            let renamed = crate::apply_class_rename(internal);
+            if let Some(tail) = renamed.rsplit(['/', '$']).next() {
                 if !tail.is_empty() {
                     out.insert(tail.to_string());
                 }
@@ -3748,7 +3774,13 @@ pub(crate) fn obscured_render_pub(internal: &str) -> Option<String> {
             // A NESTED internal's in-scope simple name is its `$` tail
             // (`x/a$b` imports/renders as `b`) — the slash-tail left the
             // `$` in the render (`t2$a` flat against a nested emission).
-            let simple = internal
+            // The tail must come from the RENAMED display: case-collision
+            // renames (`X/00i` → `X/_00i_2`) live in the class registry —
+            // the raw tail rendered `_00i` against the declaration's
+            // `_00i_2` (WhatsApp cannot-find ×27k after the View-shadow
+            // escape opened this path at scale).
+            let renamed = crate::apply_class_rename(internal);
+            let simple = renamed
                 .rsplit(['/', '$'])
                 .next()
                 .unwrap_or("")
