@@ -23,3 +23,6 @@ bench/
 # javac @argfile artifacts from local compile validation
 javac.*.args
 ann/
+
+# local quality-gate scripts (personal APK corpus paths — see bench/)
+tests/scripts/
