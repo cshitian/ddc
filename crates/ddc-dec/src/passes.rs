@@ -3662,7 +3662,18 @@ pub fn fix_primitive_arg_bridges(body: &mut Stmt, vt: &VarTable, pool: &crate::D
                     // instead of shifting it).
                     let subtype_arg = match (&val_ty(a, vt), f) {
                         (JavaType::Object(an), JavaType::Object(fn_)) => {
-                            an != fn_ && pool.is_subtype(an, fn_)
+                            // java/lang/Object is the root: ANY reference
+                            // arg is a strict subtype of it — pool.is_subtype
+                            // cannot see framework chains (String -> Object),
+                            // so the Object formal gets the direct rule.
+                            (an != fn_ && pool.is_subtype(an, fn_))
+                                || (fn_.as_ref() == "java/lang/Object"
+                                    && an.as_ref() != "java/lang/Object")
+                        }
+                        (JavaType::Array(_), JavaType::Object(fn_))
+                            if fn_.as_ref() == "java/lang/Object" =>
+                        {
+                            true
                         }
                         _ => false,
                     };
