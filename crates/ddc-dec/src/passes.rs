@@ -5125,6 +5125,22 @@ fn diamond_types_ok(a: &Expr, b: &Expr) -> bool {
                 | JavaType::Double
         )
     }
+    // A null branch is compatible with any REFERENCE other branch: the
+    // ternary types as lub(T, null) = T. Kotlin default-args ctors
+    // render null defaults (`if ((mask&2)==0) v=x; else v=null;`) —
+    // rejecting the pair left the diamond unfolded, the defs
+    // un-inlineable, and the this(...) delegation unhoistable (weibo
+    // ctor-not-first robust-guard/second-delegation ×818). A primitive
+    // sibling stays rejected (`c ? 5 : null` is not Java).
+    if let Some(other) = if matches!(a, Expr::Const(ConstVal::Null)) {
+        Some(b)
+    } else if matches!(b, Expr::Const(ConstVal::Null)) {
+        Some(a)
+    } else {
+        None
+    } {
+        return !num(&other.type_ref().erased());
+    }
     let ta = a.type_ref().erased();
     let tb = b.type_ref().erased();
     ta == tb || (num(&ta) && num(&tb))
