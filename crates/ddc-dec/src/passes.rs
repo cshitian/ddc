@@ -9135,6 +9135,86 @@ pub fn fix_ctor_conditional_super(body: &mut Stmt) {
 /// Runs both ahead of the shape-A/B attempt and AFTER the plain hoist
 /// (fix_ctor_super_first) — the hoist is what puts the leading
 /// delegation in place for path-duplicated ctors.
+/// A ctor that ALREADY delegates in its first statement can hold no
+/// other `this(..)`/`super(..)` — Baidu Titan hotpatch instrumentation
+/// injects a conditional re-delegation inside the `if ($ic != null)`
+/// guard of every ctor (baidusearch ctor-not-first ×61,922 across
+/// 21,813 files: `super(context); if ($ic != null) { ..; if
+/// ((flag&1)!=0) { super((Context) callArgs[0]); ..; return; } }`).
+/// The guard is dead code on the unpatched runtime path (and the
+/// decompiled output has no patch runtime at all); dropping the
+/// secondary delegation keeps the real semantics and restores the
+/// Java first-statement rule. Runs after dedupe_ctor_delegations
+/// (identical copies) and before extract_branched_delegation_helper
+/// — gated on a LEADING delegation, so branched-delegation ctors
+/// (no leading one) still get the helper treatment. Nested class
+/// declarations are separate ctor scopes and are not entered.
+pub fn strip_secondary_delegations(body: &mut Stmt) {
+    let Stmt::Block(stmts) = body else { return };
+    if !stmts.first().is_some_and(is_bare_ctor_call) {
+        return;
+    }
+    fn strip_in(s: &mut Stmt) {
+        if is_bare_ctor_call(s) {
+            *s = Stmt::Block(Vec::new());
+            return;
+        }
+        match s {
+            Stmt::Block(v) => v.iter_mut().for_each(strip_in),
+            Stmt::If {
+                then_stmt,
+                else_stmt,
+                ..
+            } => {
+                strip_in(then_stmt);
+                if let Some(e) = else_stmt {
+                    strip_in(e);
+                }
+            }
+            Stmt::While { body, .. }
+            | Stmt::DoWhile { body, .. }
+            | Stmt::ForEach { body, .. }
+            | Stmt::Synchronized { body, .. }
+            | Stmt::Labeled { body, .. } => strip_in(body),
+            Stmt::For { init, body, .. } => {
+                init.iter_mut().for_each(strip_in);
+                strip_in(body);
+            }
+            Stmt::Switch { cases, default, .. } => {
+                for c in cases.iter_mut() {
+                    c.body.iter_mut().for_each(strip_in);
+                }
+                if let Some(d) = default {
+                    strip_in(d);
+                }
+            }
+            Stmt::Try {
+                body,
+                catches,
+                finally,
+            }
+            | Stmt::TryWithResources {
+                body,
+                catches,
+                finally,
+                ..
+            } => {
+                strip_in(body);
+                for c in catches.iter_mut() {
+                    strip_in(&mut c.body);
+                }
+                if let Some(f) = finally {
+                    strip_in(f);
+                }
+            }
+            _ => {}
+        }
+    }
+    for st in stmts.iter_mut().skip(1) {
+        strip_in(st);
+    }
+}
+
 pub fn dedupe_ctor_delegations(body: &mut Stmt) {
     let Stmt::Block(stmts) = body else { return };
     let Some(d0) = stmts.first().and_then(|s| match s {
