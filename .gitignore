@@ -26,3 +26,4 @@ ann/
 
 # local quality-gate scripts (personal APK corpus paths — see bench/)
 tests/scripts/
+tests/data/
