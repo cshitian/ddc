@@ -2510,18 +2510,19 @@ fn nested_members<'a>(
         else {
             continue;
         };
-        if rest.is_empty() || rest.starts_with('-') {
+        // The SAME predicate top_level_classes uses for the standalone
+        // decision: a non-clean member tail ($ExternalSynthetic flat
+        // units, hyphen markers, digit-led anonymous/local shapes) is
+        // emitted as its own file — inlining it here too DOUBLE-EMITS
+        // the class, and the nested copy renders corrupt (weibo:
+        // 12,152 nested `ExternalSyntheticLambdaN` chimeras across
+        // 4,316 files; Recorder's nested copy mixed a sibling's
+        // captures — `int f$0` + Builder.setSource — 无法取消引用int).
+        if !crate::clean_member_tail(rest) {
             continue;
         }
         if ctx.find_outer(name).as_deref() != Some(class.name.as_str()) {
             continue;
-        }
-        let tail = rest.rsplit('$').next().unwrap_or(rest);
-        if !tail.is_empty() && tail.chars().all(|c| c.is_ascii_digit()) {
-            continue; // anonymous
-        }
-        if tail.starts_with(|c: char| c.is_ascii_digit()) {
-            continue; // local
         }
         out.push(pc);
     }
