@@ -1964,6 +1964,9 @@ fn emit_class_body(
         if claim.get(&sig_key(&class.name, renames_on, m)) != Some(&i) {
             continue;
         }
+        if bridge_shadowed_by_ancestor(pool, class, m) {
+            continue;
+        }
         // Fallback enum base: the dex valueOf body is
         // `Enum.valueOf(X.class, str)` — illegal once X is a plain class
         // (T is not bounded by Enum). Suppress it; synth_enum_members
@@ -2646,6 +2649,91 @@ fn render_static_value(pool: &DexPool, v: &StaticValue, owner: &str) -> Option<S
 /// `enum_promoted`: the class rendered as a true `enum` declaration
 /// (constants in the header), which changes what a ctor signature may
 /// declare.
+/// d8's covariant-return bridges: `Context getContext() { return
+/// super.getContext(); }` shadowing MMActivity's covariant
+/// `AppCompatActivity getContext()`. Source cannot declare the
+/// wider-return override, and the rendered bridge HIJACKS every
+/// `this.getContext()` in the file to the wide type (weixin
+/// FTSBaseVoiceSearchUI's `AppCompatActivity context =
+/// this.getContext();` — Context无法转换为AppCompatActivity ×74). The
+/// inherited covariant method satisfies source callers natively and
+/// javac regenerates binary bridges on demand — skip the render.
+///
+/// TWO gates, both learned the hard way (the ungated ACC_BRIDGE +
+/// ancestor-name version skipped erasure/interface-satisfier bridges
+/// and cost lark +29k — the claim-map's raw-interface lesson at whole-
+/// hierarchy scale):
+/// 1. INSTRUCTION SHAPE: the body must be exactly invoke-super to a
+///    same-named method + optional move-result + return (≤3 insns).
+///    Erasure bridges call THIS with casts; interface satisfiers are
+///    real bodies — both keep rendering.
+/// 2. POOL ancestor (super chain, exact name+args, non-private)
+///    declares the covariant source. Framework ancestors are not
+///    consulted (fwdb carries no arg descs — a name-only match could
+///    skip a real overload); such bridges keep rendering.
+fn bridge_shadowed_by_ancestor(pool: &DexPool, class: &PoolClass, m: &PoolMethod) -> bool {
+    if m.access & crate::access::ACC_BRIDGE == 0 || &*m.name == "<init>" || m.code_off == 0 {
+        return false;
+    }
+    let Some(d) = m.parsed_desc() else {
+        return false;
+    };
+    // Gate 1: invoke-super-same-name + move-result*/return* tail only.
+    let Some(dex) = pool.dex(m.dex_idx) else {
+        return false;
+    };
+    let dex = &*dex;
+    let Some(code) = dex.code_insns_bytes_at(m.code_off) else {
+        return false;
+    };
+    let mut head_ok = false;
+    let mut bad_tail = false;
+    let mut cnt = 0usize;
+    let mut first = true;
+    ddc_dex::insn::scan_instructions(code, &mut |op, pc, bytes| {
+        cnt += 1;
+        if first {
+            first = false;
+            if op == 0x6f || op == 0x75 {
+                let unit = bytes
+                    .get(2 * (pc + 1)..2 * (pc + 1) + 2)
+                    .map(|b| u16::from_le_bytes([b[0], b[1]]) as u32)
+                    .unwrap_or(u32::MAX);
+                if unit != u32::MAX {
+                    let mr = dex.method(unit);
+                    head_ok = dex.string(mr.name_idx) == &*m.name;
+                }
+            }
+        } else if !matches!(op, 0x0a | 0x0b | 0x0c | 0x0e | 0x0f | 0x10 | 0x11) {
+            bad_tail = true;
+        }
+    });
+    if !head_ok || bad_tail || !(2..=3).contains(&cnt) {
+        return false;
+    }
+    // Gate 2: pool super chain declares name+args.
+    let mut cur: Option<String> = class.super_name.clone();
+    let mut hops = 0u32;
+    while let Some(s) = cur {
+        hops += 1;
+        if hops > 64 {
+            return false;
+        }
+        let Some(pc) = pool.get_if_materialized(&s) else {
+            return false; // unresolvable ancestor — keep the bridge
+        };
+        if pc.all_methods().any(|am| {
+            am.name == m.name
+                && am.access & crate::access::ACC_PRIVATE == 0
+                && am.parsed_desc().is_some_and(|ad| ad.args == d.args)
+        }) {
+            return true;
+        }
+        cur = pc.super_name.clone();
+    }
+    false
+}
+
 fn emit_method(
     pool: &DexPool,
     class: &PoolClass,
