@@ -3987,7 +3987,7 @@ pub fn rescue_primitive_receivers(body: &mut Stmt, vt: &VarTable, pool: &crate::
     walk_stmt_exprs(body, &mut |e| {
         deep_rewrite(e, &mut |x| {
             // Phase 1 (read-only): primitive-typed Local receiver?
-            let recv_var = {
+            let (recv_var, recv_ty) = {
                 let o: &Expr = match &*x {
                     Expr::Method { owner: Some(o), .. } => o,
                     Expr::Field { owner: Some(o), is_static: false, .. } => o,
@@ -4004,12 +4004,25 @@ pub fn rescue_primitive_receivers(body: &mut Stmt, vt: &VarTable, pool: &crate::
                 if !prim(&vt_ty) {
                     return;
                 }
-                *var
+                (*var, vt_ty)
             };
             let cls: std::sync::Arc<str> = match &*x {
                 Expr::Method { cls, .. } | Expr::Field { cls, .. } => cls.clone(),
                 _ => return,
             };
+            // Type-consistent call: the receiver's own type IS the
+            // member owner (or a subtype) — `str.hashCode()` on a
+            // String param needs no rescue. Without this the boxed-JDK
+            // prim() arm fired on every String member call and the
+            // max-id fallback below hijacked the reads to the highest
+            // String-typed var in the method — often a case-local
+            // (lark LynxUIBaseInput str11: 37 reads rewritten to a
+            // switch-case-scoped def, 找不到符号 ×37; x0/c$a18 str4).
+            if let JavaType::Object(n) = &recv_ty {
+                if n.as_ref() == cls.as_ref() || pool.is_subtype(n.as_ref(), cls.as_ref()) {
+                    return;
+                }
+            }
             // Phase 2: vars of the owner type (exact or subtype).
             let mut cands: Vec<u32> = Vec::new();
             for v in &vt.vars {
