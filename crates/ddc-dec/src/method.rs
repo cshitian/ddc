@@ -626,6 +626,7 @@ pub fn decompile_method(
             passes::fix_ctor_super_first(&mut body, &vt);
             passes::dedupe_ctor_delegations(&mut body);
             passes::strip_secondary_delegations(&mut body);
+            passes::hoist_branch_delegations(&mut body, &vt);
             passes::extract_branched_delegation_helper(&mut body, &vt, pool, class, &desc.to_string());
         }
         // The delegation merges/hoists can leave prelude decls dead
@@ -961,6 +962,7 @@ pub fn decompile_method(
             passes::fix_ctor_super_first(&mut body, &vt);
             passes::dedupe_ctor_delegations(&mut body);
             passes::strip_secondary_delegations(&mut body);
+            passes::hoist_branch_delegations(&mut body, &vt);
             passes::extract_branched_delegation_helper(&mut body, &vt, pool, class, &desc.to_string());
         }
         // The delegation merges/hoists can leave prelude decls dead

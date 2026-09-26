@@ -7017,6 +7017,54 @@ fn static_safe(stmts: &[Stmt], this_id: Option<u32>) -> bool {
     ok
 }
 
+/// Repeated identical branch-site delegations with param-only args
+/// (weixin appbrand/zc: bare `super()` at four branch ends, each
+/// followed by field-write tails) carry no computed carrier, so the
+/// helper extraction has nothing to return — but they need no helper:
+/// every delegating path runs the SAME call, so hoist one copy to
+/// position 0 and strip the sites. The per-branch tails stay in their
+/// branches and now legally follow the first-statement delegation.
+/// Same reordering approximation fix_ctor_super_first already ships for
+/// the straight-line case (paths that threw BEFORE delegating now run
+/// the delegation first — Object-super, the dominant shape, is inert).
+/// Gate: every del deep-equal and reading params only (a computed local
+/// would dangle at position 0 — that is the helper extractor's job).
+pub fn hoist_branch_delegations(body: &mut Stmt, vt: &VarTable) {
+    let Stmt::Block(stmts) = body else { return };
+    if stmts.first().is_some_and(is_bare_ctor_call) {
+        return; // already first
+    }
+    let mut dels: Vec<Expr> = Vec::new();
+    for st in stmts.iter() {
+        let mut c = st.clone();
+        walk_stmt_exprs(&mut c, &mut |e| {
+            if is_delegation_expr(e) {
+                dels.push(e.clone());
+            }
+        });
+    }
+    if dels.is_empty() {
+        return;
+    }
+    if !dels.iter().all(|d| *d == dels[0]) {
+        return;
+    }
+    let mut bad = false;
+    visit_exprs(&dels[0], &mut |x| {
+        if let Expr::Local { var, .. } = x {
+            if (*var as usize) >= vt.vars.len() || !vt.vars[*var as usize].is_param {
+                bad = true;
+            }
+        }
+    });
+    if bad {
+        return;
+    }
+    let del = dels[0].clone();
+    strip_delegations_deep(stmts);
+    stmts.insert(0, Stmt::ExprStmt(del));
+}
+
 /// The branched-delegation ctor family ("对this的调用必须是构造器中的
 /// 第一个语句", ~2k across corpora): R8 renders a Kotlin default-arg /
 /// conditional-bridge ctor as computation statements (straight-line plus
