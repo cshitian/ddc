@@ -721,11 +721,31 @@ fn bind_catches_walk(
                 if c.var == u32::MAX {
                     let stored = match c.body.as_ref() {
                         Stmt::Block(v) => match v.first() {
-                            Some(Stmt::LocalDef { var, .. }) => Some(*var),
-                            Some(Stmt::ExprStmt(Expr::Assign { target, .. })) => match &**target {
-                                Expr::Local { var, .. } => Some(*var),
-                                _ => None,
-                            },
+                            // ONLY the bare move-exception decl (the
+                            // lifter emits LocalDef{init:None} for it).
+                            // A first stmt with a REAL init is handler
+                            // computation — consuming it as the catch
+                            // store deleted the def and hijacked its
+                            // reads to the catch param (lark ih6/w's
+                            // `v11 = Thread.currentThread()` →
+                            // `catch (InterruptedException thread2) {
+                            // thread2.interrupt(); }`; ch6/e cls4.
+                            // getName; the exception-ignoring catch is
+                            // the standard interrupt idiom).
+                            Some(Stmt::LocalDef { var, init: None, .. }) => Some(*var),
+                            // Phi-copy shape `v = exc` where exc is the
+                            // unmaterialized move-exception register
+                            // (defined nowhere in the method).
+                            Some(Stmt::ExprStmt(Expr::Assign { target, value, .. })) => {
+                                match (&**target, &**value) {
+                                    (Expr::Local { var, .. }, Expr::Local { var: src, .. })
+                                        if !defined.contains(src) =>
+                                    {
+                                        Some(*var)
+                                    }
+                                    _ => None,
+                                }
+                            }
                             _ => None,
                         },
                         _ => None,
