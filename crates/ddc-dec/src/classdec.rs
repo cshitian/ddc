@@ -4129,7 +4129,13 @@ pub fn print_class_name(pool: &DexPool, internal: &str) -> String {
                 let tail_next = rest[i + 1..].chars().next();
                 let tail_ok = match tail_next {
                     Some(c) if c.is_ascii_alphabetic() || c == '_' => true,
-                    Some(c) if !c.is_ascii_digit() && c != '$' => {
+                    // `/` = a `$` INSIDE the package path (desugar's
+                    // `j$/util/...` — dotting produced `j..util`,
+                    // deepseek 非法'.' ×3,661); digit tails are flat
+                    // emission units; `-`-led tails fail
+                    // clean_member_tail and emit flat too; `$` tails
+                    // ($$-orphans) keep the old behavior.
+                    Some(c) if !c.is_ascii_digit() && c != '$' && c != '/' && c != '-' => {
                         pool.get(internal).is_some()
                     }
                     _ => false,
