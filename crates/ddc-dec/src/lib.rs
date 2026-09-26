@@ -3411,7 +3411,28 @@ fn root_pkg_relocation(pool: &DexPool, map: &mut HashMap<String, String>) {
     while pool.has_name(&pkg) || root_segs.contains(&pkg) {
         pkg.push('_');
     }
+    // A root class whose simple name IS a top-level package segment
+    // (`com`, `org`, ...) cannot simply MOVE into the synthetic
+    // package: a same-package type shadows the package name in every
+    // qualified ref from every cohort file (JLS 6.4.1 — rimet's root
+    // `com`/`org` hijacked 235k `com.alibaba...` refs as 类 alibaba
+    // 位置: 类 com). Those get a bumped first segment (`com` →
+    // ddcroot/com2) — a display rename the registry carries through
+    // every ref path, like the obscuring renames.
+    const FW_SEGS: [&str; 10] = [
+        "java", "javax", "android", "org", "junit", "dalvik", "libcore", "androidx", "kotlin",
+        "kotlinx",
+    ];
+    let mut taken: jdc_core::FxHashSet<String> = jdc_core::FxHashSet::default();
+    for name in &pool.order {
+        if name.contains('/') {
+            continue;
+        }
+        let disp = map.get(name).cloned().unwrap_or_else(|| name.clone());
+        taken.insert(format!("{pkg}/{disp}"));
+    }
     let mut moved = 0usize;
+    let mut bumped = 0usize;
     for name in &pool.order {
         if name.contains('/') {
             continue;
@@ -3420,11 +3441,34 @@ fn root_pkg_relocation(pool: &DexPool, map: &mut HashMap<String, String>) {
         if disp.contains('/') {
             continue; // defensive: some rule already packaged it
         }
-        map.insert(name.clone(), format!("{pkg}/{disp}"));
-        moved += 1;
+        let head = disp.split('$').next().unwrap_or(&disp);
+        let collide = root_segs.contains(head) || FW_SEGS.contains(&head);
+        if !collide {
+            map.insert(name.clone(), format!("{pkg}/{disp}"));
+            moved += 1;
+            continue;
+        }
+        let rest = &disp[head.len()..];
+        let mut k = 1u32;
+        loop {
+            k += 1;
+            let nh = format!("{head}{k}");
+            if root_segs.contains(&nh) || FW_SEGS.contains(&nh.as_str()) {
+                continue;
+            }
+            let cand = format!("{pkg}/{nh}{rest}");
+            if taken.contains(&cand) {
+                continue;
+            }
+            taken.insert(cand.clone());
+            map.insert(name.clone(), cand);
+            moved += 1;
+            bumped += 1;
+            break;
+        }
     }
     *ROOT_PKG.lock().unwrap_or_else(|e| e.into_inner()) = Some(pkg.clone());
     if std::env::var("DDC_STATS").is_ok() {
-        eprintln!("[renames] root-pkg relocation: {moved} classes -> {pkg}/");
+        eprintln!("[renames] root-pkg relocation: {moved} classes -> {pkg}/ ({bumped} segment-bumped)");
     }
 }
