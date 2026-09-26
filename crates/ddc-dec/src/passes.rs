@@ -7050,6 +7050,60 @@ fn static_safe(stmts: &[Stmt], this_id: Option<u32>) -> bool {
     ok
 }
 
+/// The bytedance PatchProxy hotfix guard in <clinit>:
+/// `if (vsChange != null) { PatchProxyResult p = PatchProxy.proxy(..);
+/// if (p.isSupported) { return; } }` — a bare `return;` inside a STATIC
+/// INITIALIZER is illegal Java (javac: 返回外部方法; videocut ×28,029 +
+/// news_article ×19,058 — sampled 400/400 this shape). The patch path
+/// is dead in a fresh compile (the IVsChange field is null), so the
+/// whole leading guard statement strips, leaving the real static inits —
+/// the <clinit> counterpart of the Titan/Robust ctor-guard strips.
+/// Gate: FIRST top-level stmt is an If with no else whose body holds
+/// both a bare return and a *PatchProxy* call.
+pub fn strip_clinit_hotfix_guard(body: &mut Stmt) {
+    // The structurer can wrap the sequence in a nested singleton block
+    // (the enum-clinit path flattens for the same reason); the normal
+    // emit_method path does not.
+    if let Stmt::Block(vs) = body {
+        flatten_top_blocks(vs);
+    }
+    let Stmt::Block(stmts) = body else { return };
+    // The guard may sit behind hoisted bare declarations (`int[] v8x;`
+    // from ensure_declared) — find the first non-decl statement.
+    let mut gi = 0usize;
+    while gi < stmts.len() && matches!(&stmts[gi], Stmt::LocalDef { init: None, .. }) {
+        gi += 1;
+    }
+    let Some(first) = stmts.get(gi) else { return };
+    let Stmt::If { then_stmt, else_stmt, .. } = first else {
+        return;
+    };
+    if else_stmt.is_some() {
+        return;
+    }
+    let mut has_ret = false;
+    let mut has_proxy = false;
+    let c = then_stmt.as_ref();
+    walk_all(c, &mut |st| {
+        if matches!(st, Stmt::Return(None)) {
+            has_ret = true;
+        }
+    });
+    let mut cc = c.clone();
+    walk_stmt_exprs(&mut cc, &mut |e| {
+        deep_rewrite(e, &mut |x| {
+            if let Expr::Method { cls, .. } = x {
+                if cls.contains("PatchProxy") {
+                    has_proxy = true;
+                }
+            }
+        });
+    });
+    if has_ret && has_proxy {
+        stmts.remove(gi);
+    }
+}
+
 /// Repeated identical branch-site delegations with param-only args
 /// (weixin appbrand/zc: bare `super()` at four branch ends, each
 /// followed by field-write tails) carry no computed carrier, so the

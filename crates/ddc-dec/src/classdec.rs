@@ -402,6 +402,7 @@ fn collect_enum_constants(
     if let Stmt::Block(vs) = &mut body.body {
         crate::passes::flatten_top_blocks(vs);
     }
+    crate::passes::strip_clinit_hotfix_guard(&mut body.body);
 
     // Meituan Robust hotpatch guard (weibo's lifecycle enums — a big
     // slice of the 1,137 fallback population): the ENTIRE constant-build
@@ -2813,6 +2814,11 @@ fn emit_method(
 
     // Body (needed for parameter names even for abstract methods).
     let mut body = decompile_method(pool, class, m).ok().flatten();
+    if &*m.name == "<clinit>" {
+        if let Some(b) = &mut body {
+            crate::passes::strip_clinit_hotfix_guard(&mut b.body);
+        }
+    }
     // An interface method WITH a body is a `default` method (JLS 9.4.3)
     // unless static/private — dex carries no `default` flag, so the
     // plain form rendered an abstract signature with a body and javac
