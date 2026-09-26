@@ -226,22 +226,20 @@ impl<'a> Ctx for DexCtx<'a> {
     }
 
     fn nested_is_static(&self, internal: &str) -> bool {
+        // ACC_STATIC (annotation evidence) OR the structural signal:
+        // no instance field typed as the outer class. javac ALWAYS
+        // gives a non-static inner class an enclosing-instance field
+        // (this$0), and the field TYPE survives obfuscation that
+        // renames the field itself. Plain d8 output carries no
+        // nesting annotations at all — without the structural
+        // fallback every static nested class rendered as an inner
+        // one (`str.new Report(...)` swallowing the first ctor arg).
+        // A this$0 field WITHOUT the formal-0 outer ctor param is a
+        // capture, not a JLS outer (Kotlin lambdas) — static too.
+        // Logic lives in the free `nested_is_static` below (shared
+        // with method.rs passes that run without a ctx).
         match self.find_class(internal) {
-            // ACC_STATIC (annotation evidence) OR the structural signal:
-            // no instance field typed as the outer class. javac ALWAYS
-            // gives a non-static inner class an enclosing-instance field
-            // (this$0), and the field TYPE survives obfuscation that
-            // renames the field itself. Plain d8 output carries no
-            // nesting annotations at all — without the structural
-            // fallback every static nested class rendered as an inner
-            // one (`str.new Report(...)` swallowing the first ctor arg).
-            // A this$0 field WITHOUT the formal-0 outer ctor param is a
-            // capture, not a JLS outer (Kotlin lambdas) — static too.
-            Some(pc) => {
-                pc.is_static_nested()
-                    || !self.holds_this0(internal, pc)
-                    || !self.outer_is_formal0(internal, pc)
-            }
+            Some(pc) => nested_is_static(self.pool, pc),
             None => true,
         }
     }
@@ -504,4 +502,37 @@ fn class_sig_of(internal: &str) -> jdc_core::types::ClassSig {
 /// Render a type reference for signatures where the printer is not used.
 pub fn type_ref_of(desc: &str) -> TypeRef {
     TypeRef::J(desc_type(desc))
+}
+
+/// Pool-level mirror of the `DexCtx::nested_is_static` render decision
+/// for passes that run without a ctx (method.rs). ACC_STATIC annotation
+/// evidence OR the structural signals — no outer-typed `this$0` field,
+/// or no formal-0 outer ctor param (a this$0 field without the formal-0
+/// param is a Kotlin lambda capture, not a JLS outer).
+pub fn nested_is_static(pool: &DexPool, pc: &PoolClass) -> bool {
+    if pc.is_static_nested() {
+        return true;
+    }
+    let Some(outer) = crate::find_outer_name(pool, &pc.name) else {
+        return true;
+    };
+    let holds = pc.instance_fields.iter().any(|f| {
+        f.name == "this$0"
+            && f
+                .desc
+                .strip_prefix('L')
+                .and_then(|d| d.strip_suffix(';'))
+                .is_some_and(|ty| ty == outer)
+    });
+    if !holds {
+        return true;
+    }
+    !pc.all_methods().any(|m| {
+        &*m.name == "<init>"
+            && m.parsed_desc().is_some_and(|d| {
+                d.args.first().is_some_and(|t| {
+                    matches!(t, JavaType::Object(n) if n.as_ref() == outer.as_str())
+                })
+            })
+    })
 }

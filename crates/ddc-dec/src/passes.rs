@@ -7010,7 +7010,7 @@ fn static_safe(stmts: &[Stmt]) -> bool {
 /// The branched-delegation ctor family ("对this的调用必须是构造器中的
 /// 第一个语句", ~2k across corpora): R8 renders a Kotlin default-arg /
 /// conditional-bridge ctor as computation statements (straight-line plus
-/// mask-guarded overrides) with every control path ending in the SAME
+/// mask-guarded overrides) with every control path ending in a
 /// `this(a, b, carrier)` delegation. Java cannot express statements
 /// before the delegation, and unlike the linear-chain case the carrier's
 /// value is computed by multi-statement branched code that cannot fold
@@ -7020,20 +7020,38 @@ fn static_safe(stmts: &[Stmt]) -> bool {
 /// faithful (jadx renders the un-compilable statements-before-this form
 /// for this family).
 ///
-/// v1 gates (all conservative, bail keeps today's behavior): plain class
-/// (enums strip trace params; member-inner ctors lose the outer param at
-/// render), every delegation textually identical, exactly one non-param
-/// carrier local read exactly once across the args, the primary (last
-/// top-level) delegation exists and is not already first, computation is
-/// Block/If/straight-line only, no `this`-dependence, and no local
-/// defined in the extraction is used after the primary.
+/// Two carrier modes:
+/// - Single (v1): every delegation textually identical and exactly one
+///   non-param local (the carrier) read exactly once across the args.
+/// - Position (v2): delegations differ at exactly ONE arg position k,
+///   every site passing a bare non-param local there (per-branch
+///   carriers, lark BaseProtocol$ReliablePushList's v22_g1/v22x). Each
+///   stripped delegation's own carrier fills the return that follows it;
+///   merge-point returns fall back to the primary site's carrier. The
+///   top-level primary delegation is optional in this mode — when every
+///   path delegates inside branches the whole body is extracted.
+///
+/// Shared gates (all conservative, bail keeps today's behavior): not an
+/// enum (trace-param strip shifts render params); nested only when the
+/// class RENDERS static-nested (member-inner ctors lose the outer param
+/// at render); computation is Block/If/straight-line only; no
+/// `this`-dependence; no local defined in the extraction used after the
+/// primary.
 pub fn extract_branched_delegation_helper(
     body: &mut Stmt,
     vt: &VarTable,
+    pool: &DexPool,
     class: &crate::PoolClass,
     desc_str: &str,
 ) {
-    if class.is_enum() || class.nesting.enclosing_class.is_some() {
+    if class.is_enum() {
+        return;
+    }
+    // Member-inner ctors lose the synthetic outer param at render
+    // (qualified-new absorbs it), so the helper's param list would no
+    // longer match the rendered ctor. STATIC nested classes render all
+    // params like top-level ones (lark BaseProtocol$PushList family).
+    if class.nesting.enclosing_class.is_some() && !crate::ctx::nested_is_static(pool, class) {
         return;
     }
     let Stmt::Block(stmts) = body else { return };
@@ -7052,59 +7070,180 @@ pub fn extract_branched_delegation_helper(
     if dels.len() == 1 && stmts.first().is_some_and(is_bare_ctor_call) {
         return; // already first
     }
-    if !dels.iter().all(|d| *d == dels[0]) {
-        return;
-    }
     let template = dels[0].clone();
     let Expr::Method { args: t_args, .. } = &template else {
         return;
     };
-    // Exactly ONE non-param local (the carrier), read exactly once.
-    let mut carrier: Option<u32> = None;
-    let mut reads = 0usize;
-    let mut multi = false;
-    for a in t_args.iter() {
-        let c = a.clone();
-        visit_exprs(&c, &mut |x| {
-            if let Expr::Local { var, .. } = x {
-                if (*var as usize) < vt.vars.len() && !vt.vars[*var as usize].is_param {
-                    reads += 1;
-                    match carrier {
-                        Some(v) if v == *var => {}
-                        Some(_) => multi = true,
-                        None => carrier = Some(*var),
+    // Carrier discovery: Single (all dels identical, one non-param local
+    // read once) or Position (dels differ at exactly one arg slot, every
+    // site a bare non-param local of one erased type).
+    enum Mode {
+        Single(u32),
+        Position(usize),
+    }
+    let mode = if dels.iter().all(|d| *d == dels[0]) {
+        let mut carrier: Option<u32> = None;
+        let mut reads = 0usize;
+        let mut multi = false;
+        for a in t_args.iter() {
+            let c = a.clone();
+            visit_exprs(&c, &mut |x| {
+                if let Expr::Local { var, .. } = x {
+                    if (*var as usize) < vt.vars.len() && !vt.vars[*var as usize].is_param {
+                        reads += 1;
+                        match carrier {
+                            Some(v) if v == *var => {}
+                            Some(_) => multi = true,
+                            None => carrier = Some(*var),
+                        }
                     }
                 }
+            });
+        }
+        match carrier {
+            Some(cv) if !multi && reads == 1 => Mode::Single(cv),
+            _ => return,
+        }
+    } else {
+        let arity = t_args.len();
+        let mut diff: Vec<usize> = Vec::new();
+        for j in 0..arity {
+            if dels.iter().any(|d| match d {
+                Expr::Method { args, .. } => args.get(j) != t_args.get(j),
+                _ => true,
+            }) {
+                diff.push(j);
             }
-        });
-    }
-    let Some(cv) = carrier else { return };
-    if multi || reads != 1 {
-        return;
-    }
-    let Some(l) = stmts.iter().rposition(is_bare_ctor_call) else {
-        return;
+        }
+        if diff.len() != 1 {
+            return;
+        }
+        let k = diff[0];
+        // Non-arg parts AND all other arg positions identical: neutralize
+        // slot k on every del and compare whole exprs (catches mixed
+        // this()/super() or different targets).
+        let mut base0 = dels[0].clone();
+        if let Expr::Method { args, .. } = &mut base0 {
+            args[k] = Expr::Const(ConstVal::Null);
+        }
+        for d in dels.iter() {
+            let mut c = d.clone();
+            if let Expr::Method { args, .. } = &mut c {
+                args[k] = Expr::Const(ConstVal::Null);
+            }
+            if c != base0 {
+                return;
+            }
+        }
+        // Slot k: bare non-param local at every site, one erased type,
+        // and the carrier never read at another position.
+        let mut carrier_ty: Option<JavaType> = None;
+        for d in dels.iter() {
+            let Expr::Method { args, .. } = d else {
+                return;
+            };
+            let Expr::Local { var, .. } = &args[k] else {
+                return;
+            };
+            if (*var as usize) >= vt.vars.len() || vt.vars[*var as usize].is_param {
+                return;
+            }
+            let ty = vt.vars[*var as usize].ty.erased();
+            match &carrier_ty {
+                Some(t) if *t == ty => {}
+                Some(_) => return,
+                None => carrier_ty = Some(ty),
+            }
+            // Non-k positions must be param/const/static-only — a
+            // computed local there would have its def extracted into
+            // the helper and the ctor arg list would dangle (lark
+            // audiosave/i 找不到符号 ×5-per-site). Also covers the
+            // carrier leaking into another position.
+            for (j, a) in args.iter().enumerate() {
+                if j == k {
+                    continue;
+                }
+                let mut bad = false;
+                visit_exprs(a, &mut |x| {
+                    if let Expr::Local { var: v2, .. } = x {
+                        if (*v2 as usize) >= vt.vars.len() || !vt.vars[*v2 as usize].is_param {
+                            bad = true;
+                        }
+                    }
+                });
+                if bad {
+                    return;
+                }
+            }
+        }
+        Mode::Position(k)
     };
-    if l == 0 {
+    let l = stmts.iter().rposition(is_bare_ctor_call);
+    if l == Some(0) {
         return;
     }
-    let mut extracted: Vec<Stmt> = stmts[..l].to_vec();
+    if matches!(mode, Mode::Single(_)) && l.is_none() {
+        return; // v1 needs the top-level primary
+    }
+    let (mut extracted, tail): (Vec<Stmt>, Vec<Stmt>) = match l {
+        Some(l) => (stmts[..l].to_vec(), stmts[l + 1..].to_vec()),
+        None => (stmts.clone(), Vec::new()),
+    };
     if !extraction_shape_ok(&extracted) {
         return;
     }
-    strip_delegations_deep(&mut extracted);
-    let cv_local = Expr::Local {
-        var: cv,
-        ty: vt.var(cv).ty.clone(),
+    // The delegation the ctor keeps: the top-level primary when present,
+    // else any del (all non-k parts are identical).
+    let primary_del: Expr = match l {
+        Some(l) => match &stmts[l] {
+            Stmt::ExprStmt(e) => e.clone(),
+            _ => return,
+        },
+        None => dels[0].clone(),
     };
-    rewrite_bare_returns(&mut extracted, &cv_local);
-    extracted.push(Stmt::Return(Some(cv_local)));
+    let ret = match mode {
+        Mode::Single(cv) => vt.var(cv).ty.erased(),
+        Mode::Position(k) => match &primary_del {
+            Expr::Method { args, .. } => match args.get(k) {
+                Some(Expr::Local { var, .. }) => vt.var(*var).ty.erased(),
+                _ => return,
+            },
+            _ => return,
+        },
+    };
+    match mode {
+        Mode::Single(cv) => {
+            strip_delegations_deep(&mut extracted);
+            let cv_local = Expr::Local {
+                var: cv,
+                ty: vt.var(cv).ty.clone(),
+            };
+            rewrite_bare_returns(&mut extracted, &cv_local);
+            if !always_returns(&extracted) {
+                extracted.push(Stmt::Return(Some(cv_local)));
+            }
+        }
+        Mode::Position(k) => {
+            // Each stripped delegation's own slot-k carrier fills the
+            // next bare return in its list; merge-point returns fall
+            // back to the primary carrier below.
+            fill_returns_by_position(&mut extracted, k);
+            let fallback = match &primary_del {
+                Expr::Method { args, .. } => args[k].clone(),
+                _ => return,
+            };
+            rewrite_bare_returns(&mut extracted, &fallback);
+            if !always_returns(&extracted) {
+                extracted.push(Stmt::Return(Some(fallback)));
+            }
+        }
+    }
     if !static_safe(&extracted) {
         return;
     }
     let mut defs: jdc_core::FxHashSet<u32> = jdc_core::FxHashSet::default();
     collect_def_vars(&extracted, &mut defs);
-    if defs.iter().any(|v| var_occurs_in(&stmts[l + 1..], *v)) {
+    if defs.iter().any(|v| var_occurs_in(&tail, *v)) {
         return;
     }
     let params: Vec<(u32, JavaType, String)> = vt
@@ -7113,7 +7252,6 @@ pub fn extract_branched_delegation_helper(
         .filter(|v| v.is_param && v.name != "this")
         .map(|v| (v.id, v.ty.erased(), v.name.clone()))
         .collect();
-    let ret = vt.var(cv).ty.erased();
     let name = helper_name(&class.name, desc_str);
     let call = Expr::Method {
         owner: None,
@@ -7137,14 +7275,27 @@ pub fn extract_branched_delegation_helper(
         is_dynamic: false,
         type_args: Vec::new(),
     };
-    let mut new_del = template.clone();
-    deep_rewrite(&mut new_del, &mut |x| {
-        if let Expr::Local { var, .. } = x {
-            if *var == cv {
-                *x = call.clone();
-            }
+    let mut new_del = primary_del.clone();
+    match mode {
+        Mode::Single(cv) => {
+            deep_rewrite(&mut new_del, &mut |x| {
+                if let Expr::Local { var, .. } = x {
+                    if *var == cv {
+                        *x = call.clone();
+                    }
+                }
+            });
         }
-    });
+        Mode::Position(k) => {
+            let Expr::Method { args, .. } = &mut new_del else {
+                return;
+            };
+            if k >= args.len() {
+                return;
+            }
+            args[k] = call.clone();
+        }
+    }
     {
         let mut m = ctor_helpers().lock().unwrap_or_else(|e| e.into_inner());
         let v = m.entry(class.name.clone()).or_default();
@@ -7165,8 +7316,147 @@ pub fn extract_branched_delegation_helper(
             return; // duplicate decompile of the same ctor: keep the first
         }
     }
-    let tail: Vec<Stmt> = stmts[l + 1..].to_vec();
     *stmts = std::iter::once(Stmt::ExprStmt(new_del)).chain(tail).collect();
+}
+
+/// Position-mode return fill: walk each statement list left-to-right; a
+/// delegation at slot k hands its carrier to the next bare `return;` in
+/// the SAME list (the bytecode shape is always `this(..); trace..;
+/// return;`). With no following return in the list the delegation
+/// becomes the return itself and the rest of the list (trace stubs only
+/// — a second delegation there is impossible) is dropped as unreachable.
+fn fill_returns_by_position(stmts: &mut Vec<Stmt>, k: usize) {
+    let mut i = 0;
+    while i < stmts.len() {
+        if is_bare_ctor_call(&stmts[i]) {
+            let karg = match &stmts[i] {
+                Stmt::ExprStmt(Expr::Method { args, .. }) => args.get(k).cloned(),
+                _ => None,
+            };
+            if let Some(v) = karg {
+                let mut j = i + 1;
+                let mut found = None;
+                while j < stmts.len() {
+                    if matches!(stmts[j], Stmt::Return(None)) {
+                        found = Some(j);
+                        break;
+                    }
+                    if is_bare_ctor_call(&stmts[j]) {
+                        break; // next delegation owns the next return
+                    }
+                    j += 1;
+                }
+                match found {
+                    Some(j) => {
+                        stmts[j] = Stmt::Return(Some(v));
+                        stmts.remove(i);
+                        continue;
+                    }
+                    None => {
+                        stmts[i] = Stmt::Return(Some(v));
+                        stmts.truncate(i + 1);
+                        break;
+                    }
+                }
+            }
+        }
+        fill_returns_one(&mut stmts[i], k);
+        i += 1;
+    }
+}
+
+fn fill_returns_one(st: &mut Stmt, k: usize) {
+    match st {
+        Stmt::Block(v) => fill_returns_by_position(v, k),
+        Stmt::If { then_stmt, else_stmt, .. } => {
+            fill_returns_stmt(then_stmt, k);
+            if let Some(e) = else_stmt {
+                fill_returns_stmt(e, k);
+            }
+        }
+        Stmt::While { body, .. }
+        | Stmt::DoWhile { body, .. }
+        | Stmt::ForEach { body, .. }
+        | Stmt::Synchronized { body, .. }
+        | Stmt::Labeled { body, .. } => fill_returns_stmt(body, k),
+        Stmt::For { init, body, .. } => {
+            fill_returns_by_position(init, k);
+            fill_returns_stmt(body, k);
+        }
+        Stmt::Switch { cases, default, .. } => {
+            for c in cases.iter_mut() {
+                fill_returns_by_position(&mut c.body, k);
+            }
+            if let Some(d) = default {
+                fill_returns_stmt(d, k);
+            }
+        }
+        Stmt::Try { body, catches, finally } | Stmt::TryWithResources { body, catches, finally, .. } => {
+            fill_returns_stmt(body, k);
+            for c in catches.iter_mut() {
+                fill_returns_stmt(&mut c.body, k);
+            }
+            if let Some(f) = finally {
+                fill_returns_stmt(f, k);
+            }
+        }
+        _ => {}
+    }
+}
+
+fn fill_returns_stmt(st: &mut Stmt, k: usize) {
+    if is_bare_ctor_call(st) {
+        // Single-statement branch body (`if (c) this(..);`) — becomes
+        // the return directly.
+        if let Stmt::ExprStmt(Expr::Method { args, .. }) = st {
+            if let Some(v) = args.get(k).cloned() {
+                *st = Stmt::Return(Some(v));
+                return;
+            }
+        }
+    }
+    fill_returns_one(st, k);
+}
+
+/// Can this statement list NOT complete normally? Conservative for
+/// loops (false); If needs BOTH branches, Switch needs every case plus
+/// a default. Used to decide whether the extracted helper needs the
+/// trailing `return carrier;` (appending one after exhaustive branches
+/// is javac's "unreachable statement" error).
+fn always_returns(stmts: &[Stmt]) -> bool {
+    let Some(last) = stmts
+        .iter()
+        .rev()
+        .find(|s| !matches!(s, Stmt::Block(v) if v.is_empty()))
+    else {
+        return false;
+    };
+    match last {
+        Stmt::Return(Some(_)) | Stmt::Throw(_) => true,
+        Stmt::Block(v) => always_returns(v),
+        Stmt::If { then_stmt, else_stmt, .. } => match else_stmt {
+            Some(e) => always_returns_one(then_stmt) && always_returns_one(e),
+            None => false,
+        },
+        Stmt::Labeled { body, .. } | Stmt::Synchronized { body, .. } => {
+            always_returns_one(body)
+        }
+        Stmt::Switch { cases, default, .. } => {
+            default.as_ref().is_some_and(|d| always_returns_one(d))
+                && cases.iter().all(|c| always_returns(&c.body))
+        }
+        Stmt::Try { body, catches, finally }
+        | Stmt::TryWithResources { body, catches, finally, .. } => {
+            finally.as_ref().is_some_and(|f| always_returns_one(f))
+                || (always_returns_one(body)
+                    && catches.iter().all(|c| always_returns_one(&c.body)))
+        }
+        _ => false,
+    }
+}
+
+fn always_returns_one(st: &Stmt) -> bool {
+    always_returns(std::slice::from_ref(st))
 }
 
 fn inline_ctor_arg_defs(
