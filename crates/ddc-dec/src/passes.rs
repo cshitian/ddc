@@ -6988,7 +6988,7 @@ fn ok_one(st: &Stmt) -> bool {
     extraction_shape_ok(std::slice::from_ref(st))
 }
 
-fn static_safe(stmts: &[Stmt]) -> bool {
+fn static_safe(stmts: &[Stmt], this_id: Option<u32>) -> bool {
     let mut ok = true;
     for st in stmts {
         let mut c = st.clone();
@@ -6996,6 +6996,16 @@ fn static_safe(stmts: &[Stmt]) -> bool {
             deep_rewrite(e, &mut |x| {
                 match x {
                     Expr::This => ok = false,
+                    // ddc's IR usually carries `this` as the var-0
+                    // PARAM local, not the Expr::This variant — a
+                    // helper body reading it dangles (the this param
+                    // is excluded from the helper's param list) AND
+                    // renders 无法从静态上下文中引用非静态 (weixin y9/i).
+                    Expr::Local { var, .. } => {
+                        if Some(*var) == this_id {
+                            ok = false;
+                        }
+                    }
                     // implicit-this member access / call
                     Expr::Field { owner: None, is_static: false, .. } => ok = false,
                     Expr::Method { owner: None, is_static: false, .. } => ok = false,
@@ -7027,9 +7037,12 @@ fn static_safe(stmts: &[Stmt]) -> bool {
 ///   every site passing a bare non-param local there (per-branch
 ///   carriers, lark BaseProtocol$ReliablePushList's v22_g1/v22x). Each
 ///   stripped delegation's own carrier fills the return that follows it;
-///   merge-point returns fall back to the primary site's carrier. The
-///   top-level primary delegation is optional in this mode — when every
-///   path delegates inside branches the whole body is extracted.
+///   merge-point returns fall back to the primary site's carrier.
+///
+/// The top-level primary delegation is optional in BOTH modes — when
+/// every path delegates inside branches (weixin ln1/b1's super() in
+/// if/try/catch) the whole body is extracted and any del serves as the
+/// template (all non-k parts identical).
 ///
 /// Shared gates (all conservative, bail keeps today's behavior): not an
 /// enum (trace-param strip shifts render params); nested only when the
@@ -7182,15 +7195,34 @@ pub fn extract_branched_delegation_helper(
     if l == Some(0) {
         return;
     }
-    if matches!(mode, Mode::Single(_)) && l.is_none() {
-        return; // v1 needs the top-level primary
-    }
-    let (mut extracted, tail): (Vec<Stmt>, Vec<Stmt>) = match l {
+    let (mut extracted, mut tail): (Vec<Stmt>, Vec<Stmt>) = match l {
         Some(l) => (stmts[..l].to_vec(), stmts[l + 1..].to_vec()),
         None => (stmts.clone(), Vec::new()),
     };
     if !extraction_shape_ok(&extracted) {
         return;
+    }
+    // Post-delegation tails (field writes / trace stubs between each
+    // branch delegation and its return) are CTOR work, not helper
+    // computation — they commonly touch `this`. When every site's tail
+    // is identical (and equals the top-level continuation when one
+    // exists) hoist one copy after the merged delegation; otherwise
+    // they stay in the helper and the static_safe gate below decides.
+    let mut site_tails: Vec<Vec<Stmt>> = Vec::new();
+    {
+        let mut probe = extracted.clone();
+        site_tails_walk(&mut probe, &mut site_tails, false);
+    }
+    let hoist = !site_tails.is_empty() && {
+        let n0 = normalize_tail(&site_tails[0]);
+        site_tails.iter().all(|t| normalize_tail(t) == n0)
+            && (l.is_none() || normalize_tail(&tail) == n0)
+    };
+    if hoist {
+        site_tails_walk(&mut extracted, &mut Vec::new(), true);
+        if l.is_none() {
+            tail = normalize_tail(&site_tails[0]);
+        }
     }
     // The delegation the ctor keeps: the top-level primary when present,
     // else any del (all non-k parts are identical).
@@ -7238,7 +7270,12 @@ pub fn extract_branched_delegation_helper(
             }
         }
     }
-    if !static_safe(&extracted) {
+    let this_id = vt
+        .vars
+        .iter()
+        .find(|v| v.is_param && v.name == "this")
+        .map(|v| v.id);
+    if !static_safe(&extracted, this_id) {
         return;
     }
     let mut defs: jdc_core::FxHashSet<u32> = jdc_core::FxHashSet::default();
@@ -7416,6 +7453,90 @@ fn fill_returns_stmt(st: &mut Stmt, k: usize) {
         }
     }
     fill_returns_one(st, k);
+}
+
+fn normalize_tail(t: &[Stmt]) -> Vec<Stmt> {
+    let mut v = t.to_vec();
+    while matches!(v.last(), Some(Stmt::Return(None))) {
+        v.pop();
+    }
+    v
+}
+
+/// Record (and with `carve`, remove) the statements between each
+/// delegation and the next bare return in its list — a delegation with
+/// no following return takes the rest of the list. Single-statement
+/// branch bodies record an empty tail.
+fn site_tails_walk(stmts: &mut Vec<Stmt>, out: &mut Vec<Vec<Stmt>>, carve: bool) {
+    let mut i = 0;
+    while i < stmts.len() {
+        if is_bare_ctor_call(&stmts[i]) {
+            let mut j = i + 1;
+            let mut end = stmts.len();
+            while j < stmts.len() {
+                if matches!(stmts[j], Stmt::Return(None)) {
+                    end = j;
+                    break;
+                }
+                if is_bare_ctor_call(&stmts[j]) {
+                    end = j;
+                    break;
+                }
+                j += 1;
+            }
+            out.push(stmts[i + 1..end].to_vec());
+            if carve {
+                stmts.splice(i + 1..end, []);
+            }
+            i += 1;
+            continue;
+        }
+        site_tails_one(&mut stmts[i], out, carve);
+        i += 1;
+    }
+}
+
+fn site_tails_one(st: &mut Stmt, out: &mut Vec<Vec<Stmt>>, carve: bool) {
+    if is_bare_ctor_call(st) {
+        out.push(Vec::new());
+        return;
+    }
+    match st {
+        Stmt::Block(v) => site_tails_walk(v, out, carve),
+        Stmt::If { then_stmt, else_stmt, .. } => {
+            site_tails_one(then_stmt, out, carve);
+            if let Some(e) = else_stmt {
+                site_tails_one(e, out, carve);
+            }
+        }
+        Stmt::While { body, .. }
+        | Stmt::DoWhile { body, .. }
+        | Stmt::ForEach { body, .. }
+        | Stmt::Synchronized { body, .. }
+        | Stmt::Labeled { body, .. } => site_tails_one(body, out, carve),
+        Stmt::For { init, body, .. } => {
+            site_tails_walk(init, out, carve);
+            site_tails_one(body, out, carve);
+        }
+        Stmt::Switch { cases, default, .. } => {
+            for c in cases.iter_mut() {
+                site_tails_walk(&mut c.body, out, carve);
+            }
+            if let Some(d) = default {
+                site_tails_one(d, out, carve);
+            }
+        }
+        Stmt::Try { body, catches, finally } | Stmt::TryWithResources { body, catches, finally, .. } => {
+            site_tails_one(body, out, carve);
+            for c in catches.iter_mut() {
+                site_tails_one(&mut c.body, out, carve);
+            }
+            if let Some(f) = finally {
+                site_tails_one(f, out, carve);
+            }
+        }
+        _ => {}
+    }
 }
 
 /// Can this statement list NOT complete normally? Conservative for
