@@ -1012,6 +1012,15 @@ pub fn find_outer_name(pool: &DexPool, internal: &str) -> Option<String> {
     }
     let mut rest = internal;
     while let Some(d) = rest.rfind('$') {
+        // A `$` followed by `/` is a PACKAGE-path dollar (desugar's
+        // `j$/util/...`), never a nesting boundary: without this the
+        // whole j$ tree attached to a root-package class `j` as family
+        // members (deepseek's 62k-line j.java absorbing 549 desugar
+        // classes, double-emitted against their flat j$/ files).
+        if rest.as_bytes().get(d + 1) == Some(&b'/') {
+            rest = &rest[..d];
+            continue;
+        }
         let cand = &rest[..d];
         if pool.has_name(cand) {
             return Some(cand.to_string());
@@ -1025,6 +1034,13 @@ pub fn find_outer_name(pool: &DexPool, internal: &str) -> Option<String> {
 /// lambda), i.e. the class renders inside its outer's compilation unit.
 fn clean_member_tail(rest: &str) -> bool {
     if rest.starts_with('-') {
+        return false;
+    }
+    // A member tail can never contain `/` — that is a package-path
+    // fragment from a package-dollar name (`j$/util/X` stripped against
+    // a root class `j`); defensive backstop for the find_outer_name
+    // guard.
+    if rest.contains('/') {
         return false;
     }
     // d8's synthetic outline/lambda/backport classes (`X$$ExternalSynthetic…`)
