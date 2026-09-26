@@ -10653,21 +10653,70 @@ fn merge_at(stmts: &mut Vec<Stmt>, if_pos: usize) -> bool {
 
 
 pub fn strip_enum_ctor_super(body: &mut Stmt) {
-    let is_enum_super = |s: &Stmt| {
+    fn is_enum_super(s: &Stmt) -> bool {
         matches!(
             s,
             Stmt::ExprStmt(Expr::Method { name, is_super: true, .. }) if &**name == "<init>"
         )
-    };
+    }
+    // FULL depth: hotfix-guarded ctors hide a second super(String,int)
+    // inside the proxy branch (alipay InstantRun: `if (proxy != null) {
+    // super((String) v3[0], ..); proxy.afterSuper(this); return; }` at
+    // depth 3+; the old two-level strip left it — super resolved against
+    // Object once the fallback enum lost `extends Enum`, alipay
+    // ctor-arity ×3,364). This path only runs for fallback enums whose
+    // dex super is Enum/Object, so EVERY super call is a dead Enum-ctor
+    // reference wherever it sits; constant subclasses (real supers)
+    // take the other branch in method.rs and are untouched.
+    fn strip_deep(stmts: &mut Vec<Stmt>) {
+        stmts.retain(|s| !is_enum_super(s));
+        for st in stmts.iter_mut() {
+            strip_one(st);
+        }
+    }
+    fn strip_one(st: &mut Stmt) {
+        match st {
+            Stmt::Block(v) => strip_deep(v),
+            Stmt::If { then_stmt, else_stmt, .. } => {
+                strip_one(then_stmt);
+                if let Some(e) = else_stmt {
+                    strip_one(e);
+                }
+            }
+            Stmt::While { body, .. }
+            | Stmt::DoWhile { body, .. }
+            | Stmt::ForEach { body, .. }
+            | Stmt::Synchronized { body, .. }
+            | Stmt::Labeled { body, .. } => strip_one(body),
+            Stmt::For { init, body, .. } => {
+                strip_deep(init);
+                strip_one(body);
+            }
+            Stmt::Switch { cases, default, .. } => {
+                for c in cases.iter_mut() {
+                    strip_deep(&mut c.body);
+                }
+                if let Some(d) = default {
+                    strip_one(d);
+                }
+            }
+            Stmt::Try { body, catches, finally }
+            | Stmt::TryWithResources { body, catches, finally, .. } => {
+                strip_one(body);
+                for c in catches.iter_mut() {
+                    strip_one(&mut c.body);
+                }
+                if let Some(f) = finally {
+                    strip_one(f);
+                }
+            }
+            _ => {}
+        }
+    }
     let Stmt::Block(stmts) = body else {
         return;
     };
-    stmts.retain(|s| !is_enum_super(s));
-    for st in stmts.iter_mut() {
-        if let Stmt::Block(inner) = st {
-            inner.retain(|s| !is_enum_super(s));
-        }
-    }
+    strip_deep(stmts);
 }
 
 pub fn ensure_declared(body: &mut Stmt, vt: &VarTable) {
