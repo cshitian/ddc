@@ -5107,9 +5107,9 @@ pub fn fix_int_operand_bridges(body: &mut Stmt, vt: &VarTable) {
 /// only when both sides are exactly one plain assignment to the SAME
 /// local and the value types are ternary-compatible (equal erased or
 /// both numeric — mixed-category ternaries box/surprise).
-pub fn fold_value_diamonds(body: &mut Stmt) {
+pub fn fold_value_diamonds(body: &mut Stmt, vt: &VarTable) {
     let Stmt::Block(stmts) = body else { return };
-    fold_diamonds_in(stmts);
+    fold_diamonds_in(stmts, vt);
 }
 
 fn diamond_types_ok(a: &Expr, b: &Expr) -> bool {
@@ -5184,18 +5184,30 @@ fn mk_ternary_assign(tgt: Expr, c: Expr, a: Expr, b: Expr) -> Stmt {
     })
 }
 
-fn fold_diamonds_in(stmts: &mut Vec<Stmt>) {
+/// Two var ids that render as the SAME Java local: identical base name
+/// (generation suffixes only appear on collisions, and same-base
+/// generations of one dex register share the rendered name) and
+/// identical erased type (a bool/num split pair must not merge).
+fn same_render_var(v1: u32, v2: u32, vt: &VarTable) -> bool {
+    let (a, b) = (vt.vars.get(v1 as usize), vt.vars.get(v2 as usize));
+    match (a, b) {
+        (Some(x), Some(y)) => x.name == y.name && x.ty.erased() == y.ty.erased(),
+        _ => false,
+    }
+}
+
+fn fold_diamonds_in(stmts: &mut Vec<Stmt>, vt: &VarTable) {
     let mut i = 0usize;
     while i < stmts.len() {
         match &mut stmts[i] {
-            Stmt::Block(v) => fold_diamonds_in(v),
+            Stmt::Block(v) => fold_diamonds_in(v, vt),
             Stmt::If { then_stmt, else_stmt, .. } => {
                 if let Stmt::Block(v) = &mut **then_stmt {
-                    fold_diamonds_in(v);
+                    fold_diamonds_in(v, vt);
                 }
                 if let Some(e) = else_stmt {
                     if let Stmt::Block(v) = &mut **e {
-                        fold_diamonds_in(v);
+                        fold_diamonds_in(v, vt);
                     }
                 }
             }
@@ -5220,18 +5232,86 @@ fn fold_diamonds_in(stmts: &mut Vec<Stmt>) {
             continue;
         }
         // Shape 2: adjacent `v = b;` + `if (c) { v = a; }` (no else).
+        // The two assigns may target DIFFERENT SSA generations of the
+        // same rendered local (sequential conditional overwrite — the
+        // Kotlin mask-ctor `v11x = p3x; if ((mask&4)!=0) v11x = -1L;`
+        // prelude, lark/weixin branched-defs ctor family): same base
+        // name + same erased type renders as one Java local, so the
+        // fold's else arm reads generation 1 and the assign targets
+        // generation 2 — textually `v = c ? a : v`, exactly the
+        // observable behavior of the unfolded pair.
         if i + 1 < stmts.len() {
-            let shape2 = if let Stmt::If { cond, then_stmt, else_stmt: None, .. } = &stmts[i + 1] {
-                match (single_local_assign(&stmts[i]), single_local_assign(then_stmt)) {
-                    (Some((v1, tgt, b)), Some((v2, _, a)))
-                        if v1 == v2 && diamond_types_ok(&a, &b) =>
-                    {
-                        Some(mk_ternary_assign(tgt, cond.clone(), a, b))
+            // An EMPTY else block counts as no-else: the structurer
+            // emits Some(Block([])) where the source shape had none,
+            // and cleanup (which would drop it) runs AFTER the fold —
+            // the strict None match missed every real-world overwrite
+            // (zero shape-2 folds on lark mask ctors).
+            // Shape 2: adjacent `v = b;` + conditional overwrite with
+            // NO other effect:
+            //   form A: `if (c) { v = a; }` (else absent/empty)  -> v = c ? a : b
+            //   form B: `if (c) { } else { v = a; }` (then empty) -> v = c ? b : a
+            // Form B is the FOLD-time shape of every rendered no-else
+            // overwrite: invert_empty_thens flips then/else AFTER this
+            // pass, so the strict `else_stmt: None, overwrite-in-then`
+            // match never saw a real-world instance (zero shape-2 folds
+            // on lark mask ctors). The two assigns may target DIFFERENT
+            // SSA generations of one rendered local (same base name +
+            // same erased type): the ternary's keep-arm then reads
+            // generation 1 — textually `v = c ? a : v`, exactly the
+            // observable behavior of the unfolded pair (Kotlin mask-ctor
+            // preludes: `v11x = p3x; if ((mask&4)!=0) v11x = -1L;`).
+            let shape2 = {
+                let s_i = single_local_assign(&stmts[i]);
+                if let Stmt::If {
+                    cond,
+                    then_stmt,
+                    else_stmt,
+                    ..
+                } = &stmts[i + 1]
+                {
+                    let then_a = single_local_assign(then_stmt);
+                    let else_a = else_stmt.as_deref().and_then(single_local_assign);
+                    let then_empty =
+                        matches!(&**then_stmt, Stmt::Block(v) if v.is_empty());
+                    let else_empty = else_stmt
+                        .as_deref()
+                        .map(|e| matches!(e, Stmt::Block(v) if v.is_empty()))
+                        .unwrap_or(true);
+                    let try_fold = |over: Option<(u32, Expr, Expr)>,
+                                    keep_over: bool|
+                     -> Option<Stmt> {
+                        let (v2, tgt2, a) = over?;
+                        let (v1, _t1, b) = s_i.as_ref()?;
+                        if !(*v1 == v2 || same_render_var(*v1, v2, vt)) {
+                            return None;
+                        }
+                        let keep = if *v1 == v2 {
+                            b.clone()
+                        } else {
+                            Expr::Local {
+                                var: *v1,
+                                ty: vt.var(*v1).ty.clone(),
+                            }
+                        };
+                        if !diamond_types_ok(&a, &keep) {
+                            return None;
+                        }
+                        if keep_over {
+                            Some(mk_ternary_assign(tgt2, cond.clone(), keep, a))
+                        } else {
+                            Some(mk_ternary_assign(tgt2, cond.clone(), a, keep))
+                        }
+                    };
+                    if then_a.is_some() && else_empty {
+                        try_fold(then_a, false)
+                    } else if else_a.is_some() && then_empty {
+                        try_fold(else_a, true)
+                    } else {
+                        None
                     }
-                    _ => None,
+                } else {
+                    None
                 }
-            } else {
-                None
             };
             if let Some(f) = shape2 {
                 stmts[i] = f;
