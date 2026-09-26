@@ -7200,6 +7200,15 @@ pub fn extract_branched_delegation_helper(
         }
     } else {
         let arity = t_args.len();
+        // Uniform arity FIRST: a bare `super()` mixed among arg-carrying
+        // dels made the single-diff slot k index past a short del's args
+        // (deepseek v52 / kimi c60.o panics, index-out-of-bounds).
+        if dels
+            .iter()
+            .any(|d| !matches!(d, Expr::Method { args, .. } if args.len() == arity))
+        {
+            return;
+        }
         let mut diff: Vec<usize> = Vec::new();
         for j in 0..arity {
             if dels.iter().any(|d| match d {
