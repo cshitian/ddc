@@ -4026,10 +4026,25 @@ pub fn print_class_name(pool: &DexPool, internal: &str) -> String {
                 // (`j$/util/...` dotted into `j..util`) and suffixes
                 // like `Collection$-EL` or anonymous `RequestId$1`
                 // cannot be dotted under any reading.
-                let tail_ok = rest[i + 1..]
-                    .chars()
-                    .next()
-                    .is_some_and(|c| c.is_ascii_alphabetic() || c == '_');
+                //
+                // Sanitizer-escaped tails DO dot for POOL classes: the
+                // injective `_u<hex>` escape turns any non-ASCII (or
+                // ASCII-punctuation) leading char into `_`-initial —
+                // a valid identifier start — and the declaration side
+                // renders the member that way (weibo's unicode-named
+                // nested `a$Ꮺ`: decl `class a_u2dIA` inside a, ctor
+                // params dotted `a.a_u2dIA`, but casts stayed flat
+                // `a$a_u2dIA` — 找不到符号 类 ×~500). Digit and `$`
+                // tails stay flat (emission-unit files keep the `$`;
+                // framework binary names are unreachable either way).
+                let tail_next = rest[i + 1..].chars().next();
+                let tail_ok = match tail_next {
+                    Some(c) if c.is_ascii_alphabetic() || c == '_' => true,
+                    Some(c) if !c.is_ascii_digit() && c != '$' => {
+                        pool.get(internal).is_some()
+                    }
+                    _ => false,
+                };
                 out.push_str(&seg.replace('/', "."));
                 out.push_str(if known && tail_ok { "." } else { "$" });
                 off += i + 1;
