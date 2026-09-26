@@ -1343,6 +1343,11 @@ fn nested_collision_renames(
     };
     let mut taken_sibling_displays: jdc_core::FxHashSet<String> =
         map.values().cloned().collect();
+    // Stage-2 queue: nested tails equal to a top-level package segment
+    // whose family showed NO descriptor-level trigger — the victim ref
+    // may live in method bodies only (weixin e32/a2's `a.b.c()` bound
+    // to its own nested `class a`, 位置: 类 a ×169).
+    let mut body_cands: Vec<(String, String, String)> = Vec::new();
     for name in names {
         if !name.contains('$') || map.contains_key(name) {
             continue;
@@ -1413,6 +1418,14 @@ fn nested_collision_renames(
             .get(root)
             .is_some_and(|segs| segs.contains(tail));
         let clash = chain.iter().any(|c| c == tail) || field_clash || pkg_shadow;
+        // Stage-2 queue: NO descriptor trigger, but the tail equals a
+        // top-level package segment — the victim ref may be body-level
+        // only. ORPHANS included: their pass-1 k=1 mint is the invisible
+        // normalization (`a$$a` → display `a`), which leaves the package
+        // shadow fully alive (weixin e32/a$$a hijacking `a.b.c()` ×169).
+        if !clash && pkg_segments.contains(tail) {
+            body_cands.push((name.clone(), root.to_string(), tail.to_string()));
+        }
         if !orphan && !clash {
             continue;
         }
@@ -1488,6 +1501,168 @@ fn nested_collision_renames(
             map.insert(name.clone(), cand);
             break;
         }
+    }
+    // Stage 2 (body-gated package shadow): one body-level image scan
+    // over the queued families (family_ref_segments — the field-
+    // deshadow mechanism; instruction-level, cross-package refs), then
+    // mint for the families whose members actually reference the
+    // segment. Mirrors obscuring_class_renames' two-stage design at
+    // family level. Lazy pools skip (same gate as stage 1's scan).
+    let mut body_renamed = 0usize;
+    if !body_cands.is_empty() && pool_majority_materialized(pool) {
+        let roots: jdc_core::FxHashSet<&str> =
+            body_cands.iter().map(|(_, r, _)| r.as_str()).collect();
+        let mut members: jdc_core::FxHashSet<String> = jdc_core::FxHashSet::default();
+        for n in &pool.order {
+            let r = match n.find('$') {
+                Some(i) => &n[..i],
+                None => n.as_str(),
+            };
+            if roots.contains(r) {
+                members.insert(n.clone());
+            }
+        }
+        let t0 = std::time::Instant::now();
+        let (by_referrer, _) = refscan::family_ref_segments(&pool.dexes, &members);
+        // Referrer-keyed → family-root-keyed: every member renders in
+        // the root file's scope.
+        let mut root_segs: jdc_core::FxHashMap<&str, jdc_core::FxHashSet<&str>> =
+            jdc_core::FxHashMap::default();
+        for (referrer, segs) in &by_referrer {
+            let r = referrer.split('$').next().unwrap_or(referrer);
+            root_segs.entry(r).or_default().extend(segs.iter().map(|s| s.as_str()));
+        }
+        if std::env::var("DDC_STATS").is_ok() {
+            eprintln!(
+                "[renames] nested body-shadow scan: cands={} families={} scan={:?}",
+                body_cands.len(),
+                root_segs.len(),
+                t0.elapsed()
+            );
+        }
+        for (name, root, tail) in &body_cands {
+            if !root_segs
+                .get(root.as_str())
+                .is_some_and(|s| s.contains(tail.as_str()))
+            {
+                    continue;
+            }
+            if let Some(d) = map.get(name) {
+                // Pass-1 orphan mints are invisible (display tail ==
+                // tail) — those get re-minted visibly here. Anything
+                // already visibly renamed stays as the earlier rule set it.
+                let cur_tail = d.rsplit(['/', '$']).next().unwrap_or("");
+                if cur_tail != tail.as_str() {
+                    continue;
+                }
+            }
+            // Fresh display context: stage-1 renames may have moved the
+            // parent/chain since this candidate was queued.
+            let Some(parent) = find_outer_name(pool, name) else {
+                continue;
+            };
+            let Some(rest) = name
+                .strip_prefix(parent.as_str())
+                .and_then(|t| t.strip_prefix('$'))
+            else {
+                continue;
+            };
+            if !clean_member_tail(rest) {
+                continue;
+            }
+            let mut chain: Vec<String> = Vec::new();
+            let mut cur = parent.clone();
+            loop {
+                let disp = map.get(&cur).cloned().unwrap_or_else(|| cur.clone());
+                let simple = disp.rsplit('/').next().unwrap_or(&disp);
+                chain.push(simple.rsplit('$').next().unwrap_or(simple).to_string());
+                match find_outer_name(pool, &cur) {
+                    Some(o) if o != cur => cur = o,
+                    _ => break,
+                }
+            }
+            let disp_parent = map
+                .get(&parent)
+                .cloned()
+                .unwrap_or_else(|| parent.clone());
+            let mut enc_fields: jdc_core::FxHashSet<String> =
+                jdc_core::FxHashSet::default();
+            if let Some(pc) = pool.get(&parent) {
+                for f in pc.static_fields.iter().chain(pc.instance_fields.iter()) {
+                    enc_fields.insert(crate::classdec::java_ident(&f.name).into_owned());
+                }
+            }
+            let mut k = 0u32;
+            loop {
+                k += 1;
+                let cand_tail = if k == 1 {
+                    tail.clone()
+                } else {
+                    format!("{tail}{k}")
+                };
+                if chain.contains(&cand_tail) || enc_fields.contains(&cand_tail) {
+                    continue;
+                }
+                // The renamed tail stays a member type of the root
+                // file — it must not shadow ANOTHER package segment the
+                // family references (descriptor OR body level) nor a
+                // same-package top-level sibling.
+                if pkg_segments.contains(&cand_tail) {
+                    continue;
+                }
+                if fam_segs
+                    .get(root.as_str())
+                    .is_some_and(|segs| segs.contains(cand_tail.as_str()))
+                {
+                    continue;
+                }
+                if root_segs
+                    .get(root.as_str())
+                    .is_some_and(|segs| segs.contains(cand_tail.as_str()))
+                {
+                    continue;
+                }
+                if let Some((root_pkg, _)) = root.rsplit_once('/') {
+                    let sib = format!("{root_pkg}/{cand_tail}");
+                    if pool.has_name(&sib) || taken_sibling_displays.contains(&sib) {
+                        continue;
+                    }
+                    taken_sibling_displays.insert(sib);
+                }
+                let cand = format!("{disp_parent}${cand_tail}");
+                if pool.has_name(&cand) || assigned.contains(&cand) {
+                    continue;
+                }
+                // Repair pass-1 mints whose display chain ran through
+                // THIS name's old display: stage 2 renames ancestors
+                // after descendants were minted (weibo mobileads k$a →
+                // a5 left pass-1's k$a$b$a → "k$a$b$a2" pointing through
+                // the dead `a` — 找不到符号 类 a ×48). Ancestor-first
+                // within each pass, but stage 2 as a whole runs last.
+                let old_disp = format!("{disp_parent}${tail}");
+                if old_disp != cand {
+                    for (mk, mv) in map.iter_mut() {
+                        if mk == name {
+                            continue;
+                        }
+                        if let Some(rest) = mv.strip_prefix(old_disp.as_str()) {
+                            if rest.starts_with('$') {
+                                let repaired = format!("{cand}{rest}");
+                                assigned.insert(repaired.clone());
+                                *mv = repaired;
+                            }
+                        }
+                    }
+                }
+                assigned.insert(cand.clone());
+                map.insert(name.clone(), cand);
+                body_renamed += 1;
+                break;
+            }
+        }
+    }
+    if body_renamed > 0 && std::env::var("DDC_STATS").is_ok() {
+        eprintln!("[renames] nested body-shadow renames: {body_renamed}");
     }
 }
 
