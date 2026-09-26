@@ -1314,6 +1314,36 @@ pub fn case_rename_map(pool: &DexPool) -> HashMap<String, String> {
 /// constructor names, file names and every type reference stay
 /// consistent through apply_class_rename. All are pure display
 /// renames keyed by internal name.
+/// In-progress-map display composition, mirroring
+/// `rename::apply_class_rename`'s ancestor walk (the registry is not
+/// installed yet during map construction, so mint rules must compose
+/// through renamed ancestors themselves). A nested name whose DIRECT
+/// parent has no entry still inherits every renamed higher prefix:
+/// grandparent `yN5` -> `yN5_3` must turn minted `yN5$a$a2` into
+/// `yN5_3$a$a2` (xingye case-quads: the raw-prefix entry short-
+/// circuited the render walk — 程序包ddcroot.yN5.a不存在 ×134-family).
+fn display_of(name: &str, map: &HashMap<String, String>) -> String {
+    // EXACT hit first — the walk truncates the full name before ever
+    // consulting it, and an identity entry on an ancestor prefix
+    // (case_rename_map seeds those for every fold-group first member)
+    // would short-circuit to the raw name (lark aa2/d$c17 minted, then
+    // aa2/d$c$a composed against the identity of aa2/d — the child
+    // stranded on the dead `c` prefix, 找不到符号 类 a ×1,874).
+    if let Some(d) = map.get(name) {
+        return d.clone();
+    }
+    let mut s = name;
+    while let Some(i) = s.rfind('$') {
+        s = &s[..i];
+        match map.get(s) {
+            Some(d) if d.as_str() != s => return format!("{d}{}", &name[s.len()..]),
+            Some(_) => return name.to_string(),
+            None => continue,
+        }
+    }
+    map.get(name).cloned().unwrap_or_else(|| name.to_string())
+}
+
 fn nested_collision_renames(
     pool: &DexPool,
     map: &mut HashMap<String, String>,
@@ -1397,10 +1427,7 @@ fn nested_collision_renames(
             }
         }
         let root: &str = &cur;
-        let disp_parent = map
-            .get(&parent)
-            .cloned()
-            .unwrap_or_else(|| parent.clone());
+        let disp_parent = display_of(&parent, map);
         let tail = rest.rsplit('$').next().unwrap_or(rest);
         let orphan = rest.contains('$');
         // Field obscuring (JLS 6.4.2): a nested type whose simple name
@@ -1597,10 +1624,7 @@ fn nested_collision_renames(
                     _ => break,
                 }
             }
-            let disp_parent = map
-                .get(&parent)
-                .cloned()
-                .unwrap_or_else(|| parent.clone());
+            let disp_parent = display_of(&parent, map);
             let mut enc_fields: jdc_core::FxHashSet<String> =
                 jdc_core::FxHashSet::default();
             if let Some(pc) = pool.get(&parent) {
@@ -3440,6 +3464,16 @@ fn root_pkg_relocation(pool: &DexPool, map: &mut HashMap<String, String>) {
         let disp = map.get(name).cloned().unwrap_or_else(|| name.clone());
         if disp.contains('/') {
             continue; // defensive: some rule already packaged it
+        }
+        if disp == *name && name.contains('$') && find_outer_name(pool, name).is_some() {
+            // An UNRENAMED nested name with a pool outer must stay
+            // entry-less so apply_class_rename's $-walk composes it
+            // through the outer's relocated+renamed display — an exact
+            // entry short-circuits the walk and freezes the outer's
+            // pre-rename simple (xingye's case-collision quads:
+            // `ue5$a` exact-mapped to ddcroot/ue5$a instead of
+            // ddcroot/ue5_4$a — 程序包ddcroot.ue5不存在 ×61k).
+            continue;
         }
         let head = disp.split('$').next().unwrap_or(&disp);
         let collide = root_segs.contains(head) || FW_SEGS.contains(&head);
