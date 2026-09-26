@@ -5346,6 +5346,85 @@ fn fold_diamonds_in(stmts: &mut Vec<Stmt>, vt: &VarTable) {
                     None
                 }
             };
+            // Leading-assign variant: the branch STARTS with the
+            // overwrite and carries a tail (Kotlin mask-ctor last slot:
+            // `str12 = null; if ((m&32)==0) { str12 = str6; this(..,
+            // str12); return; }` — news_article CommonData/DTO family).
+            // Fold the assign into the ternary and leave the tail in the
+            // branch: the tail's reads see the identical value on both
+            // paths (the ternary assigns before the branch runs). Gate:
+            // the tail must not WRITE the var.
+            let mut lead_fold: Option<(Stmt, Stmt)> = None;
+            if shape2.is_none() && i + 1 < stmts.len() {
+                let s_i2 = single_local_assign(&stmts[i]);
+                let leading = |st: &Stmt| -> Option<((u32, Expr, Expr), Vec<Stmt>)> {
+                    let Stmt::Block(v) = st else { return None };
+                    if v.len() < 2 {
+                        return None;
+                    }
+                    let first = single_local_assign(&v[0])?;
+                    Some((first, v[1..].to_vec()))
+                };
+                if let (Some((v1, _t1, b)), Stmt::If { cond, then_stmt, else_stmt, .. }) =
+                    (&s_i2, &stmts[i + 1])
+                {
+                    let else_absent = else_stmt.is_none()
+                        || else_stmt
+                            .as_deref()
+                            .is_some_and(|e| matches!(e, Stmt::Block(v) if v.is_empty()));
+                    let then_absent = matches!(&**then_stmt, Stmt::Block(v) if v.is_empty());
+                    let try_lead = |over: Option<((u32, Expr, Expr), Vec<Stmt>)>,
+                                    keep_over: bool|
+                     -> Option<(Stmt, Stmt)> {
+                        let ((v2, tgt2, a), rest) = over?;
+                        if !(*v1 == v2 || same_render_var(*v1, v2, vt)) {
+                            return None;
+                        }
+                        if stmts_count_writes(&rest, *v1) != 0
+                            || stmts_count_writes(&rest, v2) != 0
+                        {
+                            return None;
+                        }
+                        let keep = if *v1 == v2 {
+                            b.clone()
+                        } else {
+                            Expr::Local {
+                                var: *v1,
+                                ty: vt.var(*v1).ty.clone(),
+                            }
+                        };
+                        if !diamond_types_ok(&a, &keep) {
+                            return None;
+                        }
+                        let t = if keep_over {
+                            mk_ternary_assign(tgt2, cond.clone(), keep, a)
+                        } else {
+                            mk_ternary_assign(tgt2, cond.clone(), a, keep)
+                        };
+                        let mut new_if = stmts[i + 1].clone();
+                        if let Stmt::If { then_stmt, else_stmt, .. } = &mut new_if {
+                            if keep_over {
+                                *else_stmt = Some(Box::new(Stmt::Block(rest)));
+                            } else {
+                                **then_stmt = Stmt::Block(rest);
+                            }
+                        }
+                        Some((t, new_if))
+                    };
+                    if else_absent {
+                        lead_fold = try_lead(leading(then_stmt), false);
+                    } else if then_absent {
+                        if let Some(e) = else_stmt {
+                            lead_fold = try_lead(leading(e), true);
+                        }
+                    }
+                }
+            }
+            if let Some((folded, new_if)) = lead_fold {
+                stmts[i] = folded;
+                stmts[i + 1] = new_if;
+                continue;
+            }
             if let Some(f) = shape2 {
                 stmts[i] = f;
                 stmts.remove(i + 1);
