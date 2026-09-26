@@ -144,7 +144,19 @@ fn decompile_class_impl(
     if class.is_synthetic() {
         out.push_str("// synthetic\n");
     }
-    let (pkg, _) = split_name(&class.name);
+    // The DISPLAY package: the root-package relocation rule moves the
+    // default-package cohort under a synthetic package, and the emitted
+    // `package` line + file path must agree with the renamed refs.
+    // Every pre-existing rename rule keeps the package, so this is a
+    // no-op for them.
+    let own_display_full = crate::apply_class_rename(&class.name);
+    let (pkg, _) = split_name(&own_display_full);
+    // Per-package caches below are keyed by the ORIGINAL package — the
+    // relocated cohort's same-package set is still the root one.
+    let pkg_lookup: &str = match crate::root_pkg_display() {
+        Some(rp) if rp == pkg => "",
+        _ => pkg.as_str(),
+    };
     // Two-pass import assembly: the body renders FIRST (into a temp
     // buffer) with the obscured render state installed — expression
     // positions DISCOVER additional obscured refs on the fly — then the
@@ -157,7 +169,7 @@ fn decompile_class_impl(
     // the map (their refs stay qualified, erroring honestly).
     let mut blocked: jdc_core::FxHashSet<String> = pool
         .package_simples()
-        .get(&pkg)
+        .get(pkg_lookup)
         .cloned()
         .unwrap_or_default();
     // Blocked names must include the RENAMED displays of same-package
@@ -196,7 +208,7 @@ fn decompile_class_impl(
             }
             m
         });
-        cache.get(&pkg)
+        cache.get(pkg_lookup)
     };
     // In-file member shadowing: the own class's FIELDS and its family's
     // nested-class tails are in scope inside the body and shadow any

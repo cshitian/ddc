@@ -1762,6 +1762,10 @@ pub fn install_case_renames(pool: &DexPool) {
     // above has already settled (`l.᩻ܶ` → `l/__.java`, 22,636 classes onto
     // 3 paths on bin.mt.plus — the silent-overwrite data loss).
     lossy_sanitize_renames(pool, &mut map);
+    // Default-package relocation keys on the settled displays too (it
+    // PREFIXES them with the synthetic package) — runs after every
+    // simple-name rule has minted.
+    root_pkg_relocation(pool, &mut map);
     jdc_core::rename::set_class_renames(map);
     jdc_core::rename::set_field_renames(combined_field_renames(pool));
     if pool_majority_materialized(pool) {
@@ -3338,3 +3342,73 @@ fn field_deshadow_renames(
     out
 }
 pub use jdc_core::rename::apply_class_rename;
+
+// ---------------------------------------------------------------------------
+// Default-package relocation.
+// ---------------------------------------------------------------------------
+
+/// The synthetic package the default-package cohort currently relocates
+/// to (Mutex, not OnceLock: `set_class_renames` replaces the registry per
+/// pool, so a second pool in one process must be able to re-key this).
+static ROOT_PKG: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None);
+
+/// The synthetic package display root-package classes were moved under
+/// (`None` when no relocation ran). Consumers keying per-package caches
+/// by the ORIGINAL package map this display back to `""`.
+pub fn root_pkg_display() -> Option<String> {
+    ROOT_PKG
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .clone()
+}
+
+/// Default-package relocation: javac cannot resolve ANY reference from a
+/// named package to an unnamed-package class (JLS 7.4.2 — `private it0 f;`
+/// inside com.amap.X is 找不到符号 whatever the syntax; xingye ~198k +
+/// Amap ~81k errors ≈ 73% of the whole-directory sweep total, and
+/// kotlin.jvm.Function0 even EXTENDS a root class on xingye). No source
+/// syntax escapes it — but the rename registry escapes the NAME: move the
+/// whole root cohort under a synthetic package (`ddcroot/a.java`,
+/// `package ddcroot;`) and every cross-package ref renders the resolvable
+/// FQN `ddcroot.a`. Cohort-uniform: in-cohort refs keep resolving (one
+/// new shared package), the case/lossy dedupes inside the cohort still
+/// hold (a directory move preserves relative collisions), and the
+/// synthetic segment is collision-bumped against every pool package and
+/// class so it can never shadow or be shadowed. Runs LAST (prefixes the
+/// settled displays). Fidelity note: declared package no longer matches
+/// the binary name — the same trade every rename rule here makes, on a
+/// cohort whose cross-package render is otherwise dead code.
+fn root_pkg_relocation(pool: &DexPool, map: &mut HashMap<String, String>) {
+    // Gate on NAMES only (identical verdict in lazy browse and full
+    // decompile — the display must not depend on materialization):
+    // relocation matters only when BOTH cohorts exist — the JLS-dead
+    // direction is named-package → root-package, so an all-root app
+    // (hello fixtures, pure-demo dexes) keeps the faithful layout.
+    let has_root = pool.order.iter().any(|n| !n.contains('/'));
+    let has_named = pool.order.iter().any(|n| n.contains('/'));
+    if !has_root || !has_named {
+        *ROOT_PKG.lock().unwrap_or_else(|e| e.into_inner()) = None;
+        return;
+    }
+    let root_segs = pool.root_pkg_segs();
+    let mut pkg = "ddcroot".to_string();
+    while pool.has_name(&pkg) || root_segs.contains(&pkg) {
+        pkg.push('_');
+    }
+    let mut moved = 0usize;
+    for name in &pool.order {
+        if name.contains('/') {
+            continue;
+        }
+        let disp = map.get(name).cloned().unwrap_or_else(|| name.clone());
+        if disp.contains('/') {
+            continue; // defensive: some rule already packaged it
+        }
+        map.insert(name.clone(), format!("{pkg}/{disp}"));
+        moved += 1;
+    }
+    *ROOT_PKG.lock().unwrap_or_else(|e| e.into_inner()) = Some(pkg.clone());
+    if std::env::var("DDC_STATS").is_ok() {
+        eprintln!("[renames] root-pkg relocation: {moved} classes -> {pkg}/");
+    }
+}
