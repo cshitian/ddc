@@ -374,6 +374,19 @@ struct EnumConst {
 /// `/* enum */ class` form) when anything is missing: R8 variance,
 /// constant-specific bodies (the field holds an anonymous subclass), or
 /// a <clinit> that failed to decompile.
+/// Cached DDC_DBG_ENUM gate (env reads must not sit in per-class paths).
+fn dbg_enum() -> bool {
+    static CACHED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *CACHED.get_or_init(|| std::env::var_os("DDC_DBG_ENUM").is_some())
+}
+
+fn dbg_enum_none(ln: u32) -> Option<(Vec<EnumConst>, crate::method::MethodBody)> {
+    if dbg_enum() {
+        eprintln!("[enum-none] line {}", ln);
+    }
+    None
+}
+
 fn collect_enum_constants(
     pool: &DexPool,
     class: &PoolClass,
@@ -391,7 +404,7 @@ fn collect_enum_constants(
     // constant scan below lifts the constants out of the array literal.
     // Non-enum classes have no business here.
     if const_fields.is_empty() && class.access & crate::access::ACC_ENUM == 0 {
-        return None;
+        return dbg_enum_none(line!());
     }
     // JLS 8.9.2: a restored true-enum ctor may not read the enum's own
     // static fields (javac rejects even the QUALIFIED `E.field` form).
@@ -412,7 +425,7 @@ fn collect_enum_constants(
                 if dex.class_name(fr.class_idx) == class.name.as_str()
                     && dex.type_name(fr.type_idx) != "Lcom/meituan/robust/ChangeQuickRedirect;"
                 {
-                    return None;
+                    return dbg_enum_none(line!());
                 }
             }
         }
@@ -424,6 +437,14 @@ fn collect_enum_constants(
     // trailing loop) — the passes below index a FLAT statement list.
     if let Stmt::Block(vs) = &mut body.body {
         crate::passes::flatten_top_blocks(vs);
+    }
+    if dbg_enum() {
+        if let Stmt::Block(vs) = &body.body {
+            for (i, st) in vs.iter().enumerate() {
+                let d = format!("{:?}", st);
+                eprintln!("[enum-stmt {}] {}", i, d.chars().take(220).collect::<String>());
+            }
+        }
     }
     crate::passes::strip_clinit_hotfix_guard(&mut body.body);
 
@@ -520,7 +541,7 @@ fn collect_enum_constants(
     let mut drop_stmts: Vec<usize> = Vec::new();
 
     // Collect (immutable borrows) first; the mutable passes come after.
-    if !matches!(&body.body, Stmt::Block(_)) { return None; }
+    if !matches!(&body.body, Stmt::Block(_)) { return dbg_enum_none(line!()); }
 
     // Pass 1: definitions. (immutable borrow; rewrite comes later)
     // Rolling reaching-defs of clinit locals for resolving enum-ctor
@@ -541,7 +562,7 @@ fn collect_enum_constants(
     let mut def_site: HashMap<usize, (u32, usize)> = HashMap::default();
     for (i, st) in match &body.body {
         Stmt::Block(v) => v.iter().enumerate(),
-        _ => return None,
+        _ => return dbg_enum_none(line!()),
     } {
         // (var, New) for both def shapes: LocalDef and Assign-to-local.
         let def_shape: Option<(u32, &Expr)> = match st {
@@ -563,7 +584,7 @@ fn collect_enum_constants(
                 if let (Expr::Const(ConstVal::Str(n)), Expr::Const(ConstVal::Int(ord0))) =
                     (&args[0], &args[1])
                 {
-                    if java_ident(n).as_ref() != &**n || n.is_empty() { return None; }
+                    if java_ident(n).as_ref() != &**n || n.is_empty() { return dbg_enum_none(line!()); }
                     var_of.insert(var, const_name.len());
                     def_site.insert(i, (var, const_name.len()));
                     const_ord.push(*ord0 as i64);
@@ -594,7 +615,7 @@ fn collect_enum_constants(
     let mut cur_def: HashMap<u32, usize> = HashMap::default();
     for (i, st) in match &body.body {
         Stmt::Block(v) => v.iter().enumerate(),
-        _ => return None,
+        _ => return dbg_enum_none(line!()),
     } {
         if let Some((var, idx)) = def_site.get(&i) {
             cur_def.insert(*var, *idx);
@@ -610,10 +631,29 @@ fn collect_enum_constants(
                 if cls.as_ref() != class.name {
                     continue;
                 }
-                if !const_fields.iter().any(|f| f.name.as_str() == &**fname) {
+                // The lifter emits field refs THROUGH field_display — an
+                // obscuring-renamed const field (te/b's field `b` shares
+                // the class name → displays `b7`) arrives here already
+                // renamed; the raw-name compare silently skipped the sput
+                // and the enum fell back to `/* enum */ class` with the
+                // synthetic ctor stripped — every `new b("STARS", 0)`
+                // then failed 「无法将构造器应用到给定类型」 (Telegram 603
+                // errors / 430 files). Match on the display name; the
+                // promoted constant declares under it, which is exactly
+                // what every pool reference resolves through.
+                let bound = const_fields.iter().any(|f| {
+                    f.name.as_str() == &**fname
+                        || jdc_core::rename::field_display(
+                            class.name.as_str(),
+                            &f.name,
+                            &f.desc,
+                        )
+                        .is_some_and(|d| d == &**fname)
+                });
+                if !bound {
                     continue;
                 }
-                if const_field.iter().any(|f| !f.is_empty() && f == &**fname) { return None; // duplicate assignment
+                if const_field.iter().any(|f| !f.is_empty() && f == &**fname) { return dbg_enum_none(line!()); // duplicate assignment
                 }
                 let idx = match &**value {
                     Expr::Local { var, .. } => cur_def.get(var).copied()?,
@@ -623,7 +663,7 @@ fn collect_enum_constants(
                         if let (Expr::Const(ConstVal::Str(n)), Expr::Const(ConstVal::Int(ord0))) =
                             (&args[0], &args[1])
                         {
-                            if java_ident(n).as_ref() != &**n || n.is_empty() { return None; }
+                            if java_ident(n).as_ref() != &**n || n.is_empty() { return dbg_enum_none(line!()); }
                             let idx = const_name.len();
                             const_ord.push(*ord0 as i64);
                             const_name.push(n.to_string());
@@ -639,10 +679,10 @@ fn collect_enum_constants(
                             )?);
                             idx
                         } else {
-                            return None;
+                            return dbg_enum_none(line!());
                         }
                     }
-                    _ => return None,
+                    _ => return dbg_enum_none(line!()),
                 };
                 const_field[idx] = fname.to_string();
                 drop_stmts.push(i);
@@ -667,7 +707,14 @@ fn collect_enum_constants(
     // ON_DESTROY — a pass-1 local with no pass-2 sput). Field-less
     // constants keep their ctor-string source name.
     if const_field.iter().filter(|f| !f.is_empty()).count() != const_fields.len() {
-        return None;
+    {
+            if dbg_enum() {
+                eprintln!("[enum-gate677] const_fields={:?} const_field={:?} const_name={:?} const_ord={:?}",
+                    const_fields.iter().map(|f| f.name.to_string()).collect::<Vec<_>>(),
+                    const_field, const_name, const_ord);
+            }
+            return dbg_enum_none(line!());
+        }
     }
     // Obfuscated enums rename the ACC_ENUM FIELD (d/e/f) while the ctor's
     // name STRING keeps the source identifier — the promoted constant
@@ -680,14 +727,14 @@ fn collect_enum_constants(
         if !field.is_empty() && field != &const_name[i] {
             let id = java_ident(field);
             if id.is_empty() || id.as_ref() != field.as_str() {
-                return None;
+                return dbg_enum_none(line!());
             }
             const_name[i] = field.clone();
         }
     }
     {
         let mut seen: std::collections::HashSet<&str> = std::collections::HashSet::default();
-        if !const_name.iter().all(|c| seen.insert(c.as_str())) { return None; }
+        if !const_name.iter().all(|c| seen.insert(c.as_str())) { return dbg_enum_none(line!()); }
     }
 
     // Synthetic constants: entries built INLINE inside the $VALUES
@@ -835,7 +882,7 @@ fn collect_enum_constants(
         ));
     }
     if merged.is_empty() {
-        return None; // nothing extracted — keep the desugared form
+        return dbg_enum_none(line!()); // nothing extracted — keep the desugared form
     }
     merged.sort_by_key(|(o, _)| *o);
     // Ordinals must be UNIQUE and ASCENDING; gaps are legal — R8 drops
@@ -865,7 +912,7 @@ fn collect_enum_constants(
     let mut pad_k = 0u32;
     for (ord, c) in merged {
         if ord < expect {
-            return None; // duplicate/colliding ordinals — unfaithful
+            return dbg_enum_none(line!()); // duplicate/colliding ordinals — unfaithful
         }
         if ord > expect {
             // Extras-bearing ctors: a pad may borrow an adjacent
@@ -878,7 +925,7 @@ fn collect_enum_constants(
             // Enum.valueOf). Non-benign ctors keep the abort.
             let tmpl: Vec<Expr> = if has_extras {
                 if !enum_ctors_benign(pool, class) {
-                    return None; // cannot synthesize the missing ctor args
+                    return dbg_enum_none(line!()); // cannot synthesize the missing ctor args
                 }
                 match padded.last() {
                     Some(prev) => prev.extra_args.clone(),
