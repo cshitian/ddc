@@ -118,6 +118,11 @@ pub fn decompile_method(
         )));
     }
 
+    // SSA Phase 0 census (read-only, DDC_SSA_REPORT-gated).
+    if crate::ssa_census::enabled() {
+        crate::ssa_census::census_method(&cfg, &env);
+    }
+
     // Visiting order: reverse postorder, then any stragglers (so every block
     // is built at least once even when unreachable).
     let core_for_order = cfg.to_core();

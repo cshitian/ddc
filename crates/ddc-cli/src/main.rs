@@ -2246,6 +2246,9 @@ fn run() -> Result<()> {
             // notices above are the only stderr noise).
         }
     }
+    if ddc_dec::ssa_census::enabled() {
+        eprintln!("{}", ddc_dec::ssa_census::report());
+    }
     if std::env::var("DDC_COLLECT").is_ok() {
         unsafe { mimalloc_sys_collect() };
     }

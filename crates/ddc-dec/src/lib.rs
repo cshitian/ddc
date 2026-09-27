@@ -16,6 +16,7 @@ pub mod method;
 pub mod passes;
 pub mod platform;
 mod refscan;
+pub mod ssa_census;
 
 use jdc_core::FxHashMap as HashMap;
 
