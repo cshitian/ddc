@@ -3997,12 +3997,12 @@ pub(crate) fn obscured_render_pub(internal: &str) -> Option<String> {
                 .next()
                 .unwrap_or("")
                 .to_string();
-            // An un-importable simple (digit-leading `$1` anon tail)
-            // stays on the concrete qualified render — `import e2.c$1`
-            // is not Java, and the flat `$`-file qualifier resolves.
-            let importable = !simple.is_empty()
-                && !simple.starts_with(|c: char| c.is_ascii_digit());
-            if importable
+            // NOTE: no digit-lead rejection here — a digit-leading RAW
+            // tail (`X/00i`) is sanitized to an importable `_00i` at
+            // the import line and the refs render through the registry;
+            // rejecting them dropped WhatsApp's whole field-X-shadowed
+            // package import layer (cannot-find:变量 ×17k cascade).
+            if !simple.is_empty()
                 && !st.blocked.contains(&simple)
                 && !st.blocked_renamed.is_some_and(|e| e.contains(&simple))
             {
