@@ -3418,6 +3418,37 @@ fn suffix_unique(base: &str, taken: &mut jdc_core::FxHashSet<String>) -> String 
 /// Install member renames (call with the class rename install, before
 /// workers spawn).
 pub fn install_field_renames(pool: &DexPool) {
+    // One-time vendor-marker scan of the dex TYPE tables (class
+    // descriptors — exactly the space strip_ctor_hotfix_guards'
+    // marker_hit inspects). APKs without hotfix machinery skip the
+    // per-ctor guard scan entirely.
+    if crate::passes::hotfix_flag_unset() {
+        const MARKERS: [&str; 7] = [
+            "instantrun",
+            "hotfix",
+            "robust",
+            "titan",
+            "patchproxy",
+            "changequickredirect",
+            "constructorcode",
+        ];
+        fn ci_contains(hay: &str, needle: &str) -> bool {
+            let h = hay.as_bytes();
+            let n = needle.as_bytes();
+            h.len() >= n.len() && h.windows(n.len()).any(|w| w.eq_ignore_ascii_case(n))
+        }
+        let mut present = false;
+        'outer: for dex in &pool.dexes {
+            for t in 0..dex.num_types() {
+                let n = dex.type_name(t as u32);
+                if MARKERS.iter().any(|m| ci_contains(n, m)) {
+                    present = true;
+                    break 'outer;
+                }
+            }
+        }
+        crate::passes::set_hotfix_present(present);
+    }
     jdc_core::rename::set_field_renames(combined_field_renames(pool));
 }
 

@@ -190,7 +190,7 @@ fn decompile_class_impl(
         let can_obscure = shadow.iter().any(|f| pool.package_simples().contains_key(f))
             || (!own_simple0.is_empty()
                 && pool.package_simples().contains_key(own_simple0));
-        if can_obscure {
+        if can_obscure && !blocked.is_empty() {
             let used = sibling_ref_simples(pool, class);
             blocked.retain(|b| used.contains(b));
         }

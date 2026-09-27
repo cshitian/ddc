@@ -7467,7 +7467,29 @@ pub(crate) fn first_leaf_stmt(s: &Stmt) -> &Stmt {
 /// subtree mentions a known hotfix framework type (hotfix / instantrun
 /// / robust / titan / PatchProxy / ChangeQuickRedirect / ConstructorCode
 /// in any method-owner, field owner+type, cast, or new).
+/// Process-wide flag: does THIS apk's type table mention any hotfix
+/// vendor framework? Absent ⇒ no guard can exist ⇒ the per-ctor strip
+/// scan (walk_all over every top-level If of every ctor body) is pure
+/// waste — skipped wholesale (set once at rename-install time from the
+/// dex type tables; default true = conservative).
+static HOTFIX_PRESENT: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+
+pub fn set_hotfix_present(v: bool) {
+    let _ = HOTFIX_PRESENT.set(v);
+}
+
+pub fn hotfix_flag_unset() -> bool {
+    HOTFIX_PRESENT.get().is_none()
+}
+
+fn hotfix_present() -> bool {
+    HOTFIX_PRESENT.get().copied().unwrap_or(true)
+}
+
 pub fn strip_ctor_hotfix_guards(body: &mut Stmt) {
+    if !hotfix_present() {
+        return;
+    }
     fn marker_hit(e: &Expr) -> bool {
         let has = |n: &str| {
             let l = n.to_ascii_lowercase();

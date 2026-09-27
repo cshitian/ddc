@@ -397,6 +397,11 @@ impl DexFile {
     }
 
     /// Type id → descriptor string (`Ljava/lang/String;`, `[I`, ...).
+    /// Number of entries in the type-id table (bounds for `type_name`).
+    pub fn num_types(&self) -> usize {
+        self.types.len()
+    }
+
     pub fn type_name(&self, idx: u32) -> &str {
         match self.types.get(idx as usize) {
             Some(&si) => self.string(si),
