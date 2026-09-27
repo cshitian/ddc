@@ -11876,13 +11876,32 @@ fn accessor_shape(
     code: &ddc_dex::CodeItem,
 ) -> Option<Shape> {
     // Dead consts that fed the stripped trace wrappers remain in the
-    // core — skip them.
+    // core — skip them. ONLY when actually dead (dst unread by the
+    // rest): a const-returning synthetic (`lambda$new$4(String) {
+    // return false; }` = `const/4 v0,0; return v0`, registers=1 so v0
+    // IS the param) lost its const and matched Identity(param0) —
+    // inline_accessors then replaced the CALL with its ARGUMENT
+    // (`return (String) obj` against a boolean SAM — weibo
+    // IntentSanitizer lambdas ×116, and silently WRONG renders
+    // wherever the types happened to agree).
+    let reads = |rest: &[&Insn], r: u16| {
+        rest.iter()
+            .any(|i| crate::lift::src_regs(&i.kind).contains(&r))
+    };
     let core: &[&Insn] = match core.split_first() {
-        Some((first, rest)) if matches!(first.kind, InsnKind::Const { .. }) => rest,
+        Some((first, rest))
+            if matches!(first.kind, InsnKind::Const { dst, .. } if !reads(rest, dst)) =>
+        {
+            rest
+        }
         _ => core,
     };
     let core: &[&Insn] = match core.split_last() {
-        Some((last, rest)) if matches!(last.kind, InsnKind::Const { .. }) => rest,
+        Some((last, rest))
+            if matches!(last.kind, InsnKind::Const { dst, .. } if !reads(rest, dst)) =>
+        {
+            rest
+        }
         _ => core,
     };
     match core {

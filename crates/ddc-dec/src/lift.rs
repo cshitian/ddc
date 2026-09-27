@@ -172,7 +172,7 @@ pub struct OutState {
 /// The registers an instruction READS as operands (receivers, arguments,
 /// move sources — destination registers excluded). Drives the block
 /// lookahead that decides when an allocation view must materialize.
-fn src_regs(kind: &InsnKind) -> Vec<u16> {
+pub(crate) fn src_regs(kind: &InsnKind) -> Vec<u16> {
     let mut out: Vec<u16> = Vec::with_capacity(4);
     let mut push = |r: u16| out.push(r);
     match kind {
