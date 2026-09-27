@@ -2299,6 +2299,7 @@ fn member_collision_renames(
     // pkg-renamed class display created exactly this: weibo +194
     // cannot-find). Keyed on the POST-rename display (what refs render),
     // covering each class's own display too.
+    let root_segs = pool.root_pkg_segs();
     let mut pkg_displays: jdc_core::FxHashMap<&str, jdc_core::FxHashSet<String>> =
         jdc_core::FxHashMap::default();
     for n in &pool.order {
@@ -2482,8 +2483,16 @@ fn member_collision_renames(
                 let display = loop {
                     k += 1;
                     let cand = format!("{fdisp}{k}");
+                    // root_segs: a minted display equal to a PACKAGE
+                    // first segment captures every qualified ref to
+                    // that package inside the family's file (field e2
+                    // ate `e2.c.b(..)` — lark pq/e "变量 c" ×47). The
+                    // deshadow builder cannot repair this after the
+                    // fact: it scans RAW names, and the collision is
+                    // born here in display space.
                     if !f_taken.contains(&cand)
                         && !member_displays.contains(&cand)
+                        && !root_segs.contains(&cand)
                         && !pkg_names.is_some_and(|p| p.contains(cand.as_str()))
                     {
                         f_taken.insert(cand.clone());
@@ -3084,6 +3093,7 @@ fn inherited_obscuring_renames(
     out: &mut HashMap<std::sync::Arc<str>, Vec<jdc_core::rename::FieldRename>>,
     pkg_displays: &jdc_core::FxHashMap<&str, jdc_core::FxHashSet<String>>,
 ) {
+    let root_segs = pool.root_pkg_segs();
     // Reverse super map over materialized classes.
     let mut subs: jdc_core::FxHashMap<&str, Vec<&str>> = jdc_core::FxHashMap::default();
     for n in &pool.order {
@@ -3199,7 +3209,9 @@ fn inherited_obscuring_renames(
                 let display = loop {
                     k += 1;
                     let cand = format!("{fdisp}{k}");
-                    if !avoid.contains(&cand) {
+                    // root_segs: see the own-field mint site — a
+                    // package first segment must never be minted.
+                    if !avoid.contains(&cand) && !root_segs.contains(&cand) {
                         break cand;
                     }
                 };

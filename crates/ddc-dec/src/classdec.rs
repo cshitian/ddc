@@ -172,6 +172,29 @@ fn decompile_class_impl(
         .get(pkg_lookup)
         .cloned()
         .unwrap_or_default();
+    // JLS 7.5.1 narrowing: importing simple `n` legally shadows the
+    // same-package sibling throughout THIS file — it only breaks refs
+    // the file itself makes to that sibling. Drop sibling simples the
+    // file never references (exhaustive family scan: metadata + raw
+    // insn refs), unblocking the import route for field-shadowed
+    // package quals (lark pq/e: field `e2` captures `e2.c.b(..)` —
+    // "变量 c" ×47 — while sibling pq.c is never used). The scan runs
+    // ONLY when an obscured candidate is sibling-blocked.
+    // Scan gate: an obscured ref can only exist when some in-scope
+    // field name (or the own simple) equals a PACKAGE first segment —
+    // and the candidates include BODY refs (lark pq/e's `e2.c.b(..)`
+    // is invoke-static-only, invisible to the metadata map), so the
+    // gate must not key off obscured_map.
+    {
+        let own_simple0 = class.name.rsplit(['/', '$']).next().unwrap_or("");
+        let can_obscure = shadow.iter().any(|f| pool.package_simples().contains_key(f))
+            || (!own_simple0.is_empty()
+                && pool.package_simples().contains_key(own_simple0));
+        if can_obscure {
+            let used = sibling_ref_simples(pool, class);
+            blocked.retain(|b| used.contains(b));
+        }
+    }
     // Blocked names must include the RENAMED displays of same-package
     // classes too: refs and imports render through the rename registry,
     // so an import matching a DISPLAY (not the raw simple) shadows that
@@ -3903,7 +3926,12 @@ pub(crate) fn obscured_render_pub(internal: &str) -> Option<String> {
                 .next()
                 .unwrap_or("")
                 .to_string();
-            if !simple.is_empty()
+            // An un-importable simple (digit-leading `$1` anon tail)
+            // stays on the concrete qualified render — `import e2.c$1`
+            // is not Java, and the flat `$`-file qualifier resolves.
+            let importable = !simple.is_empty()
+                && !simple.starts_with(|c: char| c.is_ascii_digit());
+            if importable
                 && !st.blocked.contains(&simple)
                 && !st.blocked_renamed.is_some_and(|e| e.contains(&simple))
             {
@@ -3978,6 +4006,15 @@ fn inherited_field_shadows(
             out.extend(fw_chain_fields(&cn).iter().cloned());
             continue;
         };
+        // Static-only (pool side too): ANCESTOR private instance
+        // fields are NOT inherited into lexical scope (JLS 6.4.3.1) —
+        // including them over-triggered the obscured-import route and
+        // the emitted simple static qualifiers were captured by real
+        // in-scope variables (reqable SearchView `a.H` "变量 H" ×128).
+        // Own instance fields shadowing packages are handled at the
+        // ROOT: the collision-mint loops avoid package first segments
+        // (lib.rs root_segs guard), and raw-name collisions go
+        // through field_deshadow_renames.
         for f in pc.static_fields.iter() {
             out.insert(f.name.to_string());
         }
@@ -4001,6 +4038,130 @@ fn inherited_field_shadows(
 /// (supertypes, field types, method descriptors) whose first segment
 /// equals the class's own simple name and which exist in the pool —
 /// these get imports and simple-name renders.
+/// Base simple name of an internal (`pq/c$x` → `c`), if it lives in
+/// `pkg` (the bare-name segment a same-package ref renders under).
+fn sibling_simple(internal: &str, pkg: &str) -> Option<String> {
+    let (p, tail) = match internal.rfind('/') {
+        Some(i) => (&internal[..i], &internal[i + 1..]),
+        None => ("", internal),
+    };
+    if p != pkg || tail.is_empty() {
+        return None;
+    }
+    let base = tail.split('$').next().unwrap_or("");
+    if base.is_empty() {
+        None
+    } else {
+        Some(base.to_string())
+    }
+}
+
+/// Simple names of SAME-PACKAGE classes this file's family references
+/// from method bodies (raw insn ref scan — decode only, no lift) or
+/// metadata (supertypes, field descriptors, signature descriptors).
+/// JLS 7.5.1: a single-type import legally shadows same-package
+/// siblings throughout the file — it only breaks the refs the file
+/// ITSELF makes to them, so the package-wide blocked set narrows to
+/// this. Undercounting would silently rebind a sibling ref (semantic
+/// corruption), so the universe is exhaustive over code refs:
+/// invoke/field owners, type-index instructions, catch types.
+fn sibling_ref_simples(pool: &DexPool, class: &PoolClass) -> jdc_core::FxHashSet<String> {
+    let pkg = class.name.rfind('/').map(|i| &class.name[..i]).unwrap_or("");
+    let mut out: jdc_core::FxHashSet<String> = jdc_core::FxHashSet::default();
+    let add_internal = |n: &str, out: &mut jdc_core::FxHashSet<String>| {
+        if let Some(s) = sibling_simple(n, pkg) {
+            out.insert(s);
+        }
+    };
+    let add_desc = |d: &str, out: &mut jdc_core::FxHashSet<String>| {
+        // descriptor → internal(s): arrays peel, L..; strips
+        let mut t = d;
+        while t.starts_with('[') {
+            t = &t[1..];
+        }
+        if t.len() > 1 && t.starts_with('L') && t.ends_with(';') {
+            add_internal(&t[1..t.len() - 1], out);
+        }
+    };
+    // metadata: supertypes, fields, signatures (family-wide below)
+    let mut seen: jdc_core::FxHashSet<String> = jdc_core::FxHashSet::default();
+    let mut queue: Vec<String> = vec![class.name.clone()];
+    while let Some(cn) = queue.pop() {
+        if !seen.insert(cn.clone()) {
+            continue;
+        }
+        queue.extend(pool.children_of(&cn).iter().cloned());
+        let Some(pc) = pool.get(&cn) else { continue };
+        add_internal(&pc.name, &mut out);
+        if let Some(sup) = &pc.super_name {
+            add_internal(sup, &mut out);
+        }
+        for i in &pc.interfaces {
+            add_internal(i, &mut out);
+        }
+        for f in pc.static_fields.iter().chain(pc.instance_fields.iter()) {
+            add_desc(&f.desc, &mut out);
+        }
+        for m in pc.all_methods() {
+            if let Some(d) = m.parsed_desc() {
+                for a in &d.args {
+                    if let JavaType::Object(n) = a {
+                        add_internal(n, &mut out);
+                    } else if let JavaType::Array(_) = a {
+                        add_desc(&a.to_descriptor(), &mut out);
+                    }
+                }
+                if let JavaType::Object(n) = &d.ret {
+                    add_internal(n, &mut out);
+                } else if let JavaType::Array(_) = &d.ret {
+                    add_desc(&d.ret.to_descriptor(), &mut out);
+                }
+            }
+            let Some(dex) = pool.dex(m.dex_idx) else {
+                continue;
+            };
+            let Some(code) = dex.code_at(m.code_off) else {
+                continue;
+            };
+            for ins in code.insns.iter() {
+                use ddc_dex::insn::InsnKind;
+                match &ins.kind {
+                    InsnKind::Invoke { method_idx, .. } => {
+                        let mm = dex.method(*method_idx);
+                        add_internal(&dex.class_name(mm.class_idx), &mut out);
+                    }
+                    InsnKind::IGet { field_idx, .. }
+                    | InsnKind::IPut { field_idx, .. }
+                    | InsnKind::SGet { field_idx, .. }
+                    | InsnKind::SPut { field_idx, .. } => {
+                        let f = dex.field(*field_idx);
+                        add_internal(&dex.class_name(f.class_idx), &mut out);
+                    }
+                    InsnKind::ConstClass { type_idx, .. }
+                    | InsnKind::NewInstance { type_idx, .. }
+                    | InsnKind::NewArray { type_idx, .. }
+                    | InsnKind::FilledNewArray { type_idx, .. }
+                    | InsnKind::CheckCast { type_idx, .. }
+                    | InsnKind::InstanceOf { type_idx, .. } => {
+                        add_desc(dex.type_name(*type_idx), &mut out);
+                    }
+                    _ => {}
+                }
+            }
+            for h in code.handlers.iter() {
+                for (tidx, _) in &h.catches {
+                    add_desc(dex.type_name(*tidx), &mut out);
+                }
+            }
+        }
+    }
+    // the file's OWN family names are not import-shadow risks for
+    // themselves (own-simple drops happen later); keep them anyway —
+    // a sibling simple equal to a family base only blocks when a
+    // same-package OTHER class shares it, which is the true collision.
+    out
+}
+
 fn compute_obscured_renders(
     pool: &DexPool,
     class: &PoolClass,
