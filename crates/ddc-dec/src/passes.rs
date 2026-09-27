@@ -3454,6 +3454,138 @@ pub fn fix_primitive_assign_casts(vt: &VarTable, body: &mut Stmt, ret_ty: &JavaT
     });
 }
 
+/// Shadowed-ancestor field witness (the upcast sibling of
+/// fix_field_owner_downcasts).
+///
+/// Java resolves a field access on the RECEIVER'S STATIC TYPE downward:
+/// when the dex writes an ancestor's field (`iput … Fragment.A02:I`)
+/// but a class between the receiver's static type and the declaring
+/// ancestor declares a field with the SAME rendered name (`ImageView
+/// A02`), the plain `this.A02` silently binds to the subclass field —
+/// `int无法转换为ImageView` when the types differ, and a wrong-field
+/// read/write when they don't (WhatsApp ActivitySheetFragment writes
+/// the layout resid into the ancestor int field; its own A02 is an
+/// ImageView — 1,216 assignment-shape sites in the WA tree). jadx
+/// renders `super.A02`; the IR has no super-field form, so witness
+/// with the always-legal upcast `((Fragment) this).A02` — field lookup
+/// on a cast expression is static, landing on the ancestor at any
+/// chain depth. The receiver may still be the typed this-Local at this
+/// pipeline point (the This rewrite comes later), so the compile-time
+/// type comes from the owner expr / var table, mirroring
+/// fix_field_owner_downcasts' owner_internal. Fires ONLY on a real
+/// same-display shadow; unshadowed ancestor refs inherit through
+/// `this.X` and must not churn. Same-raw-name lookups only: a shadow
+/// whose raw name differs but display collides is beyond the pool
+/// lookup keyed by name.
+pub fn fix_shadowed_super_fields(
+    body: &mut Stmt,
+    vt: &VarTable,
+    pool: &DexPool,
+    class_name: &str,
+) {
+    /// Rendered name of `(cls, raw field name)`: the registry display
+    /// when the class declares the field, else the raw name. None when
+    /// the class is not pool-materialized or has no such field.
+    fn display(pool: &DexPool, cls: &str, name: &str) -> Option<String> {
+        let pc = pool.get(cls)?;
+        let f = pc
+            .static_fields
+            .iter()
+            .chain(pc.instance_fields.iter())
+            .find(|f| f.name.as_str() == name)?;
+        Some(
+            jdc_core::rename::field_display(cls, name, &f.desc)
+                .map(|d| d.to_string())
+                .unwrap_or_else(|| name.to_string()),
+        )
+    }
+    fn owner_ct(
+        o: &Option<Box<Expr>>,
+        vt: &VarTable,
+        class_name: &str,
+    ) -> Option<std::sync::Arc<str>> {
+        match o.as_deref() {
+            None | Some(Expr::This) => Some(std::sync::Arc::from(class_name)),
+            Some(Expr::Local { var, .. }) => match vt.var(*var).ty.erased() {
+                JavaType::Object(n) => Some(n),
+                _ => None,
+            },
+            Some(other) => match other.type_ref().erased() {
+                JavaType::Object(n) => Some(n),
+                _ => None,
+            },
+        }
+    }
+    walk_stmt_exprs(body, &mut |e| {
+        deep_rewrite(e, &mut |x| {
+            let Expr::Field {
+                owner,
+                cls,
+                name,
+                is_static: false,
+                ..
+            } = x
+            else {
+                return;
+            };
+            let Some(ot) = owner_ct(owner, vt, class_name) else {
+                return;
+            };
+            if cls.as_ref() == ot.as_ref() {
+                return;
+            }
+            let Some(ref_display) = display(pool, cls, name) else {
+                return;
+            };
+            // Walk from the receiver's compile-time type up to (not
+            // including) the declaring ancestor: any same-display
+            // declaration on the way shadows the ref.
+            let mut cur = ot.to_string();
+            let mut shadowed = false;
+            let mut found = false;
+            for _ in 0..64 {
+                if display(pool, &cur, name).as_deref() == Some(ref_display.as_str()) {
+                    shadowed = true;
+                }
+                let Some(pc) = pool.get(&cur) else {
+                    return;
+                };
+                let Some(sup) = pc.super_name.clone() else {
+                    return;
+                };
+                if sup.as_str() == cls.as_ref() {
+                    found = true;
+                    break;
+                }
+                cur = sup;
+            }
+            if !found || !shadowed {
+                return;
+            }
+            let ty = TypeRef::J(JavaType::Object(cls.clone()));
+            match owner {
+                Some(o) => {
+                    if let Expr::Cast { ty: ct, .. } = &mut **o {
+                        *ct = ty;
+                    } else {
+                        let taken = std::mem::replace(&mut **o, Expr::This);
+                        **o = Expr::Cast {
+                            ty,
+                            e: Box::new(taken),
+                        };
+                    }
+                }
+                None => {
+                    *owner = Some(Box::new(Expr::Cast {
+                        ty,
+                        e: Box::new(Expr::This),
+                    }))
+                }
+            }
+        });
+    });
+}
+
 /// Subclass-field downcast witness + assign-cast narrowing.
 ///
 /// R8 pushes fields DOWN into leaf classes (weibo: coroutine `label`

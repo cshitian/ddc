@@ -573,6 +573,7 @@ pub fn decompile_method(
         passes::split_generations(&mut vt, &mut body, pool);
         passes::insert_object_narrowing_casts(&vt, &mut body, pool, &desc.ret);
         passes::fix_field_owner_downcasts(&mut body, &vt, pool);
+        passes::fix_shadowed_super_fields(&mut body, &vt, pool, &class.name);
         passes::fix_incomparable_equality(&mut body, &vt, pool);
         passes::fix_primitive_assign_casts(&vt, &mut body, &desc.ret);
         passes::fix_primitive_arg_bridges(&mut body, &vt, pool);
@@ -915,6 +916,7 @@ pub fn decompile_method(
     }
     passes::insert_object_narrowing_casts(&vt, &mut body, pool, &desc.ret);
     passes::fix_field_owner_downcasts(&mut body, &vt, pool);
+    passes::fix_shadowed_super_fields(&mut body, &vt, pool, &class.name);
     passes::fix_incomparable_equality(&mut body, &vt, pool);
     passes::fix_primitive_assign_casts(&vt, &mut body, &desc.ret);
     passes::fix_primitive_arg_bridges(&mut body, &vt, pool);
