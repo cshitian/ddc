@@ -481,6 +481,27 @@ pub(crate) fn deep_rewrite<F: FnMut(&mut Expr)>(e: &mut Expr, f: &mut F) {
 /// the garbage survived into the output; reqable a4/e). Compound
 /// targets (`a[i] = …`, `o.f = …`) still recurse: owners and indices
 /// ARE reads.
+/// Read-only mirror of `deep_rewrite_reads` (same descent rules: a
+/// plain Local assignment/inc-dec target is a WRITE and never reaches
+/// `f`; compound targets still descend — owners and indices are reads).
+fn visit_exprs_reads<F: FnMut(&Expr)>(e: &Expr, f: &mut F) {
+    f(e);
+    match e {
+        Expr::Assign { target, value, .. } => {
+            if !matches!(**target, Expr::Local { .. }) {
+                visit_exprs_reads(target, f);
+            }
+            visit_exprs_reads(value, f);
+        }
+        Expr::PreIncDec { e: inner, .. } | Expr::PostIncDec { e: inner, .. } => {
+            if !matches!(**inner, Expr::Local { .. }) {
+                visit_exprs_reads(inner, f);
+            }
+        }
+        _ => for_each_child(e, &mut |c| visit_exprs_reads(c, f)),
+    }
+}
+
 fn deep_rewrite_reads<F: FnMut(&mut Expr)>(e: &mut Expr, f: &mut F) {
     f(e);
     match e {
@@ -9063,9 +9084,8 @@ pub(crate) fn rewrite_inner_ctor_outer_param(
 fn stmts_count_writes(stmts: &[Stmt], var: u32) -> usize {
     let mut n = 0usize;
     for s in stmts {
-        let mut c = s.clone();
-        walk_stmt_exprs(&mut c, &mut |e| {
-            deep_rewrite(e, &mut |x| match x {
+        visit_stmt_exprs_ro(s, &mut |e| {
+            visit_exprs(e, &mut |x| match x {
                 Expr::Assign { target, .. }
                     if matches!(&**target, Expr::Local { var: v, .. } if *v == var) =>
                 {
@@ -10036,6 +10056,8 @@ fn split_walk_stmt(
             // reads v — the then value was silently dropped AND v_g
             // rendered undeclared (kt5.b). Undo restores the clean
             // diamond so fold_default_arg_bridge can fire.
+            let then_reads = (else_floor > then_floor)
+                .then(|| read_counts_all(std::slice::from_ref(&**then_stmt)));
             let mut undo_then: Vec<(u32, u32)> = g_then
                 .iter()
                 .filter(|(&k, &v)| {
@@ -10043,7 +10065,10 @@ fn split_walk_stmt(
                         && v < else_floor
                         && g_else.get(&k).copied() == gen.get(&k).copied()
                         && undo_type_safe(vt, k, v)
-                        && stmts_read_var(std::slice::from_ref(&**then_stmt), v) == 0
+                        && then_reads
+                            .as_ref()
+                            .map(|m| m.get(&v).copied().unwrap_or(0) == 0)
+                            .unwrap_or(true)
                 })
                 .map(|(&k, &v)| (v, k))
                 .collect();
@@ -10053,13 +10078,18 @@ fn split_walk_stmt(
                 drop_gen_slot(vt, v);
             }
             if let Some(e) = else_stmt.as_deref_mut() {
+                let else_reads = ((vt.vars.len() as u32) > else_floor)
+                    .then(|| read_counts_all(std::slice::from_ref(&*e)));
                 let mut undo_else: Vec<(u32, u32)> = g_else
                     .iter()
                     .filter(|(&k, &v)| {
                         v >= else_floor
                             && g_then.get(&k).copied() == gen.get(&k).copied()
                             && undo_type_safe(vt, k, v)
-                            && stmts_read_var(std::slice::from_ref(&*e), v) == 0
+                            && else_reads
+                                .as_ref()
+                                .map(|m| m.get(&v).copied().unwrap_or(0) == 0)
+                                .unwrap_or(true)
                     })
                     .map(|(&k, &v)| (v, k))
                     .collect();
@@ -10272,8 +10302,9 @@ fn dedupe_multicatch_walk(s: &mut Stmt, pool: &DexPool) {
 /// (the original control flow never reached those statements).
 pub fn resolve_dangling_gotos(s: &mut Stmt) {
     let mut labels: jdc_core::FxHashSet<u32> = jdc_core::FxHashSet::default();
-    let probe = s.clone();
-    walk_all(&probe, &mut |st| {
+    // walk_all is read-only — the whole-body clone this used to make
+    // (4.6k profile samples of Stmt::clone) bought nothing.
+    walk_all(s, &mut |st| {
         if let Stmt::Label(id) = st {
             labels.insert(*id);
         }
@@ -10359,12 +10390,28 @@ fn resolve_gotos_walk(s: &mut Stmt, labels: &jdc_core::FxHashSet<u32>, loop_dept
 }
 
 /// READS of `v` across the statements (assignment targets excluded).
+/// All-var read counts in ONE pass (reads semantics of stmts_read_var)
+/// — for gates that test many candidate vars against the same subtree
+/// (split_walk's undo filters ran a full arm walk PER candidate).
+fn read_counts_all(stmts: &[Stmt]) -> std::collections::HashMap<u32, usize> {
+    let mut m = std::collections::HashMap::new();
+    for s in stmts {
+        visit_stmt_exprs_ro(s, &mut |e| {
+            visit_exprs_reads(e, &mut |x| {
+                if let Expr::Local { var, .. } = x {
+                    *m.entry(*var).or_insert(0) += 1;
+                }
+            });
+        });
+    }
+    m
+}
+
 fn stmts_read_var(stmts: &[Stmt], v: u32) -> usize {
     let mut n = 0usize;
     for s in stmts {
-        let mut c = s.clone();
-        walk_stmt_exprs(&mut c, &mut |e| {
-            deep_rewrite_reads(e, &mut |x| {
+        visit_stmt_exprs_ro(s, &mut |e| {
+            visit_exprs_reads(e, &mut |x| {
                 if let Expr::Local { var: vv, .. } = x {
                     if *vv == v {
                         n += 1;
