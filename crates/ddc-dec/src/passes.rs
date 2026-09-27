@@ -790,6 +790,18 @@ fn collect_defined_locals(s: &Stmt, out: &mut jdc_core::FxHashSet<u32>) {
     });
 }
 
+/// Vars with a bare `LocalDef{init: None}` declaration in `s` (dedup,
+/// declaration order).
+fn collect_bare_decls(s: &Stmt, out: &mut Vec<u32>) {
+    walk_all(s, &mut |st| {
+        if let Stmt::LocalDef { var, init: None, .. } = st {
+            if !out.contains(var) {
+                out.push(*var);
+            }
+        }
+    });
+}
+
 
 /// First read of a local that is defined nowhere in the method (and is
 /// not a parameter) inside the catch body — the unmaterialized
@@ -835,6 +847,22 @@ fn first_thrown_unassigned_local(
         }
     });
     found
+}
+
+/// Remove the first LEAF statement (mirror of first_leaf_stmt), pruning
+/// leading blocks that became empty — the stored-def bind consumes the
+/// move-exception decl wherever the region walk nested it.
+fn remove_first_leaf(s: &mut Stmt) {
+    if let Stmt::Block(v) = s {
+        if let Some(f) = v.first_mut() {
+            remove_first_leaf(f);
+        }
+        while matches!(v.first(), Some(Stmt::Block(b)) if b.is_empty()) {
+            v.remove(0);
+        }
+    } else {
+        *s = Stmt::Block(vec![]);
+    }
 }
 
 /// Remove bare `LocalDef{var, init: None}` declarations for the given
@@ -889,35 +917,38 @@ fn bind_catches_walk(
             bind_catches_walk(body, vt, defined, reads_all, assigned, fallback_bound);
             for c in catches.iter_mut() {
                 if c.var == u32::MAX {
-                    let stored = match c.body.as_ref() {
-                        Stmt::Block(v) => match v.first() {
-                            // ONLY the bare move-exception decl (the
-                            // lifter emits LocalDef{init:None} for it).
-                            // A first stmt with a REAL init is handler
-                            // computation — consuming it as the catch
-                            // store deleted the def and hijacked its
-                            // reads to the catch param (lark ih6/w's
-                            // `v11 = Thread.currentThread()` →
-                            // `catch (InterruptedException thread2) {
-                            // thread2.interrupt(); }`; ch6/e cls4.
-                            // getName; the exception-ignoring catch is
-                            // the standard interrupt idiom).
-                            Some(Stmt::LocalDef { var, init: None, .. }) => Some(*var),
-                            // Phi-copy shape `v = exc` where exc is the
-                            // unmaterialized move-exception register
-                            // (defined nowhere in the method).
-                            Some(Stmt::ExprStmt(Expr::Assign { target, value, .. })) => {
-                                match (&**target, &**value) {
-                                    (Expr::Local { var, .. }, Expr::Local { var: src, .. })
-                                        if !defined.contains(src) =>
-                                    {
-                                        Some(*var)
-                                    }
-                                    _ => None,
+                    // Leaf-piercing head check: the region walk can wrap
+                    // the handler body as Block[Block[…]] (weixin ri5/c
+                    // thx rethrow family — the top-level `v.first()` saw
+                    // a Block, all three bind paths missed, and the emit
+                    // fell back to `catch (Throwable ignored)` beside a
+                    // never-assigned `Throwable th;` read).
+                    let stored = match first_leaf_stmt(c.body.as_ref()) {
+                        // ONLY the bare move-exception decl (the
+                        // lifter emits LocalDef{init:None} for it).
+                        // A first stmt with a REAL init is handler
+                        // computation — consuming it as the catch
+                        // store deleted the def and hijacked its
+                        // reads to the catch param (lark ih6/w's
+                        // `v11 = Thread.currentThread()` →
+                        // `catch (InterruptedException thread2) {
+                        // thread2.interrupt(); }`; ch6/e cls4.
+                        // getName; the exception-ignoring catch is
+                        // the standard interrupt idiom).
+                        Stmt::LocalDef { var, init: None, .. } => Some(*var),
+                        // Phi-copy shape `v = exc` where exc is the
+                        // unmaterialized move-exception register
+                        // (defined nowhere in the method).
+                        Stmt::ExprStmt(Expr::Assign { target, value, .. }) => {
+                            match (&**target, &**value) {
+                                (Expr::Local { var, .. }, Expr::Local { var: src, .. })
+                                    if !defined.contains(src) =>
+                                {
+                                    Some(*var)
                                 }
+                                _ => None,
                             }
-                            _ => None,
-                        },
+                        }
                         _ => None,
                     };
                     if let Some(v) = stored {
@@ -930,9 +961,7 @@ fn bind_catches_walk(
                         let name = "e".to_string();
                         let new_var =
                             vt.add_catch_var(slot, name, TypeRef::J(JavaType::Object(exc)));
-                        if let Stmt::Block(vs) = c.body.as_mut() {
-                            vs.remove(0);
-                        }
+                        remove_first_leaf(c.body.as_mut());
                         rewrite_local_refs(c.body.as_mut(), v, new_var);
                         c.var = new_var;
                     } else if let Some(v) = first_undefined_local_read(c.body.as_ref(), defined)
@@ -1006,6 +1035,47 @@ fn bind_catches_walk(
                         // parameter and drop the bare declaration.
                         c.var = v;
                         fallback_bound.push(v);
+                    }
+                }
+                if c.var != u32::MAX {
+                    // Second move-exception identity INSIDE the body: R8
+                    // guards the handler's own close() with a nested
+                    // try/finally and re-materializes the in-flight
+                    // exception on its exceptional continuation as a
+                    // fresh var (`Throwable th7; throw th7;` — weixin
+                    // y5/b, the 327-site residue of the leaf-piercing
+                    // fix). The twin is never ASSIGNED anywhere in the
+                    // method (its register only ever receives
+                    // move-exception) and the catch param IS its value —
+                    // rewrite the twin's reads to the param and drop the
+                    // bare decl. The never-assigned gate makes the
+                    // rewrite flow-insensitive: every body read of the
+                    // twin reads the exception. Twins read outside this
+                    // catch are left alone (the param's scope ends here).
+                    let in_catch =
+                        count_locals_stmts(std::slice::from_ref(c.body.as_ref()));
+                    let mut twins: Vec<u32> = Vec::new();
+                    collect_bare_decls(c.body.as_ref(), &mut twins);
+                    let mut swept: Vec<u32> = Vec::new();
+                    for x in twins {
+                        if x == c.var || assigned.contains(&x) {
+                            continue;
+                        }
+                        if reads_all.get(&x).copied().unwrap_or(0)
+                            != in_catch.get(&x).copied().unwrap_or(0)
+                        {
+                            continue;
+                        }
+                        if !matches!(vt.var(x).ty.erased(),
+                            JavaType::Object(o) if o.as_ref() == "java/lang/Throwable")
+                        {
+                            continue;
+                        }
+                        rewrite_local_refs(c.body.as_mut(), x, c.var);
+                        swept.push(x);
+                    }
+                    if !swept.is_empty() {
+                        remove_bare_decls(c.body.as_mut(), &swept);
                     }
                 }
                 bind_catches_walk(&mut c.body, vt, defined, reads_all, assigned, fallback_bound);
