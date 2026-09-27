@@ -3001,10 +3001,12 @@ fn emit_method(
                 // A ctor that DELEGATES first (the -IA synthetic bridge,
                 // `this(str, p2)`) must stay delegation-first — the
                 // delegated-to ctor performs the stores.
-                let starts_with_delegation = match &b.body {
-                    Stmt::Block(vs) => vs.first().is_some_and(crate::passes::is_bare_ctor_call),
-                    other => crate::passes::is_bare_ctor_call(other),
-                };
+                // First-LEAF probe: the ctor chain leaves the delegation
+                // Block-wrapped (`Block[this(..), assigns]`), and a
+                // stripped hotfix guard can leave the wrapper as the
+                // first top-level statement — unwrap to the real head.
+                let starts_with_delegation =
+                    crate::passes::is_bare_ctor_call(crate::passes::first_leaf_stmt(&b.body));
                 let ps: Vec<u32> = b
                     .vt
                     .vars

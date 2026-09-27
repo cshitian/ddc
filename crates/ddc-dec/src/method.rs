@@ -601,6 +601,12 @@ pub fn decompile_method(
         passes::fold_bool_value_diamonds(&mut body, &vt);
         passes::fold_value_diamonds(&mut body, &vt);
         passes::fix_ctor_this_aliases(&mut body, &vt);
+        // Vendor hotfix ctor guards wrap the delegation inside an If and
+        // fire for ENUM ctors too (alipay InstantRun fallback enums are
+        // the whole 1,436 ctor-not-first population) — run before the
+        // enum/regular split, and before the classdec trace-param store
+        // injection whose delegation-first probe must see the real head.
+        passes::strip_ctor_hotfix_guards(&mut body);
         if class.is_enum() {
             passes::fold_enum_default_arg_bridge(&mut body);
             // Strip the implicit Enum.<init> super() ONLY for the enum
@@ -937,6 +943,12 @@ pub fn decompile_method(
         passes::fold_bool_value_diamonds(&mut body, &vt);
         passes::fold_value_diamonds(&mut body, &vt);
         passes::fix_ctor_this_aliases(&mut body, &vt);
+        // Vendor hotfix ctor guards wrap the delegation inside an If and
+        // fire for ENUM ctors too (alipay InstantRun fallback enums are
+        // the whole 1,436 ctor-not-first population) — run before the
+        // enum/regular split, and before the classdec trace-param store
+        // injection whose delegation-first probe must see the real head.
+        passes::strip_ctor_hotfix_guards(&mut body);
         if class.is_enum() {
             passes::fold_enum_default_arg_bridge(&mut body);
             // Strip the implicit Enum.<init> super() ONLY for the enum

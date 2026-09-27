@@ -5205,6 +5205,62 @@ fn single_local_assign(st: &Stmt) -> Option<(u32, Expr, Expr)> {
     }
 }
 
+/// Like `single_local_assign`, but ALSO accepts an arm whose value is
+/// produced by an arm-local def: `Block([LocalDef vX = init, v = vX])`
+/// (possibly Block-wrapped) inlines `init` into the returned value when
+/// `vX` is read exactly once there (single evaluation preserved). The
+/// Kotlin mask-ctor long defaults render this shape (`else { long u =
+/// Color.getUnspecified(); v37 = u; }` — compose TextStyle/SpanStyle);
+/// without the inline the diamond stays unfolded and blocks the whole
+/// delegation-inlining chain downstream.
+fn arm_assign_inlined(st: &Stmt) -> Option<(u32, Expr, Expr)> {
+    if let Some(r) = single_local_assign(st) {
+        return Some(r);
+    }
+    let mut inner = st;
+    while let Stmt::Block(v) = inner {
+        if v.len() == 1 {
+            inner = &v[0];
+        } else {
+            break;
+        }
+    }
+    let Stmt::Block(v) = inner else { return None };
+    if v.len() != 2 {
+        return None;
+    }
+    let Stmt::LocalDef {
+        var: x,
+        init: Some(init),
+        ..
+    } = &v[0]
+    else {
+        return None;
+    };
+    let (var, tgt, val) = single_local_assign(&v[1])?;
+    let mut count = 0usize;
+    let mut c = val.clone();
+    deep_rewrite(&mut c, &mut |e| {
+        if let Expr::Local { var: lv, .. } = e {
+            if lv == x {
+                count += 1;
+            }
+        }
+    });
+    if count != 1 {
+        return None;
+    }
+    let mut out = val.clone();
+    deep_rewrite(&mut out, &mut |e| {
+        if let Expr::Local { var: lv, .. } = e {
+            if lv == x {
+                *e = init.clone();
+            }
+        }
+    });
+    Some((var, tgt, out))
+}
+
 fn mk_ternary_assign(tgt: Expr, c: Expr, a: Expr, b: Expr) -> Stmt {
     Stmt::ExprStmt(Expr::Assign {
         target: Box::new(tgt),
@@ -5229,6 +5285,41 @@ fn same_render_var(v1: u32, v2: u32, vt: &VarTable) -> bool {
     }
 }
 
+/// Structural equality of two statement lists MODULO SSA generations:
+/// each arm of a diamond writes its OWN generation of the rendered
+/// locals, so strict `==` on the tails fails even when the rendered
+/// code is identical. Canonicalize every local id to the first id seen
+/// for its render key (name + erased type) under a SHARED map, then
+/// compare structurally.
+fn canon_stmts_eq(a: &[Stmt], b: &[Stmt], vt: &VarTable) -> bool {
+    if a.len() != b.len() {
+        return false;
+    }
+    let mut map: std::collections::HashMap<String, u32> = std::collections::HashMap::default();
+    let canon = |s: &Stmt, map: &mut std::collections::HashMap<String, u32>| -> Stmt {
+        let mut c = s.clone();
+        walk_stmt_exprs(&mut c, &mut |e| {
+            deep_rewrite(e, &mut |x| {
+                if let Expr::Local { var, .. } = x {
+                    let key = match vt.vars.get(*var as usize) {
+                        Some(vi) => format!("{}#{:?}", vi.name, vi.ty.erased()),
+                        None => format!("v{}", var),
+                    };
+                    let id = *map.entry(key).or_insert(*var);
+                    *x = Expr::Local {
+                        var: id,
+                        ty: vt.var(id).ty.clone(),
+                    };
+                }
+            });
+        });
+        c
+    };
+    a.iter()
+        .zip(b.iter())
+        .all(|(x, y)| canon(x, &mut map) == canon(y, &mut map))
+}
+
 fn fold_diamonds_in(stmts: &mut Vec<Stmt>, vt: &VarTable) {
     let mut i = 0usize;
     while i < stmts.len() {
@@ -5248,7 +5339,7 @@ fn fold_diamonds_in(stmts: &mut Vec<Stmt>, vt: &VarTable) {
         }
         // Shape 1: standalone if/else diamond.
         let shape1 = if let Stmt::If { cond, then_stmt, else_stmt: Some(el), .. } = &stmts[i] {
-            match (single_local_assign(then_stmt), single_local_assign(el)) {
+            match (arm_assign_inlined(then_stmt), arm_assign_inlined(el)) {
                 (Some((v1, tgt, a)), Some((v2, _, b)))
                     if v1 == v2 && diamond_types_ok(&a, &b) =>
                 {
@@ -5261,6 +5352,56 @@ fn fold_diamonds_in(stmts: &mut Vec<Stmt>, vt: &VarTable) {
         };
         if let Some(f) = shape1 {
             stmts[i] = f;
+            i += 1;
+            continue;
+        }
+        // Shape 3: identical-delegation diamond — BOTH arms assign the
+        // same rendered local, then run the same tail headed by a ctor
+        // delegation (Kotlin mask-ctor last slot: `if ((m&M)==0) { v =
+        // x; this(.., v, ..); return; } else { v = null; this(.., v,
+        // ..); return; }` — alipay compose TextStyle/SpanStyle family).
+        // Fold to `v = c ? x : null;` + the shared tail: the delegation
+        // becomes unconditional (the hotfix-guard strip downstream needs
+        // that) and fold_default_arg_bridge can then inline the prelude
+        // carriers into the args. Tails compare modulo SSA generation
+        // (each arm reads its own generation of the one rendered local).
+        // Gates: tail headed by a bare delegation, tails canonically
+        // identical, the tail writes NEITHER generation, types ok.
+        let shape3 = if let Stmt::If {
+            cond,
+            then_stmt,
+            else_stmt: Some(el),
+            ..
+        } = &stmts[i]
+        {
+            let arm = |st: &Stmt| -> Option<((u32, Expr, Expr), Vec<Stmt>)> {
+                let Stmt::Block(v) = st else { return None };
+                if v.len() < 2 {
+                    return None;
+                }
+                let first = single_local_assign(&v[0])?;
+                Some((first, v[1..].to_vec()))
+            };
+            match (arm(then_stmt), arm(el)) {
+                (Some(((v1, tgt1, a), rest_t)), Some(((v2, _t2, b), rest_e)))
+                    if (v1 == v2 || same_render_var(v1, v2, vt))
+                        && !rest_t.is_empty()
+                        && is_bare_ctor_call(first_leaf_stmt(&rest_t[0]))
+                        && stmts_count_writes(&rest_t, v1) == 0
+                        && stmts_count_writes(&rest_t, v2) == 0
+                        && diamond_types_ok(&a, &b)
+                        && canon_stmts_eq(&rest_t, &rest_e, vt) =>
+                {
+                    Some((mk_ternary_assign(tgt1, cond.clone(), a, b), rest_t))
+                }
+                _ => None,
+            }
+        } else {
+            None
+        };
+        if let Some((folded, rest)) = shape3 {
+            stmts[i] = folded;
+            stmts.splice(i + 1..i + 1, rest);
             i += 1;
             continue;
         }
@@ -7181,6 +7322,142 @@ pub fn strip_clinit_hotfix_guard(body: &mut Stmt) {
     if has_ret && has_proxy {
         stmts.remove(gi);
     }
+}
+
+/// Vendor hotfix guards in CTORS that wrap a delegation:
+/// `if (__ != null) { Object[] v = ..; ConstructorCode proxy =
+/// ConstructorCode.proxy(..); if (proxy != null) { this(unpack(v));
+/// proxy.afterSuper(this); return; } }` ahead of the real top-level
+/// delegation (alipay InstantRun — ctor-not-first ×1,436; the same
+/// shape as the already-stripped Baidu Titan / bytedance clinit /
+/// Meituan Robust guards). The patch path is dead in a fresh compile
+/// (the redirect field is null), and Java cannot place the wrapped
+/// delegation legally — strip the WHOLE guard statement.
+///
+/// VENDOR-GATED on purpose: a conditional delegation with a top-level
+/// fallback (`if (c) { this(a); return; } this(b);`) is legitimate
+/// bytecode whose guard must NOT be dropped. The gate: the guard
+/// subtree mentions a known hotfix framework type (hotfix / instantrun
+/// / robust / titan / PatchProxy / ChangeQuickRedirect / ConstructorCode
+/// in any method-owner, field owner+type, cast, or new).
+/// First LEAF statement after unwrapping nested `Stmt::Block` wrappers —
+/// the lifted ctor body reaches the ctor chain with the delegation and
+/// the hotfix guard each wrapped in plain Blocks (the flattening that
+/// produces the rendered shape runs later).
+pub(crate) fn first_leaf_stmt(s: &Stmt) -> &Stmt {
+    match s {
+        Stmt::Block(v) if !v.is_empty() => first_leaf_stmt(&v[0]),
+        other => other,
+    }
+}
+
+/// Vendor hotfix guards in CTORS that wrap a delegation:
+/// `if (__ != null) { Object[] v = ..; ConstructorCode proxy =
+/// ConstructorCode.proxy(..); if (proxy != null) { this(unpack(v));
+/// proxy.afterSuper(this); return; } }` ahead of the real top-level
+/// delegation (alipay InstantRun — ctor-not-first ×1,436, nearly all in
+/// FALLBACK ENUM ctors; the same shape as the already-stripped Baidu
+/// Titan / bytedance clinit / Meituan Robust guards). The patch path is
+/// dead in a fresh compile (the redirect field is null), and Java cannot
+/// place the wrapped delegation legally — strip the WHOLE guard
+/// statement (at this pipeline stage it arrives Block-wrapped, and its
+/// branches are still un-inverted: `If(then=∅, else=guard-body)`).
+///
+/// VENDOR-GATED on purpose: a conditional delegation with a top-level
+/// fallback (`if (c) { this(a); return; } this(b);`) is legitimate
+/// bytecode whose guard must NOT be dropped. The gate: the guard
+/// subtree mentions a known hotfix framework type (hotfix / instantrun
+/// / robust / titan / PatchProxy / ChangeQuickRedirect / ConstructorCode
+/// in any method-owner, field owner+type, cast, or new).
+pub fn strip_ctor_hotfix_guards(body: &mut Stmt) {
+    fn marker_hit(e: &Expr) -> bool {
+        let has = |n: &str| {
+            let l = n.to_ascii_lowercase();
+            l.contains("hotfix")
+                || l.contains("instantrun")
+                || l.contains("robust")
+                || l.contains("titan")
+                || l.contains("patchproxy")
+                || l.contains("changequickredirect")
+                || l.contains("constructorcode")
+        };
+        let mut hit = false;
+        let mut c = e.clone();
+        deep_rewrite(&mut c, &mut |x| {
+            match x {
+                Expr::Method { cls, .. } | Expr::New { cls, .. } | Expr::Field { cls, .. } => {
+                    if has(cls) {
+                        hit = true;
+                    }
+                }
+                _ => {}
+            }
+            if let Expr::Field { ty, .. } = x {
+                if let TypeRef::J(JavaType::Object(n)) = ty {
+                    if has(n) {
+                        hit = true;
+                    }
+                }
+            }
+        });
+        hit
+    }
+    // A top-level statement that IS a hotfix guard: unwrap single-child
+    // Block chains down to an If whose subtree holds BOTH a delegation
+    // and a vendor marker.
+    fn is_guard(st: &Stmt) -> bool {
+        let mut cur = st;
+        loop {
+            match cur {
+                Stmt::Block(v) if v.len() == 1 => cur = &v[0],
+                Stmt::If { .. } => break,
+                _ => return false,
+            }
+        }
+        let mut has_del = false;
+        walk_all(cur, &mut |s2| {
+            if is_bare_ctor_call(s2) {
+                has_del = true;
+            }
+        });
+        if !has_del {
+            return false;
+        }
+        let mut has_marker = false;
+        let mut c = cur.clone();
+        walk_stmt_exprs(&mut c, &mut |e| {
+            if marker_hit(e) {
+                has_marker = true;
+            }
+        });
+        has_marker
+    }
+    // An UNCONDITIONAL delegation at this statement-list level: a bare
+    // call among the children, or one inside a nested plain Block
+    // (Blocks are render-transparent; If/loop bodies are NOT — a
+    // delegation there is conditional and must not license a strip).
+    fn has_uncond_del(stmts: &[Stmt]) -> bool {
+        stmts.iter().any(|st| match st {
+            Stmt::Block(v) => has_uncond_del(v),
+            other => is_bare_ctor_call(other),
+        })
+    }
+    // Strip at every Block level that has its own unconditional
+    // delegation: the lifted body arrives either as [Block(guard),
+    // Block(del, ..)] (AtomicDataCollector) or as ONE big Block
+    // [decls, guard, prelude-computes, del] (compose TextStyle).
+    fn strip_in(stmts: &mut Vec<Stmt>) {
+        if has_uncond_del(stmts) {
+            stmts.retain(|st| !is_guard(st));
+        }
+        for st in stmts.iter_mut() {
+            if let Stmt::Block(v) = st {
+                strip_in(v);
+            }
+        }
+    }
+    let Stmt::Block(stmts) = body else { return };
+    strip_in(stmts);
 }
 
 /// Repeated identical branch-site delegations with param-only args
