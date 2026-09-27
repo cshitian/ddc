@@ -4073,8 +4073,42 @@ pub fn print_class_name(pool: &DexPool, internal: &str) -> String {
     if let Some(simple) = obscured_render_pub(internal) {
         return sanitize_ref(&simple);
     }
+    let orig_internal: &str = internal;
     let cow = crate::apply_class_rename(internal);
     let internal: &str = &cow;
+    // The pool indexes PRE-rename internals. The ddcroot ROOT-PACKAGE
+    // RELOCATION renames `Foo$Bar` to `ddcroot/Foo$Bar` and the pool
+    // lookups below must fall back to the pre-rename name, or the
+    // class reads as off-pool — the framework-nesting fallback then
+    // dots the `$` (`ddcroot.UserCustomStatusExtraParams.
+    // CalendarAutomaticStatus` against a FLAT `...$...` declaration —
+    // "不可见" ×138 on lark's R8-outer-deleted enum family). STRICTLY
+    // the relocation (renamed == rp + "/" + orig): collision-renamed
+    // nested families (weibo x0$a$b) keep their pre-existing
+    // generic-loop treatment — a general orig fallback flipped their
+    // `!pool.get(display)` dotting condition and regressed weibo
+    // +483.
+    let reloc_orig: Option<&str> = if orig_internal != internal {
+        match crate::root_pkg_display() {
+            Some(rp)
+                if internal.len() > rp.len() + 1
+                    && internal.starts_with(rp.as_str())
+                    && internal.as_bytes()[rp.len()] == b'/'
+                    && &internal[rp.len() + 1..] == orig_internal
+                    && pool.get(orig_internal).is_some() =>
+            {
+                Some(orig_internal)
+            }
+            _ => None,
+        }
+    } else {
+        None
+    };
+    let pool_name: &str = if pool.get(internal).is_some() {
+        internal
+    } else {
+        reloc_orig.unwrap_or(internal)
+    };
     // Flat EMISSION UNITS: a digit-tail member (anonymous / d8-lambda
     // shape, `Outer$lruCache$1`) is emitted as its own top-level file
     // whose simple name keeps every `$` — the `$` boundaries inside
@@ -4084,10 +4118,10 @@ pub fn print_class_name(pool: &DexPool, internal: &str) -> String {
     // `class LruCacheKt$lruCache$1` — every use of the type failed and
     // javac's attribution for the whole file collapsed (3627 pure-
     // cascade files on weibo).
-    if internal.contains('$') && pool.get(internal).is_some() {
-        if let Some(root) = emission_root(pool, internal) {
+    if pool_name.contains('$') && pool.get(pool_name).is_some() {
+        if let Some(root) = emission_root(pool, pool_name) {
             if root.contains('$') {
-                let below = &internal[root.len()..];
+                let below = &pool_name[root.len()..];
                 if below.is_empty() {
                     // The unit itself: the flat name IS the reference.
                     return sanitize_ref(&internal.replace('/', "."));
@@ -4098,7 +4132,8 @@ pub fn print_class_name(pool: &DexPool, internal: &str) -> String {
                     // all — keep the whole name flat.
                     return sanitize_ref(&internal.replace('/', "."));
                 }
-                let mut out = root.replace('/', ".");
+                let root_cow = crate::apply_class_rename(&root);
+                let mut out = root_cow.replace('/', ".");
                 for s in segs {
                     out.push('.');
                     out.push_str(s);
@@ -4122,13 +4157,16 @@ pub fn print_class_name(pool: &DexPool, internal: &str) -> String {
                 let prefix = &internal[..off + i];
                 let known = pool.get(prefix).is_some()
                     || jdc_core::rename::is_renamed_display(prefix)
-                    // The FULL name is not a pool class: this `$` cannot
-                    // be a literal name (pool literal classes — an app's
-                    // own `View$OnUnhandledKeyEventListener` — keep their
-                    // `$` here AND at their declaration), so it can only
-                    // be an external framework nesting boundary
+                    // The FULL name is not a pool class (also under
+                    // the ddcroot-relocation pre-rename form — the
+                    // migration hides pool classes from the renamed
+                    // lookup): this `$` cannot be a literal name
+                    // (pool literal classes — an app's own
+                    // `View$OnUnhandledKeyEventListener` — keep their
+                    // `$` here AND at their declaration), so it can
+                    // only be an external framework nesting boundary
                     // (`View$OnClickListener` → `.OnClickListener`).
-                    || !pool.get(internal).is_some();
+                    || !(pool.get(internal).is_some() || reloc_orig.is_some());
                 // The `$` may only become a nesting dot when the tail
                 // segment STARTS a Java identifier: R8's desugared-
                 // library names carry `$` inside PACKAGE paths

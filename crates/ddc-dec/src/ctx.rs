@@ -280,7 +280,23 @@ impl<'a> Ctx for DexCtx<'a> {
     }
 
     fn has_class(&self, internal: &str) -> bool {
-        self.pool.get(internal).is_some() || internal == self.class.name
+        self.pool.get(internal).is_some()
+            || internal == self.class.name
+            // The ddcroot ROOT-PACKAGE RELOCATION only: the display
+            // prepends the synthetic package, the pool key lacks it.
+            // Deliberately NOT a general un-rename: collision-renamed
+            // nested families (weibo x0$a$b) render dotted against
+            // their renamed emission owners — a general un-rename
+            // flipped them to flat `$` renders (weibo 5,357 → 77,783
+            // cannot-find cascade). Flat `$` here is right ONLY for
+            // relocated root classes, which ARE their own emission
+            // unit (lark UserCustomStatusExtraParams$* "不可见" ×138).
+            || crate::root_pkg_display().is_some_and(|rp| {
+                internal.len() > rp.len() + 1
+                    && internal.starts_with(rp.as_str())
+                    && internal.as_bytes()[rp.len()] == b'/'
+                    && self.pool.get(&internal[rp.len() + 1..]).is_some()
+            })
     }
 
     fn class_supers_args(
