@@ -5383,16 +5383,79 @@ fn fold_diamonds_in(stmts: &mut Vec<Stmt>, vt: &VarTable) {
                 Some((first, v[1..].to_vec()))
             };
             match (arm(then_stmt), arm(el)) {
-                (Some(((v1, tgt1, a), rest_t)), Some(((v2, _t2, b), rest_e)))
-                    if (v1 == v2 || same_render_var(v1, v2, vt))
-                        && !rest_t.is_empty()
+                (Some(((v1, tgt1, a), mut rest_t)), Some(((v2, _t2, b), rest_e)))
+                    if !rest_t.is_empty()
                         && is_bare_ctor_call(first_leaf_stmt(&rest_t[0]))
                         && stmts_count_writes(&rest_t, v1) == 0
                         && stmts_count_writes(&rest_t, v2) == 0
-                        && diamond_types_ok(&a, &b)
-                        && canon_stmts_eq(&rest_t, &rest_e, vt) =>
+                        && diamond_types_ok(&a, &b) =>
                 {
-                    Some((mk_ternary_assign(tgt1, cond.clone(), a, b), rest_t))
+                    if v1 == v2 || same_render_var(v1, v2, vt) {
+                        // same rendered local: fold the assign, keep the tail
+                        if canon_stmts_eq(&rest_t, &rest_e, vt) {
+                            Some((mk_ternary_assign(tgt1, cond.clone(), a, b), rest_t))
+                        } else {
+                            None
+                        }
+                    } else if stmts_read_var(&rest_t, v1) == 1
+                        && stmts_read_var(&rest_e, v2) == 1
+                        && stmts_read_var(&rest_t, v2) == 0
+                        && stmts_read_var(&rest_e, v1) == 0
+                    {
+                        // SPLIT arm-local carriers (compose Span: then
+                        // reads v23_g3, else reads v23 — different render
+                        // names, one read each): unify by substituting
+                        // v2 -> v1 in the else tail and requiring EXACT
+                        // equality, then inline `c ? A1 : A2` at the
+                        // single v1 read of the kept tail. No ternary
+                        // assign needed — both carriers die in the fold.
+                        let mut unified = rest_e.clone();
+                        for st in unified.iter_mut() {
+                            let mut c2 = st.clone();
+                            walk_stmt_exprs(&mut c2, &mut |e| {
+                                deep_rewrite(e, &mut |x| {
+                                    if let Expr::Local { var, .. } = x {
+                                        if *var == v2 {
+                                            *x = Expr::Local {
+                                                var: v1,
+                                                ty: vt.var(v1).ty.clone(),
+                                            };
+                                        }
+                                    }
+                                });
+                            });
+                            *st = c2;
+                        }
+                        if unified != rest_t {
+                            None
+                        } else {
+                            let tern = Expr::Cond {
+                                c: Box::new(cond.clone()),
+                                t: Box::new(a.clone()),
+                                f: Box::new(b.clone()),
+                            };
+                            for st in rest_t.iter_mut() {
+                                let mut c2 = st.clone();
+                                walk_stmt_exprs(&mut c2, &mut |e| {
+                                    deep_rewrite(e, &mut |x| {
+                                        if let Expr::Local { var, .. } = x {
+                                            if *var == v1 {
+                                                *x = tern.clone();
+                                            }
+                                        }
+                                    });
+                                });
+                                *st = c2;
+                            }
+                            // the If is REPLACED by the (rewritten) tail:
+                            // no ternary assign survives — both carriers
+                            // die in the fold.
+                            let first = rest_t.remove(0);
+                            Some((first, rest_t))
+                        }
+                    } else {
+                        None
+                    }
                 }
                 _ => None,
             }
@@ -7432,24 +7495,18 @@ pub fn strip_ctor_hotfix_guards(body: &mut Stmt) {
         });
         has_marker
     }
-    // An UNCONDITIONAL delegation at this statement-list level: a bare
-    // call among the children, or one inside a nested plain Block
-    // (Blocks are render-transparent; If/loop bodies are NOT — a
-    // delegation there is conditional and must not license a strip).
-    fn has_uncond_del(stmts: &[Stmt]) -> bool {
-        stmts.iter().any(|st| match st {
-            Stmt::Block(v) => has_uncond_del(v),
-            other => is_bare_ctor_call(other),
-        })
-    }
-    // Strip at every Block level that has its own unconditional
-    // delegation: the lifted body arrives either as [Block(guard),
-    // Block(del, ..)] (AtomicDataCollector) or as ONE big Block
-    // [decls, guard, prelude-computes, del] (compose TextStyle).
+    // Strip at EVERY Block level: the lifted body arrives either as
+    // [Block(guard), Block(del, ..)] (AtomicDataCollector) or as ONE big
+    // Block [decls, guard, prelude-computes, del] (compose TextStyle).
+    // No outside-delegation requirement: the vendor gate already proves
+    // the statement is dead hotfix machinery (the redirect field is null
+    // in a fresh compile — the same assumption the Titan/PatchProxy
+    // strips run on), and the dex's fresh path IS whatever remains after
+    // the guard. rpc/a.java: the real super() sits inside a switch arm —
+    // requiring an unconditional outside delegation kept the guard (and
+    // its illegal pre-super field writes) alive.
     fn strip_in(stmts: &mut Vec<Stmt>) {
-        if has_uncond_del(stmts) {
-            stmts.retain(|st| !is_guard(st));
-        }
+        stmts.retain(|st| !is_guard(st));
         for st in stmts.iter_mut() {
             if let Stmt::Block(v) = st {
                 strip_in(v);
