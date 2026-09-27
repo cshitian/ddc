@@ -7027,77 +7027,6 @@ fn prune_dead_items(items: &mut Vec<Stmt>, reads: &[usize], dropped: &mut usize)
     });
 }
 
-/// Immutable shallow child walk (mirrors `walk_mut`), for the two-pass
-/// scope analysis below.
-fn for_each_child_stmt<'a>(st: &'a Stmt, f: &mut impl FnMut(&'a Stmt)) {
-    match st {
-        Stmt::Block(v) => {
-            for x in v {
-                f(x);
-            }
-        }
-        Stmt::If {
-            then_stmt,
-            else_stmt,
-            ..
-        } => {
-            f(then_stmt);
-            if let Some(e) = else_stmt {
-                f(e);
-            }
-        }
-        Stmt::While { body, .. } | Stmt::DoWhile { body, .. } => f(body),
-        Stmt::For { init, body, .. } => {
-            for x in init {
-                f(x);
-            }
-            f(body);
-        }
-        Stmt::ForEach { body, .. } => f(body),
-        Stmt::Switch { cases, default, .. } => {
-            for c in cases {
-                for x in &c.body {
-                    f(x);
-                }
-            }
-            if let Some(d) = default {
-                f(d);
-            }
-        }
-        Stmt::Try {
-            body,
-            catches,
-            finally,
-        } => {
-            f(body);
-            for c in catches {
-                f(&c.body);
-            }
-            if let Some(fl) = finally {
-                f(fl);
-            }
-        }
-        Stmt::TryWithResources {
-            resources,
-            body,
-            catches,
-            finally,
-        } => {
-            for r in resources {
-                f(r);
-            }
-            f(body);
-            for c in catches {
-                f(&c.body);
-            }
-            if let Some(fl) = finally {
-                f(fl);
-            }
-        }
-        Stmt::Synchronized { body, .. } | Stmt::Labeled { body, .. } => f(body),
-        _ => {}
-    }
-}
 
 /// Vars occurring in this statement's OWN expression payloads (nested
 /// sub-statements are descended separately so every occurrence carries
@@ -7156,6 +7085,15 @@ fn stmt_shallow_vars<F: FnMut(u32)>(st: &Stmt, out: &mut F) {
 
 /// Pass A: number every Block in pre-order (root = 0) and record each
 /// var's defining block. `sizes[id]` = the id-range span of the subtree.
+/// Pass A: number every EMITTER-BRACED position in pre-order (root = 0)
+/// and record each var's defining block. `sizes[id]` = the id-range span
+/// of the subtree. A braced position is a Java scope whether or not the
+/// IR node is a Stmt::Block — switch case bodies are bare Vecs and
+/// single-statement if arms are bare statements, and sharing the parent's
+/// id for them hid the scope violation (Telegram jk.java: a case-local
+/// `notificationCenterDelegate`/`d0x` read after the switch never
+/// hoisted — 找不到符号 ×76 in one file; the `d9x.L` reads even resolved
+/// as a PACKAGE — 程序包不存在 ×92 tree-wide).
 fn scope_pass_a(st: &Stmt, cur: u32, next: &mut u32, def_block: &mut [u32], sizes: &mut Vec<u32>) {
     if let Stmt::LocalDef { var, .. } = st {
         let i = *var as usize;
@@ -7163,21 +7101,112 @@ fn scope_pass_a(st: &Stmt, cur: u32, next: &mut u32, def_block: &mut [u32], size
             def_block[i] = cur;
         }
     }
-    for_each_child_stmt(st, &mut |c| {
-        if matches!(c, Stmt::Block(_)) {
+    fn scoped(c: &Stmt, next: &mut u32, def_block: &mut [u32], sizes: &mut Vec<u32>) {
+        let id = *next;
+        *next += 1;
+        sizes.push(0);
+        scope_pass_a(c, id, next, def_block, sizes);
+        sizes[id as usize] = *next - id;
+    }
+    match st {
+        Stmt::Block(v) => {
+            for x in v {
+                scope_pass_a(x, cur, next, def_block, sizes);
+            }
+        }
+        Stmt::If {
+            then_stmt,
+            else_stmt,
+            ..
+        } => {
+            scoped(then_stmt, next, def_block, sizes);
+            if let Some(e) = else_stmt {
+                scoped(e, next, def_block, sizes);
+            }
+        }
+        Stmt::While { body, .. } | Stmt::DoWhile { body, .. } => {
+            scoped(body, next, def_block, sizes)
+        }
+        Stmt::For { init, body, .. } => {
+            // A for-init declaration scopes over the WHOLE for statement
+            // (header + body): one shared id, the body a nested one.
             let id = *next;
             *next += 1;
             sizes.push(0);
-            scope_pass_a(c, id, next, def_block, sizes);
+            for x in init {
+                scope_pass_a(x, id, next, def_block, sizes);
+            }
+            scoped(body, next, def_block, sizes);
             sizes[id as usize] = *next - id;
-        } else {
-            scope_pass_a(c, cur, next, def_block, sizes);
         }
-    });
+        Stmt::ForEach { body, .. } => scoped(body, next, def_block, sizes),
+        Stmt::Switch { cases, default, .. } => {
+            for c in cases {
+                // One scope per case group (the emitter braces each);
+                // non-Block statements share the case id, nested Blocks
+                // get sub-ids — siblings in one brace group must share,
+                // or a def's later same-case reads fall "outside".
+                let id = *next;
+                *next += 1;
+                sizes.push(0);
+                for x in &c.body {
+                    if matches!(x, Stmt::Block(_)) {
+                        scoped(x, next, def_block, sizes);
+                    } else {
+                        scope_pass_a(x, id, next, def_block, sizes);
+                    }
+                }
+                sizes[id as usize] = *next - id;
+            }
+            if let Some(d) = default {
+                scoped(d, next, def_block, sizes);
+            }
+        }
+        Stmt::Try {
+            body,
+            catches,
+            finally,
+        } => {
+            scoped(body, next, def_block, sizes);
+            for c in catches {
+                scoped(&c.body, next, def_block, sizes);
+            }
+            if let Some(f) = finally {
+                scoped(f, next, def_block, sizes);
+            }
+        }
+        Stmt::TryWithResources {
+            resources,
+            body,
+            catches,
+            finally,
+        } => {
+            // Resource declarations scope over the WHOLE try statement.
+            let id = *next;
+            *next += 1;
+            sizes.push(0);
+            for r in resources {
+                scope_pass_a(r, id, next, def_block, sizes);
+            }
+            scoped(body, next, def_block, sizes);
+            for c in catches {
+                scoped(&c.body, next, def_block, sizes);
+            }
+            if let Some(f) = finally {
+                scoped(f, next, def_block, sizes);
+            }
+            sizes[id as usize] = *next - id;
+        }
+        Stmt::Synchronized { body, .. } => scoped(body, next, def_block, sizes),
+        Stmt::Labeled { body, .. } => scope_pass_a(body, cur, next, def_block, sizes),
+        _ => {}
+    }
 }
 
 /// Pass B (same numbering walk): count each var's occurrences overall
-/// and within its defining block's subtree.
+/// and within its defining block's subtree. For/TWR take dedicated arms
+/// so their header expressions count INSIDE the statement scope (a
+/// normal `for (int i…)` must not look like an outside read of i).
 fn scope_pass_b(
     st: &Stmt,
     cur: u32,
@@ -7187,25 +7216,151 @@ fn scope_pass_b(
     within: &mut [u32],
     total: &mut [u32],
 ) {
-    stmt_shallow_vars(st, &mut |v| {
+    fn cnt(
+        v: u32,
+        at: u32,
+        def_block: &[u32],
+        sizes: &[u32],
+        within: &mut [u32],
+        total: &mut [u32],
+    ) {
         let i = v as usize;
         if i < total.len() {
             total[i] += 1;
             let d = def_block[i];
-            if d != u32::MAX && d <= cur && cur < d + sizes[d as usize] {
+            if d != u32::MAX && d <= at && at < d + sizes[d as usize] {
                 within[i] += 1;
             }
         }
-    });
-    for_each_child_stmt(st, &mut |c| {
-        if matches!(c, Stmt::Block(_)) {
+    }
+    fn scoped(
+        c: &Stmt,
+        next: &mut u32,
+        def_block: &[u32],
+        sizes: &[u32],
+        within: &mut [u32],
+        total: &mut [u32],
+    ) {
+        let id = *next;
+        *next += 1;
+        scope_pass_b(c, id, next, def_block, sizes, within, total);
+    }
+    fn ex_at(
+        e: &Expr,
+        at: u32,
+        def_block: &[u32],
+        sizes: &[u32],
+        within: &mut [u32],
+        total: &mut [u32],
+    ) {
+        visit_exprs(e, &mut |x| {
+            if let Expr::Local { var, .. } = x {
+                cnt(*var, at, def_block, sizes, within, total);
+            }
+        });
+    }
+    match st {
+        Stmt::For {
+            init,
+            cond,
+            update,
+            body,
+        } => {
             let id = *next;
             *next += 1;
-            scope_pass_b(c, id, next, def_block, sizes, within, total);
-        } else {
-            scope_pass_b(c, cur, next, def_block, sizes, within, total);
+            for x in init {
+                scope_pass_b(x, id, next, def_block, sizes, within, total);
+            }
+            if let Some(c) = cond {
+                ex_at(c, id, def_block, sizes, within, total);
+            }
+            for u in update {
+                ex_at(u, id, def_block, sizes, within, total);
+            }
+            scoped(body, next, def_block, sizes, within, total);
         }
-    });
+        Stmt::TryWithResources {
+            resources,
+            body,
+            catches,
+            finally,
+        } => {
+            let id = *next;
+            *next += 1;
+            for r in resources {
+                scope_pass_b(r, id, next, def_block, sizes, within, total);
+            }
+            scoped(body, next, def_block, sizes, within, total);
+            for c in catches {
+                scoped(&c.body, next, def_block, sizes, within, total);
+            }
+            if let Some(f) = finally {
+                scoped(f, next, def_block, sizes, within, total);
+            }
+        }
+        _ => {
+            stmt_shallow_vars(st, &mut |v| cnt(v, cur, def_block, sizes, within, total));
+            match st {
+                Stmt::Block(v) => {
+                    for x in v {
+                        scope_pass_b(x, cur, next, def_block, sizes, within, total);
+                    }
+                }
+                Stmt::If {
+                    then_stmt,
+                    else_stmt,
+                    ..
+                } => {
+                    scoped(then_stmt, next, def_block, sizes, within, total);
+                    if let Some(e) = else_stmt {
+                        scoped(e, next, def_block, sizes, within, total);
+                    }
+                }
+                Stmt::While { body, .. } | Stmt::DoWhile { body, .. } => {
+                    scoped(body, next, def_block, sizes, within, total)
+                }
+                Stmt::ForEach { body, .. } => {
+                    scoped(body, next, def_block, sizes, within, total)
+                }
+                Stmt::Switch { cases, default, .. } => {
+                    for c in cases {
+                        let id = *next;
+                        *next += 1;
+                        for x in &c.body {
+                            if matches!(x, Stmt::Block(_)) {
+                                scoped(x, next, def_block, sizes, within, total);
+                            } else {
+                                scope_pass_b(x, id, next, def_block, sizes, within, total);
+                            }
+                        }
+                    }
+                    if let Some(d) = default {
+                        scoped(d, next, def_block, sizes, within, total);
+                    }
+                }
+                Stmt::Try {
+                    body,
+                    catches,
+                    finally,
+                } => {
+                    scoped(body, next, def_block, sizes, within, total);
+                    for c in catches {
+                        scoped(&c.body, next, def_block, sizes, within, total);
+                    }
+                    if let Some(f) = finally {
+                        scoped(f, next, def_block, sizes, within, total);
+                    }
+                }
+                Stmt::Synchronized { body, .. } => {
+                    scoped(body, next, def_block, sizes, within, total)
+                }
+                Stmt::Labeled { body, .. } => {
+                    scope_pass_b(body, cur, next, def_block, sizes, within, total)
+                }
+                _ => {}
+            }
+        }
+    }
 }
 
 /// Declaration hygiene: every used var that has no LocalDef gets a bare
