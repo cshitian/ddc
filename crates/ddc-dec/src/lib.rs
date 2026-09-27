@@ -2283,6 +2283,18 @@ fn pkg_leaf_shadow_renames(pool: &DexPool, map: &mut HashMap<String, String>) {
 /// method keys include erased parameter types):
 /// Keys stay ORIGINAL (name, descriptor) so references resolve exactly;
 /// only the rendered identifier changes.
+/// Return type of a method descriptor as an internal class name
+/// (arrays/primitives → None).
+fn ret_internal(desc: &str) -> Option<&str> {
+    let hi = desc.find(')')?;
+    let r = &desc[hi + 1..];
+    if r.len() > 2 && r.starts_with('L') && r.ends_with(';') {
+        Some(&r[1..r.len() - 1])
+    } else {
+        None
+    }
+}
+
 fn member_collision_renames(
     pool: &DexPool,
 ) -> HashMap<std::sync::Arc<str>, Vec<jdc_core::rename::FieldRename>> {
@@ -2605,6 +2617,33 @@ fn member_collision_renames(
                     continue;
                 }
                 let Some(ac) = pool.get_if_materialized(cn) else {
+                    // FRAMEWORK ancestors bind names too: a group
+                    // member implementing a framework declaration must
+                    // keep the original name (renaming WhatsApp's
+                    // Map.keySet-style overrides broke the interface
+                    // chain — cannot-find:变量 ×18.6k). The pool-only
+                    // map made every framework-declared name look
+                    // keeper-less. fwdb descriptors are erased JVM
+                    // form — directly comparable with dex descs.
+                    crate::fwdb::for_each_method(cn, |d, f| {
+                        if f & crate::fwdb::MF_STATIC != 0 {
+                            return;
+                        }
+                        let lo = d.find('(').map(|i| i + 1).unwrap_or(0);
+                        let hi = d.find(')').unwrap_or(0);
+                        if hi <= lo || hi + 1 >= d.len() {
+                            return;
+                        }
+                        map.entry((d[..lo].to_string(), d[lo..hi].to_string()))
+                            .or_default()
+                            .push(d[hi + 1..].to_string());
+                    });
+                    if let Some(sup) = crate::fwdb::super_of(cn) {
+                        if sup != "java/lang/Object" {
+                            stack.push(sup);
+                        }
+                    }
+                    crate::fwdb::for_each_interface(cn, |i| stack.push(i));
                     continue;
                 };
                 for m in ac.all_methods() {
@@ -2756,6 +2795,31 @@ fn member_collision_renames(
                     // rename target — keep the claim behavior.
                     continue;
                 }
+                // fwdb flattens JDK covariant overrides to the erased
+                // declaring return (SortedMap.keySet records Set, the
+                // source return is SortedSet) — the sole "keeper" can
+                // be the synthetic BRIDGE while the real override is
+                // the non-bridge sibling whose return is a subtype of
+                // the recorded one. Keeping the bridge renamed the
+                // real method and broke the interface chain (WhatsApp
+                // X/Jl2 SortedMap, cannot-find:变量 ×18.6k). Prefer the
+                // non-bridge in that shape: the claim map dropped the
+                // bridge before this machinery existed anyway.
+                let mut keeper_idx = 0usize;
+                if keepers.len() == 1
+                    && keepers[0].access & crate::access::ACC_BRIDGE != 0
+                {
+                    let kret = ret_internal(&keepers[0].desc);
+                    if let Some((gi, _)) = group.iter().copied().enumerate().find(|(_, m)| {
+                        m.access & crate::access::ACC_BRIDGE == 0
+                            && match (ret_internal(&m.desc), kret) {
+                                (Some(a), Some(b)) => a != b && pool.is_subtype(a, b),
+                                _ => false,
+                            }
+                    }) {
+                        keeper_idx = gi;
+                    }
+                }
                 // keepers==1: the ancestor-declared member keeps the
                 // original name. keepers==0: NOTHING in the POOL binds
                 // the name — keep the member the old claim map would
@@ -2774,7 +2838,7 @@ fn member_collision_renames(
                 // renamed it and broke the override chain (reqable +8
                 // "无法覆盖…返回类型不兼容").
                 let keep_desc: &str = if keepers.len() == 1 {
-                    &keepers[0].desc
+                    &group[keeper_idx].desc
                 } else {
                     group
                         .iter()
