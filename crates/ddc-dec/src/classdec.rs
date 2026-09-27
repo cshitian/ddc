@@ -2447,6 +2447,77 @@ fn emit_class_body(
         emitted_any = true;
     }
 
+    // Synthetic relay ctors for FULL-mode branched delegations
+    // (passes::extract_branched_delegation_helper): the public ctor
+    // renders `this(resolve$X(params))`; this unpacks the carrier
+    // array into the one legal first-statement delegation. Primitives
+    // unbox through their wrappers (the array boxes them on pack).
+    // ONE relay per class: the (Object[]) erasure is class-unique. Two
+    // Full-mode ctors in one class (rare; each worker rewrites its own
+    // body independently) resolve deterministically — sorted by origin
+    // desc, the least emits and the others keep the honest
+    // ctor-missing error. No duplicate-declaration risk.
+    for (ri, (_desc, r)) in crate::passes::take_ctor_relays(&class.name)
+        .into_iter()
+        .enumerate()
+    {
+        if ri > 0 {
+            continue;
+        }
+        if emitted_any {
+            out.push('\n');
+        }
+        // Same depth rule as emit_class_body's header: a depth-0 class
+        // declares its FLAT `$` name (the ctor must match it — weixin
+        // ModularizingPkgRetrieverContract$SharedIPCCallArgs rendered a
+        // tail-named relay ctor: "方法声明无效" parse-abort); an INLINE
+        // nested member declares its last segment.
+        let disp = crate::apply_class_rename(&class.name);
+        let (_, simple) = split_name(&disp);
+        let ctor_name = if depth == 0 {
+            simple.clone()
+        } else {
+            let seg = simple.rsplit('$').next().unwrap_or("");
+            if seg.is_empty() {
+                simple.clone()
+            } else {
+                seg.to_string()
+            }
+        };
+        out.push_str(&indent(depth + 1));
+        out.push_str("private ");
+        out.push_str(&java_ident(&ctor_name));
+        out.push_str("(Object[] h$relay) {\n");
+        out.push_str(&indent(depth + 2));
+        out.push_str(if r.is_super { "super(" } else { "this(" });
+        for (i, t) in r.formals.iter().enumerate() {
+            if i > 0 {
+                out.push_str(", ");
+            }
+            let slot = format!("h$relay[{}]", i);
+            match t {
+                JavaType::Boolean => out.push_str(&format!("((Boolean) {}).booleanValue()", slot)),
+                JavaType::Byte => out.push_str(&format!("((Byte) {}).byteValue()", slot)),
+                JavaType::Char => out.push_str(&format!("((Character) {}).charValue()", slot)),
+                JavaType::Short => out.push_str(&format!("((Short) {}).shortValue()", slot)),
+                JavaType::Int => out.push_str(&format!("((Integer) {}).intValue()", slot)),
+                JavaType::Float => out.push_str(&format!("((Float) {}).floatValue()", slot)),
+                JavaType::Long => out.push_str(&format!("((Long) {}).longValue()", slot)),
+                JavaType::Double => out.push_str(&format!("((Double) {}).doubleValue()", slot)),
+                other => {
+                    out.push('(');
+                    out.push_str(&type_name(pool, other));
+                    out.push_str(") ");
+                    out.push_str(&slot);
+                }
+            }
+        }
+        out.push_str(");\n");
+        out.push_str(&indent(depth + 1));
+        out.push_str("}\n");
+        emitted_any = true;
+    }
+
     // Missing-abstract-method stubs (R8 tree-shook an interface method a
     // concrete class no longer implements; javac rejects the incomplete
     // class). Synthesized last so they sit after the real members.

@@ -7089,6 +7089,41 @@ fn ctor_helpers() -> &'static std::sync::Mutex<std::collections::HashMap<String,
     H.get_or_init(|| std::sync::Mutex::new(std::collections::HashMap::default()))
 }
 
+/// Synthetic relay ctor for the FULL mode of
+/// extract_branched_delegation_helper: `private C(Object[] h$relay) {
+/// this/super((T0) h$relay[0], ..); }` — the public ctor becomes
+/// `this(resolve$X(params))`, both delegations first-statement legal.
+pub struct CtorRelay {
+    /// The delegation target's formal types (the casts of the unpack).
+    pub formals: Vec<JavaType>,
+    pub is_super: bool,
+}
+
+type RelayMap = std::collections::HashMap<String, Vec<(String, CtorRelay)>>;
+
+fn ctor_relays() -> &'static std::sync::Mutex<RelayMap> {
+    static H: std::sync::OnceLock<std::sync::Mutex<RelayMap>> = std::sync::OnceLock::new();
+    H.get_or_init(|| std::sync::Mutex::new(std::collections::HashMap::default()))
+}
+
+/// Take (and clear) the relay ctors registered for `class` — sorted by
+/// the originating ctor descriptor for deterministic emission.
+pub fn take_ctor_relays(class: &str) -> Vec<(String, CtorRelay)> {
+    let mut m = ctor_relays().lock().unwrap_or_else(|e| e.into_inner());
+    let mut v = m.remove(class).unwrap_or_default();
+    v.sort_by(|a, b| a.0.cmp(&b.0));
+    v
+}
+
+fn array_init(args: Vec<Expr>) -> Expr {
+    Expr::NewArray {
+        elem: TypeRef::J(JavaType::Object(std::sync::Arc::from("java/lang/Object"))),
+        dims: Vec::new(),
+        trailing_dims: 0,
+        init: Some(args),
+    }
+}
+
 /// Deterministic helper name: FNV-1a over (class, ctor descriptor) —
 /// worker-thread registration order must not leak into the output.
 fn helper_name(class: &str, desc: &str) -> String {
@@ -7641,7 +7676,58 @@ pub fn extract_branched_delegation_helper(
     enum Mode {
         Single(u32),
         Position(usize),
+        /// Every path delegates with the SAME target signature but its
+        /// own arg expressions: the whole computation moves to the
+        /// helper (each delegation becomes `return new Object[]{its
+        /// args}`), the public ctor becomes `this(resolve$X(params))`
+        /// and a synthetic `private C(Object[] h)` relay unpacks the
+        /// carriers into the one legal first-statement delegation.
+        Full,
     }
+    // Full-mode gate: uniform delegation target (this/super, class,
+    // descriptor), non-empty args, no pre-existing (Object[]) ctor,
+    // and — the relay signature is per-CLASS unique — only the
+    // lexicographically least <init> descriptor of the class may take
+    // the relay (deterministic across parallel workers; a second
+    // branched ctor in one class keeps its honest error).
+    let full_gate = (|| -> Option<()> {
+        let Expr::Method {
+            args: a0,
+            desc: d0,
+            is_super: s0,
+            cls: c0,
+            ..
+        } = &dels[0]
+        else {
+            return None;
+        };
+        if a0.is_empty() {
+            return None;
+        }
+        for d in &dels[1..] {
+            match d {
+                Expr::Method {
+                    args,
+                    desc,
+                    is_super,
+                    cls,
+                    ..
+                } if args.len() == a0.len()
+                    && **desc == **d0
+                    && is_super == s0
+                    && cls == c0 => {}
+                _ => return None,
+            }
+        }
+        if class
+            .all_methods()
+            .any(|m| &*m.name == "<init>" && &*m.desc == "([Ljava/lang/Object;)V")
+        {
+            return None;
+        }
+        Some(())
+    })()
+    .is_some();
     let mode = if dels.iter().all(|d| *d == dels[0]) {
         let mut carrier: Option<u32> = None;
         let mut reads = 0usize;
@@ -7663,9 +7749,11 @@ pub fn extract_branched_delegation_helper(
         }
         match carrier {
             Some(cv) if !multi && reads == 1 => Mode::Single(cv),
+            _ if full_gate => Mode::Full,
             _ => return,
         }
     } else {
+        let positioned: Option<Mode> = (|| {
         let arity = t_args.len();
         // Uniform arity FIRST: a bare `super()` mixed among arg-carrying
         // dels made the single-diff slot k index past a short del's args
@@ -7674,7 +7762,7 @@ pub fn extract_branched_delegation_helper(
             .iter()
             .any(|d| !matches!(d, Expr::Method { args, .. } if args.len() == arity))
         {
-            return;
+            return None;
         }
         let mut diff: Vec<usize> = Vec::new();
         for j in 0..arity {
@@ -7686,7 +7774,7 @@ pub fn extract_branched_delegation_helper(
             }
         }
         if diff.len() != 1 {
-            return;
+            return None;
         }
         let k = diff[0];
         // Non-arg parts AND all other arg positions identical: neutralize
@@ -7702,7 +7790,7 @@ pub fn extract_branched_delegation_helper(
                 args[k] = Expr::Const(ConstVal::Null);
             }
             if c != base0 {
-                return;
+                return None;
             }
         }
         // Slot k: bare non-param local at every site, one erased type,
@@ -7710,18 +7798,18 @@ pub fn extract_branched_delegation_helper(
         let mut carrier_ty: Option<JavaType> = None;
         for d in dels.iter() {
             let Expr::Method { args, .. } = d else {
-                return;
+                return None;
             };
             let Expr::Local { var, .. } = &args[k] else {
-                return;
+                return None;
             };
             if (*var as usize) >= vt.vars.len() || vt.vars[*var as usize].is_param {
-                return;
+                return None;
             }
             let ty = vt.vars[*var as usize].ty.erased();
             match &carrier_ty {
                 Some(t) if *t == ty => {}
-                Some(_) => return,
+                Some(_) => return None,
                 None => carrier_ty = Some(ty),
             }
             // Non-k positions must be param/const/static-only — a
@@ -7742,11 +7830,17 @@ pub fn extract_branched_delegation_helper(
                     }
                 });
                 if bad {
-                    return;
+                    return None;
                 }
             }
         }
-        Mode::Position(k)
+        Some(Mode::Position(k))
+        })();
+        match positioned {
+            Some(m) => m,
+            None if full_gate => Mode::Full,
+            None => return,
+        }
     };
     let l = stmts.iter().rposition(is_bare_ctor_call);
     if l == Some(0) {
@@ -7799,6 +7893,9 @@ pub fn extract_branched_delegation_helper(
             },
             _ => return,
         },
+        Mode::Full => JavaType::Array(Box::new(JavaType::Object(std::sync::Arc::from(
+            "java/lang/Object",
+        )))),
     };
     match mode {
         Mode::Single(cv) => {
@@ -7816,11 +7913,47 @@ pub fn extract_branched_delegation_helper(
             // Each stripped delegation's own slot-k carrier fills the
             // next bare return in its list; merge-point returns fall
             // back to the primary carrier below.
-            fill_returns_by_position(&mut extracted, k);
+            fill_returns_by_position(&mut extracted, &|args: &[Expr]| args.get(k).cloned());
             let fallback = match &primary_del {
                 Expr::Method { args, .. } => args[k].clone(),
                 _ => return,
             };
+            rewrite_bare_returns(&mut extracted, &fallback);
+            if !always_returns(&extracted) {
+                extracted.push(Stmt::Return(Some(fallback)));
+            }
+        }
+        Mode::Full => {
+            // Every delegation becomes `return new Object[]{its own
+            // args}`; merge-point bare returns and the fall-through
+            // completion take the PRIMARY delegation's args (the
+            // top-level last del when present — its args are
+            // top-level-scoped by construction). With no primary,
+            // every path must already delegate explicitly.
+            fill_returns_by_position(&mut extracted, &|args: &[Expr]| {
+                Some(array_init(args.to_vec()))
+            });
+            if l.is_none() {
+                // No top-level primary: every path must delegate. A
+                // dead tail can still dangle after the shortest
+                // always-returning prefix (DataHolder: an assign after
+                // a try whose body returns and whose catch throws) —
+                // truncate it (unreachable by Java's flow model, so
+                // sound), else bail.
+                if !always_returns(&extracted) {
+                    let cut = (1..=extracted.len())
+                        .find(|&i| always_returns(&extracted[..i]));
+                    match cut {
+                        Some(i) => extracted.truncate(i),
+                        None => return,
+                    }
+                }
+            }
+            let fallback_args = match &primary_del {
+                Expr::Method { args, .. } => args.clone(),
+                _ => return,
+            };
+            let fallback = array_init(fallback_args);
             rewrite_bare_returns(&mut extracted, &fallback);
             if !always_returns(&extracted) {
                 extracted.push(Stmt::Return(Some(fallback)));
@@ -7889,6 +8022,29 @@ pub fn extract_branched_delegation_helper(
             }
             args[k] = call.clone();
         }
+        Mode::Full => {
+            // The public ctor's one legal statement: `this(resolve$X(p..))`
+            // — the synthetic relay ctor below unpacks the carriers into
+            // the uniform target delegation.
+            new_del = Expr::Method {
+                owner: None,
+                cls: std::sync::Arc::from(class.name.as_str()),
+                name: "<init>".into(),
+                desc: std::sync::Arc::new(jdc_core::types::MethodDescriptor {
+                    args: vec![JavaType::Array(Box::new(JavaType::Object(
+                        std::sync::Arc::from("java/lang/Object"),
+                    )))],
+                    ret: JavaType::Void,
+                }),
+                args: vec![call.clone()],
+                is_static: false,
+                is_interface: false,
+                is_special: true,
+                is_super: false,
+                is_dynamic: false,
+                type_args: Vec::new(),
+            };
+        }
     }
     {
         let mut m = ctor_helpers().lock().unwrap_or_else(|e| e.into_inner());
@@ -7901,11 +8057,32 @@ pub fn extract_branched_delegation_helper(
             invert_empty_thens(&mut hbody);
             v.push(CtorHelper {
                 name,
-                ret,
+                ret: ret.clone(),
                 params: params.into_iter().map(|(_, ty, nm)| (ty, nm)).collect(),
                 body: hbody,
                 vt: vt.clone(),
             });
+            if matches!(mode, Mode::Full) {
+                let Expr::Method {
+                    desc: d0,
+                    is_super: s0,
+                    ..
+                } = &primary_del
+                else {
+                    return;
+                };
+                let mut rm = ctor_relays().lock().unwrap_or_else(|e| e.into_inner());
+                let rv = rm.entry(class.name.clone()).or_default();
+                if !rv.iter().any(|(d, _)| d == desc_str) {
+                    rv.push((
+                        desc_str.to_string(),
+                        CtorRelay {
+                            formals: d0.args.clone(),
+                            is_super: *s0,
+                        },
+                    ));
+                }
+            }
         } else {
             return; // duplicate decompile of the same ctor: keep the first
         }
@@ -7919,12 +8096,15 @@ pub fn extract_branched_delegation_helper(
 /// return;`). With no following return in the list the delegation
 /// becomes the return itself and the rest of the list (trace stubs only
 /// — a second delegation there is impossible) is dropped as unreachable.
-fn fill_returns_by_position(stmts: &mut Vec<Stmt>, k: usize) {
+fn fill_returns_by_position(
+    stmts: &mut Vec<Stmt>,
+    pick: &dyn Fn(&[Expr]) -> Option<Expr>,
+) {
     let mut i = 0;
     while i < stmts.len() {
         if is_bare_ctor_call(&stmts[i]) {
             let karg = match &stmts[i] {
-                Stmt::ExprStmt(Expr::Method { args, .. }) => args.get(k).cloned(),
+                Stmt::ExprStmt(Expr::Method { args, .. }) => pick(args),
                 _ => None,
             };
             if let Some(v) = karg {
@@ -7954,62 +8134,62 @@ fn fill_returns_by_position(stmts: &mut Vec<Stmt>, k: usize) {
                 }
             }
         }
-        fill_returns_one(&mut stmts[i], k);
+        fill_returns_one(&mut stmts[i], pick);
         i += 1;
     }
 }
 
-fn fill_returns_one(st: &mut Stmt, k: usize) {
+fn fill_returns_one(st: &mut Stmt, pick: &dyn Fn(&[Expr]) -> Option<Expr>) {
     match st {
-        Stmt::Block(v) => fill_returns_by_position(v, k),
+        Stmt::Block(v) => fill_returns_by_position(v, pick),
         Stmt::If { then_stmt, else_stmt, .. } => {
-            fill_returns_stmt(then_stmt, k);
+            fill_returns_stmt(then_stmt, pick);
             if let Some(e) = else_stmt {
-                fill_returns_stmt(e, k);
+                fill_returns_stmt(e, pick);
             }
         }
         Stmt::While { body, .. }
         | Stmt::DoWhile { body, .. }
         | Stmt::ForEach { body, .. }
         | Stmt::Synchronized { body, .. }
-        | Stmt::Labeled { body, .. } => fill_returns_stmt(body, k),
+        | Stmt::Labeled { body, .. } => fill_returns_stmt(body, pick),
         Stmt::For { init, body, .. } => {
-            fill_returns_by_position(init, k);
-            fill_returns_stmt(body, k);
+            fill_returns_by_position(init, pick);
+            fill_returns_stmt(body, pick);
         }
         Stmt::Switch { cases, default, .. } => {
             for c in cases.iter_mut() {
-                fill_returns_by_position(&mut c.body, k);
+                fill_returns_by_position(&mut c.body, pick);
             }
             if let Some(d) = default {
-                fill_returns_stmt(d, k);
+                fill_returns_stmt(d, pick);
             }
         }
         Stmt::Try { body, catches, finally } | Stmt::TryWithResources { body, catches, finally, .. } => {
-            fill_returns_stmt(body, k);
+            fill_returns_stmt(body, pick);
             for c in catches.iter_mut() {
-                fill_returns_stmt(&mut c.body, k);
+                fill_returns_stmt(&mut c.body, pick);
             }
             if let Some(f) = finally {
-                fill_returns_stmt(f, k);
+                fill_returns_stmt(f, pick);
             }
         }
         _ => {}
     }
 }
 
-fn fill_returns_stmt(st: &mut Stmt, k: usize) {
+fn fill_returns_stmt(st: &mut Stmt, pick: &dyn Fn(&[Expr]) -> Option<Expr>) {
     if is_bare_ctor_call(st) {
         // Single-statement branch body (`if (c) this(..);`) — becomes
         // the return directly.
         if let Stmt::ExprStmt(Expr::Method { args, .. }) = st {
-            if let Some(v) = args.get(k).cloned() {
+            if let Some(v) = pick(args) {
                 *st = Stmt::Return(Some(v));
                 return;
             }
         }
     }
-    fill_returns_one(st, k);
+    fill_returns_one(st, pick);
 }
 
 fn normalize_tail(t: &[Stmt]) -> Vec<Stmt> {
