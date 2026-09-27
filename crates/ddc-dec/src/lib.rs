@@ -2305,6 +2305,135 @@ fn ret_internal(desc: &str) -> Option<&str> {
     }
 }
 
+/// Raw name → (argsig, ret) JVM-descriptor slices of one class's own
+/// virtual methods — the key space the collision queries use.
+type AncMethods = jdc_core::FxHashMap<
+    std::sync::Arc<str>,
+    Vec<(std::sync::Arc<str>, std::sync::Arc<str>)>,
+>;
+
+/// One provenance bucket of an analyzed class's ancestor chain (cached
+/// layers, no merge — see `layer_rets`).
+type AncLayers = Vec<std::sync::Arc<AncEntry>>;
+
+/// Parsed direct virtual methods of one ancestor class + its chain
+/// edges, cached per class name for the member-collision walk. The
+/// framework chains (View/Activity/Fragment…) and pool hub supers repeat
+/// across thousands of analyzed classes — parsing each ancestor's
+/// descriptors ONCE per run (instead of per analyzed subclass) removes
+/// the dominant main-loop cost.
+struct AncEntry {
+    methods: AncMethods,
+    /// Provenance bucket: FRAMEWORK ancestors (fwdb classes AND
+    /// desugared `java.*`/`javax.*` pool copies — javac compiles against
+    /// the android.jar originals, the covariant source truth) vs POOL
+    /// ancestors (rendered RAW — the erased bridge is what satisfies the
+    /// raw interface). The keeper preference flips on this axis (weibo
+    /// Function0.invoke bridge must keep the name; WhatsApp SortedMap
+    /// .keySet real override must).
+    is_fw: bool,
+    /// super + direct interfaces (chain continuation), Object-stripped.
+    supers: Vec<std::sync::Arc<str>>,
+}
+
+fn parse_anc_entry(pool: &DexPool, cn: &str) -> std::sync::Arc<AncEntry> {
+    let mut methods: AncMethods = jdc_core::FxHashMap::default();
+    let mut supers: Vec<std::sync::Arc<str>> = Vec::new();
+    let is_fw;
+    if let Some(ac) = pool.get_if_materialized(cn) {
+        // Desugared `java.*`/`javax.*` copies in the dex are
+        // pool-materialized, but javac compiles against the android.jar
+        // ORIGINALS (covariant generics truth) — their declarations
+        // belong to the fw bucket (WhatsApp bundles desugared
+        // java.util.SortedMap; the pool bucket kept the
+        // flattened-erasure bridge and renamed the real SortedSet
+        // keySet).
+        is_fw = cn.starts_with("java/") || cn.starts_with("javax/");
+        for m in ac.all_methods() {
+            if m.is_static() || &*m.name == "<init>" || &*m.name == "<clinit>"
+            {
+                continue;
+            }
+            let d: &str = &m.desc;
+            let lo = d.find('(').map(|i| i + 1).unwrap_or(0);
+            let hi = d.find(')').unwrap_or(d.len());
+            methods
+                .entry(m.name.clone())
+                .or_default()
+                .push((
+                    std::sync::Arc::from(&d[lo..hi]),
+                    std::sync::Arc::from(&d[hi + 1..]),
+                ));
+        }
+        if let Some(s) = &ac.super_name {
+            if s != "java/lang/Object" {
+                supers.push(std::sync::Arc::from(s.as_str()));
+            }
+        }
+        supers.extend(ac.interfaces.iter().map(|i| std::sync::Arc::from(i.as_str())));
+    } else {
+        // FRAMEWORK ancestors bind names too: a group member
+        // implementing a framework declaration must keep the original
+        // name (renaming WhatsApp's Map.keySet-style overrides broke
+        // the interface chain — cannot-find:变量 ×18.6k). fwdb
+        // descriptors are erased JVM form — directly comparable with
+        // dex descs. A class that is NEITHER pool nor fwdb (phantom)
+        // parses to an empty entry — a chain dead-end, same as before.
+        is_fw = true;
+        crate::fwdb::for_each_method(cn, |d, f| {
+            if f & crate::fwdb::MF_STATIC != 0 {
+                return;
+            }
+            let Some(open) = d.find('(') else {
+                return;
+            };
+            let lo = open + 1;
+            let hi = d.find(')').unwrap_or(0);
+            // NOTE: hi == lo is the zero-arg case, not malformed; and
+            // the name slice ends at `open` (a `d[..lo]` cut kept the
+            // `(` — every fw key missed its gkey lookup).
+            if hi == 0 || hi + 1 >= d.len() {
+                return;
+            }
+            methods
+                .entry(std::sync::Arc::from(&d[..open]))
+                .or_default()
+                .push((
+                    std::sync::Arc::from(&d[lo..hi]),
+                    std::sync::Arc::from(&d[hi + 1..]),
+                ));
+        });
+        if let Some(sup) = crate::fwdb::super_of(cn) {
+            if sup != "java/lang/Object" {
+                supers.push(std::sync::Arc::from(sup));
+            }
+        }
+        crate::fwdb::for_each_interface(cn, |i| supers.push(std::sync::Arc::from(i)));
+    }
+    std::sync::Arc::new(AncEntry {
+        methods,
+        is_fw,
+        supers,
+    })
+}
+
+/// Rets declared for `(name, argsig)` by any layer of a chain — lazy,
+/// no merge (every consumer is an "any ancestor declares this" query,
+/// so a per-layer scan replaces the old per-class eager map build).
+/// Alloc-free: `Arc<str>: Borrow<str>` keys the hash lookup by `&str`.
+fn layer_rets<'a>(
+    layers: &'a [std::sync::Arc<AncEntry>],
+    name: &'a str,
+    argsig: &'a str,
+) -> impl Iterator<Item = &'a str> {
+    layers
+        .iter()
+        .filter_map(move |e| e.methods.get(name))
+        .flatten()
+        .filter(move |(a, _)| &**a == argsig)
+        .map(|(_, r)| &**r)
+}
+
 fn member_collision_renames(
     pool: &DexPool,
 ) -> HashMap<std::sync::Arc<str>, Vec<jdc_core::rename::FieldRename>> {
@@ -2361,6 +2490,14 @@ fn member_collision_renames(
             }
         }
     }
+    // Per-ancestor parse cache (function-local: lives exactly as long
+    // as this rename install, so materialization state is consistent by
+    // construction; freed on return — no cross-run staleness, no RSS
+    // tail).
+    let mut anc_cache: jdc_core::FxHashMap<
+        std::sync::Arc<str>,
+        std::sync::Arc<AncEntry>,
+    > = jdc_core::FxHashMap::default();
     for name in &pool.order {
         let Some(pc) = pool.get_if_materialized(name) else {
             continue;
@@ -2604,120 +2741,53 @@ fn member_collision_renames(
         }
         // ---- methods: display key = sanitized name + erased params ----
         let methods: Vec<&PoolMethod> = pc.all_methods().collect();
-        // Ancestor virtual-method returns per (name, argsig) — one walk
-        // per non-interface class, shared by the covariant-keeper
-        // selection and the impostor-override detection below.
-        let mut anc_rets: Option<
-            jdc_core::FxHashMap<(String, String), Vec<String>>,
-        > = None;
-        // Provenance: rets that came from FRAMEWORK ancestors (compiled
-        // class files — javac sees the covariant source truth) vs pool
-        // ancestors (rendered RAW — the erased bridge is what satisfies
-        // the raw interface). The keeper preference flips on this axis
-        // (weibo Function0.invoke bridge must keep the name; WhatsApp
-        // SortedMap.keySet real override must).
-        let mut fw_rets: jdc_core::FxHashMap<(String, String), Vec<String>> =
-            jdc_core::FxHashMap::default();
-        let mut pool_rets: jdc_core::FxHashMap<(String, String), Vec<String>> =
-            jdc_core::FxHashMap::default();
+        // Ancestor virtual-method returns per (name, argsig) — one
+        // chain walk per non-interface class, shared by the
+        // covariant-keeper selection and the impostor-override
+        // detection below. Layers stay PER-ANCESTOR (cached Arcs, no
+        // merge): every consumer is an "any ancestor declares
+        // (name, argsig) → ret" query, so a per-layer scan replaces
+        // the old per-class eager map build. Provenance splits the
+        // chain into fw / pool buckets (see AncEntry.is_fw).
+        let mut anc_chain: Option<(AncLayers, AncLayers)> = None;
         if pc.access & crate::access::ACC_INTERFACE == 0 {
-            let mut map: jdc_core::FxHashMap<(String, String), Vec<String>> =
-                jdc_core::FxHashMap::default();
-            let mut stack: Vec<&str> = Vec::new();
+            let mut fw_layers: AncLayers = Vec::new();
+            let mut pool_layers: AncLayers = Vec::new();
+            let mut stack: Vec<std::sync::Arc<str>> = Vec::new();
             if let Some(sup) = &pc.super_name {
                 if sup != "java/lang/Object" {
-                    stack.push(sup.as_str());
+                    stack.push(std::sync::Arc::from(sup.as_str()));
                 }
             }
-            stack.extend(pc.interfaces.iter().map(|i| i.as_str()));
-            let mut seen_cls: jdc_core::FxHashSet<&str> =
+            stack.extend(
+                pc.interfaces
+                    .iter()
+                    .map(|i| std::sync::Arc::from(i.as_str())),
+            );
+            let mut seen_cls: jdc_core::FxHashSet<std::sync::Arc<str>> =
                 jdc_core::FxHashSet::default();
             while let Some(cn) = stack.pop() {
-                if !seen_cls.insert(cn) {
+                if !seen_cls.insert(cn.clone()) {
                     continue;
                 }
-                let Some(ac) = pool.get_if_materialized(cn) else {
-                    // FRAMEWORK ancestors bind names too: a group
-                    // member implementing a framework declaration must
-                    // keep the original name (renaming WhatsApp's
-                    // Map.keySet-style overrides broke the interface
-                    // chain — cannot-find:变量 ×18.6k). The pool-only
-                    // map made every framework-declared name look
-                    // keeper-less. fwdb descriptors are erased JVM
-                    // form — directly comparable with dex descs.
-                    crate::fwdb::for_each_method(cn, |d, f| {
-                        if f & crate::fwdb::MF_STATIC != 0 {
-                            return;
-                        }
-                        let Some(open) = d.find('(') else {
-                            return;
-                        };
-                        let lo = open + 1;
-                        let hi = d.find(')').unwrap_or(0);
-                        // NOTE: hi == lo is the zero-arg case, not
-                        // malformed; and the name slice ends at `open`
-                        // (a `d[..lo]` cut kept the `(` — every fw key
-                        // missed its gkey lookup).
-                        if hi == 0 || hi + 1 >= d.len() {
-                            return;
-                        }
-                        let fkey = (d[..open].to_string(), d[lo..hi].to_string());
-                        map.entry(fkey.clone())
-                            .or_default()
-                            .push(d[hi + 1..].to_string());
-                        fw_rets
-                            .entry(fkey)
-                            .or_default()
-                            .push(d[hi + 1..].to_string());
-                    });
-                    if let Some(sup) = crate::fwdb::super_of(cn) {
-                        if sup != "java/lang/Object" {
-                            stack.push(sup);
-                        }
+                let entry = match anc_cache.get(cn.as_ref()) {
+                    Some(e) => e.clone(),
+                    None => {
+                        let e = parse_anc_entry(pool, &cn);
+                        anc_cache.insert(cn.clone(), e.clone());
+                        e
                     }
-                    crate::fwdb::for_each_interface(cn, |i| stack.push(i));
-                    continue;
                 };
-                for m in ac.all_methods() {
-                    if m.is_static() || &*m.name == "<init>" || &*m.name == "<clinit>"
-                    {
-                        continue;
-                    }
-                    let d: &str = &m.desc;
-                    let lo = d.find('(').map(|i| i + 1).unwrap_or(0);
-                    let hi = d.find(')').unwrap_or(d.len());
-                    let pkey = (m.name.to_string(), d[lo..hi].to_string());
-                    map.entry(pkey.clone())
-                        .or_default()
-                        .push(d[hi + 1..].to_string());
-                    // Desugared `java.*`/`javax.*` copies in the dex are
-                    // pool-materialized, but javac compiles against the
-                    // android.jar ORIGINALS (covariant generics truth) —
-                    // their declarations belong to the fw bucket
-                    // (WhatsApp bundles desugared java.util.SortedMap;
-                    // the pool bucket kept the flattened-erasure bridge
-                    // and renamed the real SortedSet keySet).
-                    let fw_shadow = cn.starts_with("java/") || cn.starts_with("javax/");
-                    if fw_shadow {
-                        fw_rets
-                            .entry(pkey)
-                            .or_default()
-                            .push(d[hi + 1..].to_string());
+                if !entry.methods.is_empty() {
+                    if entry.is_fw {
+                        fw_layers.push(entry.clone());
                     } else {
-                        pool_rets
-                            .entry(pkey)
-                            .or_default()
-                            .push(d[hi + 1..].to_string());
+                        pool_layers.push(entry.clone());
                     }
                 }
-                if let Some(s) = &ac.super_name {
-                    if s != "java/lang/Object" {
-                        stack.push(s.as_str());
-                    }
-                }
-                stack.extend(ac.interfaces.iter().map(|i| i.as_str()));
+                stack.extend(entry.supers.iter().cloned());
             }
-            anc_rets = Some(map);
+            anc_chain = Some((fw_layers, pool_layers));
         }
         let mut m_taken: jdc_core::FxHashSet<String> = methods
             .iter()
@@ -2833,12 +2903,13 @@ fn member_collision_renames(
                         let d: &str = &m.desc;
                         let lo = d.find('(').map(|i| i + 1).unwrap_or(0);
                         let hi = d.find(')').unwrap_or(d.len());
-                        anc_rets
-                            .as_ref()
-                            .and_then(|map| {
-                                map.get(&(m.name.to_string(), d[lo..hi].to_string()))
-                            })
-                            .is_some_and(|rets| rets.iter().any(|r| r == &d[hi + 1..]))
+                        if let Some((fwl, pll)) = &anc_chain {
+                            layer_rets(fwl, &m.name, &d[lo..hi])
+                                .chain(layer_rets(pll, &m.name, &d[lo..hi]))
+                                .any(|r| r == &d[hi + 1..])
+                        } else {
+                            false
+                        }
                     })
                     .collect();
                 if keepers.len() >= 2 {
@@ -2888,21 +2959,31 @@ fn member_collision_renames(
                 // assignable to a framework ret (covariant source
                 // truth — it satisfies the raw pool ancestor too,
                 // overrides being covariant-legal in Java).
-                let fw_i = fw_rets.get(&gkey).and_then(|fws| {
+                let fw_i = anc_chain.as_ref().and_then(|(fwl, _)| {
+                    let fws: Vec<&str> =
+                        layer_rets(fwl, &gkey.0, &gkey.1).collect();
+                    if fws.is_empty() {
+                        return None;
+                    }
                     group.iter().position(|m| {
                         m.access & crate::access::ACC_BRIDGE == 0
                             && fws.iter().any(|fr| {
                                 match (ret_internal(&m.desc), desc_internal(fr)) {
                                     (Some(a), Some(b)) => pool.is_subtype(a, b),
-                                    _ => ret_desc(m) == fr.as_str(),
+                                    _ => ret_desc(m) == *fr,
                                 }
                             })
                     })
                 });
-                let pool_i = pool_rets.get(&gkey).and_then(|rets| {
+                let pool_i = anc_chain.as_ref().and_then(|(_, pll)| {
+                    let rets: Vec<&str> =
+                        layer_rets(pll, &gkey.0, &gkey.1).collect();
+                    if rets.is_empty() {
+                        return None;
+                    }
                     group
                         .iter()
-                        .position(|m| rets.iter().any(|r| r == ret_desc(m)))
+                        .position(|m| rets.iter().any(|r| *r == ret_desc(m)))
                 });
                 let keeper_idx = match (fw_i, pool_i) {
                     (Some(fi), _) => fi,
@@ -2989,7 +3070,7 @@ fn member_collision_renames(
         // carries subclasses) and let synth_missing_interface_stubs add
         // the ART-faithful stub — rename-aware provision makes the
         // requirement missing again.
-        if let Some(map) = &anc_rets {
+        if let Some((fwl, pll)) = &anc_chain {
             for m in &methods {
                 if m.is_static()
                     || &*m.name == "<init>"
@@ -3001,22 +3082,38 @@ fn member_collision_renames(
                 let lo = d.find('(').map(|i| i + 1).unwrap_or(0);
                 let hi = d.find(')').unwrap_or(d.len());
                 let m_ret = &d[hi + 1..];
-                let Some(rets) =
-                    map.get(&(m.name.to_string(), d[lo..hi].to_string()))
-                else {
-                    continue;
-                };
-                let satisfied = rets.iter().any(|r| {
-                    r == m_ret
-                        || match (
-                            r.strip_prefix('L').and_then(|x| x.strip_suffix(';')),
-                            m_ret.strip_prefix('L').and_then(|x| x.strip_suffix(';')),
-                        ) {
-                            (Some(rc), Some(mc)) => pool.is_subtype(mc, rc),
-                            _ => false,
+                // Lazy per-layer scan: `found` replaces the old
+                // `map.get(key)` presence gate (no ancestor declares
+                // (name, argsig) ⇒ nothing to violate ⇒ skip).
+                let mut found = false;
+                let mut satisfied = false;
+                'lay: for e in fwl.iter().chain(pll.iter()) {
+                    let Some(rets) = e.methods.get(m.name.as_ref()) else {
+                        continue;
+                    };
+                    for (a, r) in rets {
+                        if **a != d[lo..hi] {
+                            continue;
                         }
-                });
-                if satisfied {
+                        found = true;
+                        if &**r == m_ret
+                            || match (
+                                r.strip_prefix('L')
+                                    .and_then(|x| x.strip_suffix(';')),
+                                m_ret
+                                    .strip_prefix('L')
+                                    .and_then(|x| x.strip_suffix(';')),
+                            ) {
+                                (Some(rc), Some(mc)) => pool.is_subtype(mc, rc),
+                                _ => false,
+                            }
+                        {
+                            satisfied = true;
+                            break 'lay;
+                        }
+                    }
+                }
+                if !found || satisfied {
                     continue;
                 }
                 // Already renamed by a clash-group rule above?
@@ -3413,43 +3510,6 @@ fn suffix_unique(base: &str, taken: &mut jdc_core::FxHashSet<String>) -> String 
             return cand;
         }
     }
-}
-
-/// Install member renames (call with the class rename install, before
-/// workers spawn).
-pub fn install_field_renames(pool: &DexPool) {
-    // One-time vendor-marker scan of the dex TYPE tables (class
-    // descriptors — exactly the space strip_ctor_hotfix_guards'
-    // marker_hit inspects). APKs without hotfix machinery skip the
-    // per-ctor guard scan entirely.
-    if crate::passes::hotfix_flag_unset() {
-        const MARKERS: [&str; 7] = [
-            "instantrun",
-            "hotfix",
-            "robust",
-            "titan",
-            "patchproxy",
-            "changequickredirect",
-            "constructorcode",
-        ];
-        fn ci_contains(hay: &str, needle: &str) -> bool {
-            let h = hay.as_bytes();
-            let n = needle.as_bytes();
-            h.len() >= n.len() && h.windows(n.len()).any(|w| w.eq_ignore_ascii_case(n))
-        }
-        let mut present = false;
-        'outer: for dex in &pool.dexes {
-            for t in 0..dex.num_types() {
-                let n = dex.type_name(t as u32);
-                if MARKERS.iter().any(|m| ci_contains(n, m)) {
-                    present = true;
-                    break 'outer;
-                }
-            }
-        }
-        crate::passes::set_hotfix_present(present);
-    }
-    jdc_core::rename::set_field_renames(combined_field_renames(pool));
 }
 
 /// member_collision_renames + field_deshadow_renames, collision-registry
