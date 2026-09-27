@@ -2283,6 +2283,16 @@ fn pkg_leaf_shadow_renames(pool: &DexPool, map: &mut HashMap<String, String>) {
 /// method keys include erased parameter types):
 /// Keys stay ORIGINAL (name, descriptor) so references resolve exactly;
 /// only the rendered identifier changes.
+/// Descriptor type string → internal class name (arrays/primitives →
+/// None).
+fn desc_internal(r: &str) -> Option<&str> {
+    if r.len() > 2 && r.starts_with('L') && r.ends_with(';') {
+        Some(&r[1..r.len() - 1])
+    } else {
+        None
+    }
+}
+
 /// Return type of a method descriptor as an internal class name
 /// (arrays/primitives → None).
 fn ret_internal(desc: &str) -> Option<&str> {
@@ -2600,6 +2610,16 @@ fn member_collision_renames(
         let mut anc_rets: Option<
             jdc_core::FxHashMap<(String, String), Vec<String>>,
         > = None;
+        // Provenance: rets that came from FRAMEWORK ancestors (compiled
+        // class files — javac sees the covariant source truth) vs pool
+        // ancestors (rendered RAW — the erased bridge is what satisfies
+        // the raw interface). The keeper preference flips on this axis
+        // (weibo Function0.invoke bridge must keep the name; WhatsApp
+        // SortedMap.keySet real override must).
+        let mut fw_rets: jdc_core::FxHashMap<(String, String), Vec<String>> =
+            jdc_core::FxHashMap::default();
+        let mut pool_rets: jdc_core::FxHashMap<(String, String), Vec<String>> =
+            jdc_core::FxHashMap::default();
         if pc.access & crate::access::ACC_INTERFACE == 0 {
             let mut map: jdc_core::FxHashMap<(String, String), Vec<String>> =
                 jdc_core::FxHashMap::default();
@@ -2629,12 +2649,24 @@ fn member_collision_renames(
                         if f & crate::fwdb::MF_STATIC != 0 {
                             return;
                         }
-                        let lo = d.find('(').map(|i| i + 1).unwrap_or(0);
+                        let Some(open) = d.find('(') else {
+                            return;
+                        };
+                        let lo = open + 1;
                         let hi = d.find(')').unwrap_or(0);
-                        if hi <= lo || hi + 1 >= d.len() {
+                        // NOTE: hi == lo is the zero-arg case, not
+                        // malformed; and the name slice ends at `open`
+                        // (a `d[..lo]` cut kept the `(` — every fw key
+                        // missed its gkey lookup).
+                        if hi == 0 || hi + 1 >= d.len() {
                             return;
                         }
-                        map.entry((d[..lo].to_string(), d[lo..hi].to_string()))
+                        let fkey = (d[..open].to_string(), d[lo..hi].to_string());
+                        map.entry(fkey.clone())
+                            .or_default()
+                            .push(d[hi + 1..].to_string());
+                        fw_rets
+                            .entry(fkey)
                             .or_default()
                             .push(d[hi + 1..].to_string());
                     });
@@ -2654,9 +2686,29 @@ fn member_collision_renames(
                     let d: &str = &m.desc;
                     let lo = d.find('(').map(|i| i + 1).unwrap_or(0);
                     let hi = d.find(')').unwrap_or(d.len());
-                    map.entry((m.name.to_string(), d[lo..hi].to_string()))
+                    let pkey = (m.name.to_string(), d[lo..hi].to_string());
+                    map.entry(pkey.clone())
                         .or_default()
                         .push(d[hi + 1..].to_string());
+                    // Desugared `java.*`/`javax.*` copies in the dex are
+                    // pool-materialized, but javac compiles against the
+                    // android.jar ORIGINALS (covariant generics truth) —
+                    // their declarations belong to the fw bucket
+                    // (WhatsApp bundles desugared java.util.SortedMap;
+                    // the pool bucket kept the flattened-erasure bridge
+                    // and renamed the real SortedSet keySet).
+                    let fw_shadow = cn.starts_with("java/") || cn.starts_with("javax/");
+                    if fw_shadow {
+                        fw_rets
+                            .entry(pkey)
+                            .or_default()
+                            .push(d[hi + 1..].to_string());
+                    } else {
+                        pool_rets
+                            .entry(pkey)
+                            .or_default()
+                            .push(d[hi + 1..].to_string());
+                    }
                 }
                 if let Some(s) = &ac.super_name {
                     if s != "java/lang/Object" {
@@ -2805,21 +2857,61 @@ fn member_collision_renames(
                 // X/Jl2 SortedMap, cannot-find:变量 ×18.6k). Prefer the
                 // non-bridge in that shape: the claim map dropped the
                 // bridge before this machinery existed anyway.
-                let mut keeper_idx = 0usize;
-                if keepers.len() == 1
-                    && keepers[0].access & crate::access::ACC_BRIDGE != 0
-                {
-                    let kret = ret_internal(&keepers[0].desc);
-                    if let Some((gi, _)) = group.iter().copied().enumerate().find(|(_, m)| {
-                        m.access & crate::access::ACC_BRIDGE == 0
-                            && match (ret_internal(&m.desc), kret) {
-                                (Some(a), Some(b)) => a != b && pool.is_subtype(a, b),
-                                _ => false,
-                            }
-                    }) {
-                        keeper_idx = gi;
-                    }
+                // Keeper selection by ancestor PROVENANCE:
+                // - POOL ancestor matches (raw-rendered): the member
+                //   whose return EXACTLY matches a pool erasure that
+                //   is NOT purely framework-sourced keeps the name —
+                //   the erased bridge is what satisfies the raw
+                //   interface (weibo Function0.invoke / GlideRequest
+                //   .load; renaming the real one instead cost +375).
+                // - FRAMEWORK-only match: javac reads the compiled
+                //   covariant truth (SortedMap.keySet→SortedSet) while
+                //   fwdb records the flattened erasure (→Set) that the
+                //   BRIDGE matches — prefer the non-bridge sibling
+                //   whose return is a subtype (WhatsApp X/Jl2).
+                // - no ancestor: first non-bridge (the old claim
+                //   survivor), else dex order.
+                fn ret_desc(m: &PoolMethod) -> &str {
+                    let d: &str = &m.desc;
+                    &d[d.find(')').map(|i| i + 1).unwrap_or(d.len())..]
                 }
+                let gkey = {
+                    let d: &str = &group[0].desc;
+                    let lo = d.find('(').map(|i| i + 1).unwrap_or(0);
+                    let hi = d.find(')').unwrap_or(d.len());
+                    (
+                        crate::classdec::java_ident(&group[0].name).into_owned(),
+                        d[lo..hi].to_string(),
+                    )
+                };
+                // fw match: a NON-BRIDGE member whose return is
+                // assignable to a framework ret (covariant source
+                // truth — it satisfies the raw pool ancestor too,
+                // overrides being covariant-legal in Java).
+                let fw_i = fw_rets.get(&gkey).and_then(|fws| {
+                    group.iter().position(|m| {
+                        m.access & crate::access::ACC_BRIDGE == 0
+                            && fws.iter().any(|fr| {
+                                match (ret_internal(&m.desc), desc_internal(fr)) {
+                                    (Some(a), Some(b)) => pool.is_subtype(a, b),
+                                    _ => ret_desc(m) == fr.as_str(),
+                                }
+                            })
+                    })
+                });
+                let pool_i = pool_rets.get(&gkey).and_then(|rets| {
+                    group
+                        .iter()
+                        .position(|m| rets.iter().any(|r| r == ret_desc(m)))
+                });
+                let keeper_idx = match (fw_i, pool_i) {
+                    (Some(fi), _) => fi,
+                    (None, Some(pi)) => pi,
+                    (None, None) => group
+                        .iter()
+                        .position(|m| m.access & crate::access::ACC_BRIDGE == 0)
+                        .unwrap_or(0),
+                };
                 // keepers==1: the ancestor-declared member keeps the
                 // original name. keepers==0: NOTHING in the POOL binds
                 // the name — keep the member the old claim map would
@@ -2837,16 +2929,7 @@ fn member_collision_renames(
                 // ancestor through the REAL method — bridge-preference
                 // renamed it and broke the override chain (reqable +8
                 // "无法覆盖…返回类型不兼容").
-                let keep_desc: &str = if keepers.len() == 1 {
-                    &group[keeper_idx].desc
-                } else {
-                    group
-                        .iter()
-                        .copied()
-                        .find(|m| m.access & crate::access::ACC_BRIDGE == 0)
-                        .map(|m| &*m.desc)
-                        .unwrap_or(&group[0].desc)
-                };
+                let keep_desc: &str = &group[keeper_idx].desc;
                 let mut seen_orig: jdc_core::FxHashSet<(&str, &str)> =
                     jdc_core::FxHashSet::default();
                 for m in group.iter().copied() {
