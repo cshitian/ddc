@@ -3201,8 +3201,7 @@ fn emit_method(
                     let mut lead_reads = 0usize;
                     {
                         let cls_name = class.name.as_str();
-                        let mut c = b.body.clone();
-                        crate::passes::walk_stmt_exprs(&mut c, &mut |e| {
+                        crate::passes::visit_stmt_exprs_ro(&b.body, &mut |e| {
                             if let Expr::Method { name: mn, cls: mc, args, is_special, .. } = e {
                                 if &**mn == "<init>" && *is_special && mc.as_ref() == cls_name {
                                     for a in args.iter().take(2) {
@@ -3260,9 +3259,8 @@ fn emit_method(
             let mut lead = [0usize, 0usize];
             let refs_ok = body.as_ref().is_some_and(|b| {
                 let uses = crate::passes::count_locals_stmts(std::slice::from_ref(&b.body));
-                let mut c = b.body.clone();
                 let cls_name = class.name.as_str();
-                crate::passes::walk_stmt_exprs(&mut c, &mut |e| {
+                crate::passes::visit_stmt_exprs_ro(&b.body, &mut |e| {
                     if let Expr::Method { name: mn, cls: mc, args, is_special, .. } = e {
                         if &**mn == "<init>" && *is_special && mc.as_ref() == cls_name {
                             for (k, a) in args.iter().enumerate() {

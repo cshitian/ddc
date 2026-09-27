@@ -160,6 +160,156 @@ pub(crate) fn walk_stmt_exprs<F: FnMut(&mut Expr)>(s: &mut Stmt, f: &mut F) {
     }
 }
 
+/// Immutable mirror of `walk_stmt_exprs`: read-only visitors must not
+/// have to clone a statement tree just to obtain a `&mut` handle.
+/// (count_locals_stmts cloned EVERY counted statement — 29k of 50k
+/// Stmt::clone samples in corpus profiles, ~25% of total CPU.)
+pub(crate) fn visit_stmt_exprs_ro<F: FnMut(&Expr)>(s: &Stmt, f: &mut F) {
+    match s {
+        Stmt::Block(v) => {
+            for x in v {
+                visit_stmt_exprs_ro(x, f);
+            }
+        }
+        Stmt::ExprStmt(e) | Stmt::Throw(e) | Stmt::MonitorEnter(e) | Stmt::MonitorExit(e) => {
+            f(e);
+        }
+        Stmt::Return(Some(e)) => f(e),
+        Stmt::LocalDef { init: Some(e), .. } => f(e),
+        Stmt::If {
+            cond,
+            then_stmt,
+            else_stmt,
+        } => {
+            f(cond);
+            visit_stmt_exprs_ro(then_stmt, f);
+            if let Some(e) = else_stmt {
+                visit_stmt_exprs_ro(e, f);
+            }
+        }
+        Stmt::While { cond, body } => {
+            f(cond);
+            visit_stmt_exprs_ro(body, f);
+        }
+        Stmt::DoWhile { body, cond } => {
+            visit_stmt_exprs_ro(body, f);
+            f(cond);
+        }
+        Stmt::For {
+            init,
+            cond,
+            update,
+            body,
+        } => {
+            for x in init {
+                visit_stmt_exprs_ro(x, f);
+            }
+            if let Some(c) = cond {
+                f(c);
+            }
+            for u in update {
+                f(u);
+            }
+            visit_stmt_exprs_ro(body, f);
+        }
+        Stmt::ForEach { iterable, body, .. } => {
+            f(iterable);
+            visit_stmt_exprs_ro(body, f);
+        }
+        Stmt::Switch {
+            selector,
+            cases,
+            default,
+            ..
+        } => {
+            f(selector);
+            for c in cases {
+                for x in &c.body {
+                    visit_stmt_exprs_ro(x, f);
+                }
+                if let Some(g) = &c.guard {
+                    f(g);
+                }
+            }
+            if let Some(d) = default {
+                visit_stmt_exprs_ro(d, f);
+            }
+        }
+        Stmt::Try {
+            body,
+            catches,
+            finally,
+        } => {
+            visit_stmt_exprs_ro(body, f);
+            for c in catches {
+                visit_stmt_exprs_ro(&c.body, f);
+            }
+            if let Some(fl) = finally {
+                visit_stmt_exprs_ro(fl, f);
+            }
+        }
+        Stmt::TryWithResources {
+            resources,
+            body,
+            catches,
+            finally,
+            ..
+        } => {
+            for x in resources {
+                visit_stmt_exprs_ro(x, f);
+            }
+            visit_stmt_exprs_ro(body, f);
+            for c in catches {
+                visit_stmt_exprs_ro(&c.body, f);
+            }
+            if let Some(fl) = finally {
+                visit_stmt_exprs_ro(fl, f);
+            }
+        }
+        Stmt::Assert { cond, msg } => {
+            f(cond);
+            if let Some(m) = msg {
+                f(m);
+            }
+        }
+        Stmt::Synchronized { lock, body } => {
+            f(lock);
+            visit_stmt_exprs_ro(body, f);
+        }
+        Stmt::TernaryValue { e } => f(e),
+        Stmt::Labeled { body, .. } => visit_stmt_exprs_ro(body, f),
+        _ => {}
+    }
+}
+
+/// Count Local reads with the lost-alloc `<init>`-owner exclusion,
+/// zero-clone: mirrors `strip_lost_alloc_owners` + deep_rewrite count
+/// exactly (the strip replaced the owner subtree with Const(0), so the
+/// owner's locals were never counted; nested exclusions cannot double-
+/// skip because the excluded owner is never descended into).
+fn count_expr_ro(e: &Expr, m: &mut std::collections::HashMap<u32, usize>) {
+    if let Expr::Local { var, .. } = e {
+        *m.entry(*var).or_insert(0) += 1;
+        return;
+    }
+    if let Expr::Method {
+        name,
+        is_special: true,
+        owner: Some(o),
+        args,
+        ..
+    } = e
+    {
+        if &**name == "<init>" && !matches!(**o, Expr::This) {
+            for a in args {
+                count_expr_ro(a, m);
+            }
+            return;
+        }
+    }
+    for_each_child(e, &mut |c| count_expr_ro(c, m));
+}
+
 /// Visit every expression (immutable).
 fn visit_exprs<F: FnMut(&Expr)>(e: &Expr, f: &mut F) {
     f(e);
@@ -684,10 +834,9 @@ fn first_undefined_local_read(
     defined: &jdc_core::FxHashSet<u32>,
 ) -> Option<u32> {
     let mut found: Option<u32> = None;
-    let mut c = body.clone();
-    crate::passes::walk_stmt_exprs(&mut c, &mut |e| {
+    visit_stmt_exprs_ro(body, &mut |e| {
         if found.is_none() {
-            deep_rewrite(e, &mut |x| {
+            visit_exprs(e, &mut |x| {
                 if found.is_none() {
                     if let Expr::Local { var, .. } = x {
                         if !defined.contains(var) {
@@ -7049,11 +7198,10 @@ fn contains_this_access(e: &Expr) -> bool {
 /// lark +587 the read-only test caused).
 fn var_occurs_in(stmts: &[Stmt], var: u32) -> bool {
     stmts.iter().any(|st| {
-        let mut c = st.clone();
         let mut hit = false;
-        walk_stmt_exprs(&mut c, &mut |e| {
+        visit_stmt_exprs_ro(st, &mut |e| {
             if !hit {
-                deep_rewrite(e, &mut |x| {
+                visit_exprs(e, &mut |x| {
                     if let Expr::Local { var: v, .. } = x {
                         if *v == var {
                             hit = true;
@@ -7342,9 +7490,8 @@ fn ok_one(st: &Stmt) -> bool {
 fn static_safe(stmts: &[Stmt], this_id: Option<u32>) -> bool {
     let mut ok = true;
     for st in stmts {
-        let mut c = st.clone();
-        walk_stmt_exprs(&mut c, &mut |e| {
-            deep_rewrite(e, &mut |x| {
+        visit_stmt_exprs_ro(st, &mut |e| {
+            visit_exprs(e, &mut |x| {
                 match x {
                     Expr::This => ok = false,
                     // ddc's IR usually carries `this` as the var-0
@@ -7502,8 +7649,7 @@ pub fn strip_ctor_hotfix_guards(body: &mut Stmt) {
                 || l.contains("constructorcode")
         };
         let mut hit = false;
-        let mut c = e.clone();
-        deep_rewrite(&mut c, &mut |x| {
+        visit_exprs(e, &mut |x| {
             match x {
                 Expr::Method { cls, .. } | Expr::New { cls, .. } | Expr::Field { cls, .. } => {
                     if has(cls) {
@@ -7544,8 +7690,7 @@ pub fn strip_ctor_hotfix_guards(body: &mut Stmt) {
             return false;
         }
         let mut has_marker = false;
-        let mut c = cur.clone();
-        walk_stmt_exprs(&mut c, &mut |e| {
+        visit_stmt_exprs_ro(cur, &mut |e| {
             if marker_hit(e) {
                 has_marker = true;
             }
@@ -7593,8 +7738,7 @@ pub fn hoist_branch_delegations(body: &mut Stmt, vt: &VarTable) {
     }
     let mut dels: Vec<Expr> = Vec::new();
     for st in stmts.iter() {
-        let mut c = st.clone();
-        walk_stmt_exprs(&mut c, &mut |e| {
+        visit_stmt_exprs_ro(st, &mut |e| {
             if is_delegation_expr(e) {
                 dels.push(e.clone());
             }
@@ -7675,8 +7819,7 @@ pub fn extract_branched_delegation_helper(
     let Stmt::Block(stmts) = body else { return };
     let mut dels: Vec<Expr> = Vec::new();
     for st in stmts.iter() {
-        let mut c = st.clone();
-        walk_stmt_exprs(&mut c, &mut |e| {
+        visit_stmt_exprs_ro(st, &mut |e| {
             if is_delegation_expr(e) {
                 dels.push(e.clone());
             }
@@ -8801,28 +8944,28 @@ pub(crate) fn is_bare_ctor_call(s: &Stmt) -> bool {
 /// ever read; a param that gets written must stay declared.
 pub(crate) fn local_is_written(body: &Stmt, var: u32) -> bool {
     let mut hit = false;
-    let mut c = body.clone();
-    walk_stmt_exprs(&mut c, &mut |e| {
-        if !hit {
-            deep_rewrite(e, &mut |x| {
-                if hit {
-                    return;
-                }
-                match x {
-                    Expr::Assign { target, .. }
-                        if matches!(&**target, Expr::Local { var: v, .. } if *v == var) =>
-                    {
-                        hit = true;
-                    }
-                    Expr::PreIncDec { e, .. } | Expr::PostIncDec { e, .. }
-                        if matches!(&**e, Expr::Local { var: v, .. } if *v == var) =>
-                    {
-                        hit = true;
-                    }
-                    _ => {}
-                }
-            });
+    visit_stmt_exprs_ro(body, &mut |e| {
+        if hit {
+            return;
         }
+        visit_exprs(e, &mut |x| {
+            if hit {
+                return;
+            }
+            match x {
+                Expr::Assign { target, .. }
+                    if matches!(&**target, Expr::Local { var: v, .. } if *v == var) =>
+                {
+                    hit = true;
+                }
+                Expr::PreIncDec { e, .. } | Expr::PostIncDec { e, .. }
+                    if matches!(&**e, Expr::Local { var: v, .. } if *v == var) =>
+                {
+                    hit = true;
+                }
+                _ => {}
+            }
+        });
     });
     hit
 }
@@ -10472,28 +10615,14 @@ fn strip_lost_alloc_owners(e: &mut Expr) {
 /// lost-alloc `<init>` owners excluded — see strip_lost_alloc_owners).
 fn count_locals_expr(e: &Expr) -> std::collections::HashMap<u32, usize> {
     let mut m = std::collections::HashMap::new();
-    let mut probe = e.clone();
-    strip_lost_alloc_owners(&mut probe);
-    deep_rewrite(&mut probe, &mut |x| {
-        if let Expr::Local { var: v, .. } = x {
-            *m.entry(*v).or_insert(0) += 1;
-        }
-    });
+    count_expr_ro(e, &mut m);
     m
 }
 
 pub(crate) fn count_locals_stmts(ss: &[Stmt]) -> std::collections::HashMap<u32, usize> {
     let mut m = std::collections::HashMap::new();
     for s in ss {
-        let mut c = s.clone();
-        walk_stmt_exprs(&mut c, &mut |e| {
-            strip_lost_alloc_owners(e);
-            deep_rewrite(e, &mut |x| {
-                if let Expr::Local { var: v, .. } = x {
-                    *m.entry(*v).or_insert(0) += 1;
-                }
-            });
-        });
+        visit_stmt_exprs_ro(s, &mut |e| count_expr_ro(e, &mut m));
     }
     m
 }
