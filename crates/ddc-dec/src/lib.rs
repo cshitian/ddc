@@ -2750,10 +2750,39 @@ fn member_collision_renames(
                             .is_some_and(|rets| rets.iter().any(|r| r == &d[hi + 1..]))
                     })
                     .collect();
-                if keepers.len() != 1 {
+                if keepers.len() >= 2 {
+                    // The shape Java cannot express at all (2+
+                    // ancestors demanding different returns): no
+                    // rename target — keep the claim behavior.
                     continue;
                 }
-                let keep_desc: &str = &keepers[0].desc;
+                // keepers==1: the ancestor-declared member keeps the
+                // original name. keepers==0: NOTHING in the POOL binds
+                // the name — keep the member the old claim map would
+                // have kept (first NON-BRIDGE, else dex order) and
+                // rename the rest through the registry: letting the
+                // claim map silently drop a side stranded its callers
+                // on the survivor's incompatible return (weibo xiaomi
+                // push gk/dq/hj/hf/gt: `boolean b()Z` dropped beside
+                // `String b()` — every `boolean v = this.b()` bound to
+                // the String twin, "String无法转换为boolean" ×300+ in
+                // the push package alone). NON-bridge preference is
+                // load-bearing: a framework-ancestor covariant pair
+                // (emoji2 n extends SpannableStringBuilder, Editable-
+                // bridge beside the real override) satisfies the
+                // ancestor through the REAL method — bridge-preference
+                // renamed it and broke the override chain (reqable +8
+                // "无法覆盖…返回类型不兼容").
+                let keep_desc: &str = if keepers.len() == 1 {
+                    &keepers[0].desc
+                } else {
+                    group
+                        .iter()
+                        .copied()
+                        .find(|m| m.access & crate::access::ACC_BRIDGE == 0)
+                        .map(|m| &*m.desc)
+                        .unwrap_or(&group[0].desc)
+                };
                 let mut seen_orig: jdc_core::FxHashSet<(&str, &str)> =
                     jdc_core::FxHashSet::default();
                 for m in group.iter().copied() {
