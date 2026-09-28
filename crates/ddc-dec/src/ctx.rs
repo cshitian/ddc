@@ -166,8 +166,28 @@ impl<'a> Ctx for DexCtx<'a> {
     }
 
     fn find_outer(&self, internal: &str) -> Option<String> {
-        if internal == self.class.name {
-            return self.outer_of(internal);
+        // ddcroot root-package relocation, SYMMETRIC with has_class's
+        // root_pkg clause: a relocated NESTED class (`ddcroot/agv$b`)
+        // must resolve its outer (`ddcroot/agv`) so nested_display dots
+        // the `$` into `ddcroot.agv.b`. has_class already un-prefixes
+        // `ddcroot/agv$b` to the pool key `agv$b` (→ true), but without
+        // this the outer walk fails (`ddcroot/agv` is not a pool key),
+        // so keep_dollar_pool saw (has_class, no-outer) and treated the
+        // genuine nestee as a flat `$` emission unit — rimet rendered
+        // `new ddcroot.agv$b(..)` / `ddcroot.agv$b[]`, unresolvable
+        // (找不到符号 类 agv$b/qse$b/bik$a ×1,100+). A relocated FLAT unit
+        // (R8 deleted the outer, lark UserCustomStatusExtraParams$*)
+        // still returns None here — the stripped outer is off-pool — so
+        // it correctly keeps its `$`.
+        if let Some(rp) = crate::root_pkg_display() {
+            if internal.len() > rp.len() + 1
+                && internal.starts_with(rp.as_str())
+                && internal.as_bytes()[rp.len()] == b'/'
+            {
+                let stripped = &internal[rp.len() + 1..];
+                return crate::find_outer_name(self.pool, stripped)
+                    .map(|o| format!("{rp}/{o}"));
+            }
         }
         self.outer_of(internal)
     }
