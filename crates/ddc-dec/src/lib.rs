@@ -1815,9 +1815,20 @@ pub fn install_case_renames(pool: &DexPool) {
     // simple-name rule has minted.
     root_pkg_relocation(pool, &mut map);
     jdc_core::rename::set_class_renames(map);
-    jdc_core::rename::set_field_renames(combined_field_renames(pool));
+    // Field-rename registry build and the access-widening image scan are
+    // independent: both only READ the pool, they install into disjoint
+    // statics (FIELD_RENAMES vs WIDEN), the WIDEN accessors are
+    // is_some_and-guarded with no reader before render time, and lazy
+    // materialization is OnceLock-safe. Run them concurrently — the 1.6s
+    // QQ widening scan fully overlaps the field-rename build.
     if pool_majority_materialized(pool) {
-        crate::classdec::install_access_widening(pool);
+        std::thread::scope(|s| {
+            let h = s.spawn(|| crate::classdec::install_access_widening(pool));
+            jdc_core::rename::set_field_renames(combined_field_renames(pool));
+            let _ = h.join();
+        });
+    } else {
+        jdc_core::rename::set_field_renames(combined_field_renames(pool));
     }
 }
 

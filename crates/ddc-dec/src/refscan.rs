@@ -837,38 +837,62 @@ fn chain_prefixes(internal: &str, out: &mut HashSet<String>) {
 }
 
 pub fn access_widening_scan(dexes: &[Arc<DexFile>]) -> AccessWidening {
-    // Pre-pass: every FINAL field keyed by (raw type descriptor, name),
-    // borrowed from the dex string tables. Only finals can suffer the
-    // out-of-ctor write violation, and pre-filtering keeps the census
-    // small (recording EVERY iput target would be hundreds of
-    // thousands of pairs on weixin).
-    let mut finals: HashSet<(&str, &str)> = HashSet::default();
-    for dex in dexes.iter() {
-        for cd in &dex.class_defs {
-            let data = dex.class_data(cd);
-            let any_final = data
-                .instance_fields
-                .iter()
-                .chain(data.static_fields.iter())
-                .any(|f| f.access_flags & crate::access::ACC_FINAL != 0);
-            if !any_final {
-                continue;
-            }
-            let owner = dex.type_name(cd.class_idx);
-            for f in data.instance_fields.iter().chain(data.static_fields.iter()) {
-                if f.access_flags & crate::access::ACC_FINAL != 0 {
-                    let fr = dex.field(f.field_idx);
-                    finals.insert((owner, dex.string(fr.name_idx)));
-                }
-            }
-        }
-    }
     let nthreads = std::thread::available_parallelism()
         .map(|n| n.get())
         .unwrap_or(1)
         .min(4)
         .min(dexes.len().max(1));
     let chunk = dexes.len().div_ceil(nthreads).max(1);
+    // Pre-pass: every FINAL field keyed by (raw type descriptor, name),
+    // borrowed from the dex string tables. Only finals can suffer the
+    // out-of-ctor write violation, and pre-filtering keeps the census
+    // small (recording EVERY iput target would be hundreds of
+    // thousands of pairs on weixin). PARALLEL per dex-chunk: the pass
+    // re-parses class_data (uleb walk) for EVERY class — serial it was
+    // the bulk of the scan time on QQ (329k classes / 41 dexes).
+    let finals: HashSet<(&str, &str)> = {
+        let merged: std::sync::Mutex<HashSet<(&str, &str)>> =
+            std::sync::Mutex::new(HashSet::default());
+        std::thread::scope(|scope| {
+            let handles: Vec<_> = dexes
+                .chunks(chunk)
+                .map(|group| {
+                    let merged = &merged;
+                    scope.spawn(move || {
+                        let mut part: HashSet<(&str, &str)> = HashSet::default();
+                        for dex in group {
+                            for cd in &dex.class_defs {
+                                let data = dex.class_data(cd);
+                                let any_final = data
+                                    .instance_fields
+                                    .iter()
+                                    .chain(data.static_fields.iter())
+                                    .any(|f| f.access_flags & crate::access::ACC_FINAL != 0);
+                                if !any_final {
+                                    continue;
+                                }
+                                let owner = dex.type_name(cd.class_idx);
+                                for f in
+                                    data.instance_fields.iter().chain(data.static_fields.iter())
+                                {
+                                    if f.access_flags & crate::access::ACC_FINAL != 0 {
+                                        let fr = dex.field(f.field_idx);
+                                        part.insert((owner, dex.string(fr.name_idx)));
+                                    }
+                                }
+                            }
+                        }
+                        let mut m = merged.lock().unwrap();
+                        m.extend(part);
+                    })
+                })
+                .collect();
+            for h in handles {
+                let _ = h.join();
+            }
+        });
+        merged.into_inner().unwrap()
+    };
     let merged: std::sync::Mutex<AccessWidening> =
         std::sync::Mutex::new(AccessWidening::default());
     let finals = &finals;
