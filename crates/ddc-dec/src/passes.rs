@@ -1191,6 +1191,13 @@ fn seq_terminates(s: &Stmt) -> bool {
         Stmt::Labeled { body, .. } | Stmt::Synchronized { body, .. } => {
             seq_terminates(body)
         }
+        // A break-less infinite while/do-while never completes normally
+        // either — jdc-core's label-aware analysis (the emit DEADEND
+        // truncator uses it): statements after it are 无法访问的语句 the
+        // same way (the bulk of the pruning residue: jianying 738).
+        Stmt::While { .. } | Stmt::DoWhile { .. } => {
+            jdc_core::analysis::dead_end_infinite_while(s)
+        }
         _ => false,
     }
 }
