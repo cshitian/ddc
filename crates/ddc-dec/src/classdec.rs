@@ -3223,35 +3223,35 @@ fn emit_method(
                         .collect()
                 })
                 .unwrap_or_default();
-            // The delegation-leading extension only applies to the
-            // Kotlin default-arg BRIDGE: its descriptor ends with
-            // kotlin/jvm/internal/DefaultConstructorMarker. A REAL user
-            // ctor whose first two params are (String, int) and merely
-            // forwards them must keep its signature (weixin +2.9k when
-            // ungated).
-            // Marker-name-free bridge shape: (.., int mask, marker).
-            // R8 renames DefaultConstructorMarker with the rest of the
-            // stdlib (weixin: kotlin/jvm/internal/i, an empty abstract
-            // class), so gate on the package + the int-mask/refs pair
-            // instead of the literal name — a real user enum ctor with
-            // (int, kotlin/jvm/internal/*) tail params does not occur.
+            // The (name, ordinal) strip is UNIFORM across every promoted
+            // enum ctor shape: refs_ok below requires each param's total
+            // reads to equal its delegation-LEAD reads, i.e. the param is
+            // used ONLY as a leading arg of a this() delegation (or not
+            // at all). That covers all three shapes at once —
+            //   • the real field-store ctor (super(name,ordinal) already
+            //     stripped by strip_enum_ctor_super → total 0 == lead 0);
+            //   • the d8 SYNTHETIC bare-constant bridge `g(String,int)
+            //     { this(name, ordinal, <defaults>); }` (uuyc Sb/g ×294);
+            //   • a REAL user forwarding ctor `C(String,int,X,..) {
+            //     this(name, ordinal, x, ..); }` for a multi-arity Java
+            //     enum (rimet GaeaConfigKey: constants pass explicit args
+            //     only, so the implicit pair MUST drop or every constant
+            //     fails 找不到合适的构造器 ×1,204).
+            // A ctor that READS name/ordinal in its body (total > lead)
+            // keeps its signature unless the value-read rewrite above
+            // turned those reads into name()/ordinal() calls. The old
+            // is_bridge/ACC_SYNTHETIC gate on this was stale: relaxing it
+            // to the uniform total==lead rule IMPROVED every corpus
+            // (weixin 6,419→6,381, weibo −90, lark −62, rimet −1,180) —
+            // the feared "weixin +2.9k ungated" regression did not recur
+            // (that predates the refs_ok total==lead check, strip_enum_
+            // ctor_super, and the value-read rewrite, which together keep
+            // body-reading and Kotlin-bridge ctors correct).
             let n_args = d.args.len();
             let is_bridge = n_args >= 2
                 && matches!(&d.args[n_args - 1], JavaType::Object(ref m)
                     if m.starts_with("kotlin/jvm/internal/"))
                 && matches!(d.args[n_args - 2], JavaType::Int);
-            // The d8 SYNTHETIC enum bridge for bare constants — `g(String
-            // name, int ordinal) { this(name, ordinal, <defaults>); }` —
-            // is ACC_SYNTHETIC and reads its (name, ordinal) params ONLY
-            // in the this() delegation lead, exactly the bridge shape.
-            // Stripping the implicit pair (→ `g()`, and the delegation →
-            // `this(<defaults>)`) is what lets bare constants compile
-            // (uuyc Sb/g: 292 bare constants against a `g(String,int)`
-            // synthetic ctor → 294 "对于g(没有参数)找不到合适的构造器").
-            // Gate on ACC_SYNTHETIC so a REAL user ctor whose first two
-            // params are (String, int) and merely forwards them keeps its
-            // signature (the weixin +2.9k ungated regression).
-            let lead_ok = is_bridge || a & ACC_SYNTHETIC != 0;
             // Meituan Robust instrumented ctors PACK the trace params
             // into dispatch arrays (`v3[0] = str; v3[1] = new
             // Integer(p2); PatchProxy.isSupport(v3, ..)`) — value reads
@@ -3346,18 +3346,18 @@ fn emit_method(
                 });
                 synthetic.iter().enumerate().all(|(pi, id)| {
                     let total = uses.get(id).copied().unwrap_or(0);
-                    if lead_ok {
-                        total == lead[pi]
-                    } else {
-                        total == 0
-                    }
+                    // Uniform rule: the implicit param is used ONLY as a
+                    // this()-delegation lead (or not at all). See the
+                    // block comment above — this subsumes the old
+                    // total==0 (real ctor) and is_bridge cases.
+                    total == lead[pi]
                 })
             });
             if refs_ok {
                 arg0 = 2;
                 // Drop the leading (name, ordinal) args of the this()
                 // delegations.
-                if let (Some(b), true) = (body.as_mut(), lead_ok) {
+                if let Some(b) = body.as_mut() {
                     let cls_name = class.name.as_str();
                     let syn = synthetic;
                     crate::passes::walk_stmt_exprs(&mut b.body, &mut |e| {
