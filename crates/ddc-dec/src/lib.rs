@@ -3766,6 +3766,15 @@ fn root_pkg_relocation(pool: &DexPool, map: &mut HashMap<String, String>) {
             // pre-rename simple (xingye's case-collision quads:
             // `ue5$a` exact-mapped to ddcroot/ue5$a instead of
             // ddcroot/ue5_4$a — 程序包ddcroot.ue5不存在 ×61k).
+            // The case-collision machinery pre-inserts an IDENTITY
+            // entry for every emission-set name, which short-circuits
+            // the same walk and froze `$`-tails in the ROOT package
+            // while their outer moved to ddcroot — family split: QQ's
+            // VasUIToken$1..$1xx husks stayed at tree root, and every
+            // `VasUIToken$N.INSTANCE` ref from ddcroot/VasUIToken.java
+            // died (找不到符号 变量 VasUIToken$N ×202 in that one file).
+            // Remove the pin; the walk composes through the outer.
+            map.remove(name);
             continue;
         }
         let head = disp.split('$').next().unwrap_or(&disp);
