@@ -5589,15 +5589,35 @@ pub fn fix_null_sentinels(body: &mut Stmt, vt: &VarTable, ret: &JavaType) {
 /// were already converted to all-boolean form and are skipped here.
 pub fn fix_int_operand_bridges(body: &mut Stmt, vt: &VarTable) {
     fn side_bool(e: &Expr, vt: &VarTable) -> bool {
-        matches!(
-            match e {
-                Expr::Local { var, .. } => vt.var(*var).ty.erased(),
-                other => other.type_ref().erased(),
-            },
-            JavaType::Boolean
-        )
+        match e {
+            Expr::Local { var, .. } => {
+                matches!(vt.var(*var).ty.erased(), JavaType::Boolean)
+            }
+            // An all-boolean bitwise bin IS boolean even when its
+            // embedded ty is still the frozen Int of the or-int lift
+            // (booleanize retypes the vt; mixed_rewrite sets bin ty
+            // only on the nodes it rewrites). The flat lookup called
+            // `(ci13|ci14)` an int side, so the sibling `v408 != 0`
+            // got `? 1 : 0`-wrapped while the bool bin stayed bare —
+            // rendering int | boolean inside the wrap (news compose
+            // CoreTextFieldKt `((v408!=0 ?1:0) | (ci13|ci14) ?1:0)|v412`
+            // ×349 residual). Mirrors fix_bool_xor's bty recursion.
+            Expr::Bin {
+                op: BinOp::And | BinOp::Or | BinOp::Xor,
+                l,
+                r,
+                ..
+            } => side_bool(l, vt) && side_bool(r, vt),
+            other => matches!(other.type_ref().erased(), JavaType::Boolean),
+        }
     }
     fn side_int(e: &Expr, vt: &VarTable) -> bool {
+        // A boolean-composed bin keeps its frozen Int embedded ty —
+        // without this guard it double-answers as the "int side" of
+        // its own bridge arm and steers the wrap onto the wrong operand.
+        if side_bool(e, vt) {
+            return false;
+        }
         matches!(
             match e {
                 Expr::Local { var, .. } => vt.var(*var).ty.erased(),
@@ -5785,6 +5805,52 @@ pub fn fix_int_operand_bridges(body: &mut Stmt, vt: &VarTable) {
                         | BinOp::Le
                 );
                 if !int_kind {
+                    return;
+                }
+                // PURE arithmetic/shift and ORDERING operands never take
+                // a boolean side in ANY combination (`boolean + boolean`
+                // is as invalid as `boolean + int` — reused 0/1 registers
+                // in `p4x + v20 + (v21?1:0)`, uuyc u0/u02; `boolean <
+                // boolean` likewise) — bridge each bool side on its own.
+                // String concatenation is exempt: `"s" + b` is valid Java
+                // and wrapping would print 1/0 instead of true/false.
+                // Equality stays on the mixed-side rule below (a
+                // bool == bool compare IS valid).
+                let arith = matches!(
+                    op,
+                    BinOp::Add
+                        | BinOp::Sub
+                        | BinOp::Mul
+                        | BinOp::Div
+                        | BinOp::Rem
+                        | BinOp::Shl
+                        | BinOp::Shr
+                        | BinOp::Ushr
+                );
+                let ordered = matches!(op, BinOp::Lt | BinOp::Ge | BinOp::Gt | BinOp::Le);
+                if arith || ordered {
+                    let side_str = |e: &Expr| {
+                        matches!(
+                            match e {
+                                Expr::Local { var, .. } => vt.var(*var).ty.erased(),
+                                other => other.type_ref().erased(),
+                            },
+                            JavaType::Object(ref s) if s.as_ref() == "java/lang/String"
+                        )
+                    };
+                    let concat = arith && (side_str(l) || side_str(r));
+                    if !concat {
+                        if side_bool(l, vt) {
+                            let taken =
+                                std::mem::replace(l, Box::new(Expr::Const(ConstVal::Null)));
+                            *l = wrap(taken);
+                        }
+                        if side_bool(r, vt) {
+                            let taken =
+                                std::mem::replace(r, Box::new(Expr::Const(ConstVal::Null)));
+                            *r = wrap(taken);
+                        }
+                    }
                     return;
                 }
                 // Comparisons only bridge against a NUMERIC constant or
