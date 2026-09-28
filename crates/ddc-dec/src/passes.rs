@@ -287,7 +287,7 @@ pub(crate) fn visit_stmt_exprs_ro<F: FnMut(&Expr)>(s: &Stmt, f: &mut F) {
 /// exactly (the strip replaced the owner subtree with Const(0), so the
 /// owner's locals were never counted; nested exclusions cannot double-
 /// skip because the excluded owner is never descended into).
-fn count_expr_ro(e: &Expr, m: &mut std::collections::HashMap<u32, usize>) {
+fn count_expr_ro(e: &Expr, m: &mut jdc_core::FxHashMap<u32, usize>) {
     if let Expr::Local { var, .. } = e {
         *m.entry(*var).or_insert(0) += 1;
         return;
@@ -904,7 +904,7 @@ fn bind_catches_walk(
     s: &mut Stmt,
     vt: &mut VarTable,
     defined: &jdc_core::FxHashSet<u32>,
-    reads_all: &std::collections::HashMap<u32, usize>,
+    reads_all: &jdc_core::FxHashMap<u32, usize>,
     assigned: &jdc_core::FxHashSet<u32>,
     fallback_bound: &mut Vec<u32>,
 ) {
@@ -4600,7 +4600,7 @@ pub fn fix_ctor_this_aliases(body: &mut Stmt, vt: &VarTable) {
         Loc(u32),
         Other,
     }
-    let mut sources: std::collections::HashMap<u32, Vec<Src>> = std::collections::HashMap::new();
+    let mut sources: jdc_core::FxHashMap<u32, Vec<Src>> = jdc_core::FxHashMap::default();
     walk_all(body, &mut |st| {
         let (tgt, val): (u32, &Expr) = match st {
             Stmt::ExprStmt(Expr::Assign { target, value, .. }) => match &**target {
@@ -5082,7 +5082,7 @@ pub fn fix_null_sentinels(body: &mut Stmt, vt: &VarTable, ret: &JavaType) {
             _ => WK::Other,
         }
     }
-    fn expr_writes(e: &Expr, writes: &mut std::collections::HashMap<u32, Vec<WK>>) {
+    fn expr_writes(e: &Expr, writes: &mut jdc_core::FxHashMap<u32, Vec<WK>>) {
         visit_exprs(e, &mut |x| match x {
             Expr::Assign { target, op, value } => {
                 if let Expr::Local { var, .. } = &**target {
@@ -5104,10 +5104,10 @@ pub fn fix_null_sentinels(body: &mut Stmt, vt: &VarTable, ret: &JavaType) {
     }
     fn collect_writes(
         s: &Stmt,
-        writes: &mut std::collections::HashMap<u32, Vec<WK>>,
+        writes: &mut jdc_core::FxHashMap<u32, Vec<WK>>,
         has_zero: &mut bool,
     ) {
-        fn note(e: &Expr, has_zero: &mut bool, writes: &mut std::collections::HashMap<u32, Vec<WK>>) {
+        fn note(e: &Expr, has_zero: &mut bool, writes: &mut jdc_core::FxHashMap<u32, Vec<WK>>) {
             visit_exprs(e, &mut |x| {
                 if let Expr::Const(ConstVal::Int(0)) = x {
                     *has_zero = true;
@@ -5219,8 +5219,8 @@ pub fn fix_null_sentinels(body: &mut Stmt, vt: &VarTable, ret: &JavaType) {
         }
     }
 
-    let mut writes: std::collections::HashMap<u32, Vec<WK>> =
-        std::collections::HashMap::new();
+    let mut writes: jdc_core::FxHashMap<u32, Vec<WK>> =
+        jdc_core::FxHashMap::default();
     let mut has_zero = false;
     collect_writes(body, &mut writes, &mut has_zero);
 
@@ -10855,8 +10855,13 @@ fn split_walk_stmt(
             // reads v — the then value was silently dropped AND v_g
             // rendered undeclared (kt5.b). Undo restores the clean
             // diamond so fold_default_arg_bridge can fire.
-            let then_reads = (else_floor > then_floor)
-                .then(|| read_counts_all(std::slice::from_ref(&**then_stmt)));
+            // Candidates first (the read-free conditions), then ONE
+            // early-exit probe for the small candidate set — the old
+            // read_counts_all rebuilt a HashMap over the WHOLE branch
+            // subtree per diverged If (quadratic in nesting depth;
+            // together with the split walk it was ~1/3 of worker CPU on
+            // the QQ sample profile). The map was only ever consulted
+            // as `reads(v) == 0` for these candidates.
             let mut undo_then: Vec<(u32, u32)> = g_then
                 .iter()
                 .filter(|(&k, &v)| {
@@ -10864,34 +10869,46 @@ fn split_walk_stmt(
                         && v < else_floor
                         && g_else.get(&k).copied() == gen.get(&k).copied()
                         && undo_type_safe(vt, k, v)
-                        && then_reads
-                            .as_ref()
-                            .map(|m| m.get(&v).copied().unwrap_or(0) == 0)
-                            .unwrap_or(true)
                 })
                 .map(|(&k, &v)| (v, k))
                 .collect();
+            if else_floor > then_floor && !undo_then.is_empty() {
+                let vars: Vec<u32> = undo_then.iter().map(|&(v, _)| v).collect();
+                let mut hits = vec![false; vars.len()];
+                mark_read_vars(std::slice::from_ref(&**then_stmt), &vars, &mut hits);
+                let mut i = 0usize;
+                undo_then.retain(|_| {
+                    let keep = !hits[i];
+                    i += 1;
+                    keep
+                });
+            }
             undo_then.sort_unstable_by_key(|&(v, _)| std::cmp::Reverse(v));
             for &(v, k) in &undo_then {
                 rename_gen_back(then_stmt, v, k, vt);
                 drop_gen_slot(vt, v);
             }
             if let Some(e) = else_stmt.as_deref_mut() {
-                let else_reads = ((vt.vars.len() as u32) > else_floor)
-                    .then(|| read_counts_all(std::slice::from_ref(&*e)));
                 let mut undo_else: Vec<(u32, u32)> = g_else
                     .iter()
                     .filter(|(&k, &v)| {
                         v >= else_floor
                             && g_then.get(&k).copied() == gen.get(&k).copied()
                             && undo_type_safe(vt, k, v)
-                            && else_reads
-                                .as_ref()
-                                .map(|m| m.get(&v).copied().unwrap_or(0) == 0)
-                                .unwrap_or(true)
                     })
                     .map(|(&k, &v)| (v, k))
                     .collect();
+                if (vt.vars.len() as u32) > else_floor && !undo_else.is_empty() {
+                    let vars: Vec<u32> = undo_else.iter().map(|&(v, _)| v).collect();
+                    let mut hits = vec![false; vars.len()];
+                    mark_read_vars(std::slice::from_ref(&*e), &vars, &mut hits);
+                    let mut i = 0usize;
+                    undo_else.retain(|_| {
+                        let keep = !hits[i];
+                        i += 1;
+                        keep
+                    });
+                }
                 undo_else.sort_unstable_by_key(|&(v, _)| std::cmp::Reverse(v));
                 for &(v, k) in &undo_else {
                     rename_gen_back(e, v, k, vt);
@@ -11192,18 +11209,38 @@ fn resolve_gotos_walk(s: &mut Stmt, labels: &jdc_core::FxHashSet<u32>, loop_dept
 /// All-var read counts in ONE pass (reads semantics of stmts_read_var)
 /// — for gates that test many candidate vars against the same subtree
 /// (split_walk's undo filters ran a full arm walk PER candidate).
-fn read_counts_all(stmts: &[Stmt]) -> std::collections::HashMap<u32, usize> {
-    let mut m = std::collections::HashMap::new();
+/// Which of `vars` appear in a READ position inside `stmts`? One walk,
+/// a small linear membership check per read, short-circuiting the check
+/// once every candidate is found — no HashMap, no per-node hashing.
+/// Replaces the full-subtree `read_counts_all` maps the split undo-gates
+/// used to build per diverged If (their only query was `reads(v) == 0`
+/// for a handful of candidate gens; the rebuild was quadratic in If
+/// nesting depth and dominated the split pass on deep methods).
+fn mark_read_vars(stmts: &[Stmt], vars: &[u32], hits: &mut [bool]) {
+    let mut remaining = vars.len();
     for s in stmts {
+        if remaining == 0 {
+            break;
+        }
         visit_stmt_exprs_ro(s, &mut |e| {
+            if remaining == 0 {
+                return;
+            }
             visit_exprs_reads(e, &mut |x| {
+                if remaining == 0 {
+                    return;
+                }
                 if let Expr::Local { var, .. } = x {
-                    *m.entry(*var).or_insert(0) += 1;
+                    for (i, v) in vars.iter().enumerate() {
+                        if *v == *var && !hits[i] {
+                            hits[i] = true;
+                            remaining -= 1;
+                        }
+                    }
                 }
             });
         });
     }
-    m
 }
 
 fn stmts_read_var(stmts: &[Stmt], v: u32) -> usize {
@@ -11459,21 +11496,21 @@ fn strip_lost_alloc_owners(e: &mut Expr) {
 
 /// Per-var `Local` occurrence counts over an expression (single pass;
 /// lost-alloc `<init>` owners excluded — see strip_lost_alloc_owners).
-fn count_locals_expr(e: &Expr) -> std::collections::HashMap<u32, usize> {
-    let mut m = std::collections::HashMap::new();
+fn count_locals_expr(e: &Expr) -> jdc_core::FxHashMap<u32, usize> {
+    let mut m = jdc_core::FxHashMap::default();
     count_expr_ro(e, &mut m);
     m
 }
 
-pub(crate) fn count_locals_stmts(ss: &[Stmt]) -> std::collections::HashMap<u32, usize> {
-    let mut m = std::collections::HashMap::new();
+pub(crate) fn count_locals_stmts(ss: &[Stmt]) -> jdc_core::FxHashMap<u32, usize> {
+    let mut m = jdc_core::FxHashMap::default();
     for s in ss {
         visit_stmt_exprs_ro(s, &mut |e| count_expr_ro(e, &mut m));
     }
     m
 }
 
-fn cnt(m: &std::collections::HashMap<u32, usize>, v: u32) -> usize {
+fn cnt(m: &jdc_core::FxHashMap<u32, usize>, v: u32) -> usize {
     m.get(&v).copied().unwrap_or(0)
 }
 
@@ -11548,8 +11585,8 @@ fn try_linear_super_inline(stmts: &mut Vec<Stmt>) -> bool {
     // Defs reachable from the args (last definition wins, bytecode order).
     let mut map: std::collections::HashMap<u32, Expr> =
         std::collections::HashMap::new();
-    let mut def_idx: std::collections::HashMap<u32, usize> =
-        std::collections::HashMap::new();
+    let mut def_idx: jdc_core::FxHashMap<u32, usize> =
+        jdc_core::FxHashMap::default();
     for (i, s) in stmts[..pos].iter().enumerate() {
         if let Some((v, e)) = def_of(s) {
             map.insert(v, e.clone());
@@ -11798,8 +11835,8 @@ fn merge_at(stmts: &mut Vec<Stmt>, if_pos: usize) -> bool {
     // Prelude: defs (flat or folded cond), bare decls, side-effect stmts.
     let mut pmap: std::collections::HashMap<u32, Expr> =
         std::collections::HashMap::new();
-    let mut pidx: std::collections::HashMap<u32, usize> =
-        std::collections::HashMap::new();
+    let mut pidx: jdc_core::FxHashMap<u32, usize> =
+        jdc_core::FxHashMap::default();
     for (i, s) in stmts[..if_pos].iter().enumerate() {
         match s {
             Stmt::LocalDef { .. } | Stmt::ExprStmt(_) => {
@@ -12063,7 +12100,7 @@ fn merge_at(stmts: &mut Vec<Stmt>, if_pos: usize) -> bool {
             return false;
         }
     }
-    type Counts = std::collections::HashMap<u32, usize>;
+    type Counts = jdc_core::FxHashMap<u32, usize>;
     type GuardCounts = (
         Counts,
         Vec<Counts>,
