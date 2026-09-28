@@ -2726,7 +2726,17 @@ fn emit_field(
     line.push_str(&ty);
     line.push(' ');
     let fname = jdc_core::rename::field_display(f_class, &f.name, &f.desc).unwrap_or(&*f.name);
-    line.push_str(&java_ident(fname));
+    // javac reserves `$assertionsDisabled`; the emit side prints every
+    // REFERENCE under the private alias ASSERT_FIELD, so the
+    // DECLARATION must carry the same alias or the field is 找不到符号
+    // at each `if (!$jcdcAssertionsDisabled)` guard (QQ jbox2d Vec2
+    // ×166).
+    let fname: std::borrow::Cow<str> = if fname == "$assertionsDisabled" {
+        std::borrow::Cow::Borrowed(jdc_core::analysis::ASSERT_FIELD)
+    } else {
+        std::borrow::Cow::Borrowed(fname)
+    };
+    line.push_str(&java_ident(&fname));
     let mut rendered = None;
     if let Some(v) = init {
         rendered = render_static_value(pool, v, f_class);
