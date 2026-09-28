@@ -1138,8 +1138,172 @@ fn rewrite_local_refs(s: &mut Stmt, from: u32, to: u32) {
 /// Flatten blocks, drop empty ones and trailing no-op statements.
 pub fn cleanup(s: &mut Stmt) {
     jdc_core::ir::stmt::flatten(s);
+    prune_dead_tails(s);
     strip_empty(s);
     merge_singleton_stmts(s);
+}
+
+/// JLS "cannot complete normally" pruning: drop statements after the
+/// first hard terminator in any statement sequence — blocks, switch
+/// case bodies (bare Vecs), for-inits, catch bodies. The 无法访问的语句
+/// family: `continue; break;` inside switch cases and `return` after a
+/// try{…return…}catch{…return…} (pdd h0/a, c20/d; ~5.9k sites across
+/// pdd/cmb/jianying). Conservative: loops and switches never count as
+/// terminators (no infinite-loop modeling), sequences still carrying
+/// fallback Label/Goto statements stay untouched, and only
+/// Return/Throw/Break/Continue plus If/Try/Labeled/Synchronized/Block
+/// compositions of them terminate.
+fn seq_terminates(s: &Stmt) -> bool {
+    match s {
+        Stmt::Return(_) | Stmt::Throw(_) | Stmt::Break(_) | Stmt::Continue(_) => {
+            true
+        }
+        Stmt::Block(v) => v.iter().any(seq_terminates),
+        Stmt::If {
+            then_stmt,
+            else_stmt,
+            ..
+        } => {
+            seq_terminates(then_stmt)
+                && else_stmt
+                    .as_ref()
+                    .map(|e| seq_terminates(e))
+                    .unwrap_or(false)
+        }
+        Stmt::Try {
+            body,
+            catches,
+            finally,
+        }
+        | Stmt::TryWithResources {
+            body,
+            catches,
+            finally,
+            ..
+        } => {
+            if let Some(f) = finally {
+                if seq_terminates(f) {
+                    return true;
+                }
+            }
+            seq_terminates(body) && catches.iter().all(|c| seq_terminates(&c.body))
+        }
+        Stmt::Labeled { body, .. } | Stmt::Synchronized { body, .. } => {
+            seq_terminates(body)
+        }
+        _ => false,
+    }
+}
+
+fn prune_seq(v: &mut Vec<Stmt>) {
+    if v.iter()
+        .any(|x| matches!(x, Stmt::Label(_) | Stmt::Goto(_)))
+    {
+        return;
+    }
+    if let Some(i) = v.iter().position(seq_terminates) {
+        v.truncate(i + 1);
+    }
+}
+
+pub fn prune_dead_tails(s: &mut Stmt) {
+    match s {
+        Stmt::Block(v) => {
+            for x in v.iter_mut() {
+                prune_dead_tails(x);
+            }
+            prune_seq(v);
+        }
+        Stmt::If {
+            then_stmt,
+            else_stmt,
+            ..
+        } => {
+            prune_dead_tails(then_stmt);
+            if let Some(e) = else_stmt {
+                prune_dead_tails(e);
+            }
+        }
+        Stmt::While { body, .. }
+        | Stmt::DoWhile { body, .. }
+        | Stmt::ForEach { body, .. }
+        | Stmt::Labeled { body, .. }
+        | Stmt::Synchronized { body, .. } => prune_dead_tails(body),
+        Stmt::For { init, body, .. } => {
+            for x in init.iter_mut() {
+                prune_dead_tails(x);
+            }
+            prune_seq(init);
+            prune_dead_tails(body);
+        }
+        Stmt::Switch {
+            cases, default, ..
+        } => {
+            for c in cases {
+                for x in c.body.iter_mut() {
+                    prune_dead_tails(x);
+                }
+                prune_seq(&mut c.body);
+            }
+            if let Some(d) = default {
+                prune_dead_tails(d);
+            }
+        }
+        Stmt::Try {
+            body,
+            catches,
+            finally,
+        }
+        | Stmt::TryWithResources {
+            body,
+            catches,
+            finally,
+            ..
+        } => {
+            prune_dead_tails(body);
+            for c in catches {
+                prune_dead_tails(&mut c.body);
+            }
+            if let Some(f) = finally {
+                prune_dead_tails(f);
+            }
+        }
+        _ => {}
+    }
+}
+
+/// Late default-init for surviving bare declarations (`T v;`). Runs
+/// AFTER every fold/ctor/hotfix matcher that keys on `init: None`
+/// (bind_catches, strip_clinit_hotfix_guard, the folding prefix scans),
+/// so nothing observes the initialized form until emission. Dex
+/// registers are zero-initialized at method entry, so `= null/0/false`
+/// is the FAITHFUL value for any read that reaches it before the first
+/// write — and javac's definite assignment rejects the bare form on
+/// partial paths (可能尚未初始化变量: pdd gi1/a obj12 assigned in two
+/// branches and read after the merge; also turns the residual
+/// move-exception twins into compilable — and register-faithful —
+/// null reads instead of undefined ones).
+pub fn init_bare_decls(body: &mut Stmt, vt: &VarTable) {
+    walk_mut_deep(body, &mut |st| {
+        if let Stmt::LocalDef { var, init, .. } = st {
+            if init.is_some() {
+                return;
+            }
+            let lit = match vt.var(*var).ty.erased() {
+                JavaType::Boolean => "false",
+                JavaType::Int
+                | JavaType::Byte
+                | JavaType::Short
+                | JavaType::Char => "0",
+                JavaType::Long => "0L",
+                JavaType::Float => "0.0f",
+                JavaType::Double => "0.0d",
+                JavaType::Void => return,
+                JavaType::Object(_) | JavaType::Array(_) => "null",
+            };
+            *init = Some(Expr::Raw(lit.to_string()));
+        }
+    });
 }
 
 fn strip_empty(s: &mut Stmt) {

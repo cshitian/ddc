@@ -652,6 +652,7 @@ pub fn decompile_method(
         passes::fold_short_circuits(&mut body);
         passes::resolve_dangling_gotos(&mut body);
     passes::dedupe_multicatch(&mut body, pool);
+    passes::init_bare_decls(&mut body, &vt);
         if !errors.is_empty() {
             passes::prepend_comment(
                 &mut body,
@@ -1000,6 +1001,7 @@ pub fn decompile_method(
     passes::fold_short_circuits(&mut body);
     passes::resolve_dangling_gotos(&mut body);
     passes::dedupe_multicatch(&mut body, pool);
+    passes::init_bare_decls(&mut body, &vt);
 
     if !errors.is_empty() {
         passes::prepend_comment(
