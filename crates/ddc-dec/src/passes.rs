@@ -6810,13 +6810,26 @@ pub fn fix_bool_xor(body: &mut Stmt, vt: &VarTable, ret_bool: bool) {
         matches!(e, Expr::Const(ConstVal::Int(1)))
     }
     fn bty(e: &Expr, vt: &VarTable) -> bool {
-        matches!(
-            match e {
-                Expr::Local { var, .. } => vt.var(*var).ty.erased(),
-                other => other.type_ref().erased(),
-            },
-            JavaType::Boolean
-        )
+        match e {
+            Expr::Local { var, .. } => {
+                matches!(vt.var(*var).ty.erased(), JavaType::Boolean)
+            }
+            // A bitwise bin over all-boolean sides IS boolean: the
+            // embedded bin ty stays frozen Int from the or-int lift
+            // (booleanize retypes the vt, not bin nodes), so the flat
+            // lookup saw `(b1|b2) | i3` as int-sided and skipped the
+            // mixed rewrite — rendered `boolean | int` (uuyc i5/a_3
+            // `(v37|v38|v39)==0` ×21; news ×995 二元运算符 '|').
+            // Mirrors emit.rs bool_ish_vt's recursion so the rewrite
+            // here and the logical-form render there agree.
+            Expr::Bin {
+                op: BinOp::And | BinOp::Or | BinOp::Xor,
+                l,
+                r,
+                ..
+            } => bty(l, vt) && bty(r, vt),
+            other => matches!(other.type_ref().erased(), JavaType::Boolean),
+        }
     }
     // Int-typed `x ^ 1` in a BOOLEAN sink is the compiler's `!x` over a
     // 0/1 slot: rewrite to `x == 0` (the booleanize return-wrap misses
