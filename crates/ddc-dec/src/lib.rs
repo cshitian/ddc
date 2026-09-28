@@ -783,6 +783,13 @@ impl DexPool {
                     &sup_elem[1..sup_elem.len() - 1],
                 );
             }
+            // Multi-dimensional: recurse on the element descriptors
+            // (`[[LSavedState;` <: `[[LObject;` peels one dimension at a
+            // time); the equality fallback below stays for primitive
+            // elements (`[I` vs `[J` are invariant).
+            if sub_elem.starts_with('[') && sup_elem.starts_with('[') {
+                return self.is_subtype(sub_elem, sup_elem);
+            }
             return sub_elem == sup_elem;
         }
         // Everything reference-typed is Object-assignable (the pool walk
@@ -2285,23 +2292,42 @@ fn pkg_leaf_shadow_renames(pool: &DexPool, map: &mut HashMap<String, String>) {
 /// only the rendered identifier changes.
 /// Descriptor type string → internal class name (arrays/primitives →
 /// None).
-fn desc_internal(r: &str) -> Option<&str> {
-    if r.len() > 2 && r.starts_with('L') && r.ends_with(';') {
-        Some(&r[1..r.len() - 1])
-    } else {
-        None
+/// Can a method returning descriptor `m_ret` override an ancestor
+/// declaration returning `r`? Equal, or a covariant subtype. ARRAY
+/// returns must reach is_subtype in DESCRIPTOR form (it peels `[` for
+/// element covariance): the old `strip L…;`-only comparison returned
+/// false for `SavedState[] <: Object[]`, so Parcelable.Creator's real
+/// `newArray(I)[LSavedState;` was judged an IMPOSTOR and renamed
+/// (newArray3 — m_taken already held newArray + the bridge's newArray2),
+/// breaking the interface override: "X$1不是抽象的, 并且未覆盖…
+/// newArray(int)" (weibo ×504, battery ~789, rimet/news/uuyc ~655).
+/// Object returns keep the internal-name form is_subtype's pool/fwdb
+/// walk expects; an array m_ret against an object r resolves through
+/// is_subtype's `sup == Object` / fwdb path (arrays ARE Objects).
+fn ret_satisfies(pool: &DexPool, m_ret: &str, r: &str) -> bool {
+    if m_ret == r {
+        return true;
     }
-}
-
-/// Return type of a method descriptor as an internal class name
-/// (arrays/primitives → None).
-fn ret_internal(desc: &str) -> Option<&str> {
-    let hi = desc.find(')')?;
-    let r = &desc[hi + 1..];
-    if r.len() > 2 && r.starts_with('L') && r.ends_with(';') {
-        Some(&r[1..r.len() - 1])
-    } else {
-        None
+    if m_ret.starts_with('[') {
+        let sup: std::borrow::Cow<str> = if r.starts_with('[') {
+            std::borrow::Cow::Borrowed(r)
+        } else {
+            match r.strip_prefix('L').and_then(|x| x.strip_suffix(';')) {
+                Some(rc) => std::borrow::Cow::Borrowed(rc),
+                None => return false, // primitive sup: only equality (above)
+            }
+        };
+        return pool.is_subtype(m_ret, &sup);
+    }
+    if r.starts_with('[') {
+        return false; // nothing but an array satisfies an array return
+    }
+    match (
+        r.strip_prefix('L').and_then(|x| x.strip_suffix(';')),
+        m_ret.strip_prefix('L').and_then(|x| x.strip_suffix(';')),
+    ) {
+        (Some(rc), Some(mc)) => pool.is_subtype(mc, rc),
+        _ => false,
     }
 }
 
@@ -2981,10 +3007,14 @@ fn member_collision_renames(
                     group.iter().position(|m| {
                         m.access & crate::access::ACC_BRIDGE == 0
                             && fws.iter().any(|fr| {
-                                match (ret_internal(&m.desc), desc_internal(fr)) {
-                                    (Some(a), Some(b)) => pool.is_subtype(a, b),
-                                    _ => ret_desc(m) == *fr,
-                                }
+                                // ret_satisfies: descriptor-level, so
+                                // ARRAY covariant returns match too (the
+                                // old ret_internal strip returned None
+                                // for `[LX;` and fell back to descriptor
+                                // equality — Creator newArray's real
+                                // `[LSavedState;` never matched fw's
+                                // `[LObject;`).
+                                ret_satisfies(pool, ret_desc(m), fr)
                             })
                     })
                 });
@@ -3109,18 +3139,14 @@ fn member_collision_renames(
                             continue;
                         }
                         found = true;
-                        if &**r == m_ret
-                            || match (
-                                r.strip_prefix('L')
-                                    .and_then(|x| x.strip_suffix(';')),
-                                m_ret
-                                    .strip_prefix('L')
-                                    .and_then(|x| x.strip_suffix(';')),
-                            ) {
-                                (Some(rc), Some(mc)) => pool.is_subtype(mc, rc),
-                                _ => false,
-                            }
-                        {
+                        // ret_satisfies handles ARRAY covariance in
+                        // descriptor form — the old L…;-strip match
+                        // answered false for `SavedState[] <: Object[]`
+                        // and renamed the REAL Parcelable.Creator
+                        // newArray as an impostor (newArray3), breaking
+                        // the override ("不是抽象的…未覆盖 newArray(int)",
+                        // weibo ×504 / battery ~789).
+                        if ret_satisfies(pool, m_ret, r) {
                             satisfied = true;
                             break 'lay;
                         }
