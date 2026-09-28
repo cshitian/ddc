@@ -1067,13 +1067,25 @@ impl<'a> Lifter<'a> {
                 InsnKind::FilledNewArray { regs, type_idx } => {
                     self.drop_pending_call();
                     let elem_desc = self.env.type_name(*type_idx);
-                    let elem = crate::desc_type(elem_desc.trim_start_matches('['));
+                    let base = elem_desc.trim_start_matches('[');
+                    // `trim_start_matches` strips EVERY leading `[` — the
+                    // total depth must be counted back: a filled-new-array
+                    // may create a MULTIdimensional array in one insn
+                    // (`filled-new-array/range {40 rows}, [[I` — autoclaw
+                    // so/P's static table; R8 emits this for 2-D literal
+                    // rows). Losing the extra depth rendered `new int[]
+                    // {…rows…}` (int[]无法转换为int ×787 on autoclaw) and
+                    // the init form needs trailing_dims = depth − 1 (the
+                    // printer emits trailing+1 bracket pairs).
+                    let depth = elem_desc.len() - base.len();
+                    let elem = crate::desc_type(base);
                     // A wide element (long/double) occupies TWO
                     // register slots per element — walking the cursor by
                     // the element width groups them correctly (reading
                     // every register minted fresh locals from the WideHi
-                    // slots).
-                    let wide = elem.is_wide();
+                    // slots). Multi-dim elements are ARRAY REFERENCES
+                    // (`[[J` fills `[J` refs) — never wide.
+                    let wide = depth == 1 && elem.is_wide();
                     let mut args: Vec<Expr> = Vec::with_capacity(regs.len());
                     let mut it = regs.iter();
                     while let Some(&r) = it.next() {
@@ -1085,7 +1097,7 @@ impl<'a> Lifter<'a> {
                     self.pending_call = Some(Expr::NewArray {
                         elem: TypeRef::J(elem),
                         dims: vec![],
-                        trailing_dims: 0,
+                        trailing_dims: depth.saturating_sub(1).min(255) as u8,
                         init: Some(args),
                     });
                 }
