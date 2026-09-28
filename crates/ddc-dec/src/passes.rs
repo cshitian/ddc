@@ -4585,24 +4585,59 @@ pub fn fix_ctor_this_aliases(body: &mut Stmt, vt: &VarTable) {
         values: Vec::new(),
     };
     analyze_vars(body, &mut analysis);
-    let n = vt.vars.len().max(analysis.assigns.len());
+    // All-sources rule: a local is a this-alias only when EVERY value
+    // assignment traces to `this_var` through pure local copies. The
+    // single-assign constraint this replaces missed R8's multi-branch
+    // `this` spills (uuyc androidx.camera x_2: `v160 = v150` on two
+    // paths, both this, chain this→v131→v140→v169→v174→v183→v150→v160),
+    // so `v160.d = executor` never became `this.d = executor` and javac
+    // rejected the final-field init (无法为 final 变量 d/i/j 分配值 ×103).
+    // A single non-this source (field read, `new`, param, a literal)
+    // disqualifies the local, so a marked alias is provably always this
+    // and rewriting every read of it to `this` is sound.
+    enum Src {
+        This,
+        Loc(u32),
+        Other,
+    }
+    let mut sources: std::collections::HashMap<u32, Vec<Src>> = std::collections::HashMap::new();
+    walk_all(body, &mut |st| {
+        let (tgt, val): (u32, &Expr) = match st {
+            Stmt::ExprStmt(Expr::Assign { target, value, .. }) => match &**target {
+                Expr::Local { var, .. } => (*var, &**value),
+                _ => return,
+            },
+            Stmt::LocalDef { var, init: Some(value), .. } => (*var, value),
+            _ => return,
+        };
+        let s = match val {
+            Expr::This => Src::This,
+            Expr::Local { var: src, .. } if *src == this_var => Src::This,
+            Expr::Local { var: src, .. } => Src::Loc(*src),
+            _ => Src::Other,
+        };
+        sources.entry(tgt).or_default().push(s);
+    });
+    let n = vt
+        .vars
+        .len()
+        .max(analysis.assigns.len())
+        .max(sources.keys().map(|k| *k as usize + 1).max().unwrap_or(0));
     let mut alias = vec![false; n];
-    for _ in 0..4 {
+    loop {
         let mut changed = false;
-        for v in 0..n as u32 {
-            if alias[v as usize] {
+        for (v, srcs) in &sources {
+            let vi = *v as usize;
+            if vi >= n || alias[vi] || srcs.is_empty() {
                 continue;
             }
-            if analysis.assigns.get(v as usize).copied().unwrap_or(0) != 1 {
-                continue;
-            }
-            let Some(Expr::Local { var: src, .. }) = analysis.values.get(v as usize).and_then(|o| o.as_ref()) else {
-                continue;
-            };
-            if *src == this_var
-                || (*src < n as u32 && alias[*src as usize])
-            {
-                alias[v as usize] = true;
+            let ok = srcs.iter().all(|s| match s {
+                Src::This => true,
+                Src::Loc(w) => (*w as usize) < n && alias[*w as usize],
+                Src::Other => false,
+            });
+            if ok {
+                alias[vi] = true;
                 changed = true;
             }
         }
