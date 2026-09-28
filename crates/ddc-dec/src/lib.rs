@@ -2471,15 +2471,28 @@ fn member_collision_renames(
     // hierarchy class as owner).
     let mut subs: jdc_core::FxHashMap<&str, Vec<&str>> = jdc_core::FxHashMap::default();
     for n in &pool.order {
-        if let Some(i) = n.find('$') {
-            let base = &n[..i];
+        // EVERY `$` boundary: each prefix is an owner and the segment
+        // after it one of its direct member-type tails. The old
+        // first-segment-only map left NESTED owners (ta8/t$a, androidx
+        // i0$e) with no member displays — their fields kept or minted
+        // names colliding with their own member types, and in qualified
+        // chains a VARIABLE OBSCURES a member type (JLS 6.4.2):
+        // `ta8.t.a.a100.a` (Kotlin-object singleton sget, nova
+        // static-ctx ×1,281) and `i0.e.b.ADDING` (lark ×145) bound to
+        // the field instead of the nested class.
+        for (i, _) in n.match_indices('$') {
+            let owner = &n[..i];
             let rest = &n[i + 1..];
             let tail = match rest.find('$') {
                 Some(j) => &rest[..j],
                 None => rest,
             };
-            if !tail.is_empty() {
-                child_tails.entry(base).or_default().push(tail);
+            if owner.is_empty() || tail.is_empty() {
+                continue;
+            }
+            let v = child_tails.entry(owner).or_default();
+            if !v.contains(&tail) {
+                v.push(tail);
             }
         }
         if let Some(pc) = pool.get_if_materialized(n) {
