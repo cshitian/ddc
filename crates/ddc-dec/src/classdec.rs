@@ -3240,6 +3240,18 @@ fn emit_method(
                 && matches!(&d.args[n_args - 1], JavaType::Object(ref m)
                     if m.starts_with("kotlin/jvm/internal/"))
                 && matches!(d.args[n_args - 2], JavaType::Int);
+            // The d8 SYNTHETIC enum bridge for bare constants — `g(String
+            // name, int ordinal) { this(name, ordinal, <defaults>); }` —
+            // is ACC_SYNTHETIC and reads its (name, ordinal) params ONLY
+            // in the this() delegation lead, exactly the bridge shape.
+            // Stripping the implicit pair (→ `g()`, and the delegation →
+            // `this(<defaults>)`) is what lets bare constants compile
+            // (uuyc Sb/g: 292 bare constants against a `g(String,int)`
+            // synthetic ctor → 294 "对于g(没有参数)找不到合适的构造器").
+            // Gate on ACC_SYNTHETIC so a REAL user ctor whose first two
+            // params are (String, int) and merely forwards them keeps its
+            // signature (the weixin +2.9k ungated regression).
+            let lead_ok = is_bridge || a & ACC_SYNTHETIC != 0;
             // Meituan Robust instrumented ctors PACK the trace params
             // into dispatch arrays (`v3[0] = str; v3[1] = new
             // Integer(p2); PatchProxy.isSupport(v3, ..)`) — value reads
@@ -3334,7 +3346,7 @@ fn emit_method(
                 });
                 synthetic.iter().enumerate().all(|(pi, id)| {
                     let total = uses.get(id).copied().unwrap_or(0);
-                    if is_bridge {
+                    if lead_ok {
                         total == lead[pi]
                     } else {
                         total == 0
@@ -3345,7 +3357,7 @@ fn emit_method(
                 arg0 = 2;
                 // Drop the leading (name, ordinal) args of the this()
                 // delegations.
-                if let (Some(b), true) = (body.as_mut(), is_bridge) {
+                if let (Some(b), true) = (body.as_mut(), lead_ok) {
                     let cls_name = class.name.as_str();
                     let syn = synthetic;
                     crate::passes::walk_stmt_exprs(&mut b.body, &mut |e| {
