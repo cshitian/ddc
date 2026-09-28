@@ -2859,7 +2859,17 @@ fn member_collision_renames(
             // satisfies the interface, and rename the void specialization
             // so both render and the bridge's call to it resolves to the
             // renamed method.
-            let ret_void = |m: &PoolMethod| m.desc.ends_with(")V");
+            // `)Ljava/lang/Void;` counts as void-like: a Kotlin `Nothing`
+            // function (an unsupported-op that always throws) compiles to
+            // the Void CLASS return, not the `V` primitive, but it IS the
+            // real-logic side of the same specialization pair. Missing it
+            // sent the group down the covariant path, which kept the Void
+            // method and renamed the bridge, then the impostor pass renamed
+            // the Void method too — leaving NO `addAll` to satisfy Set
+            // (weibo compose SnapshotMapEntrySet "未覆盖Set中的addAll").
+            let ret_void = |m: &PoolMethod| {
+                m.desc.ends_with(")V") || m.desc.ends_with(")Ljava/lang/Void;")
+            };
             let isolated = pc
                 .super_name
                 .as_ref()
