@@ -1279,6 +1279,126 @@ pub fn prune_dead_tails(s: &mut Stmt) {
     }
 }
 
+/// Drop assignments whose target field is a PHANTOM: the declaring class
+/// is pool-materialized but does not declare the field (R8 inlines R-class
+/// constants everywhere, strips the field declarations, and leaves the
+/// `<clinit>` husk still sput-ing to them — QQ's R$anim/kj3.a husks:
+/// class_data with 0 fields beside a clinit of phantom sget→sput pairs,
+/// 7,774 找不到符号 in four R.java files alone). The dex statements are
+/// dead by construction — executing them is a guaranteed NoSuchFieldError,
+/// and R8 only keeps them because nothing triggers the husk's clinit — so
+/// dropping them preserves every observable behavior while the faithful
+/// render (`x = kj3.a.x;` against declared-nowhere names) cannot compile.
+/// Conservative gates: only plain ExprStmt assignments whose TARGET is a
+/// phantom static/instance field of a materialized class, and whose VALUE
+/// is side-effect-free (const / local / phantom-field read / cast chain) —
+/// a real-field read could trigger another class's clinit, and a call
+/// could carry side effects, so those statements stay.
+pub fn strip_phantom_field_writes(body: &mut Stmt, pool: &DexPool) {
+    fn phantom(pool: &DexPool, cls: &str, name: &str) -> bool {
+        // pool.get (on-demand materialize), not get_if_materialized:
+        // lazy getclass runs must reach the same verdicts as full runs
+        // (the RHS holder kj3/a is not pre-materialized there).
+        let Some(pc) = pool.get(cls) else {
+            return false;
+        };
+        // The IR Field ref carries the DISPLAY name (the lifter emits
+        // through field_display) while the pool tables carry RAW names —
+        // match both, or an obscured-renamed field (`h` → `h17` beside
+        // class h) reads as phantom and its const-build assignment gets
+        // dropped, breaking enum promotion (weixin z54/h fell back to
+        // `/* enum */ class`, taking every `h[] → Enum[]` conversion
+        // down with it — the +193 weixin battery regression).
+        fn declares(pc: &crate::PoolClass, cls: &str, name: &str) -> bool {
+            pc.static_fields
+                .iter()
+                .chain(pc.instance_fields.iter())
+                .any(|f| {
+                    f.name.as_str() == name
+                        || jdc_core::rename::field_display(cls, &f.name, &f.desc)
+                            .is_some_and(|d| d == name)
+                })
+        }
+        if declares(pc, cls, name) {
+            return false;
+        }
+        // Field resolution walks the superclass chain, so "phantom" must
+        // be PROVEN against the whole chain — a write to an inherited
+        // field is real code (QQ com.tencent.gdtad.statistics.d inherits
+        // `b` from super `e`; an own-fields-only verdict dropped the
+        // legitimate `v10x.b = gdtAd2;` — silent data loss, latent until
+        // the walk started descending into If.then_stmt). Off-pool
+        // ancestors are enumerated through fwdb (framework fields like
+        // View.mID are real); an ancestor NEITHER pool nor fwdb knows
+        // (R8-stripped class) ends the proof — keep the write.
+        let mut cur: Option<String> = pc.super_name.clone();
+        let mut hops = 0u32;
+        while let Some(s) = cur {
+            hops += 1;
+            if hops > 64 {
+                return false;
+            }
+            if let Some(sup) = pool.get(&s) {
+                if declares(sup, &s, name) {
+                    return false;
+                }
+                cur = sup.super_name.clone();
+            } else {
+                if !crate::fwdb::exists(&s) {
+                    return false;
+                }
+                let mut found = false;
+                crate::fwdb::for_each_field(&s, |f, _| {
+                    if f == name {
+                        found = true;
+                    }
+                });
+                if found {
+                    return false;
+                }
+                // fwdb strips the Object super edge: the chain ends here.
+                cur = crate::fwdb::super_of(&s).map(|x| x.to_string());
+            }
+        }
+        true
+    }
+    fn droppable_value(pool: &DexPool, e: &Expr) -> bool {
+        match e {
+            Expr::Const(_) | Expr::Local { .. } => true,
+            Expr::Field { cls, name, .. } => phantom(pool, cls, name),
+            Expr::Cast { e, .. } => droppable_value(pool, e),
+            _ => false,
+        }
+    }
+    fn is_phantom_write(pool: &DexPool, st: &Stmt) -> bool {
+        if let Stmt::ExprStmt(Expr::Assign { target, value, .. }) = st {
+            if let Expr::Field { cls, name, .. } = &**target {
+                return phantom(pool, cls, name) && droppable_value(pool, value);
+            }
+        }
+        false
+    }
+    // walk_mut_deep over every Vec-holding node — the bare-Vec positions
+    // (switch case bodies, For init, TWR resources) are the known blind
+    // spot of Block-only recursion.
+    walk_mut_deep(body, &mut |st| match st {
+        Stmt::Block(v) => v.retain(|x| !is_phantom_write(pool, x)),
+        Stmt::Switch { cases, .. } => {
+            for c in cases.iter_mut() {
+                c.body.retain(|x| !is_phantom_write(pool, x));
+            }
+        }
+        Stmt::For { init, .. } => init.retain(|x| !is_phantom_write(pool, x)),
+        Stmt::TryWithResources { resources, .. } => {
+            resources.retain(|x| !is_phantom_write(pool, x))
+        }
+        _ => {}
+    });
+    if is_phantom_write(pool, body) {
+        *body = Stmt::Block(vec![]);
+    }
+}
+
 /// Late default-init for surviving bare declarations (`T v;`). Runs
 /// AFTER every fold/ctor/hotfix matcher that keys on `init: None`
 /// (bind_catches, strip_clinit_hotfix_guard, the folding prefix scans),
