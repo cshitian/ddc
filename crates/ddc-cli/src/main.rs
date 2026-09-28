@@ -1570,6 +1570,46 @@ fn run() -> Result<()> {
     let sink = resolve_sink(&inputs, out.as_deref(), &targets)?;
     if let Sink::Dir(d) = &sink {
         std::fs::create_dir_all(d)?;
+        // Case-collision census: dex legally carries packages/classes that
+        // differ only by case (autoclaw ships BOTH `Z1/` and `z1/`), but a
+        // case-insensitive filesystem (macOS/Windows default) folds them
+        // into ONE directory — same-named files silently overwrite each
+        // other, losing classes and poisoning any javac gate run on the
+        // tree (autoclaw: 706 phantom errors, 无法访问t ×103 from a merged
+        // Z1/t.java ↔ z1/t.java). Detect and warn; the tree is only
+        // faithful on a case-sensitive volume. O(N) once per run, off
+        // the writer hot path.
+        let mut first_by_lower: std::collections::HashMap<String, String> =
+            std::collections::HashMap::with_capacity(targets.len());
+        let mut collisions: Vec<(String, String)> = Vec::new();
+        for name in &targets {
+            let p = source_path(d, name);
+            let ps = p.to_string_lossy().into_owned();
+            let lower = ps.to_lowercase();
+            match first_by_lower.get(&lower) {
+                Some(prev) if *prev != ps => collisions.push((prev.clone(), ps)),
+                None => {
+                    let _ = first_by_lower.insert(lower, ps);
+                }
+                _ => {}
+            }
+        }
+        if !collisions.is_empty() {
+            collisions.sort();
+            let shown: Vec<String> = collisions
+                .iter()
+                .take(5)
+                .map(|(a, b)| format!("{} <-> {}", a, b))
+                .collect();
+            eprintln!(
+                "[!] WARNING: {} output path pair(s) differ only by CASE (e.g. {}) — \
+                 on a case-insensitive filesystem they overwrite each other and the \
+                 tree loses classes; decompile onto a case-sensitive volume for a \
+                 faithful tree.",
+                collisions.len(),
+                shown.join(", ")
+            );
+        }
     }
     // Pre-create the package directories on a background thread while the
     // parse runs: writers then hit zero mkdir syscalls in the common case
