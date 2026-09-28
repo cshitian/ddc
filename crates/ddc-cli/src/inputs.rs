@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use anyhow::{bail, Context, Result};
 use ddc_dex::DexFile;
 
-use crate::{inflate, zip_entries, ZipEntry, ZipMethod};
+use crate::{zip_entries, ZipEntry, ZipMethod};
 
 /// Input file bytes: mmap-backed when possible (zero heap copy — the old
 /// `fs::read` copied a 353MB APK into the heap before the first inflate,
@@ -34,6 +34,8 @@ pub struct Image {
     pub data: std::sync::Arc<Source>,
     pub range: std::ops::Range<usize>,
     pub method: ZipMethod,
+    /// Uncompressed size hint for Deflate inflation (0 = unknown).
+    pub usize_hint: usize,
 }
 
 /// Expand input paths: files pass through, directories are scanned
@@ -123,7 +125,9 @@ fn nested_apk_images(
     for apk in apks {
         let inner: Vec<u8> = match apk.method {
             ZipMethod::Stored => outer.bytes()[apk.range.clone()].to_vec(),
-            ZipMethod::Deflate => inflate(outer.bytes()[apk.range.clone()].as_ref())?,
+            ZipMethod::Deflate => {
+                crate::inflate_hint(outer.bytes()[apk.range.clone()].as_ref(), apk.usize_hint)?
+            }
         };
         if inner.len() < 4 || &inner[..2] != b"PK" {
             continue; // odd entry (renamed obb etc.)
@@ -147,6 +151,7 @@ fn nested_apk_images(
         dexes.sort_by_key(|(k, _)| *k);
         let mk = |e: ZipEntry| Image {
             label: format!("{}!{}!{}", stem, apk.name, e.name),
+            usize_hint: e.usize_hint,
             data: src.clone(),
             range: e.range,
             method: e.method,
@@ -228,6 +233,7 @@ pub fn collect_images(files: &[PathBuf]) -> Result<Vec<Image>> {
             dexes.sort_by_key(|(k, _)| *k);
             let mk = |e: ZipEntry| Image {
                 label: format!("{}!{}", stem, e.name),
+                usize_hint: e.usize_hint,
                 data: src.clone(),
                 range: e.range,
                 method: e.method,
@@ -241,6 +247,7 @@ pub fn collect_images(files: &[PathBuf]) -> Result<Vec<Image>> {
                 data: src,
                 range: 0..n,
                 method: ZipMethod::Stored,
+                usize_hint: 0,
             });
         } else {
             bail!(
@@ -396,9 +403,11 @@ pub fn inflate_images(images: Vec<Image>) -> Result<Vec<(String, Vec<u8>)>> {
             std::thread::spawn(move || {
                 let raw = match img.method {
                     ZipMethod::Stored => img.data.bytes()[img.range].to_vec(),
-                    ZipMethod::Deflate => {
-                        inflate(img.data.bytes()[img.range].as_ref()).map_err(|e| e.to_string())?
-                    }
+                    ZipMethod::Deflate => crate::inflate_hint(
+                        img.data.bytes()[img.range].as_ref(),
+                        img.usize_hint,
+                    )
+                    .map_err(|e| e.to_string())?,
                 };
                 Ok::<_, String>(raw)
             }),
@@ -426,9 +435,11 @@ pub fn parse_images(images: Vec<Image>) -> Result<Vec<(String, DexFile)>> {
             std::thread::spawn(move || {
                 let raw = match img.method {
                     ZipMethod::Stored => img.data.bytes()[img.range].to_vec(),
-                    ZipMethod::Deflate => {
-                        inflate(img.data.bytes()[img.range].as_ref()).map_err(|e| e.to_string())?
-                    }
+                    ZipMethod::Deflate => crate::inflate_hint(
+                        img.data.bytes()[img.range].as_ref(),
+                        img.usize_hint,
+                    )
+                    .map_err(|e| e.to_string())?,
                 };
                 DexFile::parse(raw)
                     .map_err(|e| e.to_string())

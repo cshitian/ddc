@@ -6,7 +6,7 @@
 use anyhow::Result;
 use std::path::Path;
 
-use crate::{inflate, zip_entries, ZipMethod};
+use crate::{zip_entries, ZipMethod};
 
 /// The manifest's raw bytes plus a label naming where they came from
 /// (`AndroidManifest.xml`, or `base.apk!AndroidManifest.xml` in a
@@ -72,7 +72,7 @@ pub(crate) fn manifest_bytes(input: &Path) -> Result<(String, Vec<u8>)> {
 pub(crate) fn entry_bytes(archive: &[u8], entry: &crate::ZipEntry) -> Result<Vec<u8>> {
     Ok(match entry.method {
         ZipMethod::Stored => archive[entry.range.clone()].to_vec(),
-        ZipMethod::Deflate => inflate(&archive[entry.range.clone()])?,
+        ZipMethod::Deflate => crate::inflate_hint(&archive[entry.range.clone()], entry.usize_hint)?,
     })
 }
 

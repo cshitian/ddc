@@ -274,11 +274,111 @@ fn print_help_zh() {
 }
 
 #[allow(dead_code)]
-unsafe fn mimalloc_sys_collect() {
+unsafe fn mimalloc_sys_collect(force: bool) {
     extern "C" {
         fn mi_collect(force: bool);
     }
-    mi_collect(false);
+    mi_collect(force);
+}
+
+/// ru_maxrss peak so far, in MB — DDC_STATS phase attribution of the RSS
+/// high-water mark (which phase establishes it: raw images, pool
+/// materialization, rename registries, or the decompile loop).
+#[cfg(target_vendor = "apple")]
+fn peak_rss_mb() -> f64 {
+    #[repr(C)]
+    struct Rusage {
+        // macOS: timeval utime/stime are 16B each (i64 sec + i32 usec +
+        // pad); ru_maxrss follows at offset 32 and is in BYTES.
+        pad: [i64; 4],
+        maxrss: i64,
+        tail: [i64; 12],
+    }
+    extern "C" {
+        fn getrusage(who: i32, r: *mut Rusage) -> i32;
+    }
+    let mut r = Rusage {
+        pad: [0; 4],
+        maxrss: 0,
+        tail: [0; 12],
+    };
+    unsafe { getrusage(0, &mut r) };
+    r.maxrss as f64 / (1024.0 * 1024.0)
+}
+#[cfg(not(target_vendor = "apple"))]
+fn peak_rss_mb() -> f64 {
+    // Linux ru_maxrss is in KB.
+    #[repr(C)]
+    struct Rusage {
+        pad: [i64; 4],
+        maxrss: i64,
+        tail: [i64; 12],
+    }
+    extern "C" {
+        fn getrusage(who: i32, r: *mut Rusage) -> i32;
+    }
+    let mut r = Rusage {
+        pad: [0; 4],
+        maxrss: 0,
+        tail: [0; 12],
+    };
+    unsafe { getrusage(0, &mut r) };
+    r.maxrss as f64 / 1024.0
+}
+
+/// CURRENT resident size (MB) on macOS — ru_maxrss is monotone, so
+/// purge effects need the instantaneous figure.
+#[cfg(target_vendor = "apple")]
+fn current_rss_mb() -> f64 {
+    #[repr(C)]
+    struct TaskBasicInfo {
+        virtual_size: u64,
+        resident_size: u64,
+        resident_size_max: u64,
+        total_user_time: u64,
+        total_sys_time: u64,
+        policy: i32,
+        suspend_count: i32,
+    }
+    extern "C" {
+        fn mach_task_self() -> u32;
+        fn task_info(
+            target_port: u32,
+            flavor: i32,
+            task_info_out: *mut TaskBasicInfo,
+            task_info_out_cnt: *mut u32,
+        ) -> i32;
+    }
+    let mut info = TaskBasicInfo {
+        virtual_size: 0,
+        resident_size: 0,
+        resident_size_max: 0,
+        total_user_time: 0,
+        total_sys_time: 0,
+        policy: 0,
+        suspend_count: 0,
+    };
+    let mut cnt = (std::mem::size_of::<TaskBasicInfo>() / 4) as u32;
+    let kr = unsafe { task_info(mach_task_self(), 20, &mut info, &mut cnt) };
+    if kr == 0 {
+        info.resident_size as f64 / (1024.0 * 1024.0)
+    } else {
+        0.0
+    }
+}
+#[cfg(not(target_vendor = "apple"))]
+fn current_rss_mb() -> f64 {
+    0.0
+}
+
+fn stats_rss(phase: &str) {
+    if std::env::var("DDC_STATS").is_ok() {
+        eprintln!(
+            "[rss] {phase}: peak {:.0} MB, live {:.0} MB",
+            peak_rss_mb(),
+            current_rss_mb()
+        );
+    }
 }
 
 fn main() {
@@ -1500,6 +1600,7 @@ fn run() -> Result<()> {
     let t_read = t_wall.elapsed();
     let parsed = parse_images(collect_images(&files)?)?;
     let t_inflate = t_wall.elapsed();
+    stats_rss("after parse (raw images resident)");
 
     // Lazy registration + parallel materialization: identical semantics
     // to the eager build (the outer map consults annotations only after
@@ -1511,6 +1612,7 @@ fn run() -> Result<()> {
         pool.set_dex_label(idx, label.clone());
     }
     pool.materialize_all(workers);
+    stats_rss("after materialize_all (pool built)");
     let dex_count = pool.dex_count();
     if std::env::var("DDC_WALL").is_ok() {
         eprintln!(
@@ -1565,6 +1667,7 @@ fn run() -> Result<()> {
     // deterministic suffix map BEFORE any worker or writer spawns (the
     // registry is read-only afterwards).
     ddc_dec::install_case_renames(&pool);
+    stats_rss("after rename registries");
 
     // ---- resolve the output sink ----
     let sink = resolve_sink(&inputs, out.as_deref(), &targets)?;
@@ -2290,7 +2393,7 @@ fn run() -> Result<()> {
         eprintln!("{}", ddc_dec::ssa_census::report());
     }
     if std::env::var("DDC_COLLECT").is_ok() {
-        unsafe { mimalloc_sys_collect() };
+        unsafe { mimalloc_sys_collect(true) };
     }
     if failed_n > 0 || werr > 0 {
         // A write error is a lost class: the old code ignored it (exit 0)
@@ -2407,6 +2510,12 @@ pub(crate) struct ZipEntry {
     pub name: String,
     pub range: std::ops::Range<usize>,
     pub method: ZipMethod,
+    /// Uncompressed size from the central directory (0 = unknown /
+    /// zip64 placeholder). Inflating with `reserve_exact(hint)` skips
+    /// the doubling reallocs — on QQ's 41 dexes the growth copies were
+    /// part of the memmove leaf (the #1 sampled frame) and the
+    /// transient peak carried 2× the final image per realloc step.
+    pub usize_hint: usize,
 }
 
 pub(crate) fn zip_entries(data: &[u8]) -> Result<Vec<ZipEntry>> {
@@ -2427,6 +2536,9 @@ pub(crate) fn zip_entries(data: &[u8]) -> Result<Vec<ZipEntry>> {
         }
         let method = u16le(data, p + 10);
         let csize = u32le(data, p + 20) as usize;
+        let usize_raw = u32le(data, p + 24);
+        // 0xFFFFFFFF = zip64 placeholder — unknown, inflate grows.
+        let usize_hint = if usize_raw == 0xFFFF_FFFF { 0 } else { usize_raw as usize };
         let name_len = u16le(data, p + 28) as usize;
         let extra_len = u16le(data, p + 30) as usize;
         let comm_len = u16le(data, p + 32) as usize;
@@ -2451,6 +2563,7 @@ pub(crate) fn zip_entries(data: &[u8]) -> Result<Vec<ZipEntry>> {
                 name,
                 range: start..end,
                 method: m,
+                usize_hint,
             });
         }
         p += 46 + name_len + extra_len + comm_len;
@@ -2491,7 +2604,16 @@ fn u32le(data: &[u8], off: usize) -> u32 {
 }
 
 pub(crate) fn inflate(data: &[u8]) -> Result<Vec<u8>> {
+    inflate_hint(data, 0)
+}
+
+/// `inflate` with the central directory's uncompressed size: one exact
+/// allocation instead of the doubling realloc chain.
+pub(crate) fn inflate_hint(data: &[u8], usize_hint: usize) -> Result<Vec<u8>> {
     let mut out = Vec::new();
+    if usize_hint > 0 {
+        out.reserve_exact(usize_hint);
+    }
     let mut dec = flate2::read::DeflateDecoder::new(data);
     dec.read_to_end(&mut out)?;
     Ok(out)

@@ -1784,8 +1784,81 @@ fn pool_majority_materialized(pool: &DexPool) -> bool {
 }
 
 /// Compute and install the registry (call before worker threads spawn).
+/// CURRENT resident size (MB) — ru_maxrss is monotone (historical peak),
+/// so purge effects are invisible there; live-vs-retained attribution
+/// needs the instantaneous figure (macOS mach task_info).
+#[cfg(target_vendor = "apple")]
+fn current_rss_mb() -> f64 {
+    #[repr(C)]
+    struct TaskBasicInfo {
+        virtual_size: u64,
+        resident_size: u64,
+        resident_size_max: u64,
+        // time_value_t = {i32 secs, i32 usec} = 8B each.
+        total_user_time: u64,
+        total_sys_time: u64,
+        policy: i32,
+        suspend_count: i32,
+    }
+    extern "C" {
+        fn mach_task_self() -> u32;
+        fn task_info(
+            target_port: u32,
+            flavor: i32,
+            task_info_out: *mut TaskBasicInfo,
+            task_info_out_cnt: *mut u32,
+        ) -> i32;
+    }
+    let mut info = TaskBasicInfo {
+        virtual_size: 0,
+        resident_size: 0,
+        resident_size_max: 0,
+        total_user_time: 0,
+        total_sys_time: 0,
+        policy: 0,
+        suspend_count: 0,
+    };
+    // count is in natural_t (4B) units; a smaller-than-kernel version
+    // still fills the prefix fields we read.
+    let mut cnt = (std::mem::size_of::<TaskBasicInfo>() / 4) as u32;
+    let kr = unsafe { task_info(mach_task_self(), 20, &mut info, &mut cnt) };
+    if kr == 0 {
+        info.resident_size as f64 / (1024.0 * 1024.0)
+    } else {
+        0.0
+    }
+}
+#[cfg(not(target_vendor = "apple"))]
+fn current_rss_mb() -> f64 {
+    0.0
+}
+
+/// ru_maxrss peak so far (MB) under DDC_STATS — phase attribution of the
+/// RSS high-water mark. macOS ru_maxrss is bytes, Linux KB.
+pub(crate) fn stats_rss(phase: &str) {
+    if std::env::var("DDC_STATS").is_ok() {
+        #[repr(C)]
+        struct Rusage {
+            pad: [i64; 4],
+            maxrss: i64,
+            tail: [i64; 12],
+        }
+        extern "C" {
+            fn getrusage(who: i32, r: *mut Rusage) -> i32;
+        }
+        let mut r = Rusage { pad: [0; 4], maxrss: 0, tail: [0; 12] };
+        unsafe { getrusage(0, &mut r) };
+        #[cfg(target_vendor = "apple")]
+        let mb = r.maxrss as f64 / (1024.0 * 1024.0);
+        #[cfg(not(target_vendor = "apple"))]
+        let mb = r.maxrss as f64 / 1024.0;
+        eprintln!("[rss] {phase}: peak {mb:.0} MB, live {:.0} MB", current_rss_mb());
+    }
+}
+
 pub fn install_case_renames(pool: &DexPool) {
     let mut map = case_rename_map(pool);
+    crate::stats_rss("  case_rename_map");
     // Cross-package reference first segments (descriptor level). Lazy
     // (progressive-browse) pools skip the scan — materializing every
     // class must not stall single-class queries; the obscuring rules
@@ -1802,6 +1875,7 @@ pub fn install_case_renames(pool: &DexPool) {
     // display chains off the (renamed) parent display names — running
     // them before the parent rename left both rules minting the same
     // display (`a2` twice in weibo's AIDL families).
+    crate::stats_rss("  ref_segments");
     pkg_leaf_shadow_renames(pool, &mut map);
     class_pkg_collision_renames(pool, &mut map);
     obscuring_class_renames(pool, &mut map, &pkg_segs);
@@ -1809,12 +1883,15 @@ pub fn install_case_renames(pool: &DexPool) {
     // LAST: lossy-sanitize collisions key on the display form every rule
     // above has already settled (`l.᩻ܶ` → `l/__.java`, 22,636 classes onto
     // 3 paths on bin.mt.plus — the silent-overwrite data loss).
+    crate::stats_rss("  shadow+collision+obscuring+nested rules");
     lossy_sanitize_renames(pool, &mut map);
     // Default-package relocation keys on the settled displays too (it
     // PREFIXES them with the synthetic package) — runs after every
     // simple-name rule has minted.
     root_pkg_relocation(pool, &mut map);
+    crate::stats_rss("  lossy+root-pkg rules");
     jdc_core::rename::set_class_renames(map);
+    crate::stats_rss("class-renames installed");
     // Field-rename registry build and the access-widening image scan are
     // independent: both only READ the pool, they install into disjoint
     // statics (FIELD_RENAMES vs WIDEN), the WIDEN accessors are
@@ -1827,6 +1904,7 @@ pub fn install_case_renames(pool: &DexPool) {
             jdc_core::rename::set_field_renames(combined_field_renames(pool));
             let _ = h.join();
         });
+        crate::stats_rss("field-renames + widening installed");
     } else {
         jdc_core::rename::set_field_renames(combined_field_renames(pool));
     }
@@ -3578,6 +3656,7 @@ fn combined_field_renames(
     pool: &DexPool,
 ) -> HashMap<std::sync::Arc<str>, Vec<jdc_core::rename::FieldRename>> {
     let mut base = member_collision_renames(pool);
+    crate::stats_rss("  member_collision_renames");
     let extra = field_deshadow_renames(pool);
     let mut merged = 0usize;
     for (owner, v) in extra {
@@ -3592,6 +3671,7 @@ fn combined_field_renames(
     if std::env::var("DDC_STATS").is_ok() {
         eprintln!("[renames] field-deshadow renames: {merged}");
     }
+    crate::stats_rss("  field_deshadow merged");
     base
 }
 
