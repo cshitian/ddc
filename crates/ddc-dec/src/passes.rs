@@ -5743,7 +5743,10 @@ pub fn fix_int_operand_bridges(body: &mut Stmt, vt: &VarTable) {
             // and null IS zero — when the local came out int-typed (phi
             // confluence residue), rewrite the Null constant to 0
             // (`v95_g12 != null` → `v95_g12 != 0`, faithful and legal;
-            // yq0/g1 546-line 二元运算符 family).
+            // yq0/g1 546-line 二元运算符 family). BOOLEAN side: the same
+            // zero-register compare reads as the truth test — `b != null`
+            // IS `b`, `b == null` IS `!b` (alipay v87_g7_g2 != null,
+            // 二元运算符 '!=' boolean vs <空值> ×43 / news ×30).
             if let Expr::Bin { op, l, r, .. } = x {
                 if matches!(op, BinOp::Eq | BinOp::Ne) {
                     if matches!(&**r, Expr::Const(ConstVal::Null))
@@ -5756,6 +5759,26 @@ pub fn fix_int_operand_bridges(body: &mut Stmt, vt: &VarTable) {
                         && !side_bool(r, vt)
                     {
                         **l = Expr::Const(ConstVal::Int(0));
+                    } else if matches!(&**r, Expr::Const(ConstVal::Null))
+                        && side_bool(l, vt)
+                    {
+                        let taken =
+                            std::mem::replace(l, Box::new(Expr::Const(ConstVal::Null)));
+                        *x = if matches!(op, BinOp::Eq) {
+                            Expr::Un { op: UnOp::Not, e: taken }
+                        } else {
+                            *taken
+                        };
+                    } else if matches!(&**l, Expr::Const(ConstVal::Null))
+                        && side_bool(r, vt)
+                    {
+                        let taken =
+                            std::mem::replace(r, Box::new(Expr::Const(ConstVal::Null)));
+                        *x = if matches!(op, BinOp::Eq) {
+                            Expr::Un { op: UnOp::Not, e: taken }
+                        } else {
+                            *taken
+                        };
                     }
                 }
             }
@@ -5806,6 +5829,42 @@ pub fn fix_int_operand_bridges(body: &mut Stmt, vt: &VarTable) {
                 );
                 if !int_kind {
                     return;
+                }
+                // A Null CONSTANT operand of an int-kind bitwise/arith
+                // bin is the dex zero register (or-int reads 0 out of a
+                // register whose value view was null — `b | null`
+                // renders boolean | <空值>, alipay ×43 / news ×30).
+                // Rewriting to Int(0) is register-faithful and lets the
+                // bool-side wraps below take over (`(b ? 1 : 0) | 0`).
+                // Only when the SIBLING is a bool/int side: a
+                // reference-typed sibling keeps the null shape (that is
+                // SSA-merge residue, not a zero-register read), and a
+                // String sibling keeps `+ null` concatenation ("null" —
+                // valid and faithful; side_str excludes it via the
+                // side_bool/side_int guard).
+                if matches!(
+                    op,
+                    BinOp::Or
+                        | BinOp::And
+                        | BinOp::Xor
+                        | BinOp::Add
+                        | BinOp::Sub
+                        | BinOp::Mul
+                        | BinOp::Div
+                        | BinOp::Rem
+                        | BinOp::Shl
+                        | BinOp::Shr
+                        | BinOp::Ushr
+                ) {
+                    if matches!(&**r, Expr::Const(ConstVal::Null))
+                        && (side_bool(l, vt) || side_int(l, vt))
+                    {
+                        **r = Expr::Const(ConstVal::Int(0));
+                    } else if matches!(&**l, Expr::Const(ConstVal::Null))
+                        && (side_bool(r, vt) || side_int(r, vt))
+                    {
+                        **l = Expr::Const(ConstVal::Int(0));
+                    }
                 }
                 // PURE arithmetic/shift and ORDERING operands never take
                 // a boolean side in ANY combination (`boolean + boolean`
