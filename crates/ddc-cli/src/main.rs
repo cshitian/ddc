@@ -284,15 +284,19 @@ unsafe fn mimalloc_sys_collect(force: bool) {
 /// ru_maxrss peak so far, in MB — DDC_STATS phase attribution of the RSS
 /// high-water mark (which phase establishes it: raw images, pool
 /// materialization, rename registries, or the decompile loop).
-#[cfg(target_vendor = "apple")]
+#[cfg(unix)]
 fn peak_rss_mb() -> f64 {
+    // macOS ru_maxrss is BYTES (timeval utime/stime are 16B each, so
+    // maxrss sits at offset 32); Linux reports KB. Windows has no
+    // getrusage — the old not(apple) fallback referenced it and failed
+    // the MSVC link (LNK2019) in the v0.1.18 CI.
     #[repr(C)]
     struct Rusage {
-        // macOS: timeval utime/stime are 16B each (i64 sec + i32 usec +
-        // pad); ru_maxrss follows at offset 32 and is in BYTES.
         pad: [i64; 4],
         maxrss: i64,
-        tail: [i64; 12],
+        // Oversized on purpose: the kernel writes sizeof(struct rusage)
+        // (~144B on macOS) regardless of what we read back.
+        tail: [i64; 16],
     }
     extern "C" {
         fn getrusage(who: i32, r: *mut Rusage) -> i32;
@@ -300,30 +304,18 @@ fn peak_rss_mb() -> f64 {
     let mut r = Rusage {
         pad: [0; 4],
         maxrss: 0,
-        tail: [0; 12],
+        tail: [0; 16],
     };
     unsafe { getrusage(0, &mut r) };
-    r.maxrss as f64 / (1024.0 * 1024.0)
+    #[cfg(target_vendor = "apple")]
+    let scale = 1024.0 * 1024.0;
+    #[cfg(not(target_vendor = "apple"))]
+    let scale = 1024.0;
+    r.maxrss as f64 / scale
 }
-#[cfg(not(target_vendor = "apple"))]
+#[cfg(not(unix))]
 fn peak_rss_mb() -> f64 {
-    // Linux ru_maxrss is in KB.
-    #[repr(C)]
-    struct Rusage {
-        pad: [i64; 4],
-        maxrss: i64,
-        tail: [i64; 12],
-    }
-    extern "C" {
-        fn getrusage(who: i32, r: *mut Rusage) -> i32;
-    }
-    let mut r = Rusage {
-        pad: [0; 4],
-        maxrss: 0,
-        tail: [0; 12],
-    };
-    unsafe { getrusage(0, &mut r) };
-    r.maxrss as f64 / 1024.0
+    0.0
 }
 
 /// CURRENT resident size (MB) on macOS — ru_maxrss is monotone, so

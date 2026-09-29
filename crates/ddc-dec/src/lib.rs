@@ -1833,26 +1833,49 @@ fn current_rss_mb() -> f64 {
     0.0
 }
 
-/// ru_maxrss peak so far (MB) under DDC_STATS — phase attribution of the
-/// RSS high-water mark. macOS ru_maxrss is bytes, Linux KB.
+/// ru_maxrss peak so far (MB). macOS reports bytes, Linux KB; Windows
+/// has no getrusage (the old not(apple) fallback referenced it and
+/// failed the MSVC link — LNK2019 — in the v0.1.18 CI).
+#[cfg(unix)]
+fn peak_rss_mb() -> f64 {
+    #[repr(C)]
+    struct Rusage {
+        pad: [i64; 4],
+        maxrss: i64,
+        // Oversized on purpose: the kernel writes sizeof(struct rusage)
+        // (~144B on macOS) regardless of what we read back.
+        tail: [i64; 16],
+    }
+    extern "C" {
+        fn getrusage(who: i32, r: *mut Rusage) -> i32;
+    }
+    let mut r = Rusage {
+        pad: [0; 4],
+        maxrss: 0,
+        tail: [0; 16],
+    };
+    unsafe { getrusage(0, &mut r) };
+    #[cfg(target_vendor = "apple")]
+    let scale = 1024.0 * 1024.0;
+    #[cfg(not(target_vendor = "apple"))]
+    let scale = 1024.0;
+    r.maxrss as f64 / scale
+}
+#[cfg(not(unix))]
+fn peak_rss_mb() -> f64 {
+    0.0
+}
+
+/// DDC_STATS phase attribution of the RSS high-water mark: peak AND
+/// instantaneous live (ru_maxrss is monotone, so purge effects are
+/// invisible there).
 pub(crate) fn stats_rss(phase: &str) {
     if std::env::var("DDC_STATS").is_ok() {
-        #[repr(C)]
-        struct Rusage {
-            pad: [i64; 4],
-            maxrss: i64,
-            tail: [i64; 12],
-        }
-        extern "C" {
-            fn getrusage(who: i32, r: *mut Rusage) -> i32;
-        }
-        let mut r = Rusage { pad: [0; 4], maxrss: 0, tail: [0; 12] };
-        unsafe { getrusage(0, &mut r) };
-        #[cfg(target_vendor = "apple")]
-        let mb = r.maxrss as f64 / (1024.0 * 1024.0);
-        #[cfg(not(target_vendor = "apple"))]
-        let mb = r.maxrss as f64 / 1024.0;
-        eprintln!("[rss] {phase}: peak {mb:.0} MB, live {:.0} MB", current_rss_mb());
+        eprintln!(
+            "[rss] {phase}: peak {:.0} MB, live {:.0} MB",
+            peak_rss_mb(),
+            current_rss_mb()
+        );
     }
 }
 
