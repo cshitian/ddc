@@ -66,6 +66,17 @@ if dexver:
 print("stamped")
 PY
 cargo build --release --quiet
+# The lockfile must satisfy the workspace's jdc-core requirement: a stale
+# lock silently ships an older jdc-core (v0.1.20 linked 0.2.12 with the
+# fixes in 0.2.13 — `cargo build` does not re-resolve a satisfied pin).
+# The version bump in the stamping step must have regenerated the lock.
+jdc_req=$(grep -m1 '^jdc-core = ' Cargo.toml | sed 's/.*"\(.*\)".*/\1/')
+jdc_got=$(grep -A1 'name = "jdc-core"' Cargo.lock | grep -m1 version | sed 's/.*"\(.*\)".*/\1/')
+if [[ $(printf '%s\n' "$jdc_req" "$jdc_got" | sort -V | head -1) != "$jdc_req" ]]; then
+  echo "Cargo.lock resolves jdc-core $jdc_got < required $jdc_req — run cargo update -p jdc-core" >&2
+  exit 1
+fi
+echo "==> jdc-core lock check: $jdc_got >= $jdc_req"
 git add -A
 if git diff --cached --quiet; then
   echo "==> nothing to commit (version already stamped)"
