@@ -2495,6 +2495,42 @@ fn walk_mut_deep<F: FnMut(&mut Stmt)>(s: &mut Stmt, f: &mut F) {
 /// ctor, "无法将类 C的构造器 C应用到给定类型" ×195). A raw New in
 /// statement position binds no variable and initializes nothing — pure
 /// verifier-artifact dead code.
+/// `try { X } finally { }` with no catches and an empty finally is a
+/// no-op wrapper (the close-rethrow handler recast mints them) — unwrap
+/// to X. An empty finally changes no semantics: it completes normally on
+/// every path.
+pub fn drop_empty_finallies(body: &mut Stmt) {
+    fn is_empty_block(s: &Stmt) -> bool {
+        match s {
+            Stmt::Block(v) => v.iter().all(is_empty_block),
+            _ => false,
+        }
+    }
+    walk_mut_deep(body, &mut |st| {
+        let Stmt::Try {
+            body: b,
+            catches,
+            finally,
+        } = st
+        else {
+            return;
+        };
+        if !catches.is_empty() {
+            return;
+        }
+        match finally {
+            // `try { X }` with neither catches nor a finally (the renderer
+            // would paste a compilability `finally { }` back) and the
+            // empty-finally wrapper are both no-ops — unwrap to X.
+            None => {}
+            Some(f) if is_empty_block(f) => {}
+            Some(_) => return,
+        }
+        let inner = std::mem::replace(&mut **b, Stmt::Block(vec![]));
+        *st = inner;
+    });
+}
+
 /// Drop orphan value pushes that render as `/* X; */` comments: expression
 /// statements whose expression cannot throw or bind — plain locals,
 /// constants, `this`, and field reads on the implicit `this` (owner: None;
@@ -2548,6 +2584,15 @@ pub fn drop_dead_raw_news(body: &mut Stmt) {
 /// `monitorenter(e); try { body } catch (Throwable) { monitorexit(e); throw t; }`
 /// (optionally followed by `monitorexit(e)`).
 pub fn fold_synchronized(s: &mut Stmt) {
+    if std::env::var("DDC_DBG_SYNC").is_ok() {
+        walk_all(s, &mut |st| {
+            if let Stmt::Try { catches, .. } = st {
+                for c in catches.iter() {
+                    eprintln!("[sync] catch var={} body={:.600}", c.var, format!("{:?}", c.body));
+                }
+            }
+        });
+    }
     fold_sync_walk(s);
 }
 
@@ -2557,12 +2602,20 @@ fn fold_sync_walk(s: &mut Stmt) {
         let Stmt::Block(v) = st else { return };
         let mut i = 0;
         while i < v.len() {
+            // A fold landing on a Synchronized re-examines the same slot:
+            // a split-region sibling Try (Case E) only becomes visible
+            // AFTER the [enter, try] pair folded into the block form.
+            #[allow(unused_assignments)]
+            let mut advance = true;
             if i + 1 < v.len() {
                 if let Some((repl, consumed)) = try_sync_at(v, i) {
+                    advance = !matches!(repl.first(), Some(Stmt::Synchronized { .. }));
                     let _ = v.drain(i..i + consumed);
                     let n = repl.len();
                     v.splice(i..i, repl);
-                    i += n;
+                    if advance {
+                        i += n;
+                    }
                     continue;
                 }
             }
@@ -2574,6 +2627,13 @@ fn fold_sync_walk(s: &mut Stmt) {
                 continue;
             }
             if let Some((repl, consumed)) = try_sync_deep(v, i) {
+                let _ = v.drain(i..i + consumed);
+                let n = repl.len();
+                v.splice(i..i, repl);
+                i += n;
+                continue;
+            }
+            if let Some((repl, consumed)) = try_sync_absorb_after(v, i) {
                 let _ = v.drain(i..i + consumed);
                 let n = repl.len();
                 v.splice(i..i, repl);
@@ -2975,6 +3035,175 @@ fn try_sync_in_try(v: &[Stmt], i: usize) -> Option<(Vec<Stmt>, usize)> {
         consumed,
     ))
 }
+
+/// Case E: the protected region was SPLIT across groups — a named try/catch
+/// nested inside the synchronized region renders as a SIBLING Try after the
+/// folded Synchronized, with the region's normal-path release parked after
+/// it (d8 splits javac-style around inner returns; the inner range carries
+/// its own named handler plus the shared catch-all, so the same-handler
+/// group merge refuses it and the structurer emits two sibling tries).
+/// `[Synchronized, Try, MonitorExit(lock)]` -> the Try joins the lock body
+/// and the parked release is implicit. Without this the try escapes the
+/// lock (racy field writes) and unexpected exceptions leak the monitor.
+fn try_sync_absorb_after(v: &[Stmt], i: usize) -> Option<(Vec<Stmt>, usize)> {
+    let Stmt::Synchronized { lock, body } = &v[i] else {
+        return None;
+    };
+    let Stmt::Try {
+        body: tbody,
+        catches,
+        finally,
+    } = v.get(i + 1)?
+    else {
+        return None;
+    };
+    if finally.is_some() {
+        return None;
+    }
+    // The parked release sits at the protected region's end: everything on
+    // the normal path before it ran INSIDE the lock (phi commits feeding
+    // the in-lock return), everything after it is post-release. Scan past
+    // orderable statements (register commits, pure reads, Block wrappers)
+    // to the matching release; absorb the run into the lock body.
+    let defs = defs_probe(v, i, body);
+    let mut absorbed_mid: Vec<Stmt> = Vec::new();
+    let mut rest_after: Option<Stmt> = None;
+    let mut found = false;
+    let mut scan = i + 2;
+    'scan: while scan < v.len() && scan < i + 14 {
+        match &v[scan] {
+            Stmt::MonitorExit(e) => {
+                if !lock_equiv(e, lock, &defs) {
+                    return None;
+                }
+                found = true;
+                scan += 1;
+                break;
+            }
+            Stmt::Block(bv) => {
+                for (k, s) in bv.iter().enumerate() {
+                    match s {
+                        Stmt::MonitorExit(e) => {
+                            if !lock_equiv(e, lock, &defs) {
+                                return None;
+                            }
+                            absorbed_mid.push(Stmt::Block(bv[..k].to_vec()));
+                            let rest = &bv[k + 1..];
+                            rest_after = (!rest.is_empty())
+                                .then(|| Stmt::Block(rest.to_vec()));
+                            found = true;
+                            scan += 1;
+                            break 'scan;
+                        }
+                        Stmt::ExprStmt(e) if mid_safe(e) || is_local_commit(e) => {}
+                        _ => break 'scan,
+                    }
+                }
+                absorbed_mid.push(v[scan].clone());
+                scan += 1;
+            }
+            Stmt::ExprStmt(e) if mid_safe(e) || is_local_commit(e) => {
+                absorbed_mid.push(v[scan].clone());
+                scan += 1;
+            }
+            _ => break,
+        }
+    }
+    if !found {
+        return None;
+    }
+    let consumed = scan - i;
+    // The adopted try's implicit releases and the handler's own release are
+    // owned by the synchronized once inside — strip them.
+    let mut t = (**tbody).clone();
+    let defs = defs_probe(v, i, body);
+    strip_lock_exits(&mut t, lock, &defs);
+    let mut cs = Vec::with_capacity(catches.len());
+    for c in catches.iter() {
+        let mut cb = (*c.body).clone();
+        strip_lock_exits(&mut cb, lock, &defs);
+        // A catch-all reduced to a bare rethrow of the catch parameter is
+        // the synchronized's own handler — drop it; named catches keep
+        // (dropping one would widen the checked-exception surface).
+        let bare_rethrow = c.exc.is_empty() && {
+            let mut leaves: Vec<&Stmt> = Vec::new();
+            flatten_leaves(&cb, &mut leaves);
+            matches!(leaves.as_slice(), [Stmt::Throw(Expr::Local { var, .. })] if *var == c.var)
+        };
+        if bare_rethrow {
+            continue;
+        }
+        let mut c2 = c.clone();
+        *c2.body = cb;
+        cs.push(c2);
+    }
+    let mut new_body = (**body).clone();
+    let adopted = Stmt::Try {
+        body: Box::new(t),
+        catches: cs,
+        finally: None,
+    };
+    match &mut new_body {
+        Stmt::Block(bv) => bv.push(adopted),
+        other => {
+            let inner = std::mem::replace(other, Stmt::Block(vec![]));
+            *other = Stmt::Block(vec![inner, adopted]);
+        }
+    }
+    if let Stmt::Block(bv) = &mut new_body {
+        bv.extend(absorbed_mid);
+    }
+    let sync = Stmt::Synchronized {
+        lock: lock.clone(),
+        body: Box::new(new_body),
+    };
+    let mut repl = vec![sync];
+    if let Some(r) = rest_after {
+        repl.push(r);
+    }
+    Some((repl, consumed))
+}
+
+/// Statements orderable into the lock body: pure reads (cannot throw or
+/// bind) and — handled by the caller's pattern — plain local-to-local
+/// register commits.
+fn mid_safe(e: &Expr) -> bool {
+    !has_side_effects(e)
+}
+
+/// Plain `v = local;` register commit (phi materialization at the join).
+fn is_local_commit(e: &Expr) -> bool {
+    match e {
+        Expr::Assign { target, op: AssignOp::Plain, .. } => {
+            matches!(&**target, Expr::Local { .. })
+        }
+        _ => false,
+    }
+}
+
+/// Defs visible to the parked release: statements before the fold plus the
+/// absorbed alias head at the synchronized body's top level.
+fn defs_probe<'a>(
+    v: &'a [Stmt],
+    i: usize,
+    body: &'a Stmt,
+) -> jdc_core::FxHashMap<u32, Expr> {
+    let mut defs: jdc_core::FxHashMap<u32, Expr> = jdc_core::FxHashMap::default();
+    for s in &v[..i] {
+        if let Stmt::LocalDef { var, init: Some(e), .. } = s {
+            defs.insert(*var, e.clone());
+        }
+    }
+    if let Stmt::Block(bv) = body {
+        for s in bv {
+            if let Stmt::LocalDef { var, init: Some(e), .. } = s {
+                defs.insert(*var, e.clone());
+            }
+        }
+    }
+    defs
+}
+
 
 /// Case D: the enter sits mid-control-flow inside the try body (nested in
 /// if/else branches). The spine from the body root to the enter must end

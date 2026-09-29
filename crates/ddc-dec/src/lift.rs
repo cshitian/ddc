@@ -361,6 +361,13 @@ pub struct Lifter<'a> {
     /// (build_block consumes the lifter, so the flags must escape via a
     /// shared reference rather than a field read afterwards).
     mflags: &'a mut MethodFlags,
+    /// pcs of field reads whose value view MUST materialize at its
+    /// defining instruction: a later same-field write in this block would
+    /// otherwise kill the view while it is still pending, and the use-site
+    /// re-render would read the field AFTER the write (y5/e$b.a:
+    /// `iget v6,this.h.f; iput this.h=null; invoke …(v6)` rendered
+    /// `this.h = null; j((String) this.h.f, …)` — runtime NPE).
+    force_mat: jdc_core::FxHashSet<u32>,
 }
 
 impl<'a> Lifter<'a> {
@@ -389,6 +396,7 @@ impl<'a> Lifter<'a> {
             cur_pc: 0,
             final_read: std::sync::Arc::new(jdc_core::FxHashSet::default()),
             mflags,
+            force_mat: jdc_core::FxHashSet::default(),
         }
     }
 
@@ -694,6 +702,18 @@ impl<'a> Lifter<'a> {
             return;
         }
         self.write_pc[r as usize] = pc;
+        // A view that a later same-field write in this block kills must
+        // materialize HERE (at the bytecode read position), or the use
+        // re-renders the field read past the write.
+        if self.force_mat.contains(&pc) {
+            let e = value_of_cmp(&e);
+            let v = self.materialize_value(r, e);
+            self.regs[r as usize] = Reg::Live(v);
+            if wide {
+                self.mark_wide_hi(r + 1, pc);
+            }
+            return;
+        }
         // Loop-carried Pending trees grow multiplicatively across fixpoint
         // rounds (merge clones the whole tree per side per visit); past
         // this size the register materializes, which caps every state at
@@ -747,6 +767,34 @@ impl<'a> Lifter<'a> {
         if (r as usize) < self.regs.len() {
             self.regs[r as usize] = Reg::WideHi;
             self.write_pc[r as usize] = pc;
+        }
+    }
+
+    /// Materialize every pending view whose expression tree reads the
+    /// given field anywhere (top-level, receiver chain, or nested call
+    /// arguments): the write about to land invalidates the view, and a
+    /// later use would re-render the read at its own position — past the
+    /// write. Materializing HERE puts the temp before the write, strictly
+    /// closer to the bytecode's read position than any use site.
+    fn materialize_views_mentioning(
+        &mut self,
+        cls: &std::sync::Arc<str>,
+        name: &std::sync::Arc<str>,
+        is_static: bool,
+    ) {
+        let mut stale: Vec<u16> = Vec::new();
+        for (i, r) in self.regs.iter().enumerate() {
+            match r {
+                Reg::Pending(e) | Reg::PendingCall(e)
+                    if expr_mentions_field(e, cls, name, is_static) =>
+                {
+                    stale.push(i as u16);
+                }
+                _ => {}
+            }
+        }
+        for r in stale {
+            self.materialize(r);
         }
     }
 
@@ -884,6 +932,46 @@ impl<'a> Lifter<'a> {
         // weixin tf5/e, the dominant 无法取消引用int shape once the
         // obscuring cascades stopped suppressing it).
         self.final_read = final_read;
+        // Field views a later same-field write in this block kills: the
+        // register holds the READ expression as a pending view; the write
+        // only replaces the written register, so the stale view re-renders
+        // at its use (past the write). Materialize such views at their
+        // DEFINING pc — the temp local is exactly the source's temporary.
+        {
+            let mut field_writes: jdc_core::FxHashMap<
+                (std::sync::Arc<str>, std::sync::Arc<str>, bool),
+                Vec<u32>,
+            > = jdc_core::FxHashMap::default();
+            for ins in ins {
+                match &ins.kind {
+                    InsnKind::IPut { field_idx, .. } | InsnKind::SPut { field_idx, .. } => {
+                        let (cls, name, _) = self.env.field_ref(*field_idx);
+                        let is_static = matches!(ins.kind, InsnKind::SPut { .. });
+                        field_writes
+                            .entry((cls, name, is_static))
+                            .or_default()
+                            .push(ins.pc);
+                    }
+                    _ => {}
+                }
+            }
+            if !field_writes.is_empty() {
+                for ins in ins {
+                    let (_dst, field_idx, is_static) = match &ins.kind {
+                        InsnKind::IGet { dst, field_idx, .. } => (*dst, *field_idx, false),
+                        InsnKind::SGet { dst, field_idx } => (*dst, *field_idx, true),
+                        _ => continue,
+                    };
+                    let (cls, name, _) = self.env.field_ref(field_idx);
+                    let killed = field_writes
+                        .get(&(cls, name, is_static))
+                        .is_some_and(|ws| ws.iter().any(|w| *w > ins.pc));
+                    if killed {
+                        self.force_mat.insert(ins.pc);
+                    }
+                }
+            }
+        }
         for ins in ins {
             self.cur_pc = ins.pc;
             match &ins.kind {
@@ -1212,6 +1300,12 @@ impl<'a> Lifter<'a> {
                 } => {
                     self.drop_pending_call();
                     let (cls, name, ty) = self.env.field_ref(*field_idx);
+                    // Views that mention the written field ANYWHERE (the
+                    // receiver chain counts: `this.h.e` is killed by
+                    // `this.h = null`) go stale the moment the write lands;
+                    // materialize them ahead of it so their use re-renders
+                    // the pre-write value.
+                    self.materialize_views_mentioning(&cls, &name, false);
                     let v = null_in_obj_ctx(self.read_nest(*value), &ty);
                     let owner = self.read_nest(*obj);
                     let owner_opt = self.owner_expr(owner, &cls);
@@ -1247,6 +1341,7 @@ impl<'a> Lifter<'a> {
                 InsnKind::SPut { value, field_idx } => {
                     self.drop_pending_call();
                     let (cls, name, ty) = self.env.field_ref(*field_idx);
+                    self.materialize_views_mentioning(&cls, &name, true);
                     let v = null_in_obj_ctx(self.read_nest(*value), &ty);
                     let target = Expr::Field {
                         owner: None,
@@ -1907,6 +2002,80 @@ fn expr_size(e: &Expr) -> usize {
     let mut n = 0usize;
     count_nodes(e, &mut n);
     n
+}
+
+/// Does the expression read the given field anywhere (receiver chains and
+/// nested arguments included)?
+fn expr_mentions_field(
+    e: &Expr,
+    cls: &std::sync::Arc<str>,
+    name: &std::sync::Arc<str>,
+    is_static: bool,
+) -> bool {
+    match e {
+        Expr::Field {
+            owner,
+            cls: c,
+            name: n,
+            is_static: s,
+            ..
+        } => {
+            (c == cls && n == name && *s == is_static)
+                || owner
+                    .as_deref()
+                    .is_some_and(|o| expr_mentions_field(o, cls, name, is_static))
+        }
+        Expr::Un { e, .. } | Expr::Cast { e, .. } | Expr::InstanceOf { e, .. } => {
+            expr_mentions_field(e, cls, name, is_static)
+        }
+        Expr::Bin { l, r, .. } => {
+            expr_mentions_field(l, cls, name, is_static)
+                || expr_mentions_field(r, cls, name, is_static)
+        }
+        Expr::Cond { c, t, f } => {
+            expr_mentions_field(c, cls, name, is_static)
+                || expr_mentions_field(t, cls, name, is_static)
+                || expr_mentions_field(f, cls, name, is_static)
+        }
+        Expr::Assign { target, value, .. } => {
+            expr_mentions_field(target, cls, name, is_static)
+                || expr_mentions_field(value, cls, name, is_static)
+        }
+        Expr::PreIncDec { e, .. } | Expr::PostIncDec { e, .. } => {
+            expr_mentions_field(e, cls, name, is_static)
+        }
+        Expr::Method {
+            owner, args, ..
+        } => {
+            owner
+                .as_deref()
+                .is_some_and(|o| expr_mentions_field(o, cls, name, is_static))
+                || args
+                    .iter()
+                    .any(|a| expr_mentions_field(a, cls, name, is_static))
+        }
+        Expr::ArrayIndex { array, index } => {
+            expr_mentions_field(array, cls, name, is_static)
+                || expr_mentions_field(index, cls, name, is_static)
+        }
+        Expr::New { args, .. } => args
+            .iter()
+            .any(|a| expr_mentions_field(a, cls, name, is_static)),
+        Expr::NewArray { dims, init, .. } => {
+            dims.iter().any(|d| expr_mentions_field(d, cls, name, is_static))
+                || init
+                    .as_ref()
+                    .is_some_and(|v| v.iter().any(|x| expr_mentions_field(x, cls, name, is_static)))
+        }
+        Expr::NewMultiArray { dims, .. } => {
+            dims.iter().any(|d| expr_mentions_field(d, cls, name, is_static))
+        }
+        Expr::StringConcat(parts) => parts.iter().any(|p| match p {
+            ConcatPart::Str(e) => expr_mentions_field(e, cls, name, is_static),
+            ConcatPart::Const(_) => false,
+        }),
+        _ => false,
+    }
 }
 
 fn count_nodes(e: &Expr, n: &mut usize) {
