@@ -590,6 +590,7 @@ pub fn decompile_method(
         passes::platform_constants(&mut body);
         passes::drop_dead_locals(&mut body);
     passes::drop_dead_raw_news(&mut body);
+    passes::drop_pure_value_stmts(&mut body);
     passes::mark_field_owner_concrete(&mut vt, &mut body);
     passes::ensure_declared(&mut body, &vt);
     passes::rescue_arg_return_swaps(&mut body, &vt, pool, &desc.ret);
@@ -873,6 +874,7 @@ pub fn decompile_method(
         passes::fold_string_builders(&mut body, &vt);
     }
     passes::ternary_fold(&mut body);
+    passes::drop_pure_value_stmts(&mut body);
     if mflags.has_monitor() {
         passes::fold_synchronized(&mut body);
     }

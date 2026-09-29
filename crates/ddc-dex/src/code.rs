@@ -96,7 +96,12 @@ impl CodeItem {
             let mut idx_by_off: HashMap<usize, usize> = HashMap::new();
             for _ in 0..n_handlers {
                 let hoff = c.pos - list_off;
-                let h = Self::parse_handler(c)?;
+                // `&mut c` is load-bearing: Cursor is Copy, so a by-value
+                // call left the caller's cursor pinned at the list start —
+                // EVERY handler parsed the first one's bytes and the whole
+                // list collapsed onto handler 0 (nested try/catch methods
+                // silently routed every catch to the first handler's code).
+                let h = Self::parse_handler(&mut c)?;
                 idx_by_off.insert(hoff, handlers.len());
                 handlers.push(h);
             }
@@ -128,7 +133,7 @@ impl CodeItem {
         })
     }
 
-    fn parse_handler(mut c: Cursor<'_>) -> Option<CatchHandler> {
+    fn parse_handler(c: &mut Cursor<'_>) -> Option<CatchHandler> {
         let sz = c.read_sleb128()?;
         let mut h = CatchHandler {
             catches: Vec::new(),

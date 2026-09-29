@@ -670,7 +670,7 @@ fn stmt_collect_vars(s: &Stmt, out: &mut HashSet<u32>, assignments: bool) {
     }
 }
 
-fn walk_all<F: FnMut(&Stmt)>(s: &Stmt, f: &mut F) {
+pub(crate) fn walk_all<F: FnMut(&Stmt)>(s: &Stmt, f: &mut F) {
     f(s);
     match s {
         Stmt::Block(v) => {
@@ -2495,6 +2495,38 @@ fn walk_mut_deep<F: FnMut(&mut Stmt)>(s: &mut Stmt, f: &mut F) {
 /// ctor, "无法将类 C的构造器 C应用到给定类型" ×195). A raw New in
 /// statement position binds no variable and initializes nothing — pure
 /// verifier-artifact dead code.
+/// Drop orphan value pushes that render as `/* X; */` comments: expression
+/// statements whose expression cannot throw or bind — plain locals,
+/// constants, `this`, and field reads on the implicit `this` (owner: None;
+/// a deref of an arbitrary receiver could NPE, so owned field reads stay).
+pub fn drop_pure_value_stmts(body: &mut Stmt) {
+    // Shared honest predicate (jdc-core has_side_effects): a pure read
+    // cannot throw or bind, so the statement is dead code everywhere.
+    fn is_pure(s: &Stmt) -> bool {
+        let Stmt::ExprStmt(e) = s else {
+            return false;
+        };
+        !has_side_effects(e)
+    }
+    walk_mut_deep(body, &mut |st| {
+        // Replace in place: orphans also sit as direct If branches or a
+        // Synchronized body where no container retain can reach them.
+        if is_pure(st) {
+            *st = Stmt::Block(vec![]);
+            return;
+        }
+        match st {
+            Stmt::Switch { cases, .. } => {
+                for c in cases.iter_mut() {
+                    c.body.retain(|x| !is_pure(x));
+                }
+            }
+            Stmt::For { init, .. } => init.retain(|x| !is_pure(x)),
+            _ => {}
+        }
+    });
+}
+
 pub fn drop_dead_raw_news(body: &mut Stmt) {
     fn is_orphan(s: &Stmt) -> bool {
         matches!(s, Stmt::ExprStmt(Expr::New { raw: true, .. }))
@@ -2519,32 +2551,191 @@ pub fn fold_synchronized(s: &mut Stmt) {
     fold_sync_walk(s);
 }
 
+
 fn fold_sync_walk(s: &mut Stmt) {
     walk_mut_deep(s, &mut |st| {
         let Stmt::Block(v) = st else { return };
         let mut i = 0;
         while i < v.len() {
             if i + 1 < v.len() {
-                if let Some(sync) = try_sync_at(v, i) {
-                    let _ = v.drain(i..i + 2);
-                    v.insert(i, sync);
+                if let Some((repl, consumed)) = try_sync_at(v, i) {
+                    let _ = v.drain(i..i + consumed);
+                    let n = repl.len();
+                    v.splice(i..i, repl);
+                    i += n;
                     continue;
                 }
+            }
+            if let Some((repl, consumed)) = try_sync_in_try(v, i) {
+                let _ = v.drain(i..i + consumed);
+                let n = repl.len();
+                v.splice(i..i, repl);
+                i += n;
+                continue;
+            }
+            if let Some((repl, consumed)) = try_sync_deep(v, i) {
+                let _ = v.drain(i..i + consumed);
+                let n = repl.len();
+                v.splice(i..i, repl);
+                i += n;
+                continue;
             }
             i += 1;
         }
     });
 }
 
-fn try_sync_at(v: &[Stmt], i: usize) -> Option<Stmt> {
-    let Stmt::MonitorEnter(lock) = &v[i] else {
-        return None;
+/// Side-effect-free lock-value reads: field/local/const/this only. A call
+/// or allocation between the monitor-enter and the try belongs to the
+/// protected body, not to a absorbable alias head.
+fn is_pure_read_expr(e: &Expr) -> bool {
+    let mut pure = true;
+    visit_exprs(e, &mut |x| match x {
+        Expr::Const(_)
+        | Expr::Local { .. }
+        | Expr::This
+        | Expr::Field { .. } => {}
+        _ => pure = false,
+    });
+    pure
+}
+
+/// Resolve a local through its defining expression (bounded) so lock
+/// identity survives value-view forwarding: the enter may render as the
+/// raw field access while the exit renders as the promoted local (or vice
+/// versa).
+fn resolve_lock(e: &Expr, defs: &jdc_core::FxHashMap<u32, Expr>, depth: u32) -> Expr {
+    if depth >= 4 {
+        return e.clone();
+    }
+    if let Expr::Local { var, .. } = e {
+        if let Some(d) = defs.get(var) {
+            return resolve_lock(d, defs, depth + 1);
+        }
+    }
+    e.clone()
+}
+
+fn lock_same(a: &Expr, b: &Expr) -> bool {
+    match (a, b) {
+        (Expr::This, Expr::This) => true,
+        (Expr::Local { var: x, .. }, Expr::Local { var: y, .. }) => x == y,
+        (
+            Expr::Field {
+                owner: oa,
+                cls: ca,
+                name: na,
+                ..
+            },
+            Expr::Field {
+                owner: ob,
+                cls: cb,
+                name: nb,
+                ..
+            },
+        ) => {
+            ca == cb
+                && na == nb
+                && match (oa, ob) {
+                    (None, None) => true,
+                    (Some(ra), Some(rb)) => lock_same(ra, rb),
+                    _ => false,
+                }
+        }
+        (Expr::Const(x), Expr::Const(y)) => x == y,
+        _ => false,
+    }
+}
+
+fn lock_equiv(a: &Expr, b: &Expr, defs: &jdc_core::FxHashMap<u32, Expr>) -> bool {
+    lock_same(&resolve_lock(a, defs, 0), &resolve_lock(b, defs, 0))
+}
+
+fn flatten_leaves<'a>(s: &'a Stmt, out: &mut Vec<&'a Stmt>) {
+    match s {
+        Stmt::Block(v) => {
+            for x in v {
+                flatten_leaves(x, out);
+            }
+        }
+        _ => out.push(s),
+    }
+}
+
+/// Every `MonitorExit(lock)` inside the folded body is a compiler artifact
+/// (the implicit release on each exit path) — drop them so the body reads
+/// clean and the absorbed lock alias loses its last reads.
+fn strip_lock_exits(s: &mut Stmt, lock: &Expr, defs: &jdc_core::FxHashMap<u32, Expr>) {
+    walk_mut_deep(s, &mut |st| {
+        let Stmt::Block(v) = st else { return };
+        v.retain(|x| !matches!(x, Stmt::MonitorExit(e) if lock_equiv(e, lock, defs)));
+    });
+}
+
+fn try_sync_at(v: &[Stmt], i: usize) -> Option<(Vec<Stmt>, usize)> {
+    // Local defs in scope before the enter, for lock resolution.
+    let mut defs: jdc_core::FxHashMap<u32, Expr> = jdc_core::FxHashMap::default();
+    for s in &v[..i] {
+        if let Stmt::LocalDef { var, init: Some(e), .. } = s {
+            defs.insert(*var, e.clone());
+        }
+    }
+    // Case A: the enter is a direct sibling; Case B: it ends a child Block
+    // (the converter wraps the pre-try statements of the entry block, so
+    // the Try sits beside the wrapper, not beside the enter).
+    let (pre, enter_e, mut j, mut absorbed): (Vec<Stmt>, &Expr, usize, Vec<Stmt>) = match &v[i] {
+        Stmt::MonitorEnter(e) => (Vec::new(), e, i + 1, Vec::new()),
+        Stmt::Block(b) => {
+            let split = b
+                .iter()
+                .position(|x| matches!(x, Stmt::MonitorEnter(_)))?;
+            let e = match &b[split] {
+                Stmt::MonitorEnter(e) => e,
+                _ => unreachable!(),
+            };
+            let mut absorbed: Vec<Stmt> = Vec::new();
+            let mut k = split + 1;
+            while let Some(Stmt::LocalDef { var, init: Some(ex), .. }) = b.get(k) {
+                if !is_pure_read_expr(ex) {
+                    break;
+                }
+                defs.insert(*var, ex.clone());
+                absorbed.push(b[k].clone());
+                k += 1;
+            }
+            // Only a tail split: anything after the absorbable run (other
+            // than nothing) means real code follows inside the block.
+            if k != b.len() {
+                return None;
+            }
+            let pre: Vec<Stmt> = b[..split].to_vec();
+            for s in &pre {
+                if let Stmt::LocalDef { var, init: Some(e2), .. } = s {
+                    defs.insert(*var, e2.clone());
+                }
+            }
+            (pre, e, i + 1, absorbed)
+        }
+        _ => return None,
     };
+    // Absorb pure alias defs parked between the enter and the try (the
+    // value-view promotion hoists the lock register's declaration ahead of
+    // the try span). They become the synchronized body's head.
+    let mut absorbed_vars: Vec<u32> = Vec::new();
+    while let Some(Stmt::LocalDef { var, init: Some(e), .. }) = v.get(j) {
+        if !is_pure_read_expr(e) {
+            break;
+        }
+        defs.insert(*var, e.clone());
+        absorbed_vars.push(*var);
+        absorbed.push(v[j].clone());
+        j += 1;
+    }
     let Stmt::Try {
         body,
         catches,
         finally,
-    } = &v[i + 1]
+    } = v.get(j)?
     else {
         return None;
     };
@@ -2555,28 +2746,406 @@ fn try_sync_at(v: &[Stmt], i: usize) -> Option<Stmt> {
     if !c.exc.is_empty() {
         return None;
     }
-    // The catch-all body: monitorexit(lock) then rethrow.
-    let Stmt::Block(cv) = c.body.as_ref() else {
+    // The catch-all body: monitorexit(lock) then rethrow (the handler walk
+    // may nest it as Block[Block[...]]).
+    let mut flat: Vec<&Stmt> = Vec::new();
+    flatten_leaves(c.body.as_ref(), &mut flat);
+    if flat.len() < 2 {
+        return None;
+    }
+    let Stmt::MonitorExit(exit_e) = flat[0] else {
         return None;
     };
-    let exit_matches = cv.len() >= 2
-        && matches!(&cv[0], Stmt::MonitorExit(e) if expr_local_var(e) == expr_local_var(lock));
-    let throws = cv.len() >= 2 && matches!(&cv[1], Stmt::Throw(_));
-    if !(exit_matches && throws) {
+    if !lock_equiv(enter_e, exit_e, &defs) {
         return None;
     }
-    Some(Stmt::Synchronized {
-        lock: lock.clone(),
-        body: body.clone(),
-    })
+    if !matches!(flat[flat.len() - 1], Stmt::Throw(_)) {
+        return None;
+    }
+    for mid in &flat[1..flat.len() - 1] {
+        if !matches!(mid, Stmt::MonitorEnter(_) | Stmt::MonitorExit(_)) {
+            return None;
+        }
+    }
+    // An absorbed alias read anywhere after the try would escape the
+    // synchronized scope once folded — refuse the fold instead.
+    if !absorbed_vars.is_empty() {
+        let outside = count_locals_stmts(&v[j + 1..]);
+        if absorbed_vars
+            .iter()
+            .any(|av| outside.get(av).copied().unwrap_or(0) > 0)
+        {
+            return None;
+        }
+    }
+    let mut body_stmt = (**body).clone();
+    strip_lock_exits(&mut body_stmt, enter_e, &defs);
+    absorbed.push(body_stmt);
+    let mut consumed = j - i + 1;
+    // A matching trailing monitor-exit after the try (the normal-path
+    // release parked at the join) is implicit in the block form too.
+    if let Some(Stmt::MonitorExit(e)) = v.get(j + 1) {
+        if lock_equiv(e, enter_e, &defs) {
+            consumed += 1;
+        }
+    }
+    let mut repl = pre;
+    repl.push(Stmt::Synchronized {
+        lock: enter_e.clone(),
+        body: Box::new(Stmt::Block(absorbed)),
+    });
+    Some((repl, consumed))
 }
 
-fn expr_local_var(e: &Expr) -> Option<u32> {
-    if let Expr::Local { var, .. } = e {
-        Some(*var)
-    } else {
-        None
+/// Case C: the monitor-enter sits INSIDE the try body (d8 extends the
+/// protected range over the lock evaluation: `try { v=lock; monitorenter v;
+/// rest } catch-all { monitorexit v; throw }`). Everything up to and
+/// including the enter folds into the synchronized body — the block form
+/// re-protects it.
+fn try_sync_in_try(v: &[Stmt], i: usize) -> Option<(Vec<Stmt>, usize)> {
+    let Stmt::Try {
+        body,
+        catches,
+        finally,
+    } = &v[i]
+    else {
+        return None;
+    };
+    if finally.is_some() || catches.len() != 1 {
+        return None;
     }
+    let c = &catches[0];
+    if !c.exc.is_empty() {
+        return None;
+    }
+    let mut flat: Vec<&Stmt> = Vec::new();
+    flatten_leaves(c.body.as_ref(), &mut flat);
+    if flat.len() < 2 {
+        return None;
+    }
+    let Stmt::MonitorExit(_) = flat[0] else {
+        return None;
+    };
+    if !matches!(flat[flat.len() - 1], Stmt::Throw(_)) {
+        return None;
+    }
+    for mid in &flat[1..flat.len() - 1] {
+        if !matches!(mid, Stmt::MonitorEnter(_) | Stmt::MonitorExit(_)) {
+            return None;
+        }
+    }
+    // Locate the enter inside the body's top level: a direct MonitorEnter
+    // or a child Block whose tail is [MonitorEnter, pure-defs*]. The
+    // wrapped prelude statements stay ahead of the fold point.
+    let Stmt::Block(bv) = body.as_ref() else {
+        return None;
+    };
+    let mut defs: jdc_core::FxHashMap<u32, Expr> = jdc_core::FxHashMap::default();
+    for s in &v[..i] {
+        if let Stmt::LocalDef { var, init: Some(e), .. } = s {
+            defs.insert(*var, e.clone());
+        }
+    }
+    let mut pre: Vec<Stmt> = Vec::new();
+    let mut enter_e: Option<Expr> = None;
+    let mut absorbed: Vec<Stmt> = Vec::new();
+    let mut absorbed_vars: Vec<u32> = Vec::new();
+    let mut rest_start: Option<usize> = None;
+    for (p, el) in bv.iter().enumerate() {
+        match el {
+            Stmt::MonitorEnter(e) => {
+                enter_e = Some(e.clone());
+                rest_start = Some(p + 1);
+                break;
+            }
+            Stmt::Block(inner) => {
+                let split = inner
+                    .iter()
+                    .position(|x| matches!(x, Stmt::MonitorEnter(_)));
+                if let Some(sp) = split {
+                    let mut k = sp + 1;
+                    let mut ok = true;
+                    let mut tail: Vec<Stmt> = Vec::new();
+                    while let Some(Stmt::LocalDef { var: _, init: Some(ex), .. }) = inner.get(k) {
+                        if !is_pure_read_expr(ex) {
+                            ok = false;
+                            break;
+                        }
+                        tail.push(inner[k].clone());
+                        k += 1;
+                    }
+                    if ok && k == inner.len() {
+                        for s in &inner[..sp] {
+                            if let Stmt::LocalDef { var, init: Some(ex), .. } = s {
+                                defs.insert(*var, ex.clone());
+                            }
+                        }
+                        pre.extend(inner[..sp].iter().cloned());
+                        enter_e = Some(match &inner[sp] {
+                            Stmt::MonitorEnter(e) => e.clone(),
+                            _ => unreachable!(),
+                        });
+                        absorbed = tail;
+                        rest_start = Some(p + 1);
+                        break;
+                    }
+                }
+                // Not a fold point: a plain nested block ahead of the enter.
+                for s in inner.iter() {
+                    if let Stmt::LocalDef { var, init: Some(ex), .. } = s {
+                        defs.insert(*var, ex.clone());
+                    }
+                }
+                pre.push(el.clone());
+            }
+            other => {
+                if let Stmt::LocalDef { var, init: Some(ex), .. } = other {
+                    defs.insert(*var, ex.clone());
+                }
+                pre.push(other.clone());
+            }
+        }
+    }
+    let enter_e = enter_e?;
+    let rs = rest_start?;
+    // Pure defs directly after the enter also join the body head.
+    let mut q = rs;
+    while let Some(Stmt::LocalDef { var, init: Some(ex), .. }) = bv.get(q) {
+        if !is_pure_read_expr(ex) {
+            break;
+        }
+        defs.insert(*var, ex.clone());
+        absorbed_vars.push(*var);
+        absorbed.push(bv[q].clone());
+        q += 1;
+    }
+    let rest: Vec<Stmt> = bv[q..].to_vec();
+    if rest.is_empty() {
+        return None;
+    }
+    // A non-def prelude would move real code past the lock acquisition —
+    // the deep fold (try kept, synchronized in place) owns that shape.
+    if pre
+        .iter()
+        .any(|s| !matches!(s, Stmt::LocalDef { init: Some(e), .. } if is_pure_read_expr(e)))
+    {
+        return None;
+    }
+    // The catch's release must name the same lock.
+    let Stmt::MonitorExit(exit_e) = flat[0] else {
+        return None;
+    };
+    if !lock_equiv(&enter_e, exit_e, &defs) {
+        return None;
+    }
+    // Pre/absorbed defs must not be read outside the try.
+    let outside_vars: Vec<u32> = pre
+        .iter()
+        .chain(absorbed.iter())
+        .filter_map(|s| match s {
+            Stmt::LocalDef { var, .. } => Some(*var),
+            _ => None,
+        })
+        .collect();
+    if !outside_vars.is_empty() {
+        let outside = count_locals_stmts(&v[i + 1..]);
+        if outside_vars
+            .iter()
+            .any(|av| outside.get(av).copied().unwrap_or(0) > 0)
+        {
+            return None;
+        }
+    }
+    let mut body_stmts = pre;
+    body_stmts.extend(absorbed);
+    body_stmts.extend(rest);
+    let mut sync_body = Stmt::Block(body_stmts);
+    strip_lock_exits(&mut sync_body, &enter_e, &defs);
+    let mut consumed = 1;
+    if let Some(Stmt::MonitorExit(e)) = v.get(i + 1) {
+        if lock_equiv(e, &enter_e, &defs) {
+            consumed += 1;
+        }
+    }
+    Some((
+        vec![Stmt::Synchronized {
+            lock: enter_e,
+            body: Box::new(sync_body),
+        }],
+        consumed,
+    ))
+}
+
+/// Case D: the enter sits mid-control-flow inside the try body (nested in
+/// if/else branches). The spine from the body root to the enter must end
+/// at the body end — nothing may follow the fold point at any ancestor
+/// level. The Try STAYS; only the enter's tail becomes a synchronized
+/// block in place. The catch's release is dropped: with the lock release
+/// owned by the synchronized, the handler's monitorexit would double-release
+/// (the sync's implicit release fires first, then the outer catch
+/// re-releases an unheld monitor).
+fn try_sync_deep(v: &[Stmt], i: usize) -> Option<(Vec<Stmt>, usize)> {
+    let Stmt::Try {
+        body,
+        catches,
+        finally,
+    } = &v[i]
+    else {
+        return None;
+    };
+    if finally.is_some() || catches.len() != 1 {
+        return None;
+    }
+    let c = &catches[0];
+    if !c.exc.is_empty() {
+        return None;
+    }
+    let mut flat: Vec<&Stmt> = Vec::new();
+    flatten_leaves(c.body.as_ref(), &mut flat);
+    if flat.len() < 2 {
+        return None;
+    }
+    let catch_exit = match flat[0] {
+        Stmt::MonitorExit(e) => e.clone(),
+        _ => return None,
+    };
+    if !matches!(flat[flat.len() - 1], Stmt::Throw(_)) {
+        return None;
+    }
+    for mid in &flat[1..flat.len() - 1] {
+        if !matches!(mid, Stmt::MonitorEnter(_) | Stmt::MonitorExit(_)) {
+            return None;
+        }
+    }
+    let mut defs0: jdc_core::FxHashMap<u32, Expr> = jdc_core::FxHashMap::default();
+    for s in &v[..i] {
+        if let Stmt::LocalDef { var, init: Some(e), .. } = s {
+            defs0.insert(*var, e.clone());
+        }
+    }
+    let mut body_mut = (**body).clone();
+    let folded = match &mut body_mut {
+        Stmt::Block(b) => try_fold_spine(b, &catch_exit, &defs0),
+        Stmt::If {
+            then_stmt,
+            else_stmt,
+            ..
+        } => {
+            let mut hit = false;
+            if let Stmt::Block(b) = &mut **then_stmt {
+                hit |= try_fold_spine(b, &catch_exit, &defs0);
+            }
+            if !hit {
+                if let Some(els) = else_stmt {
+                    if let Stmt::Block(b) = &mut **els {
+                        hit |= try_fold_spine(b, &catch_exit, &defs0);
+                    }
+                }
+            }
+            hit
+        }
+        _ => false,
+    };
+    if !folded {
+        return None;
+    }
+    // Reduce the catch-all to a bare rethrow (see fn doc).
+    let throw = flat[flat.len() - 1].clone();
+    let mut catches_out = catches.clone();
+    *catches_out[0].body = Stmt::Block(vec![throw]);
+    let mut consumed = 1;
+    if let Some(Stmt::MonitorExit(e)) = v.get(i + 1) {
+        if lock_equiv(e, &catch_exit, &defs0) {
+            consumed += 1;
+        }
+    }
+    Some((
+        vec![Stmt::Try {
+            body: Box::new(body_mut),
+            catches: catches_out,
+            finally: None,
+        }],
+        consumed,
+    ))
+}
+
+/// Fold `[ …pre…, monitorenter(e), rest… ]` whose spine reaches the
+/// sequence end: at the enter's own level everything after it joins the
+/// synchronized body; at every ancestor level the spine element must be
+/// the LAST element (branches are alternatives, not successors). Mutates
+/// in place; returns true when a fold landed.
+fn try_fold_spine(
+    seq: &mut Vec<Stmt>,
+    catch_exit: &Expr,
+    defs_in: &jdc_core::FxHashMap<u32, Expr>,
+) -> bool {
+    for p in (0..seq.len()).rev() {
+        // Direct enter at this level: everything after it joins the body.
+        if let Stmt::MonitorEnter(e0) = &seq[p] {
+            let mut defs = defs_in.clone();
+            for s in &seq[..p] {
+                if let Stmt::LocalDef { var, init: Some(ex), .. } = s {
+                    defs.insert(*var, ex.clone());
+                }
+            }
+            // Lock-relevant defs parked just after the enter (the promoted
+            // lock local's declaration) resolve the catch's release.
+            for s in &seq[p + 1..] {
+                match s {
+                    Stmt::LocalDef { var, init: Some(ex), .. } if is_pure_read_expr(ex) => {
+                        defs.insert(*var, ex.clone());
+                    }
+                    _ => break,
+                }
+            }
+            if !lock_equiv(e0, catch_exit, &defs) {
+                return false;
+            }
+            let enter_e = e0.clone();
+            let rest: Vec<Stmt> = seq.split_off(p + 1);
+            let mut body = Stmt::Block(rest);
+            strip_lock_exits(&mut body, &enter_e, &defs);
+            seq[p] = Stmt::Synchronized {
+                lock: enter_e,
+                body: Box::new(body),
+            };
+            return true;
+        }
+        // Nested attempt on a clone; commit only when the spine element is
+        // this level's last (nothing may follow the fold point).
+        let is_last = p + 1 == seq.len();
+        let mut trial = seq[p].clone();
+        let hit = match &mut trial {
+            Stmt::Block(b) => try_fold_spine(b, catch_exit, defs_in),
+            Stmt::If {
+                then_stmt,
+                else_stmt,
+                ..
+            } => {
+                let mut hit = false;
+                if let Stmt::Block(b) = &mut **then_stmt {
+                    hit |= try_fold_spine(b, catch_exit, defs_in);
+                }
+                if !hit {
+                    if let Some(els) = else_stmt {
+                        if let Stmt::Block(b) = &mut **els {
+                            hit |= try_fold_spine(b, catch_exit, defs_in);
+                        }
+                    }
+                }
+                hit
+            }
+            _ => false,
+        };
+        if hit {
+            if is_last {
+                seq[p] = trial;
+                return true;
+            }
+            return false;
+        }
+    }
+    false
 }
 
 /// Copy-forward single-use temporaries: `v = e; ... v ...` inlines `e` at
