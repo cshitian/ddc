@@ -2584,15 +2584,6 @@ pub fn drop_dead_raw_news(body: &mut Stmt) {
 /// `monitorenter(e); try { body } catch (Throwable) { monitorexit(e); throw t; }`
 /// (optionally followed by `monitorexit(e)`).
 pub fn fold_synchronized(s: &mut Stmt) {
-    if std::env::var("DDC_DBG_SYNC").is_ok() {
-        walk_all(s, &mut |st| {
-            if let Stmt::Try { catches, .. } = st {
-                for c in catches.iter() {
-                    eprintln!("[sync] catch var={} body={:.600}", c.var, format!("{:?}", c.body));
-                }
-            }
-        });
-    }
     fold_sync_walk(s);
 }
 
